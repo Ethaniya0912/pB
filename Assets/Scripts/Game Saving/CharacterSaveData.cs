@@ -3,17 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
-// ÇØ´ç µ¥ÀÌÅÍ¸¦ ¸ðµç ¼¼ÀÌºê ÆÄÀÏ¿¡¼­ ·¹ÆÛÇÏ·ÁÇÏ±â ‹š¹®¿¡, ¸ð³ëºñÇìºñ¾î°¡ ¾Æ´Ï¸ç serealizableÀÓ
+// ï¿½Ø´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï·ï¿½ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î°¡ ï¿½Æ´Ï¸ï¿½ serealizableï¿½ï¿½
 public class CharacterSaveData
 {
     [Header("Character Name")]
-    public string characterName;
+    public string characterName = "Character";
 
     [Header("Time Played")]
     public float secondsPlayed;
 
-    // ±âº»ÀûÀÎ º¯¼ö¸¸ ÀúÀå °¡´ÉÇÏ±â¿¡
-    // Vector3 °°Àº °í±â´É º¯¼ö´Â ÀúÀåºÒ°¡
+    // ï¿½âº»ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï±â¿¡
+    // Vector3 ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ò°ï¿½
     [Header("World Coordinates")]
     public float xPosition;
     public float yPosition;

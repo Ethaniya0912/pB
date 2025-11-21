@@ -9,7 +9,7 @@ public class SaveFileDataWriter
     public string saveDataDirectoryPath = "";
     public string saveFilename = "";
 
-    // Á¸ÀçÇÏ´Â Ä³¸¯ÅÍ ½½·Ô¿¡ »õ·Î ÀúÀåÇÏÁö ¾Êµµ·Ï Ã¼Å©.
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ô¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Êµï¿½ï¿½ï¿½ Ã¼Å©.
     public bool CheckToSeeIfFileExists()
     {
         if (File.Exists(Path.Combine(saveDataDirectoryPath, saveFilename)))
@@ -22,28 +22,28 @@ public class SaveFileDataWriter
         }
     }
 
-    // Ä³¸¯ÅÍ ¼¼ÀÌºê ÆÄÀÏÀ» Áö¿ì´Âµ¥ »ç¿ë.
+    // Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Âµï¿½ ï¿½ï¿½ï¿½.
     public void DeleteSaveFile()
     {
         File.Delete(Path.Combine(saveDataDirectoryPath, saveFilename));
     }
 
-    // ´º°ÔÀÓ¿¡¼­ »õ·Î¿î ¼¼ÀÌºê ÆÄÀÏÀ» ¸¸µå´Âµ¥ ¾¸.
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Âµï¿½ ï¿½ï¿½.
     public void CreateCharacterSaveFile(CharacterSaveData characterData)
     {
-        // ÆÄÀÏÀ» ÀúÀåÇÒ °æ·Î¸¦ ¸¸µë (¸Ó½Å¿¡ Á¸ÀçÇÏ´Â °æ·Î).
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Î¸ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½Ó½Å¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½).
         string savePath = Path.Combine(saveDataDirectoryPath,saveFilename);
 
         try
         {
-            // ÆÄÀÏÀÌ ¾²ÀÏ °æ·Î¸¦ ¸¸µë(ÀÌ¹Ì Á¸ÀçÇÏÁö¾ÊÀ»°æ¿ì)
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Î¸ï¿½ ï¿½ï¿½ï¿½ï¿½(ï¿½Ì¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
             Directory.CreateDirectory(Path.GetDirectoryName(savePath));
-            Debug.Log("ÆÄÀÏ ÀúÀåÁß, ÀúÀå °æ·Î : " + savePath);
+            Debug.Log("ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ : " + savePath);
 
-            // C# °ÔÀÓ µ¥ÀÌÅÍ ¿ÀºêÁ§Æ®¸¦ JsonÀ¸·Î ½Ã¸®¾ó¶óÀÌÁî
+            // C# ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ Jsonï¿½ï¿½ï¿½ï¿½ ï¿½Ã¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             string dataToStore = JsonUtility.ToJson(characterData, true);
 
-            // ½Ã¸®¾î¶óÀÌÁî µÈ °ÍÀ» ÆÄÀÏ·Î ÀÛ¼º.
+            // ï¿½Ã¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ ï¿½Û¼ï¿½.
             using (FileStream stream = new FileStream(savePath, FileMode.Create))
             {
                 using (StreamWriter fileWriter = new StreamWriter(stream))
@@ -58,11 +58,11 @@ public class SaveFileDataWriter
         }
     }
 
-    // ¼¼ÀÌºê ÆÄÀÏÀ» ºÒ·¯¿À´Âµ¥ »ç¿ë.
+    // ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò·ï¿½ï¿½ï¿½ï¿½Âµï¿½ ï¿½ï¿½ï¿½.
     public CharacterSaveData LoadSaveFile()
     {
         CharacterSaveData characterData = null;
-        // ÆÄÀÏÀ» ·ÎµåÇÏ±â À§ÇÏ¿© °æ·Î¸¦ ¸¸µë(¸Ó½Å¿¡ ÀÖ´Â À§Ä¡)
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½Ï¿ï¿½ ï¿½ï¿½Î¸ï¿½ ï¿½ï¿½ï¿½ï¿½(ï¿½Ó½Å¿ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½Ä¡)
         string loadPath = Path.Combine(saveDataDirectoryPath, saveFilename);
 
         if (File.Exists(loadPath))
@@ -79,7 +79,7 @@ public class SaveFileDataWriter
                     }
                 }
 
-                // Json ÆÄÀÏ¿¡¼­ À¯´ÏÆ¼·Î µð½Ã¸®¾ó¶óÀÌÁî
+                // Json ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Æ¼ï¿½ï¿½ ï¿½ï¿½Ã¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 characterData = JsonUtility.FromJson<CharacterSaveData>(dataToLoad);
             }
             catch (Exception ex)

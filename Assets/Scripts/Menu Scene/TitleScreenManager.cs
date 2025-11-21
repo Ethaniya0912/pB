@@ -6,14 +6,35 @@ using UnityEngine.UI;
 
 public class TitleScreenManager : MonoBehaviour
 {
+    public static TitleScreenManager Instance;
+
     [Header("Menus")]
     [SerializeField] GameObject titleScreenMainMenu;
     [SerializeField] GameObject titleScreenLoadMenu;
 
     [Header("Buttons")]
+    [SerializeField] Button mainMenuNewGameButton;
     [SerializeField] Button loadMenuReturnButton;
     [SerializeField] Button mainMenuLoadGameButton;
 
+    [Header("Pop Ups")]
+    [SerializeField] GameObject noCharacterSlotsPopup;
+    [SerializeField] Button noCharacterSlotsOkayButton;
+
+    [Header("Save Slots")]
+    public CharacterSlots currentSelectedSlot = CharacterSlots.No_Slot;
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
     public void StartNetworkAsHost()
     {
         NetworkManager.Singleton.StartHost();
@@ -21,31 +42,52 @@ public class TitleScreenManager : MonoBehaviour
     
     public void StartNewGame()
     {
-        WorldSaveGameManager.Instance.NewGame();
-        StartCoroutine(WorldSaveGameManager.Instance.LoadWorldScene());
+        WorldSaveGameManager.Instance.AttemptToCreateNewGame();
     }
 
     public void OpenLoadGameMenu()
     {
-        // ¸ÞÀÎ¸Þ´º ´Ý±â
+        // ï¿½ï¿½ï¿½Î¸Þ´ï¿½ ï¿½Ý±ï¿½
         titleScreenLoadMenu.SetActive(false);
 
-        // ·Îµù ¸Þ´º ¿­±â
+        // ï¿½Îµï¿½ ï¿½Þ´ï¿½ ï¿½ï¿½ï¿½ï¿½
         titleScreenLoadMenu.SetActive(true); 
 
-        // ¸®ÅÏ ½½·ÔÀ» Ã£°í ÀÚµ¿ ¼¿·ºÆ®ÇÏ±â.
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã£ï¿½ï¿½ ï¿½Úµï¿½ ï¿½ï¿½ï¿½ï¿½Æ®ï¿½Ï±ï¿½.
         loadMenuReturnButton.Select();
     }
 
     public void CloseLoadGameMenu()
     {
-        // ·Îµå ¸Þ´º ´Ý±â.
+        // ï¿½Îµï¿½ ï¿½Þ´ï¿½ ï¿½Ý±ï¿½.
         titleScreenLoadMenu.SetActive(false);
 
-        // ¸ÞÀÎ ¸Þ´º ¿­±â.
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½Þ´ï¿½ ï¿½ï¿½ï¿½ï¿½.
         titleScreenMainMenu.SetActive(true);
 
-        // ·Îµå ¹öÆ° °í¸£±â.
+        // ï¿½Îµï¿½ ï¿½ï¿½Æ° ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
         mainMenuLoadGameButton.Select();
+    }
+
+    public void DisplayNofreeCharacterSlotPopUp()
+    {
+        noCharacterSlotsPopup.SetActive(true);
+        noCharacterSlotsOkayButton.Select();
+    }
+
+    public void CloseNoFreeCharacterSlotsPopUp()
+    {
+        noCharacterSlotsPopup.SetActive(false);
+        mainMenuNewGameButton.Select();
+    }
+
+    public void SelectCharacterSlot(CharacterSlots characterSlots)
+    {
+        currentSelectedSlot = characterSlots;
+    }
+
+    public void SelectNoSlot()
+    {
+        currentSelectedSlot = CharacterSlots.No_Slot;
     }
 }

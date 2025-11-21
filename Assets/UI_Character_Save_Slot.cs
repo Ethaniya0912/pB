@@ -24,90 +24,101 @@ public class UI_Character_Save_Slot : MonoBehaviour
         saveFileWriter = new SaveFileDataWriter();
         saveFileWriter.saveDataDirectoryPath = Application.persistentDataPath;
 
-        // ¼¼ÀÌºê ½½·Ô 01
+        // ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ 01
         if (characterSlot == CharacterSlots.CharacterSlots_01)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ÆÄÀÏÀÌ ÀÖÀ¸¸é ·ÎÁ÷ ½ÇÇà
-            // ÆÄÀÏ¿¡¼­ µ¥ÀÌÅÍ¸¦ °¡Á®¿Í °ÔÀÓ¿ÀºêÁ§Æ®¿¡ Àû¿ë
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+            // ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots01.characterName;
             }
-            // Á¸ÀçÇÏÁö ¾ÊÀ¸¸é, °ÔÀÓ¿ÀºêÁ§Æ® ºñÈ°¼ºÈ­
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½È°ï¿½ï¿½È­
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ¼¼ÀÌºê ½½·Ô 02
+        // ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ 02
         else if (characterSlot == CharacterSlots.CharacterSlots_02)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ÆÄÀÏÀÌ ÀÖÀ¸¸é ·ÎÁ÷ ½ÇÇà
-            // ÆÄÀÏ¿¡¼­ µ¥ÀÌÅÍ¸¦ °¡Á®¿Í °ÔÀÓ¿ÀºêÁ§Æ®¿¡ Àû¿ë
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+            // ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots02.characterName;
             }
-            // Á¸ÀçÇÏÁö ¾ÊÀ¸¸é, °ÔÀÓ¿ÀºêÁ§Æ® ºñÈ°¼ºÈ­
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½È°ï¿½ï¿½È­
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ¼¼ÀÌºê ½½·Ô 03
+        // ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ 03
         else if (characterSlot == CharacterSlots.CharacterSlots_03)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ÆÄÀÏÀÌ ÀÖÀ¸¸é ·ÎÁ÷ ½ÇÇà
-            // ÆÄÀÏ¿¡¼­ µ¥ÀÌÅÍ¸¦ °¡Á®¿Í °ÔÀÓ¿ÀºêÁ§Æ®¿¡ Àû¿ë
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+            // ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots03.characterName;
             }
-            // Á¸ÀçÇÏÁö ¾ÊÀ¸¸é, °ÔÀÓ¿ÀºêÁ§Æ® ºñÈ°¼ºÈ­
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½È°ï¿½ï¿½È­
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ¼¼ÀÌºê ½½·Ô 04
+        // ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ 04
         else if (characterSlot == CharacterSlots.CharacterSlots_04)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ÆÄÀÏÀÌ ÀÖÀ¸¸é ·ÎÁ÷ ½ÇÇà
-            // ÆÄÀÏ¿¡¼­ µ¥ÀÌÅÍ¸¦ °¡Á®¿Í °ÔÀÓ¿ÀºêÁ§Æ®¿¡ Àû¿ë
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+            // ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots04.characterName;
             }
-            // Á¸ÀçÇÏÁö ¾ÊÀ¸¸é, °ÔÀÓ¿ÀºêÁ§Æ® ºñÈ°¼ºÈ­
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½È°ï¿½ï¿½È­
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ¼¼ÀÌºê ½½·Ô 05
+        // ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ 05
         else if (characterSlot == CharacterSlots.CharacterSlots_05)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ÆÄÀÏÀÌ ÀÖÀ¸¸é ·ÎÁ÷ ½ÇÇà
-            // ÆÄÀÏ¿¡¼­ µ¥ÀÌÅÍ¸¦ °¡Á®¿Í °ÔÀÓ¿ÀºêÁ§Æ®¿¡ Àû¿ë
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+            // ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots05.characterName;
             }
-            // Á¸ÀçÇÏÁö ¾ÊÀ¸¸é, °ÔÀÓ¿ÀºêÁ§Æ® ºñÈ°¼ºÈ­
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½È°ï¿½ï¿½È­
             else
             {
                 gameObject.SetActive(false);
             }
         }
+    }
+
+    public void LoadGameFromCharacterSlot() 
+    {
+        WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed = characterSlot;
+        WorldSaveGameManager.Instance.LoadGame();
+    }
+
+    public void SelectCurrentSlot()
+    {
+        TitleScreenManager.Instance.SelectCharacterSlot(characterSlot);
     }
 }

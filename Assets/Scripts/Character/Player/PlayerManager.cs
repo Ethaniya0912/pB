@@ -13,7 +13,7 @@ public class PlayerManager : CharacterManager
     {
         base.Awake();
 
-        // Ä³¸¯ÅÍ¸Å´ÏÀú À§¿¡ ¿À¹ö¶óÀÌµåÇÏ¿© ÇÃ·¹ÀÌ¾îÆ¯Á¤ ±â´Éµé Ãß°¡.
+        // Ä³ï¿½ï¿½ï¿½Í¸Å´ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½Ï¿ï¿½ ï¿½Ã·ï¿½ï¿½Ì¾ï¿½Æ¯ï¿½ï¿½ ï¿½ï¿½Éµï¿½ ï¿½ß°ï¿½.
 
         playerAnimationManager = GetComponent<PlayerAnimationManager>();
         playerLocomotionManager = GetComponent<PlayerLocomotionManager>();
@@ -25,20 +25,20 @@ public class PlayerManager : CharacterManager
     {
         base.Update();
 
-        // OwnerÀÏ¶§¸¸ Á¶Á¾ÇÒ ¼ö ÀÖµµ·Ï ÇØÁÜ.
+        // Ownerï¿½Ï¶ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Öµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
         if (!IsOwner)
             return;
 
         // Handle Movement
         playerLocomotionManager.HandleAllMovement();
 
-        // ½ºÅÂ¹Ì³ª ¸®Á¨ ÇÔ¼ö ¾÷µ¥ÀÌÆ®
+        // ï¿½ï¿½ï¿½Â¹Ì³ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
         playerStatsManager.RegenerateStamina();
     }
 
     protected override void LateUpdate()
     {
-        // ÇÃ·¹ÀÌ¾î°¡ ¿À³ÊÀÏ¶§¸¸ ÇÒ´ç, ¾Æ´Ò ½Ã ¸®ÅÏ.
+        // ï¿½Ã·ï¿½ï¿½Ì¾î°¡ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¶ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½, ï¿½Æ´ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
         if (!IsOwner) return;
 
         base.LateUpdate();
@@ -50,18 +50,19 @@ public class PlayerManager : CharacterManager
     {
         base.OnNetworkSpawn();
 
-        // Å¬¶óÀÌ¾ðÆ®¿¡ ÀÇÇØ ¼ÒÀ¯µÈ ÇÃ·¹ÀÌ¾î ¿ÀºêÁ§Æ®ÀÏ ½Ã
+        // Å¬ï¿½ï¿½ï¿½Ì¾ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½
         if (IsOwner)
         {
             PlayerCamera.Instance.player = this;
             PlayerInputManager.Instance.player = this;
+            WorldSaveGameManager.Instance.player = this;
 
             playerNetworkManager.currentStamina.OnValueChanged +=
                 PlayerUIManager.Instance.playerUIHUDManager.SetNewStaminaValue;
             playerNetworkManager.currentStamina.OnValueChanged +=
                 playerStatsManager.ResetStaminaRegenTimer;
 
-            // °ü·Ã ÄÚµå´Â ¼¼ÀÌºù/·Îµå°¡ Ãß°¡µÇ¸é °ü·ÃµÈ °÷À¸·Î ¿òÁ÷ÀÏ °Í.
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½Úµï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½/ï¿½Îµå°¡ ï¿½ß°ï¿½ï¿½Ç¸ï¿½ ï¿½ï¿½ï¿½Ãµï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½.
             playerNetworkManager.maxStamina.Value = 
                 playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
             PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(playerNetworkManager.maxStamina.Value);

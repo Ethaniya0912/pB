@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 
 public class WorldSaveGameManager : MonoBehaviour
 {
-    [SerializeField] PlayerManager player;
+    public PlayerManager player;
     public static WorldSaveGameManager Instance { get; set; }
 
     [Header("Save/Load")]
@@ -34,7 +34,7 @@ public class WorldSaveGameManager : MonoBehaviour
 
     private void Awake()
     {
-        // ÇØ´ç ½ºÅ©¸³Æ®ÀÇ ÀÎ½ºÅÏ½º´Â ÇÏ³ª¸¸ Á¸ÀçÇÒ ¼ö ÀÖÀ¸¸ç, ´Ù¸¥°Ô Á¸Àç½Ã ÆÄ±«.
+        // ï¿½Ø´ï¿½ ï¿½ï¿½Å©ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½Î½ï¿½ï¿½Ï½ï¿½ï¿½ï¿½ ï¿½Ï³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½Ù¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ä±ï¿½.
         if (Instance == null)
         {
             Instance = this;
@@ -93,22 +93,47 @@ public class WorldSaveGameManager : MonoBehaviour
         return fileName;
     }
 
-    public void NewGame()
+    public void AttemptToCreateNewGame()
     {
-        // »õ ÆÄÀÏÀ» ¸¸µë, ¾î¶² ½½·ÔÀ» »ç¿ëÇÏ´Â Áö¿¡ µû¶ó ÆÄÀÏ ÀÌ¸§ÀÌ ´Ş¸².
-        saveFileName = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(currentCharacterSlotBeingUsed);
+        saveFileDataWriter = new SaveFileDataWriter();
+        saveFileDataWriter.saveDataDirectoryPath = Application.persistentDataPath;
 
-        currentCharacterData = new CharacterSaveData();
+        // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½, ï¿½î¶² ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½Ş¸ï¿½.
+        // Check to see if file exist first before create new file.
+        saveFileDataWriter.saveFilename = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots.CharacterSlots_01);
+
+        if(!saveFileDataWriter.CheckToSeeIfFileExists())
+        {
+            // If this profile slot is not taken, make new one using this slot.
+            currentCharacterSlotBeingUsed = CharacterSlots.CharacterSlots_01;
+            currentCharacterData = new CharacterSaveData();
+            StartCoroutine(LoadWorldScene());
+            return;
+        }
+
+        saveFileDataWriter.saveFilename = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots.CharacterSlots_02);
+
+        if(!saveFileDataWriter.CheckToSeeIfFileExists())
+        {
+            // If this profile slot is not taken, make new one using this slot.
+            currentCharacterSlotBeingUsed = CharacterSlots.CharacterSlots_02;
+            currentCharacterData = new CharacterSaveData();
+            StartCoroutine(LoadWorldScene());
+            return;
+        }
+        
+        // ììœ  ìŠ¬ë¡¯ì´ ì—†ì„ë•Œ, í”Œë ˆì´ì–´ì— ë…¸í‹°íŒŒì´
+        TitleScreenManager.Instance.DisplayNofreeCharacterSlotPopUp();
 
     }
 
     public void LoadGame()
     {
-        // ÀÌÀü ÆÄÀÏÀ» ºÎ¸§, ¾î¶² ½½·ÔÀ» »ç¿ëÇÏ´ÂÁö¿¡ µû¶ó ÆÄÀÏÀÌ¸§ÀÌ °¥¸².
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Î¸ï¿½, ï¿½î¶² ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
         saveFileName = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(currentCharacterSlotBeingUsed);
 
         saveFileDataWriter = new SaveFileDataWriter();
-        // ÀÏ¹İÀûÀ¸·Î ´Ù¾çÇÑ ±â°è Å¸ÀÔ¿¡ ÀÛµ¿µÊ(Application.persistentDataPath)
+        // ï¿½Ï¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ù¾ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ Å¸ï¿½Ô¿ï¿½ ï¿½Ûµï¿½ï¿½ï¿½(Application.persistentDataPath)
         saveFileDataWriter.saveDataDirectoryPath = Application.persistentDataPath;
         saveFileDataWriter.saveFilename = saveFileName;
         currentCharacterData = saveFileDataWriter.LoadSaveFile();
@@ -118,21 +143,21 @@ public class WorldSaveGameManager : MonoBehaviour
 
     public void SaveGame()
     {
-        // ÇöÀç ÆÄÀÏÀ» ÀúÀåÇÔ, ¾î¶² ½½·ÔÀ» ÀÌ¿ëÇÏ°í ÀÖ´ÂÁö ÆÄÀÏÀÌ¸§¿¡ µû¶ó.
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½î¶² ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ì¿ï¿½ï¿½Ï°ï¿½ ï¿½Ö´ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½.
         saveFileName = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(currentCharacterSlotBeingUsed);
 
         saveFileDataWriter = new SaveFileDataWriter();
         saveFileDataWriter.saveDataDirectoryPath = Application.persistentDataPath;
         saveFileDataWriter.saveFilename = saveFileName;
 
-        // ÇÃ·¹ÀÌ¾îÀÎÆ÷¸¦ ³Ñ°ÜÁÖ°í, ¼¼ÀÌºêÆÄÀÏÈ­ÇÔ.
+        // ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ°ï¿½ï¿½Ö°ï¿½, ï¿½ï¿½ï¿½Ìºï¿½ï¿½ï¿½ï¿½ï¿½È­ï¿½ï¿½.
         player.SaveGameDataToCurrentCharacterData(ref currentCharacterData);
 
-        // saveFileDataWriter¿¡ createCharacterSaveFile À» ºÒ·¯¿À°í, currentCharacterData¸¦ ³Ñ±è
+        // saveFileDataWriterï¿½ï¿½ createCharacterSaveFile ï¿½ï¿½ ï¿½Ò·ï¿½ï¿½ï¿½ï¿½ï¿½, currentCharacterDataï¿½ï¿½ ï¿½Ñ±ï¿½
         saveFileDataWriter.CreateCharacterSaveFile(currentCharacterData);
     }
 
-    // °ÔÀÓÀ» ½ÃÀÛÇÏ¸é ±â°è¿¡ ÀÖ´Â ¸ğµç Ä³¸¯ÅÍ ÇÁ·ÎÇÊÀ» ºÒ·¯¿À±â
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ ï¿½ï¿½è¿¡ ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò·ï¿½ï¿½ï¿½ï¿½ï¿½
     private void LoadAllCharacterProfiles()
     {
         saveFileDataWriter = new SaveFileDataWriter();
@@ -159,10 +184,12 @@ public class WorldSaveGameManager : MonoBehaviour
         characterSlots05 = saveFileDataWriter.LoadSaveFile();
     }
 
-    // ÄÚ·çÆ¾¿ªÇÒÀ» ÇÏ´Â IEnumerator ¸¦ »ç¿ë.
+    // ï¿½Ú·ï¿½Æ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ï´ï¿½ IEnumerator ï¿½ï¿½ ï¿½ï¿½ï¿½.
     public IEnumerator LoadWorldScene()
     {
         AsyncOperation loadOperation = SceneManager.LoadSceneAsync(worldSceneIndex);
+
+        player.LoadGameDataFromCurrentCharacterData(ref currentCharacterData);
 
         yield return null;
     }
