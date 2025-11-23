@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
@@ -24,86 +24,86 @@ public class UI_Character_Save_Slot : MonoBehaviour
         saveFileWriter = new SaveFileDataWriter();
         saveFileWriter.saveDataDirectoryPath = Application.persistentDataPath;
 
-        // ���̺� ���� 01
+        // 세이브 슬롯 01
         if (characterSlot == CharacterSlots.CharacterSlots_01)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ������ ������ ���� ����
-            // ���Ͽ��� �����͸� ������ ���ӿ�����Ʈ�� ����
+            // 파일이 있으면 로직 실행
+            // 파일에서 데이터를 가져와 게임오브젝트에 적용
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots01.characterName;
             }
-            // �������� ������, ���ӿ�����Ʈ ��Ȱ��ȭ
+            // 존재하지 않으면, 게임오브젝트 비활성화
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ���̺� ���� 02
+        // 세이브 슬롯 02
         else if (characterSlot == CharacterSlots.CharacterSlots_02)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ������ ������ ���� ����
-            // ���Ͽ��� �����͸� ������ ���ӿ�����Ʈ�� ����
+            // 파일이 있으면 로직 실행
+            // 파일에서 데이터를 가져와 게임오브젝트에 적용
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots02.characterName;
             }
-            // �������� ������, ���ӿ�����Ʈ ��Ȱ��ȭ
+            // 존재하지 않으면, 게임오브젝트 비활성화
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ���̺� ���� 03
+        // 세이브 슬롯 03
         else if (characterSlot == CharacterSlots.CharacterSlots_03)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ������ ������ ���� ����
-            // ���Ͽ��� �����͸� ������ ���ӿ�����Ʈ�� ����
+            // 파일이 있으면 로직 실행
+            // 파일에서 데이터를 가져와 게임오브젝트에 적용
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots03.characterName;
             }
-            // �������� ������, ���ӿ�����Ʈ ��Ȱ��ȭ
+            // 존재하지 않으면, 게임오브젝트 비활성화
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ���̺� ���� 04
+        // 세이브 슬롯 04
         else if (characterSlot == CharacterSlots.CharacterSlots_04)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ������ ������ ���� ����
-            // ���Ͽ��� �����͸� ������ ���ӿ�����Ʈ�� ����
+            // 파일이 있으면 로직 실행
+            // 파일에서 데이터를 가져와 게임오브젝트에 적용
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots04.characterName;
             }
-            // �������� ������, ���ӿ�����Ʈ ��Ȱ��ȭ
+            // 존재하지 않으면, 게임오브젝트 비활성화
             else
             {
                 gameObject.SetActive(false);
             }
         }
-        // ���̺� ���� 05
+        // 세이브 슬롯 05
         else if (characterSlot == CharacterSlots.CharacterSlots_05)
         {
             saveFileWriter.saveFilename = WorldSaveGameManager.Instance.DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(characterSlot);
 
-            // ������ ������ ���� ����
-            // ���Ͽ��� �����͸� ������ ���ӿ�����Ʈ�� ����
+            // 파일이 있으면 로직 실행
+            // 파일에서 데이터를 가져와 게임오브젝트에 적용
             if (saveFileWriter.CheckToSeeIfFileExists())
             {
                 characterName.text = WorldSaveGameManager.Instance.characterSlots05.characterName;
             }
-            // �������� ������, ���ӿ�����Ʈ ��Ȱ��ȭ
+            // 존재하지 않으면, 게임오브젝트 비활성화
             else
             {
                 gameObject.SetActive(false);

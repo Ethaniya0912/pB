@@ -1,0 +1,9 @@
+diff a/Assets/Scripts/World Manager/WorldSaveGameManager.cs b/Assets/Scripts/World Manager/WorldSaveGameManager.cs	(rejected hunks)
+@@ -34,7 +34,6 @@
+ 
+     private void Awake()
+     {
+-        // 해당 스크립트의 인스턴스는 하나만 존재할 수 있으며, 다른게 존재시 파괴.
+         // 占쌔댐옙 占쏙옙크占쏙옙트占쏙옙 占싸쏙옙占싹쏙옙占쏙옙 占싹놂옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙占쏙옙, 占쌕몌옙占쏙옙 占쏙옙占쏙옙占?占식깍옙.
+         if (Instance == null)
+         {

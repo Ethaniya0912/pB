@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -47,25 +47,25 @@ public class TitleScreenManager : MonoBehaviour
 
     public void OpenLoadGameMenu()
     {
-        // ���θ޴� �ݱ�
+        // 메인메뉴 닫기
         titleScreenLoadMenu.SetActive(false);
 
-        // �ε� �޴� ����
+        // 로딩 메뉴 열기
         titleScreenLoadMenu.SetActive(true); 
 
-        // ���� ������ ã�� �ڵ� ����Ʈ�ϱ�.
+        // 리턴 슬롯을 찾고 자동 셀렉트하기.
         loadMenuReturnButton.Select();
     }
 
     public void CloseLoadGameMenu()
     {
-        // �ε� �޴� �ݱ�.
+        // 로드 메뉴 닫기.
         titleScreenLoadMenu.SetActive(false);
 
-        // ���� �޴� ����.
+        // 메인 메뉴 열기.
         titleScreenMainMenu.SetActive(true);
 
-        // �ε� ��ư ������.
+        // 로드 버튼 고르기.
         mainMenuLoadGameButton.Select();
     }
 

@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,8 +6,8 @@ using UnityEngine.UI;
 public class UI_StatBar : MonoBehaviour
 {
     private Slider slider;
-    // ½ºÅÈ¿¡ µû¶ó ¹Ù »çÀÌÁî°¡ ½ºÄÉÀÏµÇ´Â º¯¼ö Ãß°¡ ( ³ôÀº ½ºÅÈ = ±ä  ¹Ù)
-    // ¼¼ÄÁ´õ¸® ÀÌÆåÆ®¸¦ À§ÇÑ ¼¼ÄÁ´õ¸® ¹Ù.
+    // ìŠ¤íƒ¯ì— ë”°ë¼ ë°” ì‚¬ì´ì¦ˆê°€ ìŠ¤ì¼€ì¼ë˜ëŠ” ë³€ìˆ˜ ì¶”ê°€ ( ë†’ì€ ìŠ¤íƒ¯ = ê¸´  ë°”)
+    // ì„¸ì»¨ë”ë¦¬ ì´í™íŠ¸ë¥¼ ìœ„í•œ ì„¸ì»¨ë”ë¦¬ ë°”.
 
     protected virtual void Awake()
     { 

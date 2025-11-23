@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
@@ -22,7 +22,7 @@ public class CharacterStatsManager : MonoBehaviour
     {
         int stamina = 0;
 
-        // ½ºÅÂ¹Ì³ª°¡ ¾î¶»°Ô °è»êµÉÁö µî½ÄÀ» ¸¸µë.
+        // ìŠ¤íƒœë¯¸ë‚˜ê°€ ì–´ë–»ê²Œ ê³„ì‚°ë ì§€ ë“±ì‹ì„ ë§Œë“¬.
         stamina = endurance * 10;
 
         return Mathf.RoundToInt(stamina);
@@ -55,7 +55,7 @@ public class CharacterStatsManager : MonoBehaviour
 
     public virtual void ResetStaminaRegenTimer(float previousStaminaAmount, float currentStaminaAmount)
     {
-        // ½ºÅÂ¹Ì³ª Å¸ÀÌ¸Ó¸¦ ¸®¼ÂÇÏ´Â°Ç ÀÌÀü °ªÀÌ »õ °ªº¸´Ù Å¬‹š¸¸.
+        // ìŠ¤íƒœë¯¸ë‚˜ íƒ€ì´ë¨¸ë¥¼ ë¦¬ì…‹í•˜ëŠ”ê±´ ì´ì „ ê°’ì´ ìƒˆ ê°’ë³´ë‹¤ í´ë–„ë§Œ.
         if (currentStaminaAmount < previousStaminaAmount)
         {
             staminaRegenerationTimer = 0;

@@ -1,4 +1,4 @@
-using JetBrains.Annotations;
+ï»¿using JetBrains.Annotations;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -30,18 +30,18 @@ public class CharacterAnimationManager : MonoBehaviour
         bool canMove = false)
     {
         character.animator.applyRootMotion = applyRootMotion;
-        // 0.2ÃÊ °£°İÀ¸·Î ¾Ö´Ï¸ŞÀÌ¼ÇÀ» ºí·£µùÇÔ.
+        // 0.2ì´ˆ ê°„ê²©ìœ¼ë¡œ ì• ë‹ˆë©”ì´ì…˜ì„ ë¸”ëœë”©í•¨.
         character.animator.CrossFade(targetAnimation, 0.2f);
-        // Ä³¸¯ÅÍ°¡ »õ ¾Ö´Ï¸ŞÀÌ¼ÇÀ» ½ÇÇàÇÏ´Â °É ¹æÁö.
-        // ¿¹·Î, µ¥¹ÌÁö¹ŞÀº °æ¿ì, µ¥¹ÌÁö ¾Ö´Ï¸ŞÀÌ¼Ç Àç»ı
-        // ÇØ´ç ÇÃ·¡±×´Â ½ºÅÏµÇ¾úÀ½À¸·Î ÂüÀ¸·Î º¯ÇÔ.
-        // ±×·³À¸·Î »õ ¾×¼ÇÀ» ½ÃµµÇÏ±â Àü ÇØ´çÀ» Ã¼Å©ÇÒ ¼ö ÀÖÀ½.
+        // ìºë¦­í„°ê°€ ìƒˆ ì• ë‹ˆë©”ì´ì…˜ì„ ì‹¤í–‰í•˜ëŠ” ê±¸ ë°©ì§€.
+        // ì˜ˆë¡œ, ë°ë¯¸ì§€ë°›ì€ ê²½ìš°, ë°ë¯¸ì§€ ì• ë‹ˆë©”ì´ì…˜ ì¬ìƒ
+        // í•´ë‹¹ í”Œë˜ê·¸ëŠ” ìŠ¤í„´ë˜ì—ˆìŒìœ¼ë¡œ ì°¸ìœ¼ë¡œ ë³€í•¨.
+        // ê·¸ëŸ¼ìœ¼ë¡œ ìƒˆ ì•¡ì…˜ì„ ì‹œë„í•˜ê¸° ì „ í•´ë‹¹ì„ ì²´í¬í•  ìˆ˜ ìˆìŒ.
         character.isPerformingAction =  isPerformingAction;
         character.canRotate = canRotate;
         character.canMove = canMove;
 
-        // ¼­¹ö/È£½ºÆ®¿¡°Ô ¿ì¸®°¡ ¾Ö´Ï¸ŞÀÌ¼ÇÀ» ÇÃ·¹ÀÌÇÏ°í ÀÖ´Ù°í ¸»ÇÏ°í
-        // ¼¼¼Ç¿¡ ÀÖ´Â ¸ğµç »ç¶÷ÀÌ ¾Ö´Ï¸ŞÀÌ¼Ç Àç»ı.
+        // ì„œë²„/í˜¸ìŠ¤íŠ¸ì—ê²Œ ìš°ë¦¬ê°€ ì• ë‹ˆë©”ì´ì…˜ì„ í”Œë ˆì´í•˜ê³  ìˆë‹¤ê³  ë§í•˜ê³ 
+        // ì„¸ì…˜ì— ìˆëŠ” ëª¨ë“  ì‚¬ëŒì´ ì• ë‹ˆë©”ì´ì…˜ ì¬ìƒ.
         character.characterNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
             NetworkManager.Singleton.LocalClientId,
             targetAnimation,

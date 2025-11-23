@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -36,9 +36,9 @@ public class PlayerUIManager : MonoBehaviour
         if (startGameAsClient)
         {
             startGameAsClient = false;
-            // ¼Ë´Ù¿îÀ» ¸ÕÀú ÇØÁà¾ß ÇÏ´Âµ¥, Å¸ÀÌÆ²½ºÅ©¸°¿¡¼­ È£½ºÆ®·Î ½ÃÀÛÇÏ±â ‹š¹®.
+            // ì…§ë‹¤ìš´ì„ ë¨¼ì € í•´ì¤˜ì•¼ í•˜ëŠ”ë°, íƒ€ì´í‹€ìŠ¤í¬ë¦°ì—ì„œ í˜¸ìŠ¤íŠ¸ë¡œ ì‹œì‘í•˜ê¸° ë–„ë¬¸.
             NetworkManager.Singleton.Shutdown();
-            // Å¬¶óÀÌ¾ğÆ®·Î Àç½ÃÀÛ.
+            // í´ë¼ì´ì–¸íŠ¸ë¡œ ì¬ì‹œì‘.
             NetworkManager.Singleton.StartClient();
         }
     }

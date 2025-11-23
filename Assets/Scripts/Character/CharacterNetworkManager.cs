@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -29,11 +29,11 @@ public class CharacterNetworkManager : NetworkBehaviour
         character = GetComponent<CharacterManager>();
     }
 
-    // RPC´Â Å¬¶óÀÌ¾ğÆ®·Î ºÎÅÍ ºÒ·¯Áö´Â ÇÔ¼öÀÌ¸ç, ¼­¹ö¸¦ ºÎ¸£´Â ÇÔ¼öÀÓ.
+    // RPCëŠ” í´ë¼ì´ì–¸íŠ¸ë¡œ ë¶€í„° ë¶ˆëŸ¬ì§€ëŠ” í•¨ìˆ˜ì´ë©°, ì„œë²„ë¥¼ ë¶€ë¥´ëŠ” í•¨ìˆ˜ì„.
     [ServerRpc]
     public void NotifyTheServerOfActionAnimationServerRpc(ulong clientID, string animationID, bool applyRootMotion)
     {
-        // ¼ö½ÅÀÚ°¡ È£½ºÆ®³ª ¼­¹ö¶ó¸é, Å¬¶óÀÌ¾ğÆ® RPC¸¦ È°¼ºÈ­
+        // ìˆ˜ì‹ ìê°€ í˜¸ìŠ¤íŠ¸ë‚˜ ì„œë²„ë¼ë©´, í´ë¼ì´ì–¸íŠ¸ RPCë¥¼ í™œì„±í™”
         if (IsServer)
         {
             PlayActionAnimationFromAllClientsClientRpc(clientID,animationID, applyRootMotion);
@@ -41,10 +41,10 @@ public class CharacterNetworkManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    // ¼­¹ö·Î¸¸ ºÒ·¯¿ÍÁú ¼ö ÀÖÀ¸¸ç, Á¸ÀçÇÏ´Â ¸ğµç Å¬¶óÀÌ¾ğÆ®¿¡ Àü¼Û
+    // ì„œë²„ë¡œë§Œ ë¶ˆëŸ¬ì™€ì§ˆ ìˆ˜ ìˆìœ¼ë©°, ì¡´ì¬í•˜ëŠ” ëª¨ë“  í´ë¼ì´ì–¸íŠ¸ì— ì „ì†¡
     public void PlayActionAnimationFromAllClientsClientRpc(ulong clientID, string animationID, bool applyRootMotion)
     {
-        // ÇØ´ç ÇÔ¼ö°¡ ÀÌ¸¦ º¸³½ Ä³¸¯ÅÍ¿¡°Ô ½ÇÇàµÇÁö ¾Êµµ·Ï Ã¼Å©(µÎ¹ø½ÇÇà¹æÁö)
+        // í•´ë‹¹ í•¨ìˆ˜ê°€ ì´ë¥¼ ë³´ë‚¸ ìºë¦­í„°ì—ê²Œ ì‹¤í–‰ë˜ì§€ ì•Šë„ë¡ ì²´í¬(ë‘ë²ˆì‹¤í–‰ë°©ì§€)
         if (clientID != NetworkManager.Singleton.LocalClientId)
         {
             PerformActionAnimationFromServer(animationID, applyRootMotion);

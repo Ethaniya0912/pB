@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,7 +13,7 @@ public class PlayerManager : CharacterManager
     {
         base.Awake();
 
-        // ĳ���͸Ŵ��� ���� �������̵��Ͽ� �÷��̾�Ư�� ��ɵ� �߰�.
+        // 캐릭터매니저 위에 오버라이드하여 플레이어특정 기능들 추가.
 
         playerAnimationManager = GetComponent<PlayerAnimationManager>();
         playerLocomotionManager = GetComponent<PlayerLocomotionManager>();
@@ -25,20 +25,20 @@ public class PlayerManager : CharacterManager
     {
         base.Update();
 
-        // Owner�϶��� ������ �� �ֵ��� ����.
+        // Owner일때만 조종할 수 있도록 해줌.
         if (!IsOwner)
             return;
 
         // Handle Movement
         playerLocomotionManager.HandleAllMovement();
 
-        // ���¹̳� ���� �Լ� ������Ʈ
+        // 스태미나 리젠 함수 업데이트
         playerStatsManager.RegenerateStamina();
     }
 
     protected override void LateUpdate()
     {
-        // �÷��̾ �����϶��� �Ҵ�, �ƴ� �� ����.
+        // 플레이어가 오너일때만 해당, 아닐 시 리턴.
         if (!IsOwner) return;
 
         base.LateUpdate();
@@ -50,7 +50,7 @@ public class PlayerManager : CharacterManager
     {
         base.OnNetworkSpawn();
 
-        // Ŭ���̾�Ʈ�� ���� ������ �÷��̾� ������Ʈ�� ��
+        // 클라이언트에 의해 소유된 플레이어 오브젝트일 시
         if (IsOwner)
         {
             PlayerCamera.Instance.player = this;
@@ -62,7 +62,7 @@ public class PlayerManager : CharacterManager
             playerNetworkManager.currentStamina.OnValueChanged +=
                 playerStatsManager.ResetStaminaRegenTimer;
 
-            // ���� �ڵ�� ���̺�/�ε尡 �߰��Ǹ� ���õ� ������ ������ ��.
+            // 관련 코드는 세이빙/로드가 추가되면 관련된 곳으로 옮길 것.
             playerNetworkManager.maxStamina.Value = 
                 playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
             PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(playerNetworkManager.maxStamina.Value);

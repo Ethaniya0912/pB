@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -29,14 +29,14 @@ public class CharacterManager : NetworkBehaviour
 
     protected virtual void Update()
     {
-        // Ä³¸¯ÅÍ°¡ ³»ÂÊ¿¡¼­ ¿òÁ÷ÀÏ °æ¿ì, ³×Æ®¿öÅ©Æ÷Áö¼Ç¿¡ ³» Æ÷Áö¼ÇÀ» ÇÒ´ç
+        // ìºë¦­í„°ê°€ ë‚´ìª½ì—ì„œ ì›€ì§ì¼ ê²½ìš°, ë„¤íŠ¸ì›Œí¬í¬ì§€ì…˜ì— ë‚´ í¬ì§€ì…˜ì„ í• ë‹¹
         if (IsOwner)
         {
             characterNetworkManager.networkPosition.Value = transform.position;
             characterNetworkManager.networkRotation.Value = transform.rotation;
         }
 
-        // Ä³¸¯ÅÍ°¡ »ó´ë¹æ¿¡¼­ ¿òÁ÷ÀÏ °æ¿ì, ³×Æ®¿öÅ© Æ÷Áö¼Ç¿¡¼­ ·ÎÄÃ Æ÷Áö¼ÇÀ¸·Î ÇÒ´ç.
+        // ìºë¦­í„°ê°€ ìƒëŒ€ë°©ì—ì„œ ì›€ì§ì¼ ê²½ìš°, ë„¤íŠ¸ì›Œí¬ í¬ì§€ì…˜ì—ì„œ ë¡œì»¬ í¬ì§€ì…˜ìœ¼ë¡œ í• ë‹¹.
         else
         {
             transform.position = Vector3.SmoothDamp

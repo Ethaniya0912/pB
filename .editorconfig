@@ -1,0 +1,15 @@
+
+# All files
+[*]
+indent_style = space
+
+# Xml files
+[*.xml]
+indent_size = 2
+
+
+
+root = true
+[*.cs]
+charset = utf-8-bom
+end_of_line = crlf

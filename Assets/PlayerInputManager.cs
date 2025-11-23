@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -7,9 +7,9 @@ public class PlayerInputManager : MonoBehaviour
 {
     public static PlayerInputManager Instance {  get; private set; }
     public PlayerManager player;
-    // ¸ñÇ¥¿¡ ´ëÇÑ ´Ü°è¸¦ »ı°¢ÇÏÀÚ.
-    // 1. Á¶ÀÌ½ºÆ½ÀÇ ¹ë·ù¸¦ ÀĞÀ» ¼ö ÀÖ´Â ¹æ¹ıÀ» Ã£ÀÚ.
-    // 2. ÇØ´ç °ª¿¡ ±â¹İÇÏ¿© Ä³¸¯ÅÍ¸¦ ¿òÁ÷ÀÏ ¼ö ÀÖµµ·Ï ÇÏÀÚ.
+    // ëª©í‘œì— ëŒ€í•œ ë‹¨ê³„ë¥¼ ìƒê°í•˜ì.
+    // 1. ì¡°ì´ìŠ¤í‹±ì˜ ë°¸ë¥˜ë¥¼ ì½ì„ ìˆ˜ ìˆëŠ” ë°©ë²•ì„ ì°¾ì.
+    // 2. í•´ë‹¹ ê°’ì— ê¸°ë°˜í•˜ì—¬ ìºë¦­í„°ë¥¼ ì›€ì§ì¼ ìˆ˜ ìˆë„ë¡ í•˜ì.
 
     PlayerControls playerControls;
 
@@ -43,26 +43,26 @@ public class PlayerInputManager : MonoBehaviour
 
     private void Start()
     {
-        // DontDestroyOnLoad°¡ ÀÎ½ºÅÏ½º¸¦ ºñÈ°¼ºÈ­ ÇÏ±â Àü ·ÎµåµÇµµ·Ï ÇØ¾ßÇÔ.
+        // DontDestroyOnLoadê°€ ì¸ìŠ¤í„´ìŠ¤ë¥¼ ë¹„í™œì„±í™” í•˜ê¸° ì „ ë¡œë“œë˜ë„ë¡ í•´ì•¼í•¨.
         DontDestroyOnLoad(gameObject);
 
-        // ¾ÀÀÌ ¹Ù²î¸é ÇØ´ç ·ÎÁ÷À» µ¹¸®±â.
+        // ì”¬ì´ ë°”ë€Œë©´ í•´ë‹¹ ë¡œì§ì„ ëŒë¦¬ê¸°.
         SceneManager.activeSceneChanged += OnSceneChange;
 
         Instance.enabled = false;
     }
 
-    // arg0Àº ¿Ãµå¾À, arg1Àº ´º¾À
+    // arg0ì€ ì˜¬ë“œì”¬, arg1ì€ ë‰´ì”¬
     private void OnSceneChange(Scene oldScene,  Scene newScene)
     {
         Debug.Log(WorldSaveGameManager.Instance.GetWorldSceneIndex());
-        // ¸¸¾à ¿ì¸®°¡ ¿ùµå¾ÀÀ» ·ÎµùÇÑ´Ù¸é, ÇÃ·¹ÀÌ¾î ÄÁÆ®·Ñ¸¦ È°¼ºÈ­ÇÕ´Ï´Ù.
+        // ë§Œì•½ ìš°ë¦¬ê°€ ì›”ë“œì”¬ì„ ë¡œë”©í•œë‹¤ë©´, í”Œë ˆì´ì–´ ì»¨íŠ¸ë¡¤ë¥¼ í™œì„±í™”í•©ë‹ˆë‹¤.
         if (newScene.buildIndex == WorldSaveGameManager.Instance.GetWorldSceneIndex())
         {
             Instance.enabled = true;
         }
-        // ±×·¸Áö ¾ÊÀ» °æ¿ì ¸ŞÀÎ¸Ş´º¿¡ Á¸ÀçÇÑ´Ù´Â ¶æÀÌ¸ç, ÇÃ·¹ÀÌ¾î ÄÁÆ®·ÑÀ» ºñÈ°¼ºÈ­ÇÔ.
-        // Ä³¸¯ÅÍ Å©¸®¿¡ÀÌ¼Ç Áß¿¡ Ä³¸¯ÅÍ°¡ ¿òÁ÷ÀÌÁö ¾Ê°Ô ÇÏ±â À§ÇÔ.
+        // ê·¸ë ‡ì§€ ì•Šì„ ê²½ìš° ë©”ì¸ë©”ë‰´ì— ì¡´ì¬í•œë‹¤ëŠ” ëœ»ì´ë©°, í”Œë ˆì´ì–´ ì»¨íŠ¸ë¡¤ì„ ë¹„í™œì„±í™”í•¨.
+        // ìºë¦­í„° í¬ë¦¬ì—ì´ì…˜ ì¤‘ì— ìºë¦­í„°ê°€ ì›€ì§ì´ì§€ ì•Šê²Œ í•˜ê¸° ìœ„í•¨.
         else
         {
             Instance.enabled = false;
@@ -84,11 +84,11 @@ public class PlayerInputManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        // ÇØ´ç ¿ÀºêÁ§Æ® ÆÄ±«½Ã, ÀÌº¥Æ® ºñ±¸µ¶.
+        // í•´ë‹¹ ì˜¤ë¸Œì íŠ¸ íŒŒê´´ì‹œ, ì´ë²¤íŠ¸ ë¹„êµ¬ë….
         SceneManager.activeSceneChanged -= OnSceneChange;
     }
 
-    // À©µµ¿ì°¡ ¾Æ¿ôÆ÷Ä¿½ºµÇ¸é Á¶Á¾ÀÌ ¾ÈµÊ.
+    // ìœˆë„ìš°ê°€ ì•„ì›ƒí¬ì»¤ìŠ¤ë˜ë©´ ì¡°ì¢…ì´ ì•ˆë¨.
     private void OnApplicationFocus(bool focus)
     {
         if (enabled)
@@ -116,35 +116,35 @@ public class PlayerInputManager : MonoBehaviour
         HandleDodgeInput();
     }
 
-    // ¿òÁ÷ÀÓ°ü·Ã
+    // ì›€ì§ì„ê´€ë ¨
 
     private void HandleMovementInput()
     {
         verticalInput = movementInput.y;
         horizontalInput = movementInput.x;
 
-        // ¼ıÀÚÀÇ Àı´ë°ªÀ» ¹İÈ¯ (À½¼ö ¾øÀÌ ¾ç¼ö·Î¸¸ ¹İÈ¯½ÃÅ°±â)
+        // ìˆ«ìì˜ ì ˆëŒ€ê°’ì„ ë°˜í™˜ (ìŒìˆ˜ ì—†ì´ ì–‘ìˆ˜ë¡œë§Œ ë°˜í™˜ì‹œí‚¤ê¸°)
         moveAmount = Mathf.Clamp01(Mathf.Abs(verticalInput) + Mathf.Abs(horizontalInput));
 
-        // °ªÀ» clamp ÇØÁà¼­ 0,0.5,1·Î °íÁ¤µÇ°Ô ÇÔ.
+        // ê°’ì„ clamp í•´ì¤˜ì„œ 0,0.5,1ë¡œ ê³ ì •ë˜ê²Œ í•¨.
         if (moveAmount <= 0.5 && moveAmount > 0)
         {
-            //°È°íÀÖ´Ù´Â ÀÎµğÄÉÀÌÅÍ
+            //ê±·ê³ ìˆë‹¤ëŠ” ì¸ë””ì¼€ì´í„°
             moveAmount = 0.5f;
         }
         else if (moveAmount >0.5 && moveAmount <= 1)
         {
-            // ´Ş¸®±â ÀÎµğÄÉÀÌÅÍ
+            // ë‹¬ë¦¬ê¸° ì¸ë””ì¼€ì´í„°
             moveAmount = 1;
         }
 
         if (player == null)
             return;
 
-        // ¼öÆò¿¡ 0¸¸ Àü´ŞÇÏ´Â ÀÌÀ¯´Â ¶ô¿Â ÇÏÁö ¾ÊÀ» ½Ã ¾ÕÀ¸·Î¸¸ °¡°Ô ÇÏ·Á°í ÇÔ.
+        // ìˆ˜í‰ì— 0ë§Œ ì „ë‹¬í•˜ëŠ” ì´ìœ ëŠ” ë½ì˜¨ í•˜ì§€ ì•Šì„ ì‹œ ì•ìœ¼ë¡œë§Œ ê°€ê²Œ í•˜ë ¤ê³  í•¨.
         player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount);
 
-        // ¼öÆò¿¡ 0 ¸»°í ´Ù¸¥ °Íµµ Àü´Ş, ¶ô¿Â ÇÑ »óÅÂ.
+        // ìˆ˜í‰ì— 0 ë§ê³  ë‹¤ë¥¸ ê²ƒë„ ì „ë‹¬, ë½ì˜¨ í•œ ìƒíƒœ.
     }
 
     private void HandleCameraMovementInput()
@@ -153,18 +153,18 @@ public class PlayerInputManager : MonoBehaviour
         cameraHorizontalInput = cameraInput.x;
     }
 
-    // ¾×¼Ç°ü·Ã
+    // ì•¡ì…˜ê´€ë ¨
 
     private void HandleDodgeInput()
     {
         if (dodgeInput == true)
         {
-            // ´åÁöÀÎÇ²ÀÌ Æ®·çÀÏ °æ¿ì, ´Ù½Ã false ·Î ¸¸µé¾î µÎ¹ø ÇÔ¼ö°¡ ½ÇÇàµÇÁö¾Ê°ÔÇÔ.
+            // ë‹·ì§€ì¸í’‹ì´ íŠ¸ë£¨ì¼ ê²½ìš°, ë‹¤ì‹œ false ë¡œ ë§Œë“¤ì–´ ë‘ë²ˆ í•¨ìˆ˜ê°€ ì‹¤í–‰ë˜ì§€ì•Šê²Œí•¨.
             dodgeInput = false;
 
-            // TD : ¹Ì·¡¿¡ UI°¡ È°¼ºÈ­½Ã ½ÇÇàµÇÁö ¾Ê°ÔÇØÁÜ.
+            // TD : ë¯¸ë˜ì— UIê°€ í™œì„±í™”ì‹œ ì‹¤í–‰ë˜ì§€ ì•Šê²Œí•´ì¤Œ.
 
-            // ´åÁö¸¦ ÆÛÆûÇÏ±â.
+            // ë‹·ì§€ë¥¼ í¼í¼í•˜ê¸°.
             player.playerLocomotionManager.AttemptToPerformDodge();
         }
     }

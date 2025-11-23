@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,28 +10,28 @@ public class PlayerCamera : MonoBehaviour
     public PlayerManager player;
     [SerializeField] Transform cameraPivotTransform;
 
-    // Ä«¸Ş¶ó ÆÛÆ÷¸Õ½º ¼öÁ¤¿ë
+    // ì¹´ë©”ë¼ í¼í¬ë¨¼ìŠ¤ ìˆ˜ì •ìš©
     [Header("Camera Setting")]
-    private float cameraSmoothSpeed = 1.0f; // ¼ıÀÚ°¡ Å¬¼ö·Ï Ä«¸Ş¶ó°¡ Æ÷Áö¼Ç¿¡ µµ´ŞÇÏ´Â ½Ã°£Áõ°¡
+    private float cameraSmoothSpeed = 1.0f; // ìˆ«ìê°€ í´ìˆ˜ë¡ ì¹´ë©”ë¼ê°€ í¬ì§€ì…˜ì— ë„ë‹¬í•˜ëŠ” ì‹œê°„ì¦ê°€
     [SerializeField] float leftAndRightRotationSpeed = 220;
     [SerializeField] float upAndDownRotationSpeed = 220;
-    [SerializeField] float minimumPivot = -30; // ¾Æ·¡·Î º¼ ¼öÀÖ´Â ÃÖÀú°ª
-    [SerializeField] float maximumPivot = 60; // À§·Î º¼ ¼ö ÀÖ´Â ÃÖ°í°ª
+    [SerializeField] float minimumPivot = -30; // ì•„ë˜ë¡œ ë³¼ ìˆ˜ìˆëŠ” ìµœì €ê°’
+    [SerializeField] float maximumPivot = 60; // ìœ„ë¡œ ë³¼ ìˆ˜ ìˆëŠ” ìµœê³ ê°’
     [SerializeField] float cameraCollisionRadius = 0.2f;
     [SerializeField] LayerMask collideWithLayers;
 
-    // Ä«¸Ş¶ó °ª ¿ë
+    // ì¹´ë©”ë¼ ê°’ ìš©
     [Header("Camera Values")]
     private Vector3 cameraVelocity;
-    private Vector3 cameraObjectPosition; // Ä«¸Ş¶ó Äİ¸®¼ÇÀ» À§ÇÑ ¹ë·ù(Äİ¸®¼Ç½Ã Ä«¸Ş¶ó¸¦ ÇØ´ç Æ÷Áö¼ÇÀ¸·Î ÀÌµ¿)
+    private Vector3 cameraObjectPosition; // ì¹´ë©”ë¼ ì½œë¦¬ì…˜ì„ ìœ„í•œ ë°¸ë¥˜(ì½œë¦¬ì…˜ì‹œ ì¹´ë©”ë¼ë¥¼ í•´ë‹¹ í¬ì§€ì…˜ìœ¼ë¡œ ì´ë™)
     [SerializeField] float leftAndRightLookAngle;
     [SerializeField] float upAndDownLookAngle;
-    private float cameraZPosition; // Ä«¸Ş¶ó Äİ¸®¼ÇÀ» À§ÇÑ ¹ë·ù
-    private float targetCameraZPosition;  // Ä«¸Ş¶ó Äİ¸®¼ÇÀ» À§ÇÑ ¹ë·ù
+    private float cameraZPosition; // ì¹´ë©”ë¼ ì½œë¦¬ì…˜ì„ ìœ„í•œ ë°¸ë¥˜
+    private float targetCameraZPosition;  // ì¹´ë©”ë¼ ì½œë¦¬ì…˜ì„ ìœ„í•œ ë°¸ë¥˜
 
     private void Awake()
     {
-        // ½Ì±ÛÅÏ
+        // ì‹±ê¸€í„´
         if (Instance == null)
         {
             Instance = this;
@@ -54,9 +54,9 @@ public class PlayerCamera : MonoBehaviour
             HandleFollowTarget();
             HandleCollision();
         }
-        // À¯Àú µû¶ó¿À±â
-        // ÇÃ·¹ÀÌ¾î ÁÖº¯ ·ÎÅ×ÀÌ¼Ç
-        // ¿ÀºêÁ§Æ®¿Í Ãæµ¹(Åë°úx)
+        // ìœ ì € ë”°ë¼ì˜¤ê¸°
+        // í”Œë ˆì´ì–´ ì£¼ë³€ ë¡œí…Œì´ì…˜
+        // ì˜¤ë¸Œì íŠ¸ì™€ ì¶©ëŒ(í†µê³¼x)
     }
 
     private void HandleFollowTarget()
@@ -72,25 +72,25 @@ public class PlayerCamera : MonoBehaviour
 
     private void HandleRotation()
     {
-        // ¶ôÀ» ÇÒ ½Ã, Å¸°Ù¿¡ ·ÎÅ×ÀÌ¼ÇÀ» °íÁ¤.
-        // ±×·¸Áö¾ÊÀ» °æ¿ì ÀÏ¹İÀûÀÌ°Ô ·ÎÅ×ÀÌÆ®
+        // ë½ì„ í•  ì‹œ, íƒ€ê²Ÿì— ë¡œí…Œì´ì…˜ì„ ê³ ì •.
+        // ê·¸ë ‡ì§€ì•Šì„ ê²½ìš° ì¼ë°˜ì ì´ê²Œ ë¡œí…Œì´íŠ¸
 
-        // Ä«¸Ş¶ó¼öÆòÀÎÇ²°ª¿¡µû¶ó leftAndRightLookAngleÀÌ ¹Ù²î°Ô.
+        // ì¹´ë©”ë¼ìˆ˜í‰ì¸í’‹ê°’ì—ë”°ë¼ leftAndRightLookAngleì´ ë°”ë€Œê²Œ.
         leftAndRightLookAngle += (PlayerInputManager.Instance.cameraHorizontalInput * leftAndRightRotationSpeed) * Time.deltaTime;
-        // Ä«¸Ş¶ó¼öÁ÷ÀÎÇ²°ª¿¡ µû¶ó À§¾Æ·¡ ÀüÈ¯.
+        // ì¹´ë©”ë¼ìˆ˜ì§ì¸í’‹ê°’ì— ë”°ë¼ ìœ„ì•„ë˜ ì „í™˜.
         upAndDownLookAngle -= (PlayerInputManager.Instance.cameraVerticalInput * upAndDownRotationSpeed) * Time.deltaTime;
-        // ÃÖ¼ÒÃÖ´ë°ªÀÇ ¾Ş±ÛÀ» Å¬·¥ÇÁÇØÁÜ.
+        // ìµœì†ŒìµœëŒ€ê°’ì˜ ì•µê¸€ì„ í´ë¨í”„í•´ì¤Œ.
         upAndDownLookAngle = Mathf.Clamp(upAndDownLookAngle, minimumPivot, maximumPivot);
 
         Vector3 cameraRotation = Vector3.zero;
         Quaternion targetRotation;
 
-        // °ÔÀÓ¿ÀºêÁ§Æ®¸¦ ÁÂ¿ì·Î ·ÎÅ×ÀÌ¼ÇÇÔ
+        // ê²Œì„ì˜¤ë¸Œì íŠ¸ë¥¼ ì¢Œìš°ë¡œ ë¡œí…Œì´ì…˜í•¨
         cameraRotation.y = leftAndRightLookAngle;
         targetRotation = Quaternion.Euler(cameraRotation);
         transform.rotation = targetRotation;
 
-        // °ÔÀÓ¿ÀºêÁ§Æ® À§¾Æ·¡·Î ·ÎÅ×ÀÌ¼Ç
+        // ê²Œì„ì˜¤ë¸Œì íŠ¸ ìœ„ì•„ë˜ë¡œ ë¡œí…Œì´ì…˜
         cameraRotation = Vector3.zero;
         cameraRotation.x = upAndDownLookAngle;
         targetRotation = Quaternion.Euler(cameraRotation);
@@ -101,11 +101,11 @@ public class PlayerCamera : MonoBehaviour
     {
         targetCameraZPosition = cameraZPosition;
         RaycastHit hit;
-        // Äİ¸®¼ÇÀÇ ¹æÇâ Ã¼Å©
+        // ì½œë¦¬ì…˜ì˜ ë°©í–¥ ì²´í¬
         Vector3 direction = cameraObject.transform.forward - cameraPivotTransform.position;
         direction.Normalize();
 
-        // ¿ì¸®°¡ ¿øÇÏ´Â ¹æÇâ¿¡ ¿ÀºêÁ§Æ®°¡ ÀÖ´ÂÁö Ã¼Å©ÇÑ´Ù.
+        // ìš°ë¦¬ê°€ ì›í•˜ëŠ” ë°©í–¥ì— ì˜¤ë¸Œì íŠ¸ê°€ ìˆëŠ”ì§€ ì²´í¬í•œë‹¤.
         if (Physics.SphereCast(
             cameraPivotTransform.position, 
             cameraCollisionRadius, 
@@ -114,19 +114,19 @@ public class PlayerCamera : MonoBehaviour
             Mathf.Abs(targetCameraZPosition),
             collideWithLayers))
         {
-            // ¸¸¾à Àå¾Ö¹°ÀÌ ÀÖ´Ù¸é, °Å¸®¸¦ ±¸ÇÑ´Ù.
+            // ë§Œì•½ ì¥ì• ë¬¼ì´ ìˆë‹¤ë©´, ê±°ë¦¬ë¥¼ êµ¬í•œë‹¤.
             float distanceFromHitObject = Vector3.Distance(cameraPivotTransform.position, hit.point);
-            // ±× ÀÌÈÄ Å¸°Ù Z Æ÷Áö¼ÇÀ¸·Î µû¶ó´Ù´Ïµµ·Ï °ªÀ» °°°Ô ÇØÁØ´Ù.
+            // ê·¸ ì´í›„ íƒ€ê²Ÿ Z í¬ì§€ì…˜ìœ¼ë¡œ ë”°ë¼ë‹¤ë‹ˆë„ë¡ ê°’ì„ ê°™ê²Œ í•´ì¤€ë‹¤.
             targetCameraZPosition = -(distanceFromHitObject - cameraCollisionRadius);
         }
             
-        // ¸¸¾à Å¸ÄÏ Æ÷Áö¼ÇÀÌ Äİ¸®¼Ç ¹üÀ§º¸´Ù Á¼´Ù¸é, Äğ¸®¼Ç ¹üÀ§¸¸Å­ »«´Ù(µÚ·Î ¹°·¯³ª°Ô ÇÔ)
+        // ë§Œì•½ íƒ€ì¼“ í¬ì§€ì…˜ì´ ì½œë¦¬ì…˜ ë²”ìœ„ë³´ë‹¤ ì¢ë‹¤ë©´, ì¿¨ë¦¬ì…˜ ë²”ìœ„ë§Œí¼ ëº€ë‹¤(ë’¤ë¡œ ë¬¼ëŸ¬ë‚˜ê²Œ í•¨)
         if (Mathf.Abs(targetCameraZPosition) < cameraCollisionRadius)
         {
             targetCameraZPosition = -cameraCollisionRadius;
         }
 
-        // ¸¶Áö¸·À¸·Î ½Ã°£°ª 0.2f¸¦ È°¿ëÇÏ¿© ¸¶Áö¸· Æ÷Áö¼ÇÀ¸·Î lerp¸¦ Àû¿ëÇØÁØ´Ù.
+        // ë§ˆì§€ë§‰ìœ¼ë¡œ ì‹œê°„ê°’ 0.2fë¥¼ í™œìš©í•˜ì—¬ ë§ˆì§€ë§‰ í¬ì§€ì…˜ìœ¼ë¡œ lerpë¥¼ ì ìš©í•´ì¤€ë‹¤.
         cameraObjectPosition.z = Mathf.Lerp(cameraObject.transform.localPosition.z, targetCameraZPosition, 0.2f);
         cameraObject.transform.localPosition = cameraObjectPosition;
     }

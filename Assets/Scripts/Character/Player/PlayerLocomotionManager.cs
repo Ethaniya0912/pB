@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,13 +6,13 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
 {
     PlayerManager player;
 
-    // ÀÎÇ²¸Å´ÏÀú¿¡¼­ °¡Á®¿Í Àû¿ëÇÒ °ª.
+    // ì¸í’‹ë§¤ë‹ˆì €ì—ì„œ ê°€ì ¸ì™€ ì ìš©í•  ê°’.
     [HideInInspector] public float verticalMovement;
     [HideInInspector] public float horizontalMovement;
     [HideInInspector] public float moveAmount;
 
     [Header("Movement Setting")]
-    // ¿òÁ÷ÀÓÀº Ä«¸Ş¶ó ¹æÇâ°ú ÀÎÇ²¿¡ µû¸¦°ÅÀÓ.
+    // ì›€ì§ì„ì€ ì¹´ë©”ë¼ ë°©í–¥ê³¼ ì¸í’‹ì— ë”°ë¥¼ê±°ì„.
     private Vector3 moveDirection;
     private Vector3 targetRotationDirection;
     [SerializeField] float walkingSpeed = 2;
@@ -45,19 +45,19 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
             horizontalMovement = player.characterNetworkManager.animatorHorizontalMovement.Value;
             moveAmount = player.characterNetworkManager.animatorMoveAmountMovement.Value;
 
-            // ¶ô¿Â ¾ÈµÌÀ» ½Ã, move amount Àü´Ş.
+            // ë½ì˜¨ ì•ˆë«ì„ ì‹œ, move amount ì „ë‹¬.
             player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount);
 
-            // ¶ô¿Â µÇ¾úÀ» ½Ã, ¼öÆò/¼öÁ÷°ª Àü´Ş.
+            // ë½ì˜¨ ë˜ì—ˆì„ ì‹œ, ìˆ˜í‰/ìˆ˜ì§ê°’ ì „ë‹¬.
         }
     }
 
     public void HandleAllMovement()
     {
-        // ¶¥À§ ¿òÁ÷ÀÓ
+        // ë•…ìœ„ ì›€ì§ì„
         HandleGroundedMovement();
         HandleRotation();
-        // °øÁß ¿òÁ÷ÀÓ.
+        // ê³µì¤‘ ì›€ì§ì„.
     }
 
     private void GetMovementValues()
@@ -75,7 +75,7 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
             return;
         GetMovementValues();
 
-        // ¿òÁ÷ÀÓÀº Ä«¸Ş¶ó ¹æÇâ°ú ÀÎÇ²¿¡ µû¶ó °áÁ¤µÊ.
+        // ì›€ì§ì„ì€ ì¹´ë©”ë¼ ë°©í–¥ê³¼ ì¸í’‹ì— ë”°ë¼ ê²°ì •ë¨.
         moveDirection = PlayerCamera.Instance.transform.forward * verticalMovement;
         moveDirection = moveDirection + PlayerCamera.Instance.transform.right * horizontalMovement;
         moveDirection.Normalize();
@@ -101,7 +101,7 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         targetRotationDirection.Normalize();
         targetRotationDirection.y = 0;
 
-        // Å¸°Ù ·ÎÅ×ÀÌ¼ÇÀÌ ¾øÀ¸¸é, Áö±İ ¹Ù¶óº¸´Â ¹æÇâÀ¸·Î Á¤ÇÔ.
+        // íƒ€ê²Ÿ ë¡œí…Œì´ì…˜ì´ ì—†ìœ¼ë©´, ì§€ê¸ˆ ë°”ë¼ë³´ëŠ” ë°©í–¥ìœ¼ë¡œ ì •í•¨.
         if (targetRotationDirection == Vector3.zero)
         {
             targetRotationDirection = transform.forward;
@@ -120,7 +120,7 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         if (player.playerNetworkManager.currentStamina.Value <= 0)
             return;
 
-        // ¿òÁ÷ÀÌ´ø µµÁß dodge ½ÇÇà ½Ã roll ½ÇÇà
+        // ì›€ì§ì´ë˜ ë„ì¤‘ dodge ì‹¤í–‰ ì‹œ roll ì‹¤í–‰
         if(PlayerInputManager.Instance.moveAmount > 0)
         {
             rollDirection = 
@@ -130,24 +130,24 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
                 PlayerCamera.Instance.cameraObject.transform.right *
                 PlayerInputManager.Instance.horizontalInput;
 
-            // y °ª ¾øÀÌ ÁÂ¿ì·Î¸¸.
+            // y ê°’ ì—†ì´ ì¢Œìš°ë¡œë§Œ.
             rollDirection.y = 0;
             rollDirection.Normalize();
-            // rollÀÇ ·ÎÅ×ÀÌ¼ÇÀ» °¡Á®¿À±â(roll ÇÏ±â ¿øÇÏ´Â ¹æÇâÀ¸·Î)
+            // rollì˜ ë¡œí…Œì´ì…˜ì„ ê°€ì ¸ì˜¤ê¸°(roll í•˜ê¸° ì›í•˜ëŠ” ë°©í–¥ìœ¼ë¡œ)
             Quaternion playerRotation = Quaternion.LookRotation(rollDirection);
-            // ÇÃ·¹ÀÌ¾î¿¡°Ô ÇØ´ç ·ÎÅ×ÀÌ¼Ç Àû¿ëÇØÁÖ±â.
+            // í”Œë ˆì´ì–´ì—ê²Œ í•´ë‹¹ ë¡œí…Œì´ì…˜ ì ìš©í•´ì£¼ê¸°.
             player.transform.rotation = playerRotation;
 
-            // ·Ñ ¾Ö´Ï¸ŞÀÌ¼ÇÀ» ½ÇÇàÇÑ´Ù.
+            // ë¡¤ ì• ë‹ˆë©”ì´ì…˜ì„ ì‹¤í–‰í•œë‹¤.
             player.playerAnimationManager.PlayTargetAnimation("Roll_forward_01", true);
 
-            // ½ºÅÂ¹Ì³ª °ªÀ» Á¦ÇØÁØ´Ù.
+            // ìŠ¤íƒœë¯¸ë‚˜ ê°’ì„ ì œí•´ì¤€ë‹¤.
             player.playerNetworkManager.currentStamina.Value -= dodgeStaminaCost;
         }
-        // Á¤ÀûÀÏ °æ¿ì ¹é½ºÅÜ ½ÇÇà
+        // ì •ì ì¼ ê²½ìš° ë°±ìŠ¤í… ì‹¤í–‰
         else
         {
-            // ¹é½ºÅÜ ¾Ö´Ï¸ŞÀÌ¼Ç ½ÇÇà
+            // ë°±ìŠ¤í… ì• ë‹ˆë©”ì´ì…˜ ì‹¤í–‰
         }
     }
 }

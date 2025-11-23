@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,7 +13,7 @@ public class ResetActionFlag : StateMachineBehaviour
             character = animator.GetComponent<CharacterManager>();
         }
 
-        // ¾×¼ÇÀÌ Á¾·áµÇ¸é, ½ºÅ×ÀÌÆ®´Â 'Empty'·Î µ¹¾Æ°£´Ù.
+        // ì•¡ì…˜ì´ ì¢…ë£Œë˜ë©´, ìŠ¤í…Œì´íŠ¸ëŠ” 'Empty'ë¡œ ëŒì•„ê°„ë‹¤.
         character.isPerformingAction = false;
         character.canMove = true;
         character.canRotate = true;

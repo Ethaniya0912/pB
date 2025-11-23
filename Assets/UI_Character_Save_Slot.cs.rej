@@ -1,0 +1,9 @@
+diff a/Assets/UI_Character_Save_Slot.cs b/Assets/UI_Character_Save_Slot.cs	(rejected hunks)
+@@ -24,7 +24,6 @@
+         saveFileWriter = new SaveFileDataWriter();
+         saveFileWriter.saveDataDirectoryPath = Application.persistentDataPath;
+ 
+-        // 세이브 슬롯 01
+         // 占쏙옙占싱븝옙 占쏙옙占쏙옙 01
+         if (characterSlot == CharacterSlots.CharacterSlots_01)
+         {
