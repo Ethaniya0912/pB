@@ -28,6 +28,16 @@ public class CharacterStatsManager : MonoBehaviour
         return Mathf.RoundToInt(stamina);
     }
 
+        public int CalculateHealthBasedOnVitalityLevel(int vitality)
+    {
+        int health = 0;
+
+        // 스태미나가 어떻게 계산될지 등식을 만듬.
+        health = vitality * 10;
+
+        return Mathf.RoundToInt(health);
+    }
+
     public virtual void RegenerateStamina()
     {
         if (!character.IsOwner)
