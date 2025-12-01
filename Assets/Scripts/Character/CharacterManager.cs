@@ -9,6 +9,8 @@ public class CharacterManager : NetworkBehaviour
     [HideInInspector] public Animator animator;
 
     [HideInInspector] public CharacterNetworkManager characterNetworkManager;
+    [HideInInspector] public CharacterEffectsManager characterEffectsManager;
+    [HideInInspector] public CharacterAnimationManager characterAnimationManager;
 
     [Header("Flags")]
     public bool isPerformingAction = false;
@@ -25,6 +27,8 @@ public class CharacterManager : NetworkBehaviour
         characterController = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
         characterNetworkManager = GetComponent<CharacterNetworkManager>();
+        characterEffectsManager = GetComponent<CharacterEffectsManager>();
+        characterAnimationManager = GetComponent<CharacterAnimationManager>();
     }
 
     protected virtual void Update()
@@ -53,6 +57,38 @@ public class CharacterManager : NetworkBehaviour
     }
 
     protected virtual void LateUpdate()
+    {
+
+    }
+
+    public virtual IEnumerator ProcessDeathEvent(bool manuallySelectDeathAnimation = false)
+    {
+         if (IsOwner)
+         {
+             characterNetworkManager.currentHealth.Value = 0;
+             characterNetworkManager.isDead.Value = true;
+         
+             // 리셋해야할 플래그를 리셋해주기.
+         
+             // 땅에서 죽은게 아니라면, 다른 형식의 사망 애니메이션 재생.
+         
+             if (!manuallySelectDeathAnimation)
+             {
+                 characterAnimationManager.PlayTargetAnimation("Dead_01", true);
+         
+             }
+         }
+
+        // 사망 SFX 재생
+
+        yield return new WaitForSeconds(5);
+
+        // 플레이어에게 룬 제공 (ai 캐릭터사망시)
+
+        // 캐릭터 비활성화disable
+    }
+
+    public virtual void ReviveCharacter()
     {
 
     }

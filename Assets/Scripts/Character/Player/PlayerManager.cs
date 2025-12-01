@@ -5,10 +5,15 @@ using UnityEngine.SceneManagement;
 
 public class PlayerManager : CharacterManager
 {
+    [Header("DEBUG MENU")]
+    [SerializeField] bool respawnCharacter = false;
+
     [HideInInspector]public PlayerAnimationManager playerAnimationManager;
     [HideInInspector]public PlayerLocomotionManager playerLocomotionManager;
     [HideInInspector]public PlayerNetworkManager playerNetworkManager;
     [HideInInspector]public PlayerStatsManager playerStatsManager;
+    [HideInInspector]public PlayerInventoryManager playerInventoryManager;
+    [HideInInspector]public PlayerEquipmentManager playerEquipmentManager;
 
     protected override void Awake()
     {
@@ -20,6 +25,8 @@ public class PlayerManager : CharacterManager
         playerLocomotionManager = GetComponent<PlayerLocomotionManager>();
         playerNetworkManager = GetComponent<PlayerNetworkManager>();
         playerStatsManager = GetComponent<PlayerStatsManager>();
+        playerInventoryManager = GetComponent<PlayerInventoryManager>();
+        playerEquipmentManager = GetComponent<PlayerEquipmentManager>();
     }
 
     protected override void Update()
@@ -35,6 +42,8 @@ public class PlayerManager : CharacterManager
 
         // 스태미나 리젠 함수 업데이트
         playerStatsManager.RegenerateStamina();
+
+        DebugMenu();
     }
 
     protected override void LateUpdate()
@@ -72,6 +81,34 @@ public class PlayerManager : CharacterManager
             playerNetworkManager.currentStamina.OnValueChanged +=
                 playerStatsManager.ResetStaminaRegenTimer;
 
+        }
+
+        playerNetworkManager.currentHealth.OnValueChanged += playerNetworkManager.CheckHP;
+    }
+
+    public override IEnumerator ProcessDeathEvent(bool manuallySelectDeathAnimation = false)
+    {
+        if (IsOwner)
+        {
+            PlayerUIManager.Instance.playerUIPopUpManager.SendYouDiedPopUp();
+        }
+        return base.ProcessDeathEvent(manuallySelectDeathAnimation);
+
+        // 유저들이 살아 있는지 체크하고, 모두 사망 시 캐릭터 리스폰.
+    }
+
+    public override void ReviveCharacter()
+    {
+        base.ReviveCharacter();
+
+        if (IsOwner)
+        {
+            playerNetworkManager.currentHealth.Value = playerNetworkManager.maxHealth.Value;
+            playerNetworkManager.currentStamina.Value = playerNetworkManager.maxStamina.Value;
+            // 포커스 포인츠도 복수
+
+            // 부활 이펙트
+            playerAnimationManager.PlayTargetAnimation("Empty", false);
         }
     }
 
@@ -113,5 +150,15 @@ public class PlayerManager : CharacterManager
             playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value); 
         playerNetworkManager.currentStamina.Value =
             playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
+    }
+
+    // 나중에 디버깅은 지움.
+    private void DebugMenu()
+    {
+        if (respawnCharacter)
+        {
+            respawnCharacter = false;
+            ReviveCharacter();
+        }
     }
 }

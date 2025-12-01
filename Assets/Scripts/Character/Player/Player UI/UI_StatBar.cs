@@ -34,6 +34,9 @@ public class UI_StatBar : MonoBehaviour
         {
             rectTransform.sizeDelta = new Vector2
             (maxValue * widthScaleMultiplier, rectTransform.sizeDelta.y);
+            
+            // 그룹 레이아웃세팅에 맞춰 바의 포지션을 재조정.
+            PlayerUIManager.Instance.playerUIHUDManager.RefreshHUD();
         }
     }
 }

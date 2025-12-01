@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -6,6 +6,9 @@ using UnityEngine.UIElements;
 public class WorldCharacterEffectsManager : MonoBehaviour
 {
     public static WorldCharacterEffectsManager Instance{get; private set;}
+
+    [Header("Damage")]
+    public TakeDamageEffect takeDamageEffect;
 
     [SerializeField] List<InstantCharacterEffect> instantEffects;
     private void Awake()

@@ -16,3 +16,12 @@ public enum CharacterSlots
     CharacterSlots_05,
     No_Slot,
 }
+
+public enum WeaponModelSlot
+{
+    RightHand,
+    LeftHand,
+    // 우측 엉덩이
+    // 좌측 엉덩이,
+    // 등, 
+}

@@ -107,7 +107,7 @@ public class WorldSaveGameManager : MonoBehaviour
             // If this profile slot is not taken, make new one using this slot.
             currentCharacterSlotBeingUsed = CharacterSlots.CharacterSlots_01;
             currentCharacterData = new CharacterSaveData();
-            StartCoroutine(LoadWorldScene());
+            NewGame();
             return;
         }
 
@@ -118,13 +118,23 @@ public class WorldSaveGameManager : MonoBehaviour
             // If this profile slot is not taken, make new one using this slot.
             currentCharacterSlotBeingUsed = CharacterSlots.CharacterSlots_02;
             currentCharacterData = new CharacterSaveData();
-            StartCoroutine(LoadWorldScene());
+            NewGame();
             return;
         }
         
         // ?먯쑀 ?щ’???놁쓣?? ?뚮젅?댁뼱???명떚?뚯씠
         TitleScreenManager.Instance.DisplayNofreeCharacterSlotPopUp();
 
+    }
+
+    private void NewGame()
+    {
+        // 새게임 시작시 캐릭터 스탯과, 아이템을 저장함(캐릭터크링에이션씬 추가시)
+        player.playerNetworkManager.vitality.Value = 15;
+        player.playerNetworkManager.endurance.Value = 10;
+
+        SaveGame();
+        StartCoroutine(LoadWorldScene());
     }
 
     public void LoadGame()

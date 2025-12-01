@@ -7,6 +7,14 @@ public class PlayerUIHUDManager : MonoBehaviour
     [SerializeField] UI_StatBar staminaBar;
     [SerializeField] UI_StatBar healthBar;
 
+    public void RefreshHUD()
+    {
+        healthBar.gameObject.SetActive(false);
+        healthBar.gameObject.SetActive(true);
+        staminaBar.gameObject.SetActive(false);
+        staminaBar.gameObject.SetActive(true);
+    }
+
     public void SetNewHealthValue(int oldValue, int newValue)
     {
         healthBar.SetStat(newValue);

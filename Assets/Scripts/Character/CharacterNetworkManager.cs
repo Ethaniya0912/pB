@@ -6,6 +6,8 @@ using Unity.Netcode;
 public class CharacterNetworkManager : NetworkBehaviour
 {
     CharacterManager character;
+    [Header("Status")]
+    public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     [Header("Position")]
     public NetworkVariable<Vector3> networkPosition = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -26,7 +28,6 @@ public class CharacterNetworkManager : NetworkBehaviour
     [Header("Resources")]
     public NetworkVariable<float> currentStamina = new NetworkVariable<float>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     public NetworkVariable<int> maxStamina = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
     public NetworkVariable<int> currentHealth = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     public NetworkVariable<int> maxHealth = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -34,6 +35,23 @@ public class CharacterNetworkManager : NetworkBehaviour
     protected virtual void Awake()
     {
         character = GetComponent<CharacterManager>();
+    }
+
+    public void CheckHP(int oldHealth, int newHealth)
+    {
+        if (currentHealth.Value <= 0)
+        {
+            StartCoroutine(character.ProcessDeathEvent());
+        }
+
+        // 오버힐링 방지
+        if (character.IsOwner)
+        {
+            if (currentHealth.Value > maxHealth.Value)
+            { 
+                currentHealth.Value = maxHealth.Value;
+            }
+        }
     }
 
     // RPC는 클라이언트로 부터 불러지는 함수이며, 서버를 부르는 함수임.
