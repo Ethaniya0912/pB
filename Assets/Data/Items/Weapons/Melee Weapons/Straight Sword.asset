@@ -25,3 +25,4 @@ MonoBehaviour:
   elementalDamage: 0
   poiseDamage: 10
   baseStaminaCost: 20
+  oh_RB_Action: {fileID: 11400000, guid: bd11e2d01457d4fbba2a3d0a373d91a9, type: 2}
