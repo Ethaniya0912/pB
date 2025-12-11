@@ -20,6 +20,9 @@ public class PlayerInputManager : MonoBehaviour
 
     [Header("Lock On Input")]
     [SerializeField] bool lockOn_Input;
+    [SerializeField] bool lockOn_Left_Input;
+    [SerializeField] bool lockOn_Right_Input;
+    private Coroutine lockOnCoroutine;
 
     [Header("Player Movement Input")]
     [SerializeField] Vector2 movementInput;
@@ -30,6 +33,10 @@ public class PlayerInputManager : MonoBehaviour
     [Header("Player Action Input")]
     [SerializeField] bool dodgeInput;
     [SerializeField] bool RB_Input = false;
+    [SerializeField] bool RT_Input = false;
+    [SerializeField] bool Hold_RT_Input = false;
+    [SerializeField] bool switch_Right_Weapon_Input = false;
+    [SerializeField] bool switch_Left_Weapon_Input = false;
 
 
     private void Awake()
@@ -93,12 +100,24 @@ public class PlayerInputManager : MonoBehaviour
         {
             playerControls = new PlayerControls();
 
+            // 액션
             playerControls.PlayerMoveMent.Movement.performed += i => movementInput = i.ReadValue<Vector2>();
             playerControls.PlayerAction.Dodge.performed += i => dodgeInput = true;
+            playerControls.PlayerAction.SwitchRightWeapon.performed += i => switch_Right_Weapon_Input = true;
+            playerControls.PlayerAction.SwitchLeftWeapon.performed += i => switch_Left_Weapon_Input = true;
+
+
+            // 범퍼와 트리거
             playerControls.PlayerAction.RB.performed += i => RB_Input = true;
+            playerControls.PlayerAction.RT.performed += i => RT_Input = true;
+            playerControls.PlayerAction.HoldRT.performed += i => Hold_RT_Input = true;
+            playerControls.PlayerAction.HoldRT.canceled += i => Hold_RT_Input = false;
+
 
             // 락온
             playerControls.PlayerAction.LockOn.performed += i => lockOn_Input = true;
+            playerControls.PlayerAction.SeekLeftLockOnTarget.performed += i => lockOn_Left_Input = true;
+            playerControls.PlayerAction.SeekRightLockOnTarget.performed += i => lockOn_Right_Input = true;
         }
 
         playerControls.Enable();
@@ -137,7 +156,12 @@ public class PlayerInputManager : MonoBehaviour
         HandleCameraMovementInput();
         HandleDodgeInput();
         HandleRBInput();
+        HandleRTInput();
+        HandleHoldRTInput();
         HandleLockOnInput();
+        HandleLockOnSwitchTargetInput();
+        HandleSwitchRightWeaponInput();
+        HandleSwitchLeftWeaponInput();
     }
 
     // 락온
@@ -157,22 +181,78 @@ public class PlayerInputManager : MonoBehaviour
             }
 
             // 새로운 타겟을 찾기.
+
+            // 코루틴이 동시에 여러개 진행 중첩이 되지 않도록 보장.
+            if (lockOnCoroutine != null)
+                StopCoroutine(lockOnCoroutine);
+
+            lockOnCoroutine = StartCoroutine(PlayerCamera.Instance.WaitThenFindNewTarget());
             
         }
 
         if (lockOn_Input && player.playerNetworkManager.isLockedOn.Value)
         {
+            Debug.Log($"{ lockOn_Input}, lockOn_Input && player.playerNetworkManager.isLockedOn.Value");
             lockOn_Input = false;
+            PlayerCamera.Instance.ClearLockOnTargets();
+            player.playerNetworkManager.isLockedOn.Value = false;
             // 이미 락온? (언락)
             return;
         }
 
         if (lockOn_Input && !player.playerNetworkManager.isLockedOn.Value)
         {
-            lockOn_Input = true;
+            Debug.Log($"{lockOn_Input}, lockOn_Input && !player.playerNetworkManager.isLockedOn.Value");
+            lockOn_Input = false;
             // 락온
 
             // 레인지 무기 사용중이라면 락온 안함.
+
+            PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+            if (PlayerCamera.Instance.nearestLockOnTarget != null)
+            {
+                player.playerCombatManager.SetTarget(PlayerCamera.Instance.nearestLockOnTarget);
+                // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
+                player.playerNetworkManager.isLockedOn.Value = true;
+            }
+        }
+    }
+
+    private void HandleLockOnSwitchTargetInput()
+    {
+        if (lockOn_Left_Input)
+        {
+            // 초기화
+            lockOn_Left_Input = false;
+
+            // 이미 락온 됫다면 실행.
+            if (player.playerNetworkManager.isLockedOn.Value)
+            {
+                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+                if (PlayerCamera.Instance.leftLockOnTarget != null)
+                {
+                    player.playerCombatManager.SetTarget(PlayerCamera.Instance.leftLockOnTarget);
+                }
+            }
+        }
+
+        if (lockOn_Right_Input)
+        {
+            // 초기화
+            lockOn_Right_Input = false;
+
+            // 이미 락온 됫다면 실행.
+            if (player.playerNetworkManager.isLockedOn.Value)
+            {
+                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+                if (PlayerCamera.Instance.rightLockOnTarget != null)
+                {
+                    player.playerCombatManager.SetTarget(PlayerCamera.Instance.rightLockOnTarget);
+                }
+            }
         }
     }
 
@@ -202,7 +282,14 @@ public class PlayerInputManager : MonoBehaviour
             return;
 
         // 수평에 0만 전달하는 이유는 락온 하지 않을 시 앞으로만 가게 하려고 함.
-        player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount);
+        if (!player.playerNetworkManager.isLockedOn.Value || player.playerNetworkManager.isSprinting.Value)
+        {
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, player.playerNetworkManager.isSprinting.Value);
+        }
+        else
+        {
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalInput, verticalInput, player.playerNetworkManager.isSprinting.Value);
+        }
 
         // 수평에 0 말고 다른 것도 전달, 락온 한 상태.
     }
@@ -244,6 +331,56 @@ public class PlayerInputManager : MonoBehaviour
             (player.playerInventoryManager.currentRightHandWeapon.oh_RB_Action,
             player.playerInventoryManager.currentRightHandWeapon
             );
+        }
+    }
+
+    private void HandleRTInput()
+    {
+        if (RT_Input)
+        {
+            RT_Input = false;
+
+            // TD : UI창이 열려있다면, 리턴하고 아무것도 안함.
+
+            player.playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
+
+            // TD : 양손이라면 양손 액션 사용
+
+            player.playerCombatManager.PerformWeaponBasedAction
+            (player.playerInventoryManager.currentRightHandWeapon.oh_RT_Action,
+            player.playerInventoryManager.currentRightHandWeapon
+            );
+        }
+    }
+
+    private void HandleHoldRTInput()
+    {
+        // 홀드/차지는 액션이 해당을 실행할 수 있는가(공격)일때만 체크함.
+        if (player.isPerformingAction)
+        {
+            if (player.playerNetworkManager.isUsingRightHand.Value)
+            {
+                //차징 어택시 다른 유저도 애니메이션을 봐야함.
+                player.playerNetworkManager.isChargingAttack.Value = Hold_RT_Input;
+            }
+        }
+    }
+
+    private void HandleSwitchRightWeaponInput()
+    {
+        if (switch_Right_Weapon_Input)
+        {
+            switch_Right_Weapon_Input = false;
+            player.playerEquipmentManager.SwitchRightWeapon();
+        }
+    }
+
+    private void HandleSwitchLeftWeaponInput()
+    {
+        if (switch_Left_Weapon_Input)
+        {
+            switch_Left_Weapon_Input = false;
+            player.playerEquipmentManager.SwitchLeftWeapon();
         }
     }
 }

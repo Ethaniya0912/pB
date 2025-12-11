@@ -45,9 +45,7 @@ public class PlayerManager : CharacterManager
         playerLocomotionManager.HandleAllMovement();
 
         // 스태미나 리젠 함수 업데이트
-        playerStatsManager.RegenerateStamina();
-
-        DebugMenu();
+        playerStatsManager.RegenerateStamina();;
     }
 
     protected override void LateUpdate()
@@ -88,6 +86,9 @@ public class PlayerManager : CharacterManager
 
         }
 
+        // 락온 (오너가 아니여도 작동해야함)
+        playerNetworkManager.isLockedOn.OnValueChanged += playerNetworkManager.OnIsLockedOnChange;
+
         // 스탯
         playerNetworkManager.currentHealth.OnValueChanged += playerNetworkManager.CheckHP;
 
@@ -96,11 +97,55 @@ public class PlayerManager : CharacterManager
         playerNetworkManager.currentLeftHandWeaponID.OnValueChanged += playerNetworkManager.OnCurrentLeftHandWeaponIDChange;
         playerNetworkManager.currentWeaponBeingUsed.OnValueChanged += playerNetworkManager.OnCurrentWeaponBeingUsedIDChange;
 
+        // 플래그
+        playerNetworkManager.isChargingAttack.OnValueChanged += playerNetworkManager.OnIsChargingAttackChanged;
+
         // 접속시 우리가 캐릭터의 오너지만 서버가 아닐 경우 캐릭터 데이터를 새로 인스턴스한 캐릭터로 리로드
         if (IsOwner && !IsServer)
         {
             LoadGameDataFromCurrentCharacterData(ref WorldSaveGameManager.Instance.currentCharacterData);
         }
+
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+
+        NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnectedCallback;
+
+        // 클라이언트에 의해 소유된 플레이어 오브젝트일 시
+        if (IsOwner)
+        {
+            // 바이탈리티나 엔듀런스가 변화시 맥스헬스/스태미나 정해주기.
+            playerNetworkManager.vitality.OnValueChanged -=
+                playerNetworkManager.SetNewMaxHealthValue;
+            playerNetworkManager.endurance.OnValueChanged -=
+                playerNetworkManager.SetNewMaxStaminaValue;
+
+            // 현재 체력이나 스태미나 변화시 UI 스탯바에 변화를 줌.
+            playerNetworkManager.currentHealth.OnValueChanged -=
+                PlayerUIManager.Instance.playerUIHUDManager.SetNewHealthValue;
+            playerNetworkManager.currentStamina.OnValueChanged -=
+                PlayerUIManager.Instance.playerUIHUDManager.SetNewStaminaValue;
+            playerNetworkManager.currentStamina.OnValueChanged -=
+                playerStatsManager.ResetStaminaRegenTimer;
+
+        }
+
+        // 락온 (오너가 아니여도 작동해야함)
+        playerNetworkManager.isLockedOn.OnValueChanged -= playerNetworkManager.OnIsLockedOnChange;
+
+        // 스탯
+        playerNetworkManager.currentHealth.OnValueChanged -= playerNetworkManager.CheckHP;
+
+        // 장비
+        playerNetworkManager.currentRightHandWeaponID.OnValueChanged -= playerNetworkManager.OnCurrentRightHandWeaponIDChange;
+        playerNetworkManager.currentLeftHandWeaponID.OnValueChanged -= playerNetworkManager.OnCurrentLeftHandWeaponIDChange;
+        playerNetworkManager.currentWeaponBeingUsed.OnValueChanged -= playerNetworkManager.OnCurrentWeaponBeingUsedIDChange;
+
+        // 플래그
+        playerNetworkManager.isChargingAttack.OnValueChanged -= playerNetworkManager.OnIsChargingAttackChanged;
 
     }
 
@@ -141,6 +186,7 @@ public class PlayerManager : CharacterManager
 
         if (IsOwner)
         {
+            playerNetworkManager.isDead.Value = false;
             playerNetworkManager.currentHealth.Value = playerNetworkManager.maxHealth.Value;
             playerNetworkManager.currentStamina.Value = playerNetworkManager.maxStamina.Value;
             // 포커스 포인츠도 복수
@@ -190,26 +236,21 @@ public class PlayerManager : CharacterManager
             playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
     }
 
-    private void LoadOtherPlayerCharacterWhenJoiningServer()
+    public void LoadOtherPlayerCharacterWhenJoiningServer()
     {
         // 무기 싱크(나중에 아머나 캐릭터커마라면 수염등이 있음)
         playerNetworkManager.OnCurrentRightHandWeaponIDChange(0, playerNetworkManager.currentRightHandWeaponID.Value);
         playerNetworkManager.OnCurrentLeftHandWeaponIDChange(0, playerNetworkManager.currentLeftHandWeaponID.Value);
+
+        // 아머 싱크
+
+        // 락온 타겟 싱크
+        if (playerNetworkManager.isLockedOn.Value)
+        {
+            playerNetworkManager.OnLockOnTargetIDChange(0, playerNetworkManager.currentTargetNetworkObjectID.Value);
+        }
     }
 
     // 나중에 디버깅은 지움.
-    private void DebugMenu()
-    {
-        if (respawnCharacter)
-        {
-            respawnCharacter = false;
-            ReviveCharacter();
-        }
-
-        if (switchRightWeapon)
-        {
-            switchRightWeapon = false;
-            playerEquipmentManager.SwitchRightWeapon();
-        }
-    }
+    
 }

@@ -9,6 +9,8 @@ public class PlayerCombatManager : CharacterCombatManager
 
     public WeaponItem currentWeaponBeingUsed;
 
+    [Header("Flags")]
+    public bool canComboWithMainHandWeapon = false;
 
     protected override void Awake()
     {
@@ -55,4 +57,17 @@ public class PlayerCombatManager : CharacterCombatManager
 
         player.playerNetworkManager.currentStamina.Value -= Mathf.RoundToInt(staminaDeducted);
     }
+
+    public override void SetTarget(CharacterManager newTarget)
+    {
+        base.SetTarget(newTarget);
+
+        // 로컬플레이어가 하고 잇다면
+        if (player.IsOwner)
+        {
+            PlayerCamera.Instance.SetLockCameraHeight();
+        }
+    }
+
+
 }

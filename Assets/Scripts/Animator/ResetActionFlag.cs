@@ -18,6 +18,8 @@ public class ResetActionFlag : StateMachineBehaviour
         character.canMove = true;
         character.canRotate = true;
         character.applyRootMotion = false;
+        character.characterLocomotionManager.isRolling = false;
+        character.characterAnimationManager.DisableCanDoCombo();
 
     }
 

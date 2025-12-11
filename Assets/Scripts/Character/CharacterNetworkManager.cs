@@ -21,8 +21,14 @@ public class CharacterNetworkManager : NetworkBehaviour
     public NetworkVariable<float> animatorVerticalMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     public NetworkVariable<float> animatorMoveAmountMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+    [Header("Target")]
+    public NetworkVariable<ulong> currentTargetNetworkObjectID = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
     [Header("Flags")]
     public NetworkVariable<bool> isLockedOn = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<bool> isSprinting = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<bool> isJumping = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<bool> isChargingAttack = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     [Header("Stats")]
     public NetworkVariable<int> endurance = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -55,6 +61,27 @@ public class CharacterNetworkManager : NetworkBehaviour
                 currentHealth.Value = maxHealth.Value;
             }
         }
+    }
+
+    public void OnLockOnTargetIDChange(ulong oldId, ulong newId)
+    {
+        if (!IsOwner)
+        {
+            character.characterCombatManager.currentTarget = NetworkManager.Singleton.SpawnManager.SpawnedObjects[newId].gameObject.GetComponent<CharacterManager>();
+        }
+    }
+
+    public void OnIsLockedOnChange(bool old, bool isLockedOn)
+    {
+        if (!isLockedOn)
+        {
+            character.characterCombatManager.currentTarget = null;
+        }
+    }
+
+    public void OnIsChargingAttackChanged(bool oldStatus, bool newStatus)
+    {
+        character.animator.SetBool("isChargingAttack", isChargingAttack.Value);
     }
 
     // RPC는 클라이언트로 부터 불러지는 함수이며, 서버를 부르는 함수임.

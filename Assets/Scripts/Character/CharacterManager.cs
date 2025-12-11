@@ -13,6 +13,10 @@ public class CharacterManager : NetworkBehaviour
     [HideInInspector] public CharacterAnimationManager characterAnimationManager;
     [HideInInspector] public CharacterCombatManager characterCombatManager;
     [HideInInspector] public CharacterSoundFxManager characterSoundFxManager;
+    [HideInInspector] public CharacterLocomotionManager characterLocomotionManager;
+
+    [Header("Character Group")]
+    public CharacterGroup characterGroup;
 
     [Header("Flags")]
     public bool isPerformingAction = false;
@@ -33,6 +37,7 @@ public class CharacterManager : NetworkBehaviour
         characterAnimationManager = GetComponent<CharacterAnimationManager>();
         characterCombatManager = GetComponent<CharacterCombatManager>();
         characterSoundFxManager = GetComponent<CharacterSoundFxManager>();
+        characterLocomotionManager = GetComponent<CharacterLocomotionManager>();
     }
 
     protected virtual void Start()
@@ -63,6 +68,11 @@ public class CharacterManager : NetworkBehaviour
                 characterNetworkManager.networkRotation.Value,
                 characterNetworkManager.networkRotationSmoothTime);
         }
+    }
+
+    protected virtual void FixedUpdate()
+    {
+
     }
 
     protected virtual void LateUpdate()

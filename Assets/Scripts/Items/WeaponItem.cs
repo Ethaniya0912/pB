@@ -24,6 +24,11 @@ public class WeaponItem : Item
     // 웨폰 모디파이어
     // 라이트 어택 모디파이어
     public float light_Attack_01_Modifier = 1.1f;
+    public float light_Attack_02_Modifier = 1.2f;
+    public float heavy_Attack_01_Modifier = 1.4f;
+    public float heavy_Attack_02_Modifier = 1.6f;
+    public float charge_Attack_01_Modifier = 2.5f;
+    public float charge_Attack_02_Modifier = 2.7f;
     // 헤비 어택 모디파이어
     // 크리티컬 데미지 모디파이어
 
@@ -36,6 +41,7 @@ public class WeaponItem : Item
 
     [Header("Actions")]
     public WeaponItemAction oh_RB_Action; // 한손 right bumper 액션.
+    public WeaponItemAction oh_RT_Action; // 한손 right trigger 액션.
 
 
 }

@@ -9,6 +9,11 @@ public class MeleeWeaponDamageCollider : DamageCollider
 
     [Header("Weapon Attack Modifiers")]
     public float light_Attack_01_Modifier;
+    public float light_Attack_02_Modifier;
+    public float heavy_Attack_01_Modifier;
+    public float heavy_Attack_02_Modifier;
+    public float charge_Attack_01_Modifier;
+    public float charge_Attack_02_Modifier;
 
     protected override void Awake()
     {
@@ -71,6 +76,24 @@ public class MeleeWeaponDamageCollider : DamageCollider
             case AttackType.LightAttack01:
                 ApplyAttackDamageModifiers(light_Attack_01_Modifier, damageEffect);
                 Debug.Log("AttackType : " + AttackType.LightAttack01);
+                break;
+            case AttackType.LightAttack02:
+                ApplyAttackDamageModifiers(light_Attack_02_Modifier, damageEffect);
+                Debug.Log("AttackType : " + AttackType.LightAttack02);
+                break;
+            case AttackType.HeavyAttack01:
+                ApplyAttackDamageModifiers(heavy_Attack_01_Modifier, damageEffect);
+                Debug.Log("AttackType : " + AttackType.HeavyAttack01);
+                break;
+            case AttackType.HeavyAttack02:
+                ApplyAttackDamageModifiers(heavy_Attack_01_Modifier, damageEffect);
+                Debug.Log("AttackType : " + AttackType.HeavyAttack02);
+                break;
+            case AttackType.ChargeAttack01:
+                ApplyAttackDamageModifiers(charge_Attack_01_Modifier, damageEffect);
+                break;
+            case AttackType.ChargeAttack02:
+                ApplyAttackDamageModifiers(charge_Attack_02_Modifier, damageEffect);
                 break;
             default:
                 break;

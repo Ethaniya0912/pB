@@ -263,6 +263,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 1fe69440e72f52d40a007dd392b16a17,
         type: 3}
+      propertyPath: m_Avatar
+      value: 
+      objectReference: {fileID: 9000000, guid: 1fe69440e72f52d40a007dd392b16a17, type: 3}
+    - target: {fileID: 5866666021909216657, guid: 1fe69440e72f52d40a007dd392b16a17,
+        type: 3}
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: 0971db20e01c05c4195b1a00e7a2cb88, type: 2}
@@ -797,7 +802,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2797225083
+  GlobalObjectIdHash: 1034646365
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
@@ -1046,14 +1051,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lastAnimationPlayed: 
-  hit_Forward_Medium_01: hit_Forward_Medium_01
-  hit_Forward_Medium_02: hit_Forward_Medium_02
-  hit_Backward_Medium_01: hit_Backward_Medium_01
-  hit_Backward_Medium_02: hit_Backward_Medium_02
-  hit_Left_Medium_01: hit_Left_Medium_01
-  hit_Left_Medium_02: hit_Left_Medium_02
-  hit_Right_Medium_01: hit_Right_Medium_01
-  hit_Right_Medium_02: hit_Right_Medium_02
+  hit_Forward_Medium_01: Hit_Forward_Medium_01
+  hit_Forward_Medium_02: Hit_Forward_Medium_02
+  hit_Backward_Medium_01: Hit_Backward_Medium_01
+  hit_Backward_Medium_02: Hit_Backward_Medium_02
+  hit_Left_Medium_01: Hit_Left_Medium_01
+  hit_Left_Medium_02: Hit_Left_Medium_02
+  hit_Right_Medium_01: Hit_Right_Medium_01
+  hit_Right_Medium_02: Hit_Right_Medium_02
   forward_Medium_Damage: []
   backward_Medium_Damage: []
   left_Medium_Damage: []

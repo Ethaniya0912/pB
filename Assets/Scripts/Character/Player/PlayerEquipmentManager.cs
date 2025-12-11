@@ -59,7 +59,7 @@ public class PlayerEquipmentManager : CharacterEquipmentManager
         if (!player.IsOwner)
             return;
 
-        player.playerAnimationManager.PlayTargetAnimation("Swap_Weapon_01",false,true, true, true);
+        player.playerAnimationManager.PlayTargetAnimation("Swap_Weapon_01",false,false, true, true);
 
         // 엘든링 스타일 무기 스왑
         // 1. 메인 무기 이외 다른 무기가 있는지 체크, 존재시 언암가지말고 1,2 사이 스왑

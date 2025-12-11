@@ -17,6 +17,12 @@ public enum CharacterSlots
     No_Slot,
 }
 
+public enum CharacterGroup
+{
+    Team01,
+    Team02,
+}
+
 public enum WeaponModelSlot
 {
     RightHand,
@@ -26,7 +32,14 @@ public enum WeaponModelSlot
     // 등, 
 }
 
+// 데미지 기반 공격 타입을 계산하는데 활용.
 public enum AttackType
 {
     LightAttack01,
+    LightAttack02,
+    HeavyAttack01,
+    HeavyAttack02,
+    ChargeAttack01,
+    ChargeAttack02,
+
 }
