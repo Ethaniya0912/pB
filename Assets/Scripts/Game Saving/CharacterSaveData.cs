@@ -29,4 +29,15 @@ public class CharacterSaveData
     [Header("Stats")]
     public int vitality;
     public int endurance;
+
+    [Header("Stats")]
+    // 중요 : 일반 Dictionary 대신 SerializableDictionary를 사용
+    // Key : 아이템 ID (int), Value : 아이템 개수 (int)
+    public SerializableDictionary<int, int> inventoryItems;
+
+    public CharacterSaveData()
+    {
+        // 생성자에서 초기화
+        inventoryItems = new SerializableDictionary<int, int>();
+    }
 }
