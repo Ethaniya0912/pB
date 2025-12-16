@@ -37,7 +37,7 @@ public class PlayerInputManager : MonoBehaviour
     [SerializeField] bool Hold_RT_Input = false;
     [SerializeField] bool switch_Right_Weapon_Input = false;
     [SerializeField] bool switch_Left_Weapon_Input = false;
-
+    [SerializeField] bool interaction_Input = false;
 
     private void Awake()
     {
@@ -118,6 +118,9 @@ public class PlayerInputManager : MonoBehaviour
             playerControls.PlayerAction.LockOn.performed += i => lockOn_Input = true;
             playerControls.PlayerAction.SeekLeftLockOnTarget.performed += i => lockOn_Left_Input = true;
             playerControls.PlayerAction.SeekRightLockOnTarget.performed += i => lockOn_Right_Input = true;
+
+            // 인터렉션
+            playerControls.PlayerAction.Interaction.performed += i => interaction_Input = true;
         }
 
         playerControls.Enable();
@@ -162,6 +165,7 @@ public class PlayerInputManager : MonoBehaviour
         HandleLockOnSwitchTargetInput();
         HandleSwitchRightWeaponInput();
         HandleSwitchLeftWeaponInput();
+        HandleInteractionInput();
     }
 
     // 락온
@@ -381,6 +385,16 @@ public class PlayerInputManager : MonoBehaviour
         {
             switch_Left_Weapon_Input = false;
             player.playerEquipmentManager.SwitchLeftWeapon();
+        }
+    }
+
+    private void HandleInteractionInput()
+    {
+        if (interaction_Input)
+        {
+            Debug.Log("interaction_Input true");
+            interaction_Input = false;
+            player.playerInteractionManager.Interact();
         }
     }
 }

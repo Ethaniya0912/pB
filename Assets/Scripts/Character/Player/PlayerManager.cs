@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using SG;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Unity.Netcode;
 
 public class PlayerManager : CharacterManager
 {
@@ -17,6 +18,7 @@ public class PlayerManager : CharacterManager
     [HideInInspector]public PlayerInventoryManager playerInventoryManager;
     [HideInInspector]public PlayerEquipmentManager playerEquipmentManager;
     [HideInInspector]public PlayerCombatManager playerCombatManager;
+    [HideInInspector]public PlayerInteractionManager playerInteractionManager;
 
     protected override void Awake()
     {
@@ -31,6 +33,7 @@ public class PlayerManager : CharacterManager
         playerInventoryManager = GetComponent<PlayerInventoryManager>();
         playerEquipmentManager = GetComponent<PlayerEquipmentManager>();
         playerCombatManager = GetComponent<PlayerCombatManager>();
+        playerInteractionManager = GetComponent<PlayerInteractionManager>();
     }
 
     protected override void Update()

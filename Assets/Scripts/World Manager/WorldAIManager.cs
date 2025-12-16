@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using Unity.Netcode;
 using UnityEngine.SceneManagement;
 
 public class WorldAIManager : MonoBehaviour
