@@ -12,6 +12,9 @@ public class WorldItemDatabase : MonoBehaviour
     [SerializeField] List<WeaponItem> weapons = new List<WeaponItem>();
     // 게임에 존재하는모든 아이템의 리스트
     [SerializeField] List<Item> items = new List<Item>();
+    // 빠른 검색을 위한 딕셔너리 (게임 시작 시 리스트를 딕셔너리로 변환)
+    private Dictionary<int, GameObject> itemLookupDictionary = new Dictionary<int, GameObject>();
+
 
     [Header("Cooking Databases")]
     [SerializeField] List<CookingRecipe> cookingRecipes = new List<CookingRecipe>();
@@ -50,6 +53,18 @@ public class WorldItemDatabase : MonoBehaviour
         {
             items[i].itemID = i;
         }
+    }
+
+    // 월드세이브매니저에서 호출하는 필수 함수.
+    public GameObject GetItemPrefab(int itemID)
+    {
+        if (itemLookupDictionary.TryGetValue(itemID, out GameObject prefab))
+        {
+            return prefab;
+        }
+
+        Debug.LogWarning($"[WorldItemDatabase] ID {itemID} 아이템을 찾을 수 없습니다.");
+        return null;
     }
 
     public WeaponItem GetWeaponByID(int ID)
