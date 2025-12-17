@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using System.IO;
+using SG;
 
 public class SaveFileDataWriter
 {
@@ -82,13 +83,75 @@ public class SaveFileDataWriter
                 // Json 파일에서 유니티로 다시 시리얼라이즈
                 characterData = JsonUtility.FromJson<CharacterSaveData>(dataToLoad);
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-
+                Debug.LogError("[SaveFileDataWriter] 로드 실패 : " + e.Message);
             }
         }
 
         return characterData;
+    }
+
+    public void CreateWorldSaveFile(WorldSaveData worldData)
+    {
+        try
+        {
+            // 파일 전체 경로 조합
+            string filePath = Path.Combine(saveDataDirectoryPath, saveFileName);
+
+            // 디렉토리가 없으면 생성
+            if (!Directory.Exists(saveDataDirectoryPath))
+            {
+                Directory.CreateDirectory(saveDataDirectoryPath);
+            }
+
+            // 월드 데이터 Json 직렬화
+            string dataToStore = JsonUtility.ToJson(worldData, true);
+
+            // 파일 쓰기 (덮어쓰기 모드)
+            using (FileStream stream = new FileStream(filePath, FileMode.Create))
+            {
+                using (StreamWriter writer = new StreamWriter(stream))
+                {
+                    writer.Write(dataToStore);
+                }
+            }
+
+            Debug.Log($"[SaveFileDataWriter] 월드 데이터 저장 완료 : {filePath}");
+        }
+
+        catch (Exception e)
+        {
+            Debug.LogError("[SaveFileDataWriter] 월드 데이터 저장 실패 : " + e.Message);
+        }
+    }
+
+    // 월드 데이터 로드 기능
+    public WorldSaveData LoadWorldSaveFile()
+    {
+        WorldSaveData worldData = null;
+        string loadPath = Path.Combine(saveDataDirectoryPath, saveFileName);
+
+        if (File.Exists(loadPath))
+        {
+            try
+            {
+                string dataToLoad = "";
+                using (FileStream stream = new FileStream(loadPath, FileMode.Open))
+                {
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        dataToLoad = reader.ReadToEnd();
+                    }
+                }
+                worldData = JsonUtility.FromJson<WorldSaveData>(dataToLoad);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[SaveFileDataWriter] 월드 데이터 로드 실패 : " + e.Message);
+            }
+        }
+        return worldData;
     }
 }
 ;

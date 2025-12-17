@@ -7,6 +7,11 @@ public class Enums : MonoBehaviour
 
 }
 
+public enum WorldSlots
+{
+    WorldSlots_01,
+}
+
 public enum CharacterSlots
 {
     CharacterSlots_01,
