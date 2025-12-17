@@ -24,7 +24,6 @@ public class WorldSaveGameManager : MonoBehaviour
     private SaveFileDataWriter saveFileDataWriter;
 
     [Header("World Save Data")]
-    public WorldSaveData currentWorldData = new WorldSaveData();
     // 드롭된 아이템 재생성 아이템 프리펩 정보
     [SerializeField] private WorldItemDatabase itemDatabase;
 
@@ -32,6 +31,10 @@ public class WorldSaveGameManager : MonoBehaviour
     public CharacterSlots currentCharacterSlotBeingUsed;
     public CharacterSaveData currentCharacterData;
     private string saveFileName;
+
+    [Header("Current World Data")]
+    public WorldSlots currentWorldSlotBeingUsed;
+    public WorldSaveData currentWorldData;
 
     [Header("Character Slots")]
     public CharacterSaveData characterSlots01;
@@ -81,7 +84,16 @@ public class WorldSaveGameManager : MonoBehaviour
         // 월드 데이터는 서버(호소트)만 관리하고 저장.
         if (!NetworkManager.Singleton.IsServer) return;
 
-        // TD : 존재하는 SaveFileDataWriter 등을 활용하여 currentWorldData 파일화
+        // 1. 저장할 파일 이름 결정 ( 예 : world_save_01)
+        string saveFileName = DecideWorldFileNameBasedOnSlot(currentWorldSlotBeingUsed);
+
+        // 2. Writer 초기화
+        saveFileDataWriter = new SaveFileDataWriter();
+        saveFileDataWriter.saveDataDirectoryPath = Application.persistentDataPath;
+        saveFileDataWriter.saveFileName = saveFileName;
+
+        // 3. 현재 월드 데이터를 파일로 씀
+        saveFileDataWriter.CreateWorldSaveFile(currentWorldData);
         Debug.Log("[WorldSave] 데이터 저장 완료");
     }
 
@@ -92,7 +104,26 @@ public class WorldSaveGameManager : MonoBehaviour
         // 클라이언트가 로컬 파일을 읽어 스폰 시도시 충돌발생.
         if (!NetworkManager.Singleton.IsServer) return;
 
-        // TD : 파일에서 읽어와 currentWorldData에 덮어쓰기
+        // 1. 불러올 파일 이름 결정
+        string saveFileName = DecideWorldFileNameBasedOnSlot(currentWorldSlotBeingUsed);
+        // 2. Writer 초기화 및 로드
+        saveFileDataWriter = new SaveFileDataWriter();
+        saveFileDataWriter.saveDataDirectoryPath = Application.persistentDataPath;
+        saveFileDataWriter.saveFileName = saveFileName;
+
+        WorldSaveData loadedData = saveFileDataWriter.LoadWorldSaveFile();
+
+        // 3. 데이터 적용(파일이 있으면 덮어쓰고, 엎으면 새 데이터 유지
+        if (loadedData != null)
+        {
+            currentWorldData = loadedData;
+            Debug.Log($"[WorldSave] 월드 데이터 로드 됨:{saveFileName}");
+        }
+        else
+        {
+            Debug.Log($"[WorldSave]저장된 월드 데이터가 없어 새로 시작합니다");
+            currentWorldData = new WorldSaveData(); // 초기화
+        }
         Debug.Log("[WorldSave] 월드 데이터 로드 완료 (Server Only");
 
         // 로드 직후 런타임 오브젝트(드롭아이템) 복구 실행
@@ -125,6 +156,21 @@ public class WorldSaveGameManager : MonoBehaviour
                 break;
         }
 
+        return fileName;
+    }
+
+    // 슬롯 번호에 따른 월드 파일 이름 결정 규칙
+    public string DecideWorldFileNameBasedOnSlot(WorldSlots worldSlot)
+    {
+        string fileName = "";
+        switch (worldSlot)
+        {
+            case WorldSlots.WorldSlots_01:
+                fileName = "worldSlots_01";
+                break;
+            default:
+                break;
+        }
         return fileName;
     }
 
