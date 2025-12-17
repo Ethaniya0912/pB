@@ -4,6 +4,9 @@ using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEditor.SearchService;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Unity.Netcode;
+using SG;
+using System;
 
 public class WorldSaveGameManager : MonoBehaviour
 {
@@ -19,6 +22,11 @@ public class WorldSaveGameManager : MonoBehaviour
 
     [Header("Save Data Writer")]
     private SaveFileDataWriter saveFileDataWriter;
+
+    [Header("World Save Data")]
+    public WorldSaveData currentWorldData = new WorldSaveData();
+    // 드롭된 아이템 재생성 아이템 프리펩 정보
+    [SerializeField] private WorldItemDatabase itemDatabase;
 
     [Header("Current Character Data")]
     public CharacterSlots currentCharacterSlotBeingUsed;
@@ -43,6 +51,7 @@ public class WorldSaveGameManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        DontDestroyOnLoad(gameObject);
     }
 
     private void Start()
@@ -65,6 +74,32 @@ public class WorldSaveGameManager : MonoBehaviour
             LoadGame();
         }
     }
+
+    // --[저장/로드 I/O]--
+    public void SaveWorld()
+    {
+        // 월드 데이터는 서버(호소트)만 관리하고 저장.
+        if (!NetworkManager.Singleton.IsServer) return;
+
+        // TD : 존재하는 SaveFileDataWriter 등을 활용하여 currentWorldData 파일화
+        Debug.Log("[WorldSave] 데이터 저장 완료");
+    }
+
+    public void LoadWorld()
+    {
+        // 월드 상태 로딩은 서버(호스트)만 수행.
+        // 클라이언트는 서버가 스폰해주는 오브젝트(NetworkObject)를 동기화받기만함.
+        // 클라이언트가 로컬 파일을 읽어 스폰 시도시 충돌발생.
+        if (!NetworkManager.Singleton.IsServer) return;
+
+        // TD : 파일에서 읽어와 currentWorldData에 덮어쓰기
+        Debug.Log("[WorldSave] 월드 데이터 로드 완료 (Server Only");
+
+        // 로드 직후 런타임 오브젝트(드롭아이템) 복구 실행
+        SpawnDroppedItems();
+    }
+
+
 
     public string DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots characterSlots)
     {
@@ -204,6 +239,82 @@ public class WorldSaveGameManager : MonoBehaviour
         saveFileDataWriter.saveFileName =
             DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots.CharacterSlots_05);
         characterSlots05 = saveFileDataWriter.LoadSaveFile();
+    }
+
+    // --[런타임 로직]--
+
+    // 1. 제거 등록 (루팅)
+
+    public void AddRemovedObject(int id)
+    {
+        if (!currentWorldData.removedInteractableIDs.Contains(id))
+            currentWorldData.removedInteractableIDs.Add(id);
+    }
+
+    // 2. 상태/위치 업데이트 (문 열기, 상자 밀기)
+    public void  UpdateObjectState(int id, bool state, Vector3? pos = null, Quaternion? rot = null)
+    {
+        WorldObjectState data = new WorldObjectState
+        {
+            interactableID = id,
+            boolValue = state,
+            savePosition = pos.HasValue, // 위치값 전달되었으면 true
+            position = pos ?? Vector3.zero,
+            rotation = rot ?? Quaternion.identity,
+        };
+
+        if (currentWorldData.objectStates.ContainsKey(id))
+            currentWorldData.objectStates[id] = data;
+        else
+            currentWorldData.objectStates.Add(id, data);
+    }
+
+    // 3. 드롭 아이템 등록
+    public void AddDroppedItem(int itemID, int amount, Vector3 pos, Quaternion rot)
+    {
+        WorldItemSaveData data = new WorldItemSaveData
+        {
+            itemID = itemID,
+            amount = amount,
+            position = pos,
+            rotation = rot
+        };
+        currentWorldData.droppedItems.Add(data);
+    }
+
+    // 4. 드롭 아이템 복구 (스폰)
+    private void SpawnDroppedItems()
+    {
+        // 이 함수는 서버에서만 호출(IsServer)
+        // late joiner 는 NetworkObject.Spawn되면 알아서 관리.
+        foreach (var itemData in currentWorldData.droppedItems)
+        {
+            var prefab = WorldItemDatabase.Instance.GetItemPrefab(itemData.itemID);
+            if (prefab != null)
+            {
+                // 1. 서버에서 아이템 인스턴스화 (위치/회전값 적용)
+                GameObject obj = Instantiate(prefab, itemData.position, itemData.rotation);
+                var netObj = obj.GetComponent<NetworkObject>();
+
+                if (netObj != null)
+                {
+                    // 2. 네트워크 스폰 실행
+                    // late joiner 처리 원리
+                    // networkObject.Spawn()이 호출되면 netcode 시스템이 이 오브젝트 관리 시작.
+                    // 나중에 클라 접속, 서버는 자동으로 현재 존재하는 모든 networkObject 정보를
+                    // 그 클라이언트에 전송(Replication). 따라 별도 동기화 코드 없이도
+                    // 나중에 들어온 유저는 해당 아이템이 해당 위치에 있는 것 확인 가능
+                    // (단, 프리팹에 NetworkTransform이 있어야 위치 동기화가 정확)
+                    netObj.Spawn();
+                }
+            }
+        }
+    }
+
+    // 유틸리티 : 상태 조회
+    public bool TryGetObjectState(int id, out WorldObjectState state)
+    {
+        return currentWorldData.objectStates.TryGetValue(id, out state);    
     }
 
     // 코루틴 역할을 하는 IEnumerator을 사용.
