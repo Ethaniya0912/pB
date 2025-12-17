@@ -9,6 +9,7 @@ public class Item : ScriptableObject
     public Sprite itemIcon;
     public string itemName;
     public int itemID;
+    public GameObject itemModel;
 
     [Header("Cooking & Interaction Flags")]
     [Tooltip("연료로 사용 가능한가? (화덕에 넣을 수 있음)")]
