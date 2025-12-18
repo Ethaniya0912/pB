@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 5418690757883034657}
   - component: {fileID: 3047459527746501585}
   m_Layer: 0
-  m_Name: Weapon_Straight_Sword
+  m_Name: Weapon_Kitchen_Knife
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -136,7 +136,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157cd25fff9f283468616a4b280b98f2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  meleeWeaponDamageCollider: {fileID: 6571776529133500745}
+  meleeWeaponDamageCollider: {fileID: 8940708743056282087}
 --- !u!1 &6087314007468320053
 GameObject:
   m_ObjectHideFlags: 0
@@ -179,7 +179,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5209558357873806215}
   - component: {fileID: 3222192076963236571}
-  - component: {fileID: 6571776529133500745}
+  - component: {fileID: 8940708743056282087}
   m_Layer: 10
   m_Name: Damage Collider
   m_TagString: Untagged
@@ -223,7 +223,7 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.09, y: 0.68, z: 0.03}
   m_Center: {x: -0.000000017856408, y: 0.43, z: 0.000000054809625}
---- !u!114 &6571776529133500745
+--- !u!114 &8940708743056282087
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -232,16 +232,18 @@ MonoBehaviour:
   m_GameObject: {fileID: 7539386094994731565}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2389687449ccefd41bb53fce803538e9, type: 3}
+  m_Script: {fileID: 11500000, guid: ac2123aed81fee54f9984b0f4901b831, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::SG.SlicingDamageCollider
   damageCollider: {fileID: 3222192076963236571}
-  physicalDamage: 20
+  physicalDamage: 0
   elementalDamage: 0
   characterCausingDamage: {fileID: 0}
-  light_Attack_01_Modifier: 1.1
+  light_Attack_01_Modifier: 0
   light_Attack_02_Modifier: 0
   heavy_Attack_01_Modifier: 0
   heavy_Attack_02_Modifier: 0
   charge_Attack_01_Modifier: 0
   charge_Attack_02_Modifier: 0
+  sliceExplosionForce: 200
+  sliceExplosionRadius: 1

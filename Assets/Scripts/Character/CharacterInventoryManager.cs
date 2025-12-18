@@ -1,18 +1,15 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class CharacterInventoryManager : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    public WeaponItem currentRightHandWeapon;
+    public WeaponItem currentLeftHandWeapon;
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    [Header("Quick Slots")]
+    public WeaponItem[] weaponInRightHandSlots = new WeaponItem[3];
+    public int rightHandWeaponIndex = 0;
+    public WeaponItem[] weaponInLeftHandSlots = new WeaponItem[3];
+    public int leftHandWeaponIndex = 0;
 }

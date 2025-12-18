@@ -840,6 +840,7 @@ MonoBehaviour:
   characterCombatManager: {fileID: 0}
   characterSoundFxManager: {fileID: 0}
   characterLocomotionManager: {fileID: 0}
+  characterInventoryManager: {fileID: 0}
   characterGroup: 0
   isPerformingAction: 0
   applyRootMotion: 0
@@ -1224,7 +1225,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e56f4c46ef8d18c4ca87806fb1a4e157, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentRightHandWeapon: {fileID: 11400000, guid: e43da9c27983eb04cbb14465059c8633,
+  currentRightHandWeapon: {fileID: 11400000, guid: e78af79fd7ba32e4a8e683fa55711293,
     type: 2}
   currentLeftHandWeapon: {fileID: 11400000, guid: bb3418e72d4ec4c27b9a0378cf3b6a2a,
     type: 2}
@@ -1302,6 +1303,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   currentInteractableObject: {fileID: 0}
+  currentlyHeldObject: {fileID: 0}
 --- !u!1 &8702674516660855959 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 502465468816233794, guid: 1fe69440e72f52d40a007dd392b16a17,
