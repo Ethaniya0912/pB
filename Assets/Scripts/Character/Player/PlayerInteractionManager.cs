@@ -67,8 +67,6 @@ namespace SG
 
                         // 잡았으니 감지된 대상에서는 비워줌
                         currentInteractableObject = null;
-
-                        Debug.Log($"[PlayerInteraction] {grabbable.interactableName}을(를) 잡았습니다.");
                     }
                     else
                     {

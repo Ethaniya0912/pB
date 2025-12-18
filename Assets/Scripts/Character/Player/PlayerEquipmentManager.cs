@@ -143,6 +143,17 @@ public class PlayerEquipmentManager : CharacterEquipmentManager
     {
         if (player.playerInventoryManager.currentRightHandWeapon != null)
         {
+            // [New] 무기를 장착할 때 잡고 있는 물건이 있다면 자동으로 놓기
+            // 조건: 새로 장착할 무기가 '언암(맨손)'이 아닐 경우 + 현재 잡고 있는 물건이 있을 경우
+            if (player.playerInventoryManager.currentRightHandWeapon.itemID != WorldItemDatabase.Instance.unarmedWeapon.itemID)
+            {
+                if (player.playerInteractionManager.currentlyHeldObject != null)
+                {
+                    Debug.Log("[Equipment] 무기 장착을 위해 손에 든 물건을 놓습니다.");
+                    player.playerInteractionManager.ReleaseGrabbedObject();
+                }
+            }
+
             // 오래된 무기 제거
             rightHandSlot.UnloadWeapon();
 
