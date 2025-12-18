@@ -1,26 +1,26 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 namespace SG
 {
-    /// <summary>
-    /// [Rule 2] PlayerManager(Derived)에 부착될 구체적인 구현체
-    /// </summary>
     public class PlayerInteractionManager : CharacterInteractionManager
     {
         PlayerManager player;
 
+        // 현재 플레이어가 손에 잡고 있는 아이템을 기억하는 변수
+        [Header("Held Object")]
+        public GrabbableObject currentlyHeldObject;
+
         protected override void Awake()
         {
             base.Awake();
-            // [Rule 1] 다운캐스팅하여 구체적인 PlayerManager 기능 접근
             player = GetComponent<PlayerManager>();
         }
 
         private void Update()
         {
-            // [Rule 4-3-1] Owner Permission: 내 캐릭터의 입력은 내가 처리
             if (!IsOwner) return;
 
             HandleInteraction();
@@ -28,81 +28,139 @@ namespace SG
 
         private void HandleInteraction()
         {
-            // 1. 감지 로직 (부모 메서드 활용)
-            // 플레이어는 카메라가 보는 방향 혹은 캐릭터 정면 등 시점 처리가 중요
-            Vector3 origin = player.transform.position;
-            origin.y += PlayerCamera.Instance != null ? 0 : 1.5f; // 카메라 핸들러 유무에 따른 예외처리 예시
-            Vector3 direction = player.transform.forward; // 또는 Camera.main.transform.forward
-
-            CheckForInteractableObject();
-
-            // 2. UI 처리 (플레이어 전용)
-            // if (currentInteractableObject != null)
-            //     player.playerUIManager.ShowInteractionPopup(true);
-            // else
-            //     player.playerUIManager.ShowInteractionPopup(false);
-
-            // 3. 입력 처리
-            // PlayerInputManager에서 상호작용 입력 감지함
+            // 잡고 있는 물건이 없을 때만 새로운 물건 탐색
+            if (currentlyHeldObject == null)
+            {
+                CheckForInteractableObject();
+            }
+            else
+            {
+                // 물건을 들고 있을 때도 상호작용이 필요한 경우(예: 문 열기)를 위해 유지하되,
+                // 기획에 따라 여기서 return을 해서 감지를 끌 수도 있습니다.
+                CheckForInteractableObject();
+            }
         }
-        /// <summary>
-        /// [플레이어 전용 감지 로직]
-        /// 카메라의 위치와 정면 방향을 계산하여 부모의 감지 로직(SphereCast)을 호출합니다.
-        /// </summary>
+
+        public override void Interact()
+        {
+            if (currentInteractableObject != null)
+            {
+                if (currentInteractableObject.GetComponent<NetworkObject>().IsSpawned)
+                {
+                    // [Fix] GrabbableObject인 경우 로직 분리
+                    if (currentInteractableObject is GrabbableObject grabbable)
+                    {
+                        // 1. 체크를 먼저 수행 (Host 문제 해결)
+                        // Interact()를 호출하면 Host에서는 즉시 isHeld가 true가 되므로,
+                        // 호출하기 전에 미리 "잡혀있지 않음"을 확인해야 합니다.
+                        if (grabbable.isHeld.Value)
+                        {
+                            Debug.Log("[PlayerInteraction] 이미 다른 사람이 잡고 있는 물체입니다.");
+                            return;
+                        }
+
+                        // 2. 상호작용(잡기 요청) 실행
+                        currentInteractableObject.Interact(player);
+
+                        // 3. 내 손에 등록 (성공했다고 가정하고 할당)
+                        currentlyHeldObject = grabbable;
+
+                        // 잡았으니 감지된 대상에서는 비워줌
+                        currentInteractableObject = null;
+
+                        Debug.Log($"[PlayerInteraction] {grabbable.interactableName}을(를) 잡았습니다.");
+                    }
+                    else
+                    {
+                        // 4. 일반 상호작용 (문, 레버 등)
+                        currentInteractableObject.Interact(player);
+                        Debug.Log("[PlayerInteraction] 상호작용을 실행했습니다.");
+                    }
+                }
+            }
+        }
+
+        // 외부(InputManager)에서 호출할 "놓기" 함수
+        public void ReleaseGrabbedObject()
+        {
+            if (currentlyHeldObject != null)
+            {
+                // 카메라 정면 방향으로 던지기 위한 벡터 계산
+                Vector3 dropDirection = transform.forward;
+                if (Camera.main != null)
+                {
+                    dropDirection = Camera.main.transform.forward;
+                }
+                else if (PlayerCamera.Instance != null)
+                {
+                    dropDirection = PlayerCamera.Instance.transform.forward;
+                }
+
+                // 서버에 놓기(던지기) 요청
+                currentlyHeldObject.RequestDropServerRpc(dropDirection);
+
+                Debug.Log($"[PlayerInteraction] {currentlyHeldObject.interactableName}을(를) 놓았습니다.");
+
+                // 내 손 목록에서 제거
+                currentlyHeldObject = null;
+            }
+        }
+
         private void CheckForInteractableObject()
         {
             Vector3 origin;
             Vector3 direction;
 
-            // 1. 레이 발사 원점과 방향 계산
-            // CameraHandler가 있다면 그곳의 transform을, 없다면 메인 카메라를 사용
-            // (보통 TPS 게임에서는 Camera Object의 위치에서 쏘는 것이 정확합니다)
+            Camera targetCamera = Camera.main;
+
             if (PlayerCamera.Instance != null)
             {
-                origin = PlayerCamera.Instance.transform.position;
-                direction = PlayerCamera.Instance.transform.forward;
+                Camera ptrCam = PlayerCamera.Instance.GetComponent<Camera>();
+                if (ptrCam != null) targetCamera = ptrCam;
             }
-            else if (Camera.main != null)
+
+            if (targetCamera != null)
             {
-                origin = Camera.main.transform.position;
-                direction = Camera.main.transform.forward;
+                Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
+                origin = ray.origin;
+                direction = ray.direction;
             }
             else
             {
-                // 카메라를 못 찾았을 경우 캐릭터 눈 위치 등으로 대체
                 origin = transform.position + Vector3.up * 1.5f;
                 direction = transform.forward;
             }
 
-            // 2. 부모 클래스(CharacterInteractionManager)의 물리 연산 메서드 호출
-            // 이 메서드가 Physics.SphereCast를 수행하고 currentInteractableObject 변수를 갱신해줍니다.
-            base.CheckForInteractableObject(origin, direction);
+            RaycastHit hit;
+            if (Physics.Raycast(origin, direction, out hit, interactionRange, interactableLayer))
+            {
+                InteractableObject interactable = hit.collider.GetComponent<InteractableObject>();
+                // 내가 들고 있는 물건은 다시 감지되지 않도록 제외
+                if (interactable != null && interactable != currentlyHeldObject)
+                {
+                    currentInteractableObject = interactable;
+                }
+                else
+                {
+                    currentInteractableObject = null;
+                }
+            }
+            else
+            {
+                currentInteractableObject = null;
+            }
         }
 
-        // 디버그용 기즈모: 플레이어는 카메라 기준으로 쏘기 때문에 
-        // 씬 뷰에서 확인하기 쉽도록 카메라 위치에서 선을 그려줍니다.
         protected override void OnDrawGizmosSelected()
         {
             Gizmos.color = Color.green;
-
-            Vector3 origin = Vector3.zero;
-            Vector3 direction = Vector3.forward;
-
             if (Camera.main != null)
             {
-                origin = Camera.main.transform.position;
-                direction = Camera.main.transform.forward;
+                Vector3 origin = Camera.main.transform.position;
+                Vector3 direction = Camera.main.transform.forward;
+                Vector3 endPosition = origin + direction * interactionRange;
+                Gizmos.DrawLine(origin, endPosition);
             }
-            else
-            {
-                origin = transform.position + Vector3.up * 1.5f;
-                direction = transform.forward;
-            }
-
-            // SphereCast의 범위와 크기를 시각화
-            Vector3 endPosition = origin + direction * interactionRange;
-            Gizmos.DrawWireSphere(endPosition, sphereCastRadius);
-            Gizmos.DrawLine(origin, endPosition);
         }
     }
 }

@@ -329,8 +329,16 @@ public class PlayerInputManager : MonoBehaviour
 
             player.playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
 
-            // TD : 양손이라면 양손 액션 사용
+            // 1. 들고 있는 물건이 있다면 -> 놓기(던지기)
+            if (player.playerInteractionManager.currentlyHeldObject != null)
+            {
+                player.playerInteractionManager.ReleaseGrabbedObject();
+                // 물건을 던질 때는 무기 공격을 실행하지 않고 리턴
+                return;
+            }
 
+            // 2. 들고 있는 물건이 없다면 -> 무기 공격
+            // TD : 양손이라면 양손 액션 사용
             player.playerCombatManager.PerformWeaponBasedAction
             (player.playerInventoryManager.currentRightHandWeapon.oh_RB_Action,
             player.playerInventoryManager.currentRightHandWeapon
