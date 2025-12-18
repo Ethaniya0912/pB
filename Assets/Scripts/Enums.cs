@@ -48,3 +48,12 @@ public enum AttackType
     ChargeAttack02,
 
 }
+
+public enum CookingState
+{
+    Empty,          //  비어잇음
+    Raw,            //  재료 투입됨 (조리 전)
+    Cooking,        //  조리 중 (끓는 중/ 굽는 중)
+    Cooked,         //  조리 완료
+    Burnt           //  탐 (굽기 전용)
+}
