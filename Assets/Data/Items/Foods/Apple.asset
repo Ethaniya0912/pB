@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 383931009a4333c4bb7cd9dd9e420bc3, type: 3}
+  m_Name: Apple
+  m_EditorClassIdentifier: Assembly-CSharp::Item
+  itemIcon: {fileID: 0}
+  itemName: 
+  itemID: 0
+  itemModel: {fileID: 4351801899775939308, guid: 7860a69c8f022fc4c8578fe356ee1c51,
+    type: 3}
+  isBurnable: 0
+  fuelAmount: 0
+  isCookable: 0
+  isCuttable: 0
+  cutResultItem: {fileID: 0}

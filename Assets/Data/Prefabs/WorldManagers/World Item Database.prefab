@@ -49,4 +49,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: bb3418e72d4ec4c27b9a0378cf3b6a2a, type: 2}
   - {fileID: 11400000, guid: d71bbc074177d4d3e98d498a47a0ac73, type: 2}
   - {fileID: 11400000, guid: e43da9c27983eb04cbb14465059c8633, type: 2}
-  items: []
+  items:
+  - {fileID: 11400000, guid: 13adf7b21e297b746bf1cff981f56177, type: 2}
+  - {fileID: 11400000, guid: 4b392ad8bd8761e4aa8b1540256c520e, type: 2}
+  - {fileID: 11400000, guid: 9664077955f1d9d408c64f1970e313f7, type: 2}
+  - {fileID: 11400000, guid: 7533d65abf34a3d4cbbc3677c569649f, type: 2}
+  - {fileID: 11400000, guid: a6ec19ce83a03fe4a970a5543df16e07, type: 2}
+  cookingRecipes:
+  - {fileID: 11400000, guid: dc2f3ab1f8652014aad27d9f2cdae6a6, type: 2}
+  - {fileID: 11400000, guid: 4ccfb3f1d575c5d408bbb3284384aa95, type: 2}

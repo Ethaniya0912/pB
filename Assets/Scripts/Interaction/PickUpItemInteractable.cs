@@ -13,7 +13,7 @@ namespace SG
         [Header("Item Data (Content ID)")]
         [Tooltip("실제 인벤토리에 들어갈 아이템 정보입니다.")]
         // ItemScriptableObject는 프로젝트에 정의된 아이템 데이터 클래스라고 가정합니다.
-        [SerializeField] protected Item itemData;
+        [SerializeField] public Item itemData;
 
         // 만약 SO가 아니라 ID만 쓴다면:
         // [SerializeField] protected int itemID;

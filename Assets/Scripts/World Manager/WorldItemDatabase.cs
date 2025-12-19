@@ -19,7 +19,7 @@ public class WorldItemDatabase : MonoBehaviour
     private Dictionary<int, Item> itemDataDictionary = new Dictionary<int, Item>();
 
     [Header("Cooking Databases")]
-    [SerializeField] List<CookingRecipe> cookingRecipes = new List<CookingRecipe>();
+    [SerializeField] List<CookingRecipeSO> cookingRecipes = new List<CookingRecipeSO>();
 
 
     private void Awake()
@@ -126,7 +126,7 @@ public class WorldItemDatabase : MonoBehaviour
     // 주어진 재료 리스트와 일치하는 레시피 찾아 반환.
     // inputingridient 현재 냄비/도마에 올라간 재료 리스트
     // 매칭되는 레시피가 없으면 null 반환
-    public CookingRecipe GetRecipeByIngredients(List<Item> inputIngredients)
+    public CookingRecipeSO GetRecipeByIngredients(List<Item> inputIngredients)
     {
         if (inputIngredients == null || inputIngredients.Count == 0) return null;
 

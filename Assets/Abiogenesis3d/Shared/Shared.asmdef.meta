@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d920ee83a19e68446acaa5e0482e0ee6
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 277510
+  packageName: UPixelator - Campfire (3d Pixel Art)
+  packageVersion: 1.0.0
+  assetPath: Assets/Abiogenesis3d/Shared/Shared.asmdef
+  uploadId: 646165

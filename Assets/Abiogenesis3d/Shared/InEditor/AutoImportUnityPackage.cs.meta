@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: d373a13d2a3fb664295b9a8699f74f1f
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 277510
+  packageName: UPixelator - Campfire (3d Pixel Art)
+  packageVersion: 1.0.0
+  assetPath: Assets/Abiogenesis3d/Shared/InEditor/AutoImportUnityPackage.cs
+  uploadId: 646165
