@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0521bce82b017894eaf42cbd3cfc46de, type: 3}
+  m_Name: Kitchen Knife
+  m_EditorClassIdentifier: 
+  itemIcon: {fileID: 21300000, guid: 3237fa51789f60743b035741a39243b0, type: 3}
+  itemName: 
+  itemID: 2
+  itemModel: {fileID: 0}
+  isBurnable: 0
+  fuelAmount: 0
+  isCookable: 0
+  isCuttable: 0
+  cutResultItem: {fileID: 0}
+  weaponModel: {fileID: 449641753450697265, guid: 5c5425429cf92e8439a8ff39360aeb98,
+    type: 3}
+  muscleReq: 0
+  physicalDamage: 20
+  elementalDamage: 0
+  poiseDamage: 10
+  light_Attack_01_Modifier: 1.1
+  light_Attack_02_Modifier: 1.2
+  heavy_Attack_01_Modifier: 1.4
+  heavy_Attack_02_Modifier: 1.6
+  charge_Attack_01_Modifier: 2.5
+  charge_Attack_02_Modifier: 2.7
+  baseStaminaCost: 20
+  lightAttackStaminaCostMultiplier: 0.9
+  oh_RB_Action: {fileID: 11400000, guid: 1c4b2605ec42c5c49b01b63346d69b7f, type: 2}
+  oh_RT_Action: {fileID: 11400000, guid: bb337435fc0d11445b459d7e07a866d4, type: 2}
