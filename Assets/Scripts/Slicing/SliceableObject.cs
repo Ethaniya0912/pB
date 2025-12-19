@@ -3,69 +3,120 @@ using Unity.Netcode;
 
 namespace SG
 {
-    /// <summary>
-    /// [Dev A] 절단 가능한 오브젝트의 속성을 정의하는 컴포넌트
-    /// Dev B는 이 컴포넌트의 변수들을 체크하여 자를 수 있는지 판단합니다.
-    /// </summary>
     public class SliceableObject : NetworkBehaviour
     {
         [Header("Slicing Properties")]
-        [Tooltip("절단면 내부의 재질 (고기 단면, 나무 단면 등)")]
         public Material crossSectionMaterial;
 
         [Header("Constraints")]
-        [Tooltip("최대 절단 가능 횟수 (너무 잘게 잘리는 것 방지)")]
         [SerializeField] private int maxSliceCount = 5;
 
-        [Tooltip("현재 절단된 횟수 (동기화 변수)")]
-        public NetworkVariable<int> currentSliceCount = new NetworkVariable<int>(0);
+        // [동기화 변수] 원본(서버 스폰 객체)용 - 이름을 변경하여 직접 접근 방지
+        public NetworkVariable<int> networkSliceCount = new NetworkVariable<int>(0);
+
+        // [로컬 변수] 파편(로컬 생성 객체)용
+        // TD : 추후 동기화 문제 발생하거나 중복연산, 게임성 지장있을 시 로컬>네트워크 통합 검토할 것 25.12.19
+        // TD : 현재 파편은 네트워크 오브젝트로 스폰되지 않으므로 로컬 변수로 유지 25.12.19
+        [SerializeField] private int localSliceCount = 0;
 
         [Header("Weapon Restriction")]
-        [Tooltip("이 오브젝트를 자르기 위해 필요한 무기 태그 (예: Knife, Axe)")]
-        public WeaponType requiredWeaponType = WeaponType.Knife; // Enums.cs에 정의 필요, 임시로 Knife로 가정
+        public WeaponType requiredWeaponType = WeaponType.Knife;
+
+        [Header("Cooking Interaction")]
+        [Tooltip("요리 냄비 등에 들어갈 때 식별될 아이템 데이터 (예: 썰린 당근)")]
+        public Item ingredientItem;
 
         [Header("Physics")]
-        public float separationForce = 100f; // 절단 시 벌어지는 힘
+        public float separationForce = 100f;
 
-        /// <summary>
-        /// 절단 가능 여부를 반환합니다.
-        /// </summary>
+        // [핵심 API] 외부(MeshSlicer 등)에서는 이 프로퍼티로 현재 카운트를 확인합니다.
+        public int CurrentSliceCount
+        {
+            get
+            {
+                // 네트워크에 스폰된 상태라면 NetworkVariable 사용
+                if (IsSpawned) return networkSliceCount.Value;
+                // 로컬 오브젝트(파편)라면 로컬 변수 사용
+                return localSliceCount;
+            }
+        }
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            // 서버에서 로컬 값이 설정되어 있었다면 동기화 변수에 반영
+            if (IsServer && localSliceCount > 0)
+            {
+                networkSliceCount.Value = localSliceCount;
+            }
+        }
+
+        // [핵심 API] MeshSlicer가 파편 생성 시 호출
+        public void SetSliceCount(int count)
+        {
+            localSliceCount = count;
+            if (IsSpawned && IsServer)
+            {
+                networkSliceCount.Value = count;
+            }
+        }
+
         public bool CanBeSliced(WeaponItem weaponItem)
         {
-            // 1. 횟수 제한 체크
-            if (currentSliceCount.Value >= maxSliceCount)
+            if (CurrentSliceCount >= maxSliceCount)
             {
-                Debug.Log("더 이상 자를 수 없습니다. (최대 횟수 도달)");
                 return false;
             }
-
-            // 2. 무기 타입 체크 (Dev B가 만든 WeaponItem SO에 'WeaponType'이나 'Tag'가 있다고 가정)
-            // 예시: if (weaponItem.weaponType != this.requiredWeaponType) return false;
-            // *현재 WeaponItem 구조에 맞게 커스텀 필요*
+            // 무기 타입 체크 로직 (필요시 구현)
+            // if (weaponItem.weaponType != requiredWeaponType) return false;
 
             return true;
         }
 
-        #region Object-Specific Network Logic (Architecture Exception)
-
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-        public void IncrementSliceCountServerRpc()
+        // [핵심 API] SlicingDamageCollider에서 호출
+        public void IncrementSliceCount()
         {
-            if (currentSliceCount.Value < maxSliceCount)
+            if (IsSpawned)
             {
-                currentSliceCount.Value++;
+                IncrementSliceCountRpc();
+            }
+            else
+            {
+                localSliceCount++;
             }
         }
 
-        #endregion
+        // 요리 기구(Pot, Pan) 상호작용 시 호출: 재료로 사용되고 오브젝트 제거
+        public void ConsumeAsIngredient()
+        {
+            if (IsSpawned && IsServer)
+            {
+                // 네트워크 오브젝트인 경우 Despawn
+                NetworkObject.Despawn();
+            }
+            else
+            {
+                // 로컬 오브젝트인 경우 Destroy
+                Destroy(gameObject);
+            }
+        }
 
+        // NGO 2.0 RPC (RequireOwnership 파라미터 제거됨)
+        [Rpc(SendTo.Server)]
+        private void IncrementSliceCountRpc()
+        {
+            if (networkSliceCount.Value < maxSliceCount)
+            {
+                networkSliceCount.Value++;
+            }
+        }
     }
 
-    // (참고) Enums.cs에 추가가 필요한 부분
+    // (만약 Enums.cs에 없다면 필요)
     public enum WeaponType
     {
         Generic,
-        Knife, // 식칼 등 슬라이싱 특화 무기
-        Blunt  // 둔기
+        Knife,
+        Blunt
     }
 }

@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 3302180348008733500}
   - component: {fileID: 7232914243545275050}
   - component: {fileID: 8208220924288144713}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Test_Carrot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -32,7 +32,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 3.34018, y: 0, z: -3.78497}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -156,9 +156,11 @@ MonoBehaviour:
   crossSectionMaterial: {fileID: 2100000, guid: 7247936e32045b746a3d3f426158fe6e,
     type: 2}
   maxSliceCount: 5
-  currentSliceCount:
+  networkSliceCount:
     m_InternalValue: 0
+  localSliceCount: 0
   requiredWeaponType: 1
+  ingredientItem: {fileID: 0}
   separationForce: 100
 --- !u!54 &8208220924288144713
 Rigidbody:
