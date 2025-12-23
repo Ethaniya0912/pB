@@ -6,7 +6,7 @@ namespace SG
 {
     /// <summary>
     /// 물리적으로 잡고 던질 수 있는 오브젝트 (예: 식재료, 도구)
-    /// Dev A 작업 영역: 물리 동기화 및 Parenting + [Fix] 씬 관리
+    /// Dev A 작업 영역: 물리 동기화 및 Parenting + [Fix] 씬 관리 + [Step 7] Robust Snapping Logic
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class GrabbableObject : InteractableEntity<GrabbableObject>
@@ -15,9 +15,15 @@ namespace SG
         private Rigidbody rb;
         private Collider col;
 
+        [Header("Hightlight")]
+        private Renderer _renderer;
+        private MaterialPropertyBlock _propBlock;
+        // 셰이더 그래프의 변수 이름 (Reference 이름과 일치해야 함)
+        private readonly string _intensityName = "_Intensity";
+
         [Header("Attachment Settings")]
         [Tooltip("캐릭터가 잡았을 때 부착될 뼈의 이름입니다.")]
-        [SerializeField] private string handBoneName = "B-hand.R";
+        [SerializeField] private string handBoneName = "Weapon Instantiation Slot";
 
         // 현재 잡혀있는 상태인지 모든 클라이언트 동기화
         public NetworkVariable<bool> isHeld = new NetworkVariable<bool>(false);
@@ -25,10 +31,16 @@ namespace SG
         // 시각적 동기화를 위한 타겟 변수
         private Transform currentHandTarget;
 
+        [Header("IK Settings")]
+        // Dev B가 프리팹에서 설정해야 할 손잡이 위치
+        public Transform gripPoint;
+
         protected virtual void Awake()
         {
             rb = GetComponent<Rigidbody>();
             col = GetComponent<Collider>();
+            // 만약 gripPoint를 설정 안 했으면 자기 자신을 가리키도록 예외처리
+            if (gripPoint == null) gripPoint = transform;
         }
 
         private void LateUpdate()
@@ -37,8 +49,27 @@ namespace SG
             // 매 프레임 위치와 회전을 손 뼈대에 강제로 일치시킵니다.
             if (isHeld.Value && currentHandTarget != null)
             {
-                transform.position = currentHandTarget.position;
-                transform.rotation = currentHandTarget.rotation;
+                // [Step 7 수정] 개선된 Snapping 로직 (Scale & Hierarchy Safe)
+
+                // 1. GripPoint의 Root 기준 로컬 회전값 계산 (계층 구조 무관)
+                //    현재 물체의 회전값과 GripPoint 회전값의 차이를 구함
+                Quaternion relativeRotation = Quaternion.Inverse(transform.rotation) * gripPoint.rotation;
+
+                // 2. 목표 회전값 적용
+                //    HandTarget의 회전에서 위에서 구한 차이만큼 역으로 돌려줌
+                Quaternion targetRotation = currentHandTarget.rotation * Quaternion.Inverse(relativeRotation);
+                transform.rotation = targetRotation;
+
+                // 3. GripPoint의 Root 기준 로컬 위치값 계산 (Scale 포함)
+                //    InverseTransformPoint는 현재 스케일이 반영된 로컬 좌표를 반환함
+                Vector3 relativePosition = transform.InverseTransformPoint(gripPoint.position);
+
+                // 4. 목표 위치값 적용
+                //    Root 위치 = HandTarget 위치 - (새로운 회전 * (로컬 위치 * 스케일))
+                //    TransformVector를 사용하여 로컬 벡터를 월드 벡터로 변환 (회전 & 스케일 적용)
+                //    *주의: transform.rotation을 이미 targetRotation으로 바꿨으므로 TransformVector가 올바르게 작동함
+                Vector3 worldOffset = transform.TransformVector(relativePosition);
+                transform.position = currentHandTarget.position - worldOffset;
             }
         }
 
@@ -169,6 +200,18 @@ namespace SG
                     return found;
             }
             return null;
+        }
+
+        /// <summary>
+        /// 하이라이트 효과 설정
+        /// </summary>
+        public void SetHighlight(float value)
+        {
+            Debug.Log("[Grabbable] SetHighlight called with value: " + value);
+            // 현재 블록을 가져와서 값 수정 후 다시 적용
+            _renderer.GetPropertyBlock(_propBlock);
+            _propBlock.SetFloat(_intensityName, value);
+            _renderer.SetPropertyBlock(_propBlock);
         }
     }
 }

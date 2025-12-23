@@ -118,4 +118,6 @@ public class PlayerNetworkManager : CharacterNetworkManager
             Debug.LogError("Action Is null, Cannot perform");
         }
     }
+
+    // TD : 향후 플레이어 전용 IK 변수(예: 손가락 모양 제스처 등) 추가 가능
 }

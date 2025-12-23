@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using SG;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -14,8 +15,8 @@ public class CharacterManager : NetworkBehaviour
     [HideInInspector] public CharacterCombatManager characterCombatManager;
     [HideInInspector] public CharacterSoundFxManager characterSoundFxManager;
     [HideInInspector] public CharacterLocomotionManager characterLocomotionManager;
-    [HideInInspector] public CharacterInventoryManager characterInventoryManager;   
-
+    [HideInInspector] public CharacterInventoryManager characterInventoryManager;
+    [HideInInspector] public CharacterIKController characterIKController;
 
     [Header("Character Group")]
     public CharacterGroup characterGroup;
@@ -41,6 +42,7 @@ public class CharacterManager : NetworkBehaviour
         characterSoundFxManager = GetComponent<CharacterSoundFxManager>();
         characterLocomotionManager = GetComponent<CharacterLocomotionManager>();
         characterInventoryManager = GetComponent<CharacterInventoryManager>();
+        characterIKController = GetComponent<CharacterIKController>();
     }
 
     protected virtual void Start()

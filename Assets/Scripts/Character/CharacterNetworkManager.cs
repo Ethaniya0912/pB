@@ -1,11 +1,14 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+using SG;
 using Unity.Netcode;
+using UnityEngine;
 
 public class CharacterNetworkManager : NetworkBehaviour
 {
     CharacterManager character;
+    CharacterIKController characterIKController;
+
     [Header("Status")]
     public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -40,10 +43,13 @@ public class CharacterNetworkManager : NetworkBehaviour
     public NetworkVariable<int> currentHealth = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     public NetworkVariable<int> maxHealth = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+    [Header("IK Sync")] // 잡고 있는 물체의 NetworkObjectId를 동기화 (Vector3 동기화보다 효율적)
+    public NetworkVariable<ulong> currentRightHandGrabbedObjectID = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     protected virtual void Awake()
     {
         character = GetComponent<CharacterManager>();
+        characterIKController = GetComponent<CharacterIKController>();
     }
 
     public void CheckHP(int oldHealth, int newHealth)
@@ -199,5 +205,58 @@ public class CharacterNetworkManager : NetworkBehaviour
         damageEffect.characterCausingDamage = characterCausingDamage;
 
         damagedCharacter.characterEffectsManager.ProcessInstantEffects(damageEffect);
+    }
+
+    // IK 타겟 동기화 설정
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        // 값이 변경될 때마다(누군가 물건을 잡거나 놓을 때) 호출
+        currentRightHandGrabbedObjectID.OnValueChanged += OnGrabbedObjectChanged;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        currentRightHandGrabbedObjectID.OnValueChanged -= OnGrabbedObjectChanged;
+        base.OnNetworkDespawn();
+    }
+
+    // 값이 바뀌면 클라이언트에서 IK 타겟을 찾아 연결
+    private void OnGrabbedObjectChanged(ulong oldID, ulong newID)
+    {
+        // 0이면 놓은 것
+        if (newID == 0)
+        {
+            characterIKController.SetHandIKTarget(null);
+            return;
+        }
+
+        // NetworkObjectId로 실제 게임 오브젝트 찾기
+        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(newID, out NetworkObject netObj))
+        {
+            GrabbableObject grabbable = netObj.GetComponent<GrabbableObject>();
+            if (grabbable != null)
+            {
+                // 해당 물체의 GripPoint를 IK 타겟으로 설정
+                characterIKController.SetHandIKTarget(grabbable.gripPoint);
+            }
+        }
+    }
+
+    // [ServerRpc] 클라이언트가 물건을 잡았다고 서버에 알림
+    [ServerRpc]
+    public void NotifyServerOfGrabActionServerRpc(ulong objectID)
+    {
+        if (!IsServer) return;
+        currentRightHandGrabbedObjectID.Value = objectID;
+    }
+
+    // [ServerRpc] 놓았다고 알림
+    [ServerRpc]
+    public void NotifyServerOfReleaseActionServerRpc()
+    {
+        if (!IsServer) return;
+        currentRightHandGrabbedObjectID.Value = 0;
     }
 }
