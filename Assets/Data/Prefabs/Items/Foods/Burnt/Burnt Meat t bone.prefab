@@ -182,6 +182,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   interactableID: 5
   interactableName: 
+  itemData: {fileID: 11400000, guid: 7533d65abf34a3d4cbbc3677c569649f, type: 2}
   handBoneName: B-hand.R
   isHeld:
     m_InternalValue: 0

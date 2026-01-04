@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2cec362ac7992b846b0afc6e07890f59, type: 3}
-  m_Name: GrilledMeat
+  m_Name: GrilledApple
   m_EditorClassIdentifier: Assembly-CSharp::CookingRecipeSO
-  recipeName: Grilled Meat
+  recipeName: 
   stationType: 1
   ingredients:
-  - {fileID: 11400000, guid: 4b392ad8bd8761e4aa8b1540256c520e, type: 2}
-  resultItem: {fileID: 11400000, guid: 6129ea1e8de25bb4da933e481d5ed363, type: 2}
-  burntItem: {fileID: 11400000, guid: 7533d65abf34a3d4cbbc3677c569649f, type: 2}
+  - {fileID: 11400000, guid: 84190840afb1f6243b3ffd5c3e1b9961, type: 2}
+  resultItem: {fileID: 11400000, guid: 4147fc4d74334954ba6706e5715e9e1c, type: 2}
+  burntItem: {fileID: 11400000, guid: ab01ab568100ec84b977d20998b1e80b, type: 2}
   requiredHeatPower: 1
   baseCookingTime: 5
-  burnTimeThreshold: 10
+  burnTimeThreshold: 20

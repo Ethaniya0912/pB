@@ -10,13 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 93bdd751df60a9f46a7e7857ebd7de55, type: 3}
-  m_Name: Grilled Meat
+  m_Name: PorkPorridge
   m_EditorClassIdentifier: Assembly-CSharp::FoodItem
   itemIcon: {fileID: 0}
   itemName: 
-  itemID: 5
-  itemModel: {fileID: 3555162025846880001, guid: 9650200b13060874ebb7bba756d25142,
-    type: 3}
+  itemID: 6
+  itemModel: {fileID: 0}
   isBurnable: 0
   fuelAmount: 0
   isCookable: 0

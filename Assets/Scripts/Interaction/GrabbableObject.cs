@@ -11,6 +11,9 @@ namespace SG
     [RequireComponent(typeof(Rigidbody))]
     public class GrabbableObject : InteractableEntity<GrabbableObject>
     {
+        [Header("Item")]
+        public Item itemData; // ItemSO를 인용, 쿠킹인터액터블에서 데이터 가져오기위함.
+
         [Header("Physics Settings")]
         private Rigidbody rb;
         private Collider col;

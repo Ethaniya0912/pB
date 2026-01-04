@@ -2,11 +2,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "Items/Cooking Recipe")]
+[CreateAssetMenu(menuName = "Items/Food&Cooking/Cooking Recipe")]
 public class CookingRecipeSO : ScriptableObject
 {
     [Header("Recipe Info")]
     public string recipeName;
+    [Tooltip("이 요리를 만들 수 있는 도구")]
+    public CookingStationType stationType;
+
 
     [Header("Ingredients")]
     [Tooltip("요리에 필요한 재료 아이템 리스트")]

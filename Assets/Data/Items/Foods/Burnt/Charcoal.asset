@@ -9,13 +9,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 383931009a4333c4bb7cd9dd9e420bc3, type: 3}
-  m_Name: Pork Porridge
-  m_EditorClassIdentifier: Assembly-CSharp::Item
+  m_Script: {fileID: 11500000, guid: 93bdd751df60a9f46a7e7857ebd7de55, type: 3}
+  m_Name: Charcoal
+  m_EditorClassIdentifier: Assembly-CSharp::FoodItem
   itemIcon: {fileID: 0}
   itemName: 
-  itemID: 0
-  itemModel: {fileID: 4391722420788423925, guid: 7d371d3c07b9cd142a6ca60508c1e175,
+  itemID: 9
+  itemModel: {fileID: 4391722420788423925, guid: 296cd6844cfe4714fa8f3e5e3ee76c1f,
     type: 3}
   isBurnable: 0
   fuelAmount: 0

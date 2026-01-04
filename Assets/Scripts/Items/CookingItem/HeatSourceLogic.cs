@@ -1,10 +1,12 @@
 ﻿using UnityEngine;
 using Unity.Netcode;
+using System;
 
 public class HeatSourceLogic : NetworkBehaviour
 {
     [Header("Settings")]
     [SerializeField] private HeatSourceSO heatSourceData; // 기본 데이터(최대 온도, 연료 소모율 등)
+    [SerializeField] private GameObject heatZoneObject; // 트리거 콜라이더가 있는 자식 오브젝트.
 
     [Header("Network State")]
     public NetworkVariable<bool> IsTurnedOn = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -13,11 +15,23 @@ public class HeatSourceLogic : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        // 1. 상태 변화 감지 이벤트 구독 (모든 클라이언트 및 서버에서 실행)
+        IsTurnedOn.OnValueChanged += OnToggleStateChangedClientRpc;
+        // 2. 초기 상태 동기화(나중에 접속한 클라이언트를 위함)
+        RefreshVisualState(IsTurnedOn.Value);
+
         if (IsServer)
         {
             CurrentTemperature.Value = 0f;
+            IsTurnedOn.OnValueChanged += OnToggleStateChangedClientRpc;
         }
     }
+
+    public override void OnNetworkDespawn()
+    {
+        IsTurnedOn.OnValueChanged -= OnToggleStateChangedClientRpc;
+    }
+
 
     private void Update()
     {
@@ -36,6 +50,7 @@ public class HeatSourceLogic : NetworkBehaviour
 
             if (CurrentFuel.Value <= 0)
             {
+                CurrentFuel.Value = 0f;
                 IsTurnedOn.Value = false; // 연료 고갈
             }
         }
@@ -58,6 +73,19 @@ public class HeatSourceLogic : NetworkBehaviour
         else
         {
             IsTurnedOn.Value = false;
+        }
+    }
+    [Rpc(SendTo.Everyone)]
+    private void OnToggleStateChangedClientRpc(bool previousValue, bool newValue)
+    {
+        RefreshVisualState(newValue);
+    }
+
+    private void RefreshVisualState(bool isOn)
+    {
+        if (heatZoneObject != null)
+        {
+            heatZoneObject.SetActive(isOn);
         }
     }
 }

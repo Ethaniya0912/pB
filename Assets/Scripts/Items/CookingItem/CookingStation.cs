@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using Unity.Netcode;
+using SG;
+using System;
 
 public abstract class CookingStation : NetworkBehaviour
 {
@@ -7,25 +9,49 @@ public abstract class CookingStation : NetworkBehaviour
     public NetworkVariable<CookingState> currentCookingState = new NetworkVariable<CookingState>(CookingState.Empty);
     public NetworkVariable<float> cookingProgress = new NetworkVariable<float>(0f); // 0.0f ~ 1.0f
 
+    [Header("Detection Proxies")]
+    [SerializeField] private TriggerProxy heatDetectorProxy; // 바닥쪽 열원 감지기
+
     protected HeatSourceLogic currentHeatSource; // 감지된 열원
     protected Item currentIngredient; // 현재 올려진 아이템 (SO)
+    public abstract CookingStationType StationType { get; } // 자식클래스(pot,grill)이 자신 타입 반환 설정.
 
-    // Trigger로 열원 감지 (물리적 접촉 시)
-    private void OnTriggerEnter(Collider other)
+    public override void OnNetworkSpawn()
     {
-        if (!IsServer) return;
-        if (other.TryGetComponent(out HeatSourceLogic heatSource))
+        base.OnNetworkSpawn();
+        if (IsServer && heatDetectorProxy != null)
         {
-            currentHeatSource = heatSource;
+            heatDetectorProxy.OnProxyTriggerEnter += HandleHeatSourceEnter;
+            Debug.Log("힛소스엔터구독완료");
+            heatDetectorProxy.OnProxyTriggerExit += HandleHeatSourceExit;
         }
     }
 
-    private void OnTriggerExit(Collider other)
+    public override void OnNetworkDespawn()
     {
-        if (!IsServer) return;
-        if (other.TryGetComponent(out HeatSourceLogic heatSource))
+        base.OnNetworkDespawn();
+
+        if (IsServer && heatDetectorProxy != null)
         {
-            if (currentHeatSource == heatSource)
+            heatDetectorProxy.OnProxyTriggerEnter -= HandleHeatSourceEnter;
+            heatDetectorProxy.OnProxyTriggerExit -= HandleHeatSourceExit;
+        }
+    }
+
+    // Trigger로 열원 감지 (물리적 접촉 시)
+    private void HandleHeatSourceEnter(Collider other)
+    {
+        if (other.GetComponentInParent<HeatSourceLogic>() is HeatSourceLogic heatSource)
+        {
+            currentHeatSource = heatSource;
+            Debug.Log($"[Cooking] {gameObject.name}가 열원 위에 놓임");
+        }
+    }
+
+    private void HandleHeatSourceExit(Collider other)
+    {
+        if (other.GetComponentInParent<HeatSourceLogic>() == currentHeatSource)
+        {
                 currentHeatSource = null;
         }
     }
@@ -57,4 +83,7 @@ public abstract class CookingStation : NetworkBehaviour
         currentCookingState.Value = CookingState.Empty;
         cookingProgress.Value = 0f;
     }
+
+    public abstract void OnItemPlaced(GrabbableObject grabbable);
+
 }
