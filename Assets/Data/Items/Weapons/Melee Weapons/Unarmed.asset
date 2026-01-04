@@ -12,14 +12,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0521bce82b017894eaf42cbd3cfc46de, type: 3}
   m_Name: Unarmed
   m_EditorClassIdentifier: 
-  itemName: 
   itemIcon: {fileID: 0}
-  itemDescription: 
+  itemName: 
   itemID: 0
+  itemModel: {fileID: 0}
   weaponModel: {fileID: 7323943226636796289, guid: 6ca4be344163c4712a88384d1dd9df13,
     type: 3}
   muscleReq: 0
   physicalDamage: 0
   elementalDamage: 0
   poiseDamage: 10
+  light_Attack_01_Modifier: 1.1
+  light_Attack_02_Modifier: 1.2
+  heavy_Attack_01_Modifier: 1.4
+  heavy_Attack_02_Modifier: 1.6
+  charge_Attack_01_Modifier: 2.5
+  charge_Attack_02_Modifier: 2.7
   baseStaminaCost: 20
+  lightAttackStaminaCostMultiplier: 0.9
+  oh_RB_Action: {fileID: 0}
+  oh_RT_Action: {fileID: 0}

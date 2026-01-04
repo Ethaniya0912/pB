@@ -13,9 +13,9 @@ public class PlayerCamera : MonoBehaviour
 
     // 카메라 퍼포먼스 수정용
     [Header("Camera Setting")]
-    private float cameraSmoothSpeed = 1.0f; // 숫자가 클수록 카메라가 포지션에 도달하는 시간증가
-    [SerializeField] float leftAndRightRotationSpeed = 220;
-    [SerializeField] float upAndDownRotationSpeed = 220;
+    private float cameraSmoothSpeed = 5.0f; // 숫자가 클수록 카메라가 포지션에 도달하는 시간증가
+    [SerializeField] float leftAndRightRotationSpeed = 22;
+    [SerializeField] float upAndDownRotationSpeed = 44;
     [SerializeField] float minimumPivot = -30; // 아래로 볼 수있는 최저값
     [SerializeField] float maximumPivot = 60; // 위로 볼 수 있는 최고값
     [SerializeField] float cameraCollisionRadius = 0.2f;
@@ -61,6 +61,7 @@ public class PlayerCamera : MonoBehaviour
     private void Start()
     {
         DontDestroyOnLoad(gameObject);
+        cameraZPosition = cameraObject.transform.localPosition.z;
     }
 
     public void HandleAllCameraActions()
@@ -144,7 +145,7 @@ public class PlayerCamera : MonoBehaviour
         targetCameraZPosition = cameraZPosition;
         RaycastHit hit;
         // 콜리션의 방향 체크
-        Vector3 direction = cameraObject.transform.forward - cameraPivotTransform.position;
+        Vector3 direction = cameraObject.transform.position - cameraPivotTransform.position;
         direction.Normalize();
 
         // 우리가 원하는 방향에 오브젝트가 있는지 체크한다.

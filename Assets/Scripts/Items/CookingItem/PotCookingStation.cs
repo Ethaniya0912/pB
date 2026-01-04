@@ -1,9 +1,10 @@
-﻿using UnityEngine;
+﻿using SG;
+using UnityEngine;
 
 public class PotCookingStation : CookingStation
 {
+    public override CookingStationType StationType => CookingStationType.Pot;
     [SerializeField] private float boilTime = 10.0f;
-
     protected override void HandleCookingLogic()
     {
         // 열원이 없거나 켜져있지 않으면 진행 불가
@@ -33,5 +34,10 @@ public class PotCookingStation : CookingStation
             case CookingState.Cooked:
                 break;
         }
+    }
+
+    public override void OnItemPlaced(GrabbableObject grabbable)
+    {
+        throw new System.NotImplementedException();
     }
 }

@@ -102,6 +102,7 @@ public class PlayerInputManager : MonoBehaviour
 
             // 액션
             playerControls.PlayerMoveMent.Movement.performed += i => movementInput = i.ReadValue<Vector2>();
+            playerControls.PlayerCamera.Movement.performed += i => cameraInput = i.ReadValue<Vector2>();
             playerControls.PlayerAction.Dodge.performed += i => dodgeInput = true;
             playerControls.PlayerAction.SwitchRightWeapon.performed += i => switch_Right_Weapon_Input = true;
             playerControls.PlayerAction.SwitchLeftWeapon.performed += i => switch_Left_Weapon_Input = true;

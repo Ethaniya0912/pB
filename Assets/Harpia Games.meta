@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<< HEAD
 guid: 608970f5b6b590944835554404ba2f3e
+=======
+guid: 4155bef5afd9c2d48b76096cfe331d5a
+>>>>>>> feature/s3_HeatSource&Cooking
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

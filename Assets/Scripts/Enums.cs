@@ -57,3 +57,9 @@ public enum CookingState
     Cooked,         //  조리 완료
     Burnt           //  탐 (굽기 전용)
 }
+
+public enum CookingStationType
+{
+    Pot,            //  냄비 (끓이기)
+    Grill,          //  석쇠 (굽기)
+}
