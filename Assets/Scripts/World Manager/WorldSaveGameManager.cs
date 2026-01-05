@@ -8,10 +8,18 @@ using Unity.Netcode;
 using SG;
 using System;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 public class WorldSaveGameManager : MonoBehaviour
 {
     public PlayerManager player;
     public static WorldSaveGameManager Instance { get; set; }
+
+    [Header("Debug Scene Warp")]
+    [HideInInspector] public int selectedSceneIndex;
+    [HideInInspector] public string[] sceneNames;
 
     [Header("Save/Load")]
     [SerializeField] bool saveGame;
@@ -381,4 +389,115 @@ public class WorldSaveGameManager : MonoBehaviour
     {
         return worldSceneIndex;
     }
+
+    /// <summary>
+    /// 특정 인덱스가 플레이 가능한 월드씬인지 판별.
+    /// </summary>
+    public bool IsWorldScene(int buildIndex)
+    {
+        // 기본 월드 씬이거나, 디버그용으로 등록된 다른 월드씬 인덱스 들을 체크
+        // 필요시 List<int> worldScenes 형태로 관리 가능
+        return buildIndex == worldSceneIndex || buildIndex > 0;
+        // 보통 0번은 메인메뉴, 0보다 크면 월드로 간주하는 로직.
+    }
+
+    // NGO 2.0에서는 서버(호스트)가 씬 전환을 주도해야 모든 클라이언트가 동기화됩니다.
+    public void DebugWarpToSelectedScene()
+    {
+        if (sceneNames == null || sceneNames.Length == 0) return;
+
+        string targetSceneName = sceneNames[selectedSceneIndex];
+        int targetIndex = -1;
+
+        // 씬 이름을 통해 빌드 인덱스 찾기
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string path = SceneUtility.GetScenePathByBuildIndex(i);
+            if (path.Contains(targetSceneName))
+            {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        if (targetIndex == -1) return;
+
+        // NGO 2.0 네트워크 씬 로딩
+        if (NetworkManager.Singleton != null && (NetworkManager.Singleton.IsServer || NetworkManager.Singleton.IsHost))
+        {
+            Debug.Log($"[Debug Warp] {targetSceneName} (Index: {targetIndex})으로 모든 클라이언트 이동");
+            NetworkManager.Singleton.SceneManager.LoadScene(targetSceneName, LoadSceneMode.Single);
+        }
+        else
+        {
+            Debug.Log($"[Debug Warp] 오프라인 상태로 {targetSceneName} 이동");
+            SceneManager.LoadScene(targetIndex);
+        }
+    }
 }
+
+#region Editor Customization
+#if UNITY_EDITOR
+[CustomEditor(typeof(WorldSaveGameManager))]
+public class WorldSaveGameManagerEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        base.OnInspectorGUI();
+
+        WorldSaveGameManager manager = (WorldSaveGameManager)target;
+
+        EditorGUILayout.Space(20);
+        EditorGUILayout.LabelField("DEBUG SCENE LOADER", EditorStyles.boldLabel);
+
+        // 빌드 설정의 모든 씬 가져오기
+        manager.sceneNames = GetBuildSceneNames();
+
+        if (manager.sceneNames != null && manager.sceneNames.Length > 0)
+        {
+            // 현재 활성화된 씬 표시
+            string currentScene = SceneManager.GetActiveScene().name;
+            EditorGUILayout.HelpBox($"Current Scene: {currentScene}", MessageType.Info);
+
+            // 드롭다운 메뉴
+            manager.selectedSceneIndex = EditorGUILayout.Popup("Target Scene", manager.selectedSceneIndex, manager.sceneNames);
+
+            // 워프 버튼
+            GUI.color = Color.green;
+            if (GUILayout.Button("Warp to Selected Scene"))
+            {
+                if (EditorApplication.isPlaying)
+                {
+                    manager.DebugWarpToSelectedScene();
+                }
+                else
+                {
+                    Debug.LogWarning("게임이 실행 중일 때만 워프가 가능합니다.");
+                }
+            }
+            GUI.color = Color.white;
+        }
+        else
+        {
+            EditorGUILayout.HelpBox("Build Settings에 활성화된 씬이 없습니다.", MessageType.Error);
+        }
+    }
+
+    private string[] GetBuildSceneNames()
+    {
+        List<string> tempScenes = new List<string>();
+        foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
+        {
+            if (scene.enabled)
+            {
+                string name = System.IO.Path.GetFileNameWithoutExtension(scene.path);
+                tempScenes.Add(name);
+            }
+        }
+        return tempScenes.ToArray();
+    }
+}
+#endif
+    #endregion
+
+
