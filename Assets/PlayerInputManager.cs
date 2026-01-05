@@ -72,7 +72,8 @@ public class PlayerInputManager : MonoBehaviour
     {
         Debug.Log(WorldSaveGameManager.Instance.GetWorldSceneIndex());
         // 만약 우리가 월드씬을 로딩한다면, 플레이어 컨트롤를 활성화합니다.
-        if (newScene.buildIndex == WorldSaveGameManager.Instance.GetWorldSceneIndex())
+        //if (newScene.buildIndex == WorldSaveGameManager.Instance.GetWorldSceneIndex())
+        if (WorldSaveGameManager.Instance.IsWorldScene(newScene.buildIndex))
         {
             Instance.enabled = true;
 
