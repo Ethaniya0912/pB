@@ -1,19 +1,7 @@
 fileFormatVersion: 2
 guid: 6150d8fcbd749294daf3ae901c459971
-<<<<<<< HEAD
-AssetOrigin:
-  serializedVersion: 1
-  productId: 258198
-  packageName: Camping Low Poly - Survival, Nature & Hiking 3D models
-  packageVersion: 1.02
-  assetPath: Assets/Harpia Games/Camping Pack/Meshes/Cooking/Pan.fbx
-  uploadId: 808586
-ModelImporter:
-  serializedVersion: 24200
-=======
 ModelImporter:
   serializedVersion: 22200
->>>>>>> feature/s3_HeatSource&Cooking
   internalIDToNameTable: []
   externalObjects: {}
   materials:
@@ -28,11 +16,8 @@ ModelImporter:
     optimizeGameObjects: 1
     removeConstantScaleCurves: 1
     motionNodeName: 
-<<<<<<< HEAD
-=======
     rigImportErrors: 
     rigImportWarnings: 
->>>>>>> feature/s3_HeatSource&Cooking
     animationImportErrors: 
     animationImportWarnings: 
     animationRetargetingWarnings: 
@@ -73,12 +58,6 @@ ModelImporter:
     maxBonesPerVertex: 4
     minBoneWeight: 0.001
     optimizeBones: 1
-<<<<<<< HEAD
-    generateMeshLods: 0
-    meshLodGenerationFlags: 0
-    maximumMeshLod: -1
-=======
->>>>>>> feature/s3_HeatSource&Cooking
     meshOptimizationFlags: -1
     indexFormat: 1
     secondaryUVAngleDistortion: 8
@@ -91,22 +70,13 @@ ModelImporter:
     useFileScale: 1
     strictVertexDataChecks: 0
   tangentSpace:
-<<<<<<< HEAD
-    normalSmoothAngle: 90
-    normalImportMode: 1
-=======
     normalSmoothAngle: 0
     normalImportMode: 0
->>>>>>> feature/s3_HeatSource&Cooking
     tangentImportMode: 3
     normalCalculationMode: 4
     legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
     blendShapeNormalImportMode: 1
-<<<<<<< HEAD
-    normalSmoothingSource: 0
-=======
     normalSmoothingSource: 3
->>>>>>> feature/s3_HeatSource&Cooking
   referencedClips: []
   importAnimation: 1
   humanDescription:
@@ -137,8 +107,6 @@ ModelImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-<<<<<<< HEAD
-=======
 AssetOrigin:
   serializedVersion: 1
   productId: 258198
@@ -146,4 +114,3 @@ AssetOrigin:
   packageVersion: 1.02
   assetPath: Assets/Harpia Games/Camping Pack/Meshes/Cooking/Pan.fbx
   uploadId: 808586
->>>>>>> feature/s3_HeatSource&Cooking

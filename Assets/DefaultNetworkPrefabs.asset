@@ -11,9 +11,15 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e651dbb3fbac04af2b8f5abf007ddc23, type: 3}
   m_Name: DefaultNetworkPrefabs
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkPrefabsList
   IsDefault: 1
   List:
+  - Override: 0
+    Prefab: {fileID: 8251863523694115725, guid: e164deeb801fd3d46a7104b179752b50,
+      type: 3}
+    SourcePrefabToOverride: {fileID: 0}
+    SourceHashToOverride: 0
+    OverridingTargetPrefab: {fileID: 0}
   - Override: 0
     Prefab: {fileID: 4233442530097016134, guid: 8cbb9a76a8d75794b8deca5be1d2fa6d,
       type: 3}
@@ -27,44 +33,13 @@ MonoBehaviour:
     SourceHashToOverride: 0
     OverridingTargetPrefab: {fileID: 0}
   - Override: 0
-    Prefab: {fileID: 8286174861153668228, guid: 3318d12126834414399665f3559c9c97,
-      type: 3}
-    SourcePrefabToOverride: {fileID: 0}
-    SourceHashToOverride: 0
-    OverridingTargetPrefab: {fileID: 0}
-  - Override: 0
-<<<<<<< HEAD
-    Prefab: {fileID: 8445032910583245844, guid: 8df95e07256c0bf45a986a9702d3592e,
-=======
-    Prefab: {fileID: 4351801899775939308, guid: 7860a69c8f022fc4c8578fe356ee1c51,
->>>>>>> feature/s3_HeatSource&Cooking
-      type: 3}
-    SourcePrefabToOverride: {fileID: 0}
-    SourceHashToOverride: 0
-    OverridingTargetPrefab: {fileID: 0}
-  - Override: 0
-<<<<<<< HEAD
-    Prefab: {fileID: 1926892131336602557, guid: fdb72b41123e5604eab649b7753dcae2,
-=======
-    Prefab: {fileID: 4392899847572615198, guid: 163db9d51b94aa34ca0f4e06e4251987,
-      type: 3}
-    SourcePrefabToOverride: {fileID: 0}
-    SourceHashToOverride: 0
-    OverridingTargetPrefab: {fileID: 0}
-  - Override: 0
-    Prefab: {fileID: 4391722420788423925, guid: 7d371d3c07b9cd142a6ca60508c1e175,
-      type: 3}
-    SourcePrefabToOverride: {fileID: 0}
-    SourceHashToOverride: 0
-    OverridingTargetPrefab: {fileID: 0}
-  - Override: 0
     Prefab: {fileID: 4067316417815380429, guid: 54ecc897446d34a41a0f4faf7dc2a517,
       type: 3}
     SourcePrefabToOverride: {fileID: 0}
     SourceHashToOverride: 0
     OverridingTargetPrefab: {fileID: 0}
   - Override: 0
-    Prefab: {fileID: 3555162025846880001, guid: 9650200b13060874ebb7bba756d25142,
+    Prefab: {fileID: 4391722420788423925, guid: 296cd6844cfe4714fa8f3e5e3ee76c1f,
       type: 3}
     SourcePrefabToOverride: {fileID: 0}
     SourceHashToOverride: 0
@@ -76,14 +51,37 @@ MonoBehaviour:
     SourceHashToOverride: 0
     OverridingTargetPrefab: {fileID: 0}
   - Override: 0
-    Prefab: {fileID: 8251863523694115725, guid: e164deeb801fd3d46a7104b179752b50,
+    Prefab: {fileID: 3555162025846880001, guid: 9650200b13060874ebb7bba756d25142,
       type: 3}
     SourcePrefabToOverride: {fileID: 0}
     SourceHashToOverride: 0
     OverridingTargetPrefab: {fileID: 0}
   - Override: 0
-    Prefab: {fileID: 4391722420788423925, guid: 296cd6844cfe4714fa8f3e5e3ee76c1f,
->>>>>>> feature/s3_HeatSource&Cooking
+    Prefab: {fileID: 4391722420788423925, guid: 7d371d3c07b9cd142a6ca60508c1e175,
+      type: 3}
+    SourcePrefabToOverride: {fileID: 0}
+    SourceHashToOverride: 0
+    OverridingTargetPrefab: {fileID: 0}
+  - Override: 0
+    Prefab: {fileID: 4351801899775939308, guid: 7860a69c8f022fc4c8578fe356ee1c51,
+      type: 3}
+    SourcePrefabToOverride: {fileID: 0}
+    SourceHashToOverride: 0
+    OverridingTargetPrefab: {fileID: 0}
+  - Override: 0
+    Prefab: {fileID: 4392899847572615198, guid: 163db9d51b94aa34ca0f4e06e4251987,
+      type: 3}
+    SourcePrefabToOverride: {fileID: 0}
+    SourceHashToOverride: 0
+    OverridingTargetPrefab: {fileID: 0}
+  - Override: 0
+    Prefab: {fileID: 8286174861153668228, guid: 3318d12126834414399665f3559c9c97,
+      type: 3}
+    SourcePrefabToOverride: {fileID: 0}
+    SourceHashToOverride: 0
+    OverridingTargetPrefab: {fileID: 0}
+  - Override: 0
+    Prefab: {fileID: 8445032910583245844, guid: 8df95e07256c0bf45a986a9702d3592e,
       type: 3}
     SourcePrefabToOverride: {fileID: 0}
     SourceHashToOverride: 0
