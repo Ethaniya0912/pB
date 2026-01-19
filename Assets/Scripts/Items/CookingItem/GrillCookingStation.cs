@@ -54,7 +54,7 @@ public class GrillCookingStation : CookingStation
         ResetCookingState();
     }
 
-    public override void OnItemPlaced(GrabbableObject grabbable)
+    public override void OnItemPlaced(InteractableItem grabbable)
     {
         if (!IsServer) return; // 서버가 아니면 리턴.
 
@@ -233,7 +233,7 @@ public class GrillCookingStation : CookingStation
         netObj.Spawn();
 
         // 물리 고정 및 데이터 연결
-        if (newObj.TryGetComponent(out GrabbableObject grabbable))
+        if (newObj.TryGetComponent(out InteractableItem grabbable))
         {
             grabbable.itemData = nextItem;
             SnapItem(newObj.transform, newObj.GetComponent<Rigidbody>());

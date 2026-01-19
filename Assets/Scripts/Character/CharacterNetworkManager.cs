@@ -235,7 +235,7 @@ public class CharacterNetworkManager : NetworkBehaviour
         // NetworkObjectId로 실제 게임 오브젝트 찾기
         if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(newID, out NetworkObject netObj))
         {
-            GrabbableObject grabbable = netObj.GetComponent<GrabbableObject>();
+            InteractableItem grabbable = netObj.GetComponent<InteractableItem>();
             if (grabbable != null)
             {
                 // 해당 물체의 GripPoint를 IK 타겟으로 설정

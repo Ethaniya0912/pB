@@ -10,7 +10,7 @@ namespace SG
         PlayerManager player;
 
         [Header("Held Object")]
-        public GrabbableObject currentlyHeldObject;
+        public InteractableItem currentlyHeldObject;
 
         [Header("Interaction Settings")]
         [SerializeField][Range(0f, 1f)] float viewThreshold = 0.5f; // [Step 7] 0.5는 약 60도(전방 부채꼴)
@@ -52,7 +52,7 @@ namespace SG
                 if (currentInteractableObject.GetComponent<NetworkObject>().IsSpawned)
                 {
                     // [Fix] GrabbableObject인 경우 로직 분리
-                    if (currentInteractableObject is GrabbableObject grabbable)
+                    if (currentInteractableObject is InteractableItem grabbable)
                     {
                         if (grabbable.isHeld.Value)
                         {
@@ -78,7 +78,7 @@ namespace SG
         }
 
         // [Step 7 수정] IK와 애니메이션 싱크를 맞추는 코루틴
-        private IEnumerator HandleGrabIKProcess(GrabbableObject targetItem)
+        private IEnumerator HandleGrabIKProcess(InteractableItem targetItem)
         {
             Debug.Log("[PlayerInteraction] IK로 잡기 프로세스를 시작합니다.");
 
@@ -213,11 +213,11 @@ namespace SG
 
             if (closestInteractable != currentInteractableObject) // 변경된 경우에만
             {
-                currentInteractableObject?.transform.GetComponent<GrabbableObject>()?.SetHighlight(0.0f); // 이전 오브젝트 하이라이트 해제
+                currentInteractableObject?.transform.GetComponent<InteractableItem>()?.SetHighlight(0.0f); // 이전 오브젝트 하이라이트 해제
 
                 currentInteractableObject = closestInteractable; // 최신 오브젝트로 갱신
 
-                currentInteractableObject?.transform.GetComponent<GrabbableObject>()?.SetHighlight(1.0f); // 새 오브젝트 하이라이트 설정
+                currentInteractableObject?.transform.GetComponent<InteractableItem>()?.SetHighlight(1.0f); // 새 오브젝트 하이라이트 설정
 
                 // TODO: UI 업데이트 (E키 표시 등)
 

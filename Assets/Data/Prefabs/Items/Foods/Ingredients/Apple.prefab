@@ -176,13 +176,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 4351801899775939308}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cd5e2b395950cd94d9ab022b42d0f498, type: 3}
+  m_Script: {fileID: 11500000, guid: d635aba71060f2d4f9e280f8738fd9a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SG.GrabbableObject
   ShowTopMostFoldoutHeaderGroup: 1
-  interactableID: 2
+  interactableID: 0
   interactableName: 
   itemData: {fileID: 11400000, guid: 84190840afb1f6243b3ffd5c3e1b9961, type: 2}
-  handBoneName: B-hand.R
+  handBoneName: Weapon Instantiation Slot
   isHeld:
     m_InternalValue: 0
+  gripPoint: {fileID: 0}

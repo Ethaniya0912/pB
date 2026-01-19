@@ -36,7 +36,7 @@ public class PotCookingStation : CookingStation
         }
     }
 
-    public override void OnItemPlaced(GrabbableObject grabbable)
+    public override void OnItemPlaced(InteractableItem grabbable)
     {
         throw new System.NotImplementedException();
     }

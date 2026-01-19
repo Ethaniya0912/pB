@@ -49,16 +49,16 @@ public class CookingStationInteractable : InteractableEntity<CookingStationInter
         if (!NetworkManager.Singleton.IsServer) return;
 
         // 1. GrabbableObject인지 확인
-        if (other.TryGetComponent(out GrabbableObject grabbable))
+        if (other.TryGetComponent(out InteractableItem interactableItem))
         {
             // 누군가 잡고 있다면(아직 손에 들고 있다면) 무시
-            if (grabbable.isHeld.Value) return;
+            if (interactableItem.isHeld.Value) return;
 
             // 2. 이미 조리 중이면 추가 아이템 무시
             if (cookingStation.currentCookingState.Value != CookingState.Empty) return;
 
             // 3. 아이템 ID 식별 및 Item 객체 확보(GrabbableObject에 ItemSO참조가 있다가정)
-            Item itemData = grabbable.itemData;
+            Item itemData = interactableItem.itemData;
             
 /*            else if (other.TryGetComponent(out PickUpItemInteractable pickUp))
             {
@@ -104,7 +104,7 @@ public class CookingStationInteractable : InteractableEntity<CookingStationInter
                 //} 레거시코드
 
                 // 타입별분기/어떻게 놓을지등 도구에 전임.
-                cookingStation.OnItemPlaced(grabbable); 
+                cookingStation.OnItemPlaced(interactableItem); 
             }
         }
     }
@@ -116,7 +116,7 @@ public class CookingStationInteractable : InteractableEntity<CookingStationInter
 
         if (cookingStation is GrillCookingStation grill)
         {
-            if (other.TryGetComponent(out GrabbableObject grabbable))
+            if (other.TryGetComponent(out InteractableItem grabbable))
             {
                 // 나가는 물체가 현재 등록된 물체라면 등록 해제
                 if (grabbable.NetworkObjectId == grill.targetItemNetworkObjectId.Value)

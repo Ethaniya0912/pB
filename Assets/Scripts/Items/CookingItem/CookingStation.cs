@@ -84,6 +84,6 @@ public abstract class CookingStation : NetworkBehaviour
         cookingProgress.Value = 0f;
     }
 
-    public abstract void OnItemPlaced(GrabbableObject grabbable);
+    public abstract void OnItemPlaced(InteractableItem grabbable);
 
 }

@@ -131,12 +131,12 @@ public class WorldItemDatabase : MonoBehaviour
             if (item == null || item.itemModel == null) continue;
 
             // 아이템 SO가 가진 모델(프리팹)에서 GrabbableObject를 찾음
-            if (item.itemModel.TryGetComponent(out GrabbableObject grabbable))
+            if (item.itemModel.TryGetComponent(out InteractableItem interactableItem))
             {
                 // 프리팹의 변수에 자기 자신(SO)을 자동으로 할당
-                if (grabbable.itemData != item)
+                if (interactableItem.itemData != item)
                 {
-                    grabbable.itemData = item;
+                    interactableItem.itemData = item;
                     // 프리팹 파일 자체를 수정했으므로 Dirty 설정
                     EditorUtility.SetDirty(item.itemModel);
                     linkCount++;
