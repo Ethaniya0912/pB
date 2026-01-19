@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -62,4 +62,15 @@ public enum CookingStationType
 {
     Pot,            //  냄비 (끓이기)
     Grill,          //  석쇠 (굽기)
+}
+
+public enum GameState
+{
+    Normal,
+    Chase,
+    LockOn,
+    Inventory,
+    Table,
+    Cooking,
+    CinematicFocus,
 }

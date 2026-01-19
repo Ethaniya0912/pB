@@ -1,4 +1,5 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -7,6 +8,7 @@ public class PlayerCamera : MonoBehaviour
 {
     public static PlayerCamera Instance { get; private set; }
 
+    [Header("References")]
     public Camera cameraObject;
     public PlayerManager player;
     [SerializeField] Transform cameraPivotTransform;
@@ -45,6 +47,19 @@ public class PlayerCamera : MonoBehaviour
     public CharacterManager leftLockOnTarget;
     public CharacterManager rightLockOnTarget;
 
+    [Header("Dynamic Contextual Settings")]
+    private Transform currentFocusTarget;
+    private Vector3 currentOffset;
+    private float targetFOV;
+    private float defaultFOV = 60;
+    private float currentLerpSpeed = 5f;
+    private bool isContexualMode = false;
+
+    [Header("Effects")]
+    private float shakeIntensity = 0f;
+    private float shakeDuration = 0f;
+    private float bodycamWeight = 0f; // 바디캠 스타일 노이즈 가중치.
+
     private void Awake()
     {
         // 싱글턴
@@ -56,12 +71,29 @@ public class PlayerCamera : MonoBehaviour
         {
             Destroy(gameObject);
         }
+
+        if (cameraObject != null)
+        {
+            defaultFOV = cameraObject.fieldOfView;
+
+            targetFOV = defaultFOV;
+        }
     }
 
     private void Start()
     {
         DontDestroyOnLoad(gameObject);
-        cameraZPosition = cameraObject.transform.localPosition.z;
+
+        if (cameraObject != null)
+        {
+            cameraZPosition = cameraObject.transform.localPosition.z;
+        }
+
+        // 월드 매니저가 존재한다면 자신을 등록
+        if (WorldCameraManager.Instance != null)
+        {
+            WorldCameraManager.Instance.RegisterLocalCamera(this);
+        }
     }
 
     public void HandleAllCameraActions()
@@ -71,26 +103,80 @@ public class PlayerCamera : MonoBehaviour
             HandleFollowTarget();
             HandleRotation();
             HandleCollision();
+            HandleEffects();
         }
         // 유저 따라오기
         // 플레이어 주변 로테이션
         // 오브젝트와 충돌(통과x)
     }
 
+    private void HandleEffects()
+    {
+        // FOV 업데이트
+        if (cameraObject != null)
+        {
+            cameraObject.fieldOfView = Mathf.Lerp(cameraObject.fieldOfView, targetFOV, Time.deltaTime * currentLerpSpeed);
+        }
+
+        // 셰이크 처리
+
+        if (shakeDuration > 0)
+        {
+            cameraObject.transform.localPosition = cameraObjectPosition + (UnityEngine.Random.insideUnitSphere * shakeIntensity);
+            shakeDuration -= Time.deltaTime;
+        }
+
+        else
+        {
+            cameraObject.transform.localPosition = cameraObjectPosition;
+        }
+
+        // 바디캠 스타일 노이즈 (추후 펄린 노이즈나 바이캠웨이트 이용해서 구현 가능)
+    }
+
     private void HandleFollowTarget()
     {
-        Vector3 targetCameraPosition = Vector3.SmoothDamp(
-            transform.position,
-            player.transform.position,
-            ref cameraVelocity,
-            cameraSmoothSpeed * Time.deltaTime
-            );
-        transform.position = targetCameraPosition;
+        if(isContexualMode && currentFocusTarget != null)
+        {
+            // [상황별 포커싱] 타겟의 회전값을 반영한 오프셋 좌표로 이동
+            Vector3 desiredPosition = currentFocusTarget.position + (currentFocusTarget.rotation * currentOffset);
+            transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * currentLerpSpeed);
+        }
+
+        else
+        {
+            Vector3 targetCameraPosition = Vector3.SmoothDamp(
+                transform.position,
+                player.transform.position,
+                ref cameraVelocity,
+                cameraSmoothSpeed * Time.deltaTime
+                );
+            transform.position = targetCameraPosition; 
+        }
     }
 
     private void HandleRotation()
     {
-        if (player.playerNetworkManager.isLockedOn.Value)
+        if(isContexualMode && currentFocusTarget != null)
+        {
+            // [상황별 포커싱] 타겟 오브젝트를 위에서 아래로 바라보도록
+            // 현재 카메라 위치에서 타겟오브젝트를 향하는 벡터
+            Vector3 direction = (currentFocusTarget.position - transform.position).normalized;
+
+            if (direction != Vector3.zero)
+            {
+                // 타겟을 향해 비스듬히 아래를 보는 회전값 생성
+                Quaternion targetRotation = Quaternion.LookRotation(direction);
+
+                // transform.rotation(카메라 전체)과 피봇 로테이션을 부드럽게 수렴시킴
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * currentLerpSpeed);
+
+                // 피봇이 따로 놀지 않도록 정면(0,0,0)으로 서서히 정렬
+                cameraPivotTransform.localRotation = Quaternion.Slerp(cameraPivotTransform.localRotation, Quaternion.identity, Time.deltaTime * currentLerpSpeed);
+            }
+        }
+
+        else if (player.playerNetworkManager.isLockedOn.Value)
         {
             // 해당 게임 오브젝트를 로테이트함
             Vector3 rotationDirection = player.playerCombatManager.currentTarget.characterCombatManager.lockOnTransform.position - transform.position;
@@ -372,4 +458,47 @@ public class PlayerCamera : MonoBehaviour
 
         yield return null;
     }
+
+    #region API for WorldCameraManager (Called from Manager)
+    /// <summary>
+    /// 외부 시스템에서 특정 오브젝트를 주시하도록 명령할 때 호출됩니다.
+    /// </summary>
+
+    internal void SetContextualFocus(Transform target, float fov, float speed, Vector3 offset)
+    {
+        currentFocusTarget = target;
+
+        targetFOV = fov;
+
+        currentLerpSpeed = speed;
+
+        currentOffset = offset;
+
+        isContexualMode = true;
+    }
+
+    internal void ClearContextualFocus()
+    {
+        isContexualMode = false;
+
+        currentFocusTarget = null;
+
+        targetFOV = defaultFOV;
+
+        // 다음 프레임부터 HandleFollowTarget이 다시 플레이어를 쫓음.
+    }
+
+    internal void Shake(float intensity, float duration)
+    {
+        shakeIntensity = intensity;
+
+        shakeDuration = duration;
+    }
+
+    internal void SetBodycamWeight(float weight)
+    {
+        bodycamWeight = weight;
+    }
+
+    #endregion
 }
