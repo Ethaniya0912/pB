@@ -1,7 +1,15 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+
+/// <summary>
+/// [Layer 1: Input Layer]
+/// InputAction Editor에서 생성된 PlayerControls를 기반으로 하드웨어 입력을 수집합니다.
+/// 이 클래스는 어떠한 게임 로직(타겟팅, 공격 판정 등)도 직접 수행하지 않습니다.
+/// 오직 발생한 '사건(Event)'을 해당 도메인 매니저(Combat, Locomotion 등)에게 전달하는 책임만 집니다.
+/// 모든 함수 호출은 'On___InputReceived' 형식을 준수하여 통일성을 확보합니다.
+/// </summary>
 
 public class PlayerInputManager : MonoBehaviour
 {
@@ -13,31 +21,41 @@ public class PlayerInputManager : MonoBehaviour
 
     PlayerControls playerControls;
 
-    [Header("Camera Movement Input")]
-    [SerializeField] Vector2 cameraInput;
-    public float cameraVerticalInput;
-    public float cameraHorizontalInput;
+    /*    [Header("Camera Movement Input")]
+        [SerializeField] Vector2 cameraInput;
+        public float cameraVerticalInput;
+        public float cameraHorizontalInput;
 
-    [Header("Lock On Input")]
-    [SerializeField] bool lockOn_Input;
-    [SerializeField] bool lockOn_Left_Input;
-    [SerializeField] bool lockOn_Right_Input;
-    private Coroutine lockOnCoroutine;
+        [Header("Lock On Input")]
+        [SerializeField] bool lockOn_Input;
+        [SerializeField] bool lockOn_Left_Input;
+        [SerializeField] bool lockOn_Right_Input;
+        private Coroutine lockOnCoroutine;
 
-    [Header("Player Movement Input")]
-    [SerializeField] Vector2 movementInput;
+        [Header("Player Movement Input")]
+        [SerializeField] Vector2 movementInput;
+        public float verticalInput;
+        public float horizontalInput;
+        public float moveAmount;
+
+        [Header("Player Action Input")]
+        [SerializeField] bool dodgeInput;
+        [SerializeField] bool RB_Input = false;
+        [SerializeField] bool RT_Input = false;
+        [SerializeField] bool Hold_RT_Input = false;
+        [SerializeField] bool switch_Right_Weapon_Input = false;
+        [SerializeField] bool switch_Left_Weapon_Input = false;
+        [SerializeField] bool interaction_Input = false;*/
+
+    [Header("Movement Signal Data")]
+    public Vector2 movementInput;
     public float verticalInput;
-    public float horizontalInput;
-    public float moveAmount;
+    public float horzontalInput;
+    public float movaAmount;
 
-    [Header("Player Action Input")]
-    [SerializeField] bool dodgeInput;
-    [SerializeField] bool RB_Input = false;
-    [SerializeField] bool RT_Input = false;
-    [SerializeField] bool Hold_RT_Input = false;
-    [SerializeField] bool switch_Right_Weapon_Input = false;
-    [SerializeField] bool switch_Left_Weapon_Input = false;
-    [SerializeField] bool interaction_Input = false;
+    [Header("Camera Signal Data")]
+    public Vector2 cameraInput;
+
 
     private void Awake()
     {
@@ -101,28 +119,35 @@ public class PlayerInputManager : MonoBehaviour
         {
             playerControls = new PlayerControls();
 
-            // 액션
+            // 모든 신호는 중앙 라우터인 PlayerManager의 On___InputReceived로 집결.
             playerControls.PlayerMoveMent.Movement.performed += i => movementInput = i.ReadValue<Vector2>();
             playerControls.PlayerCamera.Movement.performed += i => cameraInput = i.ReadValue<Vector2>();
-            playerControls.PlayerAction.Dodge.performed += i => dodgeInput = true;
-            playerControls.PlayerAction.SwitchRightWeapon.performed += i => switch_Right_Weapon_Input = true;
-            playerControls.PlayerAction.SwitchLeftWeapon.performed += i => switch_Left_Weapon_Input = true;
+
+            // 단일 액션 배포 (Trigger 기반) 
+            playerControls.PlayerAction.Dodge.performed += i => player.OnDodgeInputReceived();
+            playerControls.PlayerAction.SwitchLeftWeapon.performed += i => player.OnSwitchWeaponInputReceived(SwithchWeaponSide.Left);
+            playerControls.PlayerAction.SwitchRightWeapon.performed += i => player.OnSwitchWeaponInputReceived(SwithchWeaponSide.Right);
+            //playerControls.PlayerAction.SwitchRightWeapon.performed += i => switch_Right_Weapon_Input = true; 나중에 변경.
+            //playerControls.PlayerAction.SwitchLeftWeapon.performed += i => switch_Left_Weapon_Input = true;
 
 
-            // 범퍼와 트리거
-            playerControls.PlayerAction.RB.performed += i => RB_Input = true;
-            playerControls.PlayerAction.RT.performed += i => RT_Input = true;
-            playerControls.PlayerAction.HoldRT.performed += i => Hold_RT_Input = true;
-            playerControls.PlayerAction.HoldRT.canceled += i => Hold_RT_Input = false;
+            // RB 버튼 등은 다중 기능 수행 -> 라우터(PlayerManager)에신호.
+            playerControls.PlayerAction.RB.performed += i => player.OnRBInputReceived();
+            playerControls.PlayerAction.RT.performed += i => player.OnRTInputReceived();
+
+            //playerControls.PlayerAction.HoldRT.performed += i => Hold_RT_Input = true;
+            //playerControls.PlayerAction.HoldRT.canceled += i => Hold_RT_Input = false;
 
 
             // 락온
-            playerControls.PlayerAction.LockOn.performed += i => lockOn_Input = true;
-            playerControls.PlayerAction.SeekLeftLockOnTarget.performed += i => lockOn_Left_Input = true;
-            playerControls.PlayerAction.SeekRightLockOnTarget.performed += i => lockOn_Right_Input = true;
+            playerControls.PlayerAction.LockOn.performed += i => player.OnLockOnInputReceived();
+            playerControls.PlayerAction.SeekLeftLockOnTarget.performed += i => player.OnLockOnSwitchTargetInputReceived(LockOnDirection.Left);
+            playerControls.PlayerAction.SeekRightLockOnTarget.performed += i => player.OnLockOnSwitchTargetInputReceived(LockOnDirection.Right);
+            //playerControls.PlayerAction.SeekLeftLockOnTarget.performed += i => lockOn_Left_Input = true;
+            //playerControls.PlayerAction.SeekRightLockOnTarget.performed += i => lockOn_Right_Input = true;
 
             // 인터렉션
-            playerControls.PlayerAction.Interaction.performed += i => interaction_Input = true;
+            playerControls.PlayerAction.Interaction.performed += i => player.OnInteractionInputReceived();
         }
 
         playerControls.Enable();
@@ -152,10 +177,15 @@ public class PlayerInputManager : MonoBehaviour
 
     private void Update()
     {
-        HandleAllInputs();
+        //HandleAllInputs();
+        if (player == null || !player.IsOwner) return;
+
+        // 연속적인 데이터를 라우터로 전달.
+        player.OnMovementInputReceived(movementInput);
+        player.OnCameraInputReceived(cameraInput);
     }
-    
-    private void HandleAllInputs()
+
+/*    private void HandleAllInputs()
     {
         HandleMovementInput();
         HandleCameraMovementInput();
@@ -179,7 +209,7 @@ public class PlayerInputManager : MonoBehaviour
             // 상대가 파괴되어 null 일 것 대비
             if (player.playerCombatManager.currentTarget == null)
                 return;
-            
+
             // 현재 타겟이 사망? (언락)
             if (player.playerCombatManager.currentTarget.characterNetworkManager.isDead.Value)
             {
@@ -193,12 +223,12 @@ public class PlayerInputManager : MonoBehaviour
                 StopCoroutine(lockOnCoroutine);
 
             lockOnCoroutine = StartCoroutine(PlayerCamera.Instance.WaitThenFindNewTarget());
-            
+
         }
 
         if (lockOn_Input && player.playerNetworkManager.isLockedOn.Value)
         {
-            Debug.Log($"{ lockOn_Input}, lockOn_Input && player.playerNetworkManager.isLockedOn.Value");
+            Debug.Log($"{lockOn_Input}, lockOn_Input && player.playerNetworkManager.isLockedOn.Value");
             lockOn_Input = false;
             PlayerCamera.Instance.ClearLockOnTargets();
             player.playerNetworkManager.isLockedOn.Value = false;
@@ -278,7 +308,7 @@ public class PlayerInputManager : MonoBehaviour
             //걷고있다는 인디케이터
             moveAmount = 0.5f;
         }
-        else if (moveAmount >0.5 && moveAmount <= 1)
+        else if (moveAmount > 0.5 && moveAmount <= 1)
         {
             // 달리기 인디케이터
             moveAmount = 1;
@@ -406,5 +436,5 @@ public class PlayerInputManager : MonoBehaviour
             interaction_Input = false;
             player.playerInteractionManager.Interact();
         }
-    }
+    }*/
 }

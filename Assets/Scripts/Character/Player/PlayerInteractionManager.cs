@@ -1,7 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+using System;
 
 namespace SG
 {
@@ -29,6 +30,17 @@ namespace SG
             if (!IsOwner) return;
 
             HandleInteraction();
+        }
+
+        internal void OnRBInputReceived()
+        {
+            // 1. 들고 있는 물건이 있다면 -> 놓기(던지기)
+            if (currentlyHeldObject != null)
+            {
+                ReleaseGrabbedObject();
+                // 물건을 던질 때는 무기 공격을 실행하지 않고 리턴
+                return;
+            }
         }
 
         private void HandleInteraction()
@@ -244,6 +256,12 @@ namespace SG
             Gizmos.DrawRay(transform.position, leftRay * interactionRange);
             Gizmos.DrawRay(transform.position, rightRay * interactionRange);
             Gizmos.DrawWireSphere(transform.position, interactionRange);
+        }
+
+        internal void OnInteractionInputReceived()
+        {
+            Debug.Log("interaction_Input true");
+            Interact();
         }
     }
 }
