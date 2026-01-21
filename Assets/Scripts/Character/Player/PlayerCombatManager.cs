@@ -1,4 +1,5 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -12,11 +13,109 @@ public class PlayerCombatManager : CharacterCombatManager
     [Header("Flags")]
     public bool canComboWithMainHandWeapon = false;
 
+    [Header("Lock On Input")]
+    [SerializeField] bool lockOn_Input;
+    [SerializeField] bool lockOn_Left_Input;
+    [SerializeField] bool lockOn_Right_Input;
+    private Coroutine lockOnCoroutine;
+
     protected override void Awake()
     {
         base.Awake();
 
         player = GetComponent<PlayerManager>();
+    }
+
+    internal void OnRBInputReceived()
+    {
+        PerformWeaponBasedAction
+        (player.playerInventoryManager.currentRightHandWeapon.oh_RB_Action,
+        player.playerInventoryManager.currentRightHandWeapon
+        );
+    }
+
+    internal void OnLockOnInputReceived()
+    {
+        // 타겟이 죽었는지 체크
+        if (player.playerNetworkManager.isLockedOn.Value)
+        {
+            // 상대가 파괴되어 null 일 것 대비
+            if (currentTarget == null)
+                return;
+
+            // 현재 타겟이 사망? (언락)
+            if (currentTarget.characterNetworkManager.isDead.Value)
+            {
+                player.playerNetworkManager.isLockedOn.Value = false;
+            }
+
+            // 새로운 타겟을 찾기.
+
+            // 코루틴이 동시에 여러개 진행 중첩이 되지 않도록 보장.
+            if (lockOnCoroutine != null)
+                StopCoroutine(lockOnCoroutine);
+
+            lockOnCoroutine = StartCoroutine(PlayerCamera.Instance.WaitThenFindNewTarget());
+
+        }
+
+        if (player.playerNetworkManager.isLockedOn.Value)
+        {
+            Debug.Log($"player.playerNetworkManager.isLockedOn.Value");
+            PlayerCamera.Instance.ClearLockOnTargets();
+            player.playerNetworkManager.isLockedOn.Value = false;
+            // 이미 락온? (언락)
+            return;
+        }
+
+        if (!player.playerNetworkManager.isLockedOn.Value)
+        {
+            Debug.Log($"lockOn_Input && !player.playerNetworkManager.isLockedOn.Value");
+            // 락온
+
+            // 레인지 무기 사용중이라면 락온 안함.
+
+            PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+            if (PlayerCamera.Instance.nearestLockOnTarget != null)
+            {
+                SetTarget(PlayerCamera.Instance.nearestLockOnTarget);
+                // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
+                player.playerNetworkManager.isLockedOn.Value = true;
+            }
+        }
+    }
+
+    internal void OnLockOnSwitchTargetInputReceived(LockOnDirection direction)
+    {
+        if (direction == LockOnDirection.Left)
+        {
+
+            // 이미 락온 됫다면 실행.
+            if (player.playerNetworkManager.isLockedOn.Value)
+            {
+                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+                if (PlayerCamera.Instance.leftLockOnTarget != null)
+                {
+                    SetTarget(PlayerCamera.Instance.leftLockOnTarget);
+                }
+            }
+        }
+
+        if (direction == LockOnDirection.Right)
+        {
+            // 이미 락온 됫다면 실행.
+            if (player.playerNetworkManager.isLockedOn.Value)
+            {
+                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+                if (PlayerCamera.Instance.rightLockOnTarget != null)
+                {
+                    SetTarget(PlayerCamera.Instance.rightLockOnTarget);
+                }
+            }
+        }
     }
 
     public void PerformWeaponBasedAction(WeaponItemAction weaponAction, WeaponItem weaponPerformingAction)
@@ -69,5 +168,12 @@ public class PlayerCombatManager : CharacterCombatManager
         }
     }
 
+    internal void OnRTInputReceived()
+    {
+        PerformWeaponBasedAction
+        (player.playerInventoryManager.currentRightHandWeapon.oh_RT_Action,
+        player.playerInventoryManager.currentRightHandWeapon
+        );
+    }
 
 }

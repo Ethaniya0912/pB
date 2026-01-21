@@ -13,6 +13,10 @@ public class PlayerCamera : MonoBehaviour
     public PlayerManager player;
     [SerializeField] Transform cameraPivotTransform;
 
+    // 조작 데이터 (라우터로부터 수신)
+    private float cameraHorizontalInput;
+    private float cameraVerticalInput;
+
     // 카메라 퍼포먼스 수정용
     [Header("Camera Setting")]
     private float cameraSmoothSpeed = 5.0f; // 숫자가 클수록 카메라가 포지션에 도달하는 시간증가
@@ -94,6 +98,11 @@ public class PlayerCamera : MonoBehaviour
         {
             WorldCameraManager.Instance.RegisterLocalCamera(this);
         }
+    }
+    internal void OnCameraInputReceived(float x, float y)
+    {
+        cameraHorizontalInput = x;
+        cameraVerticalInput = y;
     }
 
     public void HandleAllCameraActions()
@@ -203,9 +212,9 @@ public class PlayerCamera : MonoBehaviour
             // 그렇지않을 경우 일반적이게 로테이트
 
             // 카메라수평인풋값에따라 leftAndRightLookAngle이 바뀌게.
-            leftAndRightLookAngle += (PlayerInputManager.Instance.cameraHorizontalInput * leftAndRightRotationSpeed) * Time.deltaTime;
+            leftAndRightLookAngle += (cameraHorizontalInput * leftAndRightRotationSpeed) * Time.deltaTime;
             // 카메라수직인풋값에 따라 위아래 전환.
-            upAndDownLookAngle -= (PlayerInputManager.Instance.cameraVerticalInput * upAndDownRotationSpeed) * Time.deltaTime;
+            upAndDownLookAngle -= (cameraVerticalInput * upAndDownRotationSpeed) * Time.deltaTime;
             // 최소최대값의 앵글을 클램프해줌.
             upAndDownLookAngle = Mathf.Clamp(upAndDownLookAngle, minimumPivot, maximumPivot);
 
@@ -499,6 +508,7 @@ public class PlayerCamera : MonoBehaviour
     {
         bodycamWeight = weight;
     }
+
 
     #endregion
 }

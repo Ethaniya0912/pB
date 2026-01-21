@@ -33,6 +33,7 @@ public class WorldGameStateManager : MonoBehaviour
         if (Instance == null)
             Instance = this;
         else Destroy(gameObject);
+        DontDestroyOnLoad(gameObject);
     }
 
     public void ChangeState(GameState newState)
@@ -98,4 +99,10 @@ public class WorldGameStateManager : MonoBehaviour
                 break;
         }
     }
+
+    // 정책 : 이동허용여부, 공격 허용 여부, 상호작용 허용 여부
+    public bool IsMovementAllowed() => currentState == GameState.Normal || currentState == GameState.LockOn || currentState == GameState.Chase || currentState == GameState.Inventory;
+    public bool IsCombatAllowed() => currentState == GameState.Normal || currentState == GameState.LockOn;
+    public bool IsInteractionAllowed() => currentState != GameState.CinematicFocus;
+
 }

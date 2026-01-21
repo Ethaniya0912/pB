@@ -1,4 +1,5 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using SG;
 using Unity.Netcode;
@@ -254,6 +255,106 @@ public class PlayerManager : CharacterManager
         }
     }
 
-    // 나중에 디버깅은 지움.
-    
+    #region Routing & Gating & Auto-Transition Logic
+    public void OnMovementInputReceived(Vector2 movementInput)
+    {
+        if (movementInput.sqrMagnitude > 0)
+        {
+            if (WorldGameStateManager.Instance.currentState == GameState.Inventory || 
+                WorldGameStateManager.Instance.currentState == GameState.Table)
+            {
+                WorldGameStateManager.Instance.SetGamePlaySituation(GameState.Normal);
+            }
+        }
+
+        // 정책 확인 후 도메인으로 전달.
+        if (WorldGameStateManager.Instance.IsMovementAllowed())
+        {
+            playerLocomotionManager.OnMovementInputReceived(movementInput);
+        }
+    }
+
+    internal void OnCameraInputReceived(Vector2 cameraInput)
+    {
+        if (PlayerCamera.Instance != null)
+        {
+            PlayerCamera.Instance.OnCameraInputReceived(cameraInput.x, cameraInput.y);
+        }
+    }
+
+    internal void OnDodgeInputReceived()
+    {
+        playerLocomotionManager.OnDodgeInputReceived();
+    }
+
+    internal void OnRBInputReceived()
+    {
+        // 1순위 : 상호작용 (물건 소지 시 '공격' 보다 '놓기' 우선)
+        if (playerInteractionManager.currentlyHeldObject != null)
+        {
+            playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
+            playerInteractionManager.OnRBInputReceived();
+            return;
+        }
+
+        // 2순위 : 전투
+
+        if (WorldGameStateManager.Instance.IsCombatAllowed())
+        {
+            playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
+            playerCombatManager.OnRBInputReceived();
+        }
+    }
+
+    internal void OnRTInputReceived()
+    {
+        if (WorldGameStateManager.Instance.IsCombatAllowed())
+        {
+            playerNetworkManager.SetCharacterActionHand(true); // RT_input 들어오면 항상 참.
+            playerCombatManager.OnRTInputReceived();
+        }
+    }
+    internal void OnInteractionInputReceived()
+    {
+        if (WorldGameStateManager.Instance.IsInteractionAllowed())
+        {
+            playerInteractionManager.OnInteractionInputReceived();
+
+            // [자동 전이] 상호작용 결과로 물건을 들게 되었다면 Inventory 상태(포커스)로 전환
+            // TD : 남규가 아래 코드를 활용하여 가방 인터액션 - 인벤토리 상태등으로 만들거나 하는 등 하면 됨.
+            //if (playerInteractionManager.손에 아이템을 든 상태에서 가방도 열어 넣으려는 상태())
+            //{
+            //    WorldGameStateManager.Instance.SetGamePlaySituation(GameState.Inventory, playerInteractionManager.currentlyHeldObject.transform);
+            //}           
+        }
+    }
+
+    internal void OnLockOnInputReceived()
+    {
+        playerCombatManager.OnLockOnInputReceived();
+    }
+
+    internal void OnLockOnSwitchTargetInputReceived(LockOnDirection direction)
+    {
+        playerCombatManager.OnLockOnSwitchTargetInputReceived(direction);
+    }
+
+    internal void OnSwitchWeaponInputReceived(SwithchWeaponSide value)
+    {
+        switch (value)
+        {
+            case SwithchWeaponSide.Left:
+                playerEquipmentManager.SwitchLeftWeapon();
+                break;
+            case SwithchWeaponSide.Right:
+                playerEquipmentManager.SwitchRightWeapon();
+                break;
+            default:
+                break;
+        }
+    }
+
+
+    #endregion
+
 }

@@ -49,6 +49,19 @@ public enum AttackType
 
 }
 
+public enum LockOnDirection
+{
+    Left,
+    Right,
+    None
+}
+
+public enum SwithchWeaponSide
+{
+    Left,
+    Right,
+}
+
 public enum CookingState
 {
     Empty,          //  비어잇음
