@@ -109,6 +109,12 @@ public class PlayerManager : CharacterManager
             LoadGameDataFromCurrentCharacterData(ref WorldSaveGameManager.Instance.currentCharacterData);
         }
 
+        // 플레이어 스폰 시 Player Camera에 InventoryPivot 설정
+        if (IsOwner && PlayerCamera.Instance != null)
+        {
+            PlayerCamera.Instance.SetInventoryPivot(playerInventoryManager.inventoryCameraPivot);
+        }
+
     }
 
     public override void OnNetworkDespawn()

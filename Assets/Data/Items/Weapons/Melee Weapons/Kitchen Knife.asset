@@ -13,14 +13,12 @@ MonoBehaviour:
   m_Name: Kitchen Knife
   m_EditorClassIdentifier: 
   itemIcon: {fileID: 21300000, guid: 3237fa51789f60743b035741a39243b0, type: 3}
-  itemName: 
+  itemName: Kitchen Knife
   itemID: 2
   itemModel: {fileID: 0}
-  isBurnable: 0
-  fuelAmount: 0
-  isCookable: 0
-  isCuttable: 0
-  cutResultItem: {fileID: 0}
+  itemSizeWidth: 1
+  itemSizeHeight: 1
+  itemDescription: 
   weaponModel: {fileID: 449641753450697265, guid: 5c5425429cf92e8439a8ff39360aeb98,
     type: 3}
   muscleReq: 0

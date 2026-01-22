@@ -63,3 +63,16 @@ public enum CookingStationType
     Pot,            //  냄비 (끓이기)
     Grill,          //  석쇠 (굽기)
 }
+
+// 장착 슬롯 정의 남규 추가 260119
+public enum EquipmentSlot
+{
+    RightHand,    // 주손 무기
+    LeftHand,     // 보조손 무기/방패
+    Helmet,       // 머리
+    ChestArmor,   // 상체
+    Pants,        // 하체
+    Leggings,     // 발/각반
+    Backpack,     // 가방 (인벤토리 격자 용량 결정)
+    Accessory     // 장신구
+}

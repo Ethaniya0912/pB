@@ -13,9 +13,12 @@ MonoBehaviour:
   m_Name: Straight Sword
   m_EditorClassIdentifier: 
   itemIcon: {fileID: 21300000, guid: 3237fa51789f60743b035741a39243b0, type: 3}
-  itemName: 
+  itemName: Straight Sword
   itemID: 2
   itemModel: {fileID: 0}
+  itemSizeWidth: 1
+  itemSizeHeight: 1
+  itemDescription: 
   weaponModel: {fileID: 449641753450697265, guid: e0c514489434548419a042ee047aa824,
     type: 3}
   muscleReq: 0

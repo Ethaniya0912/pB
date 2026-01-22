@@ -13,9 +13,12 @@ MonoBehaviour:
   m_Name: Unarmed
   m_EditorClassIdentifier: 
   itemIcon: {fileID: 0}
-  itemName: 
+  itemName: Unarmed
   itemID: 0
   itemModel: {fileID: 0}
+  itemSizeWidth: 1
+  itemSizeHeight: 1
+  itemDescription: 
   weaponModel: {fileID: 7323943226636796289, guid: 6ca4be344163c4712a88384d1dd9df13,
     type: 3}
   muscleReq: 0

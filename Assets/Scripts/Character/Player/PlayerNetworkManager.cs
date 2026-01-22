@@ -7,12 +7,20 @@ using Unity.Collections;
 public class PlayerNetworkManager : CharacterNetworkManager
 {
     PlayerManager player;
+
     public NetworkVariable<FixedString64Bytes> characterName = new NetworkVariable<FixedString64Bytes>("Character", NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     [Header("Equipment")]
     public NetworkVariable<int> currentWeaponBeingUsed = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<int> currentRightHandWeaponID = new NetworkVariable<int>(0,NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<int> currentRightHandWeaponID = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     public NetworkVariable<int> currentLeftHandWeaponID = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    // [New] 추가된 방어구 및 가방 동기화 변수
+    public NetworkVariable<int> currentHelmetID = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<int> currentChestArmorID = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<int> currentBackpackID = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    [Header("Flags")]
     public NetworkVariable<bool> isUsingRightHand = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     public NetworkVariable<bool> isUsingLeftHand = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -21,6 +29,21 @@ public class PlayerNetworkManager : CharacterNetworkManager
         base.Awake();
 
         player = GetComponent<PlayerManager>();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        // 기존 무기 ID 변경 이벤트 연결
+        currentRightHandWeaponID.OnValueChanged += OnCurrentRightHandWeaponIDChange;
+        currentLeftHandWeaponID.OnValueChanged += OnCurrentLeftHandWeaponIDChange;
+        currentWeaponBeingUsed.OnValueChanged += OnCurrentWeaponBeingUsedIDChange;
+
+        // [New] 추가 장비 ID 변경 이벤트 연결
+        currentHelmetID.OnValueChanged += OnCurrentHelmetIDChange;
+        currentChestArmorID.OnValueChanged += OnCurrentChestArmorIDChange;
+        currentBackpackID.OnValueChanged += OnCurrentBackpackIDChange;
     }
 
     public void SetCharacterActionHand(bool rightHandedAction)
@@ -43,7 +66,7 @@ public class PlayerNetworkManager : CharacterNetworkManager
         PlayerUIManager.Instance.playerUIHUDManager.SetMaxHealthValue(maxHealth.Value);
         currentHealth.Value = maxHealth.Value;
     }
-    
+
     public void SetNewMaxStaminaValue(int oldEndurance, int newEndurance)
     {
         maxStamina.Value = player.playerStatsManager.CalculateHealthBasedOnVitalityLevel(newEndurance);
@@ -55,7 +78,9 @@ public class PlayerNetworkManager : CharacterNetworkManager
     {
         WeaponItem newWeapon = Instantiate(WorldItemDatabase.Instance.GetWeaponByID(newID));
         player.playerInventoryManager.currentRightHandWeapon = newWeapon;
-        player.playerEquipmentManager.LoadRightWeapon();
+
+        // 장비 매니저를 통해 실제 모델 로드 (새로운 PlayerEquipmentManager는 itemID를 인자로 받을 수 있음)
+        player.playerEquipmentManager.LoadRightWeapon(newID);
 
         // 로컬플레이어일때만 호출
         if (player.IsOwner)
@@ -68,7 +93,8 @@ public class PlayerNetworkManager : CharacterNetworkManager
     {
         WeaponItem newWeapon = Instantiate(WorldItemDatabase.Instance.GetWeaponByID(newID));
         player.playerInventoryManager.currentLeftHandWeapon = newWeapon;
-        player.playerEquipmentManager.LoadLeftWeapon();
+
+        player.playerEquipmentManager.LoadLeftWeapon(newID);
 
         // 로컬플레이얼때만 호출
         if (player.IsOwner)
@@ -83,6 +109,23 @@ public class PlayerNetworkManager : CharacterNetworkManager
         player.playerCombatManager.currentWeaponBeingUsed = newWeapon;
     }
 
+    // [New] 추가 장비 변경 핸들러
+    private void OnCurrentHelmetIDChange(int oldID, int newID)
+    {
+        // TODO: 투구 모델 교체 로직 (PlayerEquipmentManager 연동)
+    }
+
+    private void OnCurrentChestArmorIDChange(int oldID, int newID)
+    {
+        // TODO: 갑옷 모델 교체 로직
+    }
+
+    private void OnCurrentBackpackIDChange(int oldID, int newID)
+    {
+        // CharacterEquipmentManager(Base) 에 있는 가방 변경 이벤트를 실행하거나 직접 처리
+        // 델리게이트가 있다면 여기서 실행하여 인벤토리 용량을 갱신합니다.
+    }
+
     // 아이템 액션
     [ServerRpc]
     public void NotifyTheServerOfWeaponActionServerRpc(ulong clientID, int actionID, int weaponID)
@@ -92,7 +135,7 @@ public class PlayerNetworkManager : CharacterNetworkManager
             NotifyTheServerOfWeaponActionClientRpc(clientID, actionID, weaponID);
         }
     }
-    
+
     [ClientRpc]
     private void NotifyTheServerOfWeaponActionClientRpc(ulong clientID, int actionID, int weaponID)
     {

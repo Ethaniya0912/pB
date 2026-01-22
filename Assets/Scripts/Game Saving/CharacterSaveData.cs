@@ -1,22 +1,19 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
-// 해당 데이터를 모든 세이브 파일에서 레퍼하려하기 떄문에, 모노비헤이비어가 아닌 Serealizable로.
+/// <summary>
+/// 기존 Save 시스템 구조를 유지하며 인벤토리 및 장착 데이터를 추가한 시리얼라이즈 클래스입니다.
+/// </summary>
 public class CharacterSaveData
 {
     [Header("Scene Index")]
     public int sceneIndex = 1;
 
-    [Header("Character Name")]
+    [Header("Character Info")]
     public string characterName = "Character";
-
-    [Header("Time Played")]
     public float secondsPlayed;
 
-    // 기본적인 변수만 저장 가능함
-    // Vector3 같은 고기능 변수는 저장 불가
     [Header("World Coordinates")]
     public float xPosition;
     public float yPosition;
@@ -30,14 +27,22 @@ public class CharacterSaveData
     public int vitality;
     public int endurance;
 
-    [Header("Stats")]
-    // 중요 : 일반 Dictionary 대신 SerializableDictionary를 사용
-    // Key : 아이템 ID (int), Value : 아이템 개수 (int)
-    public SerializableDictionary<int, int> inventoryItems;
+    [Header("Inventory Data")]
+    // 가방 내부에 위치한 아이템 정보 리스트
+    public List<InventoryItem> inventoryItems;
+
+    [Header("Equipment Data")]
+    // 부위별 장착 아이템 ID (-1: 미장착)
+    public int currentRightHandWeaponID = -1;
+    public int currentLeftHandWeaponID = -1;
+    public int currentHelmetID = -1;
+    public int currentChestArmorID = -1;
+    public int currentPantsID = -1;
+    public int currentLeggingsID = -1;
+    public int currentBackpackID = -1;
 
     public CharacterSaveData()
     {
-        // 생성자에서 초기화
-        inventoryItems = new SerializableDictionary<int, int>();
+        inventoryItems = new List<InventoryItem>();
     }
 }

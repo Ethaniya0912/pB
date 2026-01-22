@@ -17,6 +17,9 @@ MonoBehaviour:
   itemID: 8
   itemModel: {fileID: 4391722420788423925, guid: 01e71c132b8b1ea4d8988c6750d49f39,
     type: 3}
+  itemSizeWidth: 1
+  itemSizeHeight: 1
+  itemDescription: 
   isBurnable: 0
   fuelAmount: 0
   isCookable: 0
