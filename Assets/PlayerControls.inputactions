@@ -386,6 +386,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "Alt",
+                    "type": "Button",
+                    "id": "8c8d2770-9c5c-4b99-aacd-dfa45a5a118d",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -397,6 +406,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "E",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "ccd3bea8-f417-4fbf-bc4b-1167468115e0",
+                    "path": "<Keyboard>/alt",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Alt",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

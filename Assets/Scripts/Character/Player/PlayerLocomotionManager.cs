@@ -1,4 +1,5 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -66,20 +67,48 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         // 공중 움직임.
     }
 
-    private void GetMovementValues()
+    public void OnMovementInputReceived(Vector2 movementInput)
     {
-        verticalMovement = PlayerInputManager.Instance.verticalInput;
-        horizontalMovement = PlayerInputManager.Instance.horizontalInput;
-        moveAmount = PlayerInputManager.Instance.moveAmount;
+        // 실제 이동 물리연산 및 애니메이터 파라미터 업데이트
+        verticalMovement = movementInput.y;
+        horizontalMovement = movementInput.x;
 
-        // Clamp the Movements
+        // 숫자의 절대값을 반환 (음수 없이 양수로만 반환시키기)
+        moveAmount = Mathf.Clamp01(Mathf.Abs(verticalMovement) + Mathf.Abs(horizontalMovement));
+
+        // 값을 clamp 해줘서 0,0.5,1로 고정되게 함.
+        if (moveAmount <= 0.5 && moveAmount > 0)
+        {
+            //걷고있다는 인디케이터
+            moveAmount = 0.5f;
+        }
+        else if (moveAmount > 0.5 && moveAmount <= 1)
+        {
+            // 달리기 인디케이터
+            moveAmount = 1;
+        }
+
+        if (player == null)
+            return;
+
+        // 수평에 0만 전달하는 이유는 락온 하지 않을 시 앞으로만 가게 하려고 함.
+        if (!player.playerNetworkManager.isLockedOn.Value || player.playerNetworkManager.isSprinting.Value)
+        {
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, player.playerNetworkManager.isSprinting.Value);
+        }
+        else
+        {
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, player.playerNetworkManager.isSprinting.Value);
+        }
+
+        // 수평에 0 말고 다른 것도 전달, 락온 한 상태.
+
     }
 
     private void HandleGroundedMovement()
     {
         if (!player.canMove)
             return;
-        GetMovementValues();
 
         // 움직임은 카메라 방향과 인풋에 따라 결정됨.
         moveDirection = PlayerCamera.Instance.transform.forward * verticalMovement;
@@ -87,11 +116,11 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         moveDirection.Normalize();
         moveDirection.y = 0;
 
-        if (PlayerInputManager.Instance.moveAmount > 0.5f)
+        if (moveAmount > 0.5f)
         {
             player.characterController.Move(moveDirection * runningSpeed * Time.deltaTime);
         }
-        else if (PlayerInputManager.Instance.moveAmount <= 0.5f)
+        else if (moveAmount <= 0.5f)
         {
             player.characterController.Move(moveDirection * walkingSpeed * Time.deltaTime);
         }
@@ -166,14 +195,14 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
             return;
 
         // 움직이던 도중 dodge 실행 시 roll 실행
-        if(PlayerInputManager.Instance.moveAmount > 0)
+        if(moveAmount > 0)
         {
             rollDirection = 
                 PlayerCamera.Instance.cameraObject.transform.forward * 
-                PlayerInputManager.Instance.verticalInput;
+                verticalMovement;
             rollDirection +=
                 PlayerCamera.Instance.cameraObject.transform.right *
-                PlayerInputManager.Instance.horizontalInput;
+                horizontalMovement;
 
             // y 값 없이 좌우로만.
             rollDirection.y = 0;
@@ -195,5 +224,13 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         {
             // 백스텝 애니메이션 실행
         }
+    }
+
+    internal void OnDodgeInputReceived()
+    {
+        // TD : 미래에 UI가 활성화시 실행되지 않게해줌.
+
+        // 닷지를 퍼폼하기.
+        player.playerLocomotionManager.AttemptToPerformDodge();
     }
 }

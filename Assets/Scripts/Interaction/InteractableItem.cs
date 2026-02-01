@@ -9,7 +9,7 @@ namespace SG
     /// Dev A 작업 영역: 물리 동기화 및 Parenting + [Fix] 씬 관리 + [Step 7] Robust Snapping Logic
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
-    public class GrabbableObject : InteractableEntity<GrabbableObject>
+    public class InteractableItem : InteractableEntity<InteractableItem>
     {
         [Header("Item")]
         public Item itemData; // ItemSO를 인용, 쿠킹인터액터블에서 데이터 가져오기위함.
@@ -211,10 +211,25 @@ namespace SG
         public void SetHighlight(float value)
         {
             Debug.Log("[Grabbable] SetHighlight called with value: " + value);
-            // 현재 블록을 가져와서 값 수정 후 다시 적용
-            _renderer.GetPropertyBlock(_propBlock);
-            _propBlock.SetFloat(_intensityName, value);
-            _renderer.SetPropertyBlock(_propBlock);
+            // 1. 렌더러가 있는지 먼저 확인
+            Renderer targetRenderer = GetComponentInChildren<Renderer>();
+
+            if (targetRenderer == null)
+            {
+                // 렌더러가 없으면 하이라이트를 실행하지 않고 리턴하여 에러 방지
+                return;
+            }
+           
+            //// 2. 현재 블록을 가져와서 값 수정 후 다시 적용
+            //_renderer.GetPropertyBlock(_propBlock);
+            //_propBlock.SetFloat(_intensityName, value);
+            //_renderer.SetPropertyBlock(_propBlock);
+
+            // 3. 만약 material.SetFloat 등을 직접 사용 중이라면
+            if (targetRenderer.material != null)
+            {
+                targetRenderer.material.SetFloat("_Highlight", value);
+            }
         }
     }
 }

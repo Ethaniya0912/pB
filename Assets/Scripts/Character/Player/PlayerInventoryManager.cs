@@ -1,7 +1,8 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Netcode;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 
 /// <summary>
 /// 플레이어 전용 인벤토리 매니저입니다. (Dev B 최종 보완본)
@@ -66,7 +67,9 @@ public class PlayerInventoryManager : CharacterInventoryManager
     {
         if (isInventoryOpen && !isInteractingWithBag)
         {
-            if (PlayerInputManager.Instance.moveAmount > 0.1f)
+            // TD : 남규할일 - 이동량 체크 로직 보완 필요
+            // if (PlayerInputManager.Instance.moveAmount > 0.1f)
+            if (false)
             {
                 // [보완] 현재 루팅 중인 상자가 있다면 상자 닫기 시퀀스 실행
                 if (currentLootContainer != null)
@@ -287,9 +290,10 @@ public class PlayerInventoryManager : CharacterInventoryManager
         isInteractingWithBag = true;
 
         if (PlayerCamera.Instance != null)
-            PlayerCamera.Instance.ToggleInventoryCamera(true);
+            // TD : 남규할일 - 인벤토리 카메라 피벗 적용
+            //PlayerCamera.Instance.ToggleInventoryCamera(true);
 
-        player.playerNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
+            player.playerNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
             NetworkManager.Singleton.LocalClientId, "Put_Bag_Down", true);
 
         if (bagVisualController != null)
@@ -313,7 +317,8 @@ public class PlayerInventoryManager : CharacterInventoryManager
             NetworkManager.Singleton.LocalClientId, "Pick_Up_Bag", true);
 
         if (PlayerCamera.Instance != null)
-            PlayerCamera.Instance.ToggleInventoryCamera(false);
+            // TD : 남규할일 - 인벤토리 카메라 피벗 적용
+            //PlayerCamera.Instance.ToggleInventoryCamera(false);
 
         if (bagVisualController != null)
             bagVisualController.SetBagToSpine();
@@ -358,6 +363,11 @@ public class PlayerInventoryManager : CharacterInventoryManager
         Vector3 throwDir = player.transform.forward * 2.5f + Vector3.up * 0.5f;
 
         RequestDropItemServerRpc(item, spawnPos, throwDir);
+    }
+
+    internal void OnInventoryInputReceived()
+    {
+        player.playerInventoryManager.ToggleInventory();
     }
 
     #endregion

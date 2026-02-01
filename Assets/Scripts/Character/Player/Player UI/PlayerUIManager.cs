@@ -1,7 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+using System;
 
 public class PlayerUIManager : MonoBehaviour
 {
@@ -42,6 +43,20 @@ public class PlayerUIManager : MonoBehaviour
             NetworkManager.Singleton.Shutdown();
             // 클라이언트로 재시작.
             NetworkManager.Singleton.StartClient();
+        }
+    }
+
+    public void ToggleCursor(bool isVisible)
+    {
+        if (isVisible)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
         }
     }
 }

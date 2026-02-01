@@ -1,4 +1,4 @@
-﻿using SG;
+using SG;
 using UnityEngine;
 using Unity.Netcode;
 
@@ -41,8 +41,8 @@ public class LootableInteractable : InteractableObject
         if (PlayerCamera.Instance != null)
         {
             // 인벤토리 카메라를 활성화합니다. 
-            // TODO: PlayerCamera에서 cameraPivot 위치로 카메라를 이동시키는 로직이 연동되어야 합니다.
-            PlayerCamera.Instance.ToggleInventoryCamera(true);
+            // TD : 남규할일 - PlayerCamera에서 cameraPivot 위치로 카메라를 이동시키는 로직이 연동되어야 합니다.
+            // PlayerCamera.Instance.ToggleInventoryCamera(true);
         }
 
         // 3. 비주얼 처리 (상자 투명화 및 내부 그리드 표시)
@@ -83,7 +83,8 @@ public class LootableInteractable : InteractableObject
 
         // 1. 카메라 복구
         if (PlayerCamera.Instance != null)
-            PlayerCamera.Instance.ToggleInventoryCamera(false);
+            // TD : 남규할일 - 밑에꺼 복구
+            // PlayerCamera.Instance.ToggleInventoryCamera(false);
 
         // 2. 비주얼 복구
         if (visualController != null)

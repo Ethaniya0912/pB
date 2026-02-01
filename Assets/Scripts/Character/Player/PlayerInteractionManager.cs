@@ -1,7 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+using System;
 
 namespace SG
 {
@@ -14,7 +15,7 @@ namespace SG
         private PlayerManager player;
 
         [Header("Held Object")]
-        public GrabbableObject currentlyHeldObject;
+        public InteractableItem currentlyHeldObject;
 
         [Header("Interaction Settings")]
         [SerializeField][Range(0f, 1f)] private float viewThreshold = 0.5f; // 약 60도(전방 부채꼴)
@@ -38,6 +39,17 @@ namespace SG
             if (!IsOwner) return;
 
             HandleInteraction();
+        }
+
+        internal void OnRBInputReceived()
+        {
+            // 1. 들고 있는 물건이 있다면 -> 놓기(던지기)
+            if (currentlyHeldObject != null)
+            {
+                ReleaseGrabbedObject();
+                // 물건을 던질 때는 무기 공격을 실행하지 않고 리턴
+                return;
+            }
         }
 
         private void HandleInteraction()
@@ -80,36 +92,22 @@ namespace SG
         /// <summary>
         /// 오브젝트 타입에 따른 실제 상호작용 분기 로직입니다.
         /// </summary>
+
+        // TD : 남규할일 - 아래 함수 내용 기존과 비교해서 수정할 것
         private void ExecuteInteractionSequence()
         {
-            // 1. 집을 수 있는 아이템(Grabbable)인 경우
+
+            // [Fix] GrabbableObject인 경우 로직 분리
             if (currentInteractableObject is InteractableItem grabbable)
             {
                 if (grabbable.isHeld.Value)
                 {
-                    // [Fix] GrabbableObject인 경우 로직 분리
-                    if (currentInteractableObject is GrabbableObject grabbable)
-                    {
-                        if (grabbable.isHeld.Value)
-                        {
-                            Debug.Log("[PlayerInteraction] 이미 다른 사람이 잡고 있는 물체입니다.");
-                            return;
-                        }
-
-                        // TD : 애니메이션 재생(나중에 있으면 추가)
-                        //player.playerAnimationManager.PlayTargetAnimation("PickUp_Stand", true);
-
-                        // IK 로직 시작 (손을 물체로 뻗고, 닿으면 상호작용 실행)
-                        if (grabIKCoroutine != null) StopCoroutine(grabIKCoroutine);
-                        grabIKCoroutine = StartCoroutine(HandleGrabIKProcess(grabbable));
-                    }
-                    else
-                    {
-                        // 4. 일반 상호작용 (문, 레버 등)
-                        currentInteractableObject.Interact(player);
-                        Debug.Log("[PlayerInteraction] 상호작용을 실행했습니다.");
-                    }
+                    Debug.Log("[PlayerInteraction] 이미 다른 사람이 잡고 있는 물체입니다.");
+                    return;
                 }
+
+                // TD : 애니메이션 재생(나중에 있으면 추가)
+                //player.playerAnimationManager.PlayTargetAnimation("PickUp_Stand", true);
 
                 // IK 로직 시작 (손을 물체로 뻗고, 닿으면 상호작용 실행)
                 if (grabIKCoroutine != null) StopCoroutine(grabIKCoroutine);
@@ -117,14 +115,14 @@ namespace SG
             }
             else
             {
-                // 2. 일반 상호작용 (문, 레버, 가방 줍기 등)
+                // 4. 일반 상호작용 (문, 레버 등)
                 currentInteractableObject.Interact(player);
-                Debug.Log($"<color=green>[PlayerInteraction] {currentInteractableObject.name} 상호작용을 실행했습니다.</color>");
+                Debug.Log("[PlayerInteraction] 상호작용을 실행했습니다.");
             }
         }
 
         // [Step 7 수정] IK와 애니메이션 싱크를 맞추는 코루틴
-        private IEnumerator HandleGrabIKProcess(GrabbableObject targetItem)
+        private IEnumerator HandleGrabIKProcess(InteractableItem targetItem)
         {
             if (targetItem == null || player == null) yield break;
 
@@ -272,11 +270,11 @@ namespace SG
             // 최신 오브젝트로 갱신 (변경 시 UI 업데이트 등을 위한 뼈대 유지)
             if (closestInteractable != currentInteractableObject)
             {
-                currentInteractableObject?.transform.GetComponent<GrabbableObject>()?.SetHighlight(0.0f); // 이전 오브젝트 하이라이트 해제
+                currentInteractableObject?.transform.GetComponent<InteractableItem>()?.SetHighlight(0.0f); // 이전 오브젝트 하이라이트 해제
 
                 currentInteractableObject = closestInteractable; // 최신 오브젝트로 갱신
 
-                currentInteractableObject?.transform.GetComponent<GrabbableObject>()?.SetHighlight(1.0f); // 새 오브젝트 하이라이트 설정
+                currentInteractableObject?.transform.GetComponent<InteractableItem>()?.SetHighlight(1.0f); // 새 오브젝트 하이라이트 설정
 
                 // TODO: UI 업데이트 (E키 표시 등)
 
@@ -308,6 +306,35 @@ namespace SG
             Gizmos.DrawRay(transform.position, leftRay * interactionRange);
             Gizmos.DrawRay(transform.position, rightRay * interactionRange);
             Gizmos.DrawWireSphere(transform.position, interactionRange);
+        }
+
+        internal void OnInteractionInputReceived()
+        {
+            Debug.Log("interaction_Input true");
+            Interact();
+        }
+
+        // [수정] Alt 입력 처리: 상태에 따라 커서 토글
+        internal void OnAltInputReceived(bool isPressed)
+        {
+            if (isPressed)
+            {
+                // Alt를 누르고 있는 동안 커서 활성화
+                PlayerUIManager.Instance.ToggleCursor(true);
+            }
+            else
+            {
+                // Alt를 뗐을 때, 인벤토리가 닫혀있다면 커서 숨김
+                if (!player.playerInventoryManager.isInventoryOpen)
+                {
+                    // 드래그 중인 경우에는 커서를 유지해야 할 수도 있으므로 체크 필요
+                    var raycaster = player.GetComponentInChildren<Inventory3DRaycaster>();
+                    if (raycaster != null && !raycaster.GetIsDragging())
+                    {
+                        PlayerUIManager.Instance.ToggleCursor(false);
+                    }
+                }
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
 /// 3D 공간의 아이템 드래그 앤 드롭 및 가방 클릭/벗기기를 처리합니다. (Dev B 최종 보완본)
@@ -53,7 +53,10 @@ public class Inventory3DRaycaster : MonoBehaviour
         // 1. 인벤토리가 닫혀 있을 때: Alt를 이용한 가방 상호작용 (벗어던지기 준비)
         if (!player.playerInventoryManager.isInventoryOpen)
         {
-            if (PlayerInputManager.Instance.alt_Input)
+            // TD : 남규할일 - Alt키 입력 감지 후 가방 드래그 시작
+
+            //if (PlayerInputManager.Instance.alt_Input)
+            if(false) // 임시로 비활성화
             {
                 if (Input.GetMouseButtonDown(0)) StartBackBagDragging();
             }
