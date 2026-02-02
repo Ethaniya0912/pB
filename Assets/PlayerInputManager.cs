@@ -156,6 +156,10 @@ public class PlayerInputManager : MonoBehaviour
             // [수정] Alt 입력: 누를 때(true)와 뗄 때(false)를 모두 전달
             playerControls.UI.Alt.performed += i => player.OnAltInputReceived(true);
             playerControls.UI.Alt.canceled += i => player.OnAltInputReceived(false);
+
+            // TD Done(남규할일_260201): 마우스 클릭 입력 연결
+            playerControls.UI.Click.performed += i => player.OnPrimaryActionInputReceived(true);
+            playerControls.UI.Click.canceled += i => player.OnPrimaryActionInputReceived(false);
         }
 
         playerControls.Enable();

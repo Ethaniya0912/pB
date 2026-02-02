@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -223,6 +224,24 @@ public class Inventory3DRaycaster : MonoBehaviour
             // 액션이 수행되지 않았다면 원래 아이템 모델 복구
             if (!actionTaken) currentDragged.gameObject.SetActive(true);
             currentDragged = null;
+        }
+    }
+
+    internal void OnPrimaryActionInputReceived(bool isPressed)
+    {
+        if (isPressed)
+        {
+            if (player.playerInventoryManager.isInventoryOpen)
+                StartItemDragging();
+            else if (player.IsAltPressed)
+                StartBackBagDragging();
+            else
+                DetectBackBagClick();
+        }
+        else
+        {
+            if (isDragging)
+                FinishDragging();
         }
     }
 }

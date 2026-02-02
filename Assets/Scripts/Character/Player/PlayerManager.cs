@@ -20,6 +20,8 @@ public class PlayerManager : CharacterManager
     [HideInInspector]public PlayerEquipmentManager playerEquipmentManager;
     [HideInInspector]public PlayerCombatManager playerCombatManager;
     [HideInInspector]public PlayerInteractionManager playerInteractionManager;
+    [HideInInspector]public Inventory3DRaycaster inventory3DRaycaster;
+
 
     protected override void Awake()
     {
@@ -35,6 +37,7 @@ public class PlayerManager : CharacterManager
         playerEquipmentManager = GetComponent<PlayerEquipmentManager>();
         playerCombatManager = GetComponent<PlayerCombatManager>();
         playerInteractionManager = GetComponent<PlayerInteractionManager>();
+        inventory3DRaycaster = GetComponent<Inventory3DRaycaster>();
     }
 
     protected override void Update()
@@ -369,6 +372,26 @@ public class PlayerManager : CharacterManager
     internal void OnAltInputReceived(bool isPressed)
     {
         playerInteractionManager.OnAltInputReceived(isPressed);
+    }
+
+    // TD Done(남규할일_260201): 마우스 클릭 시 상황별(인벤토리/가방드래그/클릭) 분기 로직
+    internal void OnPrimaryActionInputReceived(bool isPressed)
+    {
+        inventory3DRaycaster.OnPrimaryActionInputReceived(isPressed);
+        /*if (isPressed)
+        {
+            if (playerInventoryManager.isInventoryOpen)
+                inventory3DRaycaster.StartItemDragging();
+            else if (isAltPressed)
+                inventory3DRaycaster.StartBackBagDragging();
+            else
+                inventory3DRaycaster.DetectBackBagClick();
+        }
+        else
+        {
+            if (inventory3DRaycaster.GetIsDragging())
+                inventory3DRaycaster.FinishDragging();
+        }*/
     }
     #endregion
 }

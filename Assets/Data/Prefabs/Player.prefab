@@ -433,7 +433,7 @@ MonoBehaviour:
   slotPadding: 0.2
   slotSizeMultiplier: 0.95
   itemModelScaleOffset: 0.9
-  openPosOffset: {x: 0, y: 0.05, z: 0.15}
+  groundYOffset: 0.05
   colorDefault: {r: 1, g: 1, b: 1, a: 0.2}
   colorValid: {r: 0, g: 1, b: 0, a: 0.5}
   colorInvalid: {r: 1, g: 0, b: 0, a: 0.5}
@@ -1700,7 +1700,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1034646365
+  GlobalObjectIdHash: 2507981295
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1751,6 +1751,7 @@ MonoBehaviour:
   playerEquipmentManager: {fileID: 0}
   playerCombatManager: {fileID: 0}
   playerInteractionManager: {fileID: 0}
+  inventory3DRaycaster: {fileID: 0}
 --- !u!114 &7301172757607828420
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1770,6 +1771,9 @@ MonoBehaviour:
   lockOnTransform: {fileID: 7549646920840389065}
   currentWeaponBeingUsed: {fileID: 0}
   canComboWithMainHandWeapon: 0
+  lockOn_Input: 0
+  lockOn_Left_Input: 0
+  lockOn_Right_Input: 0
 --- !u!114 &1360406133973820433
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2151,6 +2155,7 @@ MonoBehaviour:
   isInventoryOpen: 0
   bagVisualController: {fileID: 7991972340752744689}
   bagStayPivot: {fileID: 6795045772260818517}
+  currentLootContainer: {fileID: 0}
   inventoryCameraPivot: {fileID: 7419943440144498018}
 --- !u!114 &8722997583671731243
 MonoBehaviour:
@@ -2371,6 +2376,7 @@ MonoBehaviour:
   backBagLayer:
     serializedVersion: 2
     m_Bits: 4096
+  bagVisual: {fileID: 0}
 --- !u!4 &8484327650739065940 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8394319411648354943, guid: 1fe69440e72f52d40a007dd392b16a17,
