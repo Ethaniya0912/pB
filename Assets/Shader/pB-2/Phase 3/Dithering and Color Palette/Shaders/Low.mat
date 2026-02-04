@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: RetroEffect
+  m_Name: Low
   m_Shader: {fileID: -6465566751694194690, guid: fd6716803f94c324ea2c5ac44e634ed3,
     type: 3}
   m_Parent: {fileID: 0}
@@ -52,8 +52,8 @@ Material:
     m_Floats:
     - _ColorMask: 15
     - _Dither_Opacity: 0.4
-    - _Quantization_Level: 6
-    - _Saturation_Layers: 2
+    - _Quantization_Level: 256
+    - _Saturation_Layers: 1
     - _Stencil: 0
     - _StencilComp: 8
     - _StencilOp: 0
