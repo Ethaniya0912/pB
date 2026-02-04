@@ -102,3 +102,7 @@ Assets/UI Toolkit/UnityThemes.meta
 Assets/UI Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss
 Assets/UI Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss.meta
 Assets/UI Toolkit.meta
+Assets/Editor/GlobalRampDebugger.cs
+Assets/Editor/GlobalRampDebugger.cs.meta
+Assets/Editor/Lighting Ramp Generator.cs
+Assets/Editor/Lighting Ramp Generator.cs.meta
