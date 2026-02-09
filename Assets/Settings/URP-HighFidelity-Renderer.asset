@@ -1,5 +1,25 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8853918269838805033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
+  m_Name: Scanline
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::FullScreenPassRendererFeature_OldGUID
+  m_Active: 1
+  injectionPoint: 550
+  fetchColorBuffer: 1
+  requirements: 4
+  passMaterial: {fileID: 2100000, guid: 705c113c0063ca944893b0a7fbf32d34, type: 2}
+  passIndex: 0
+  bindDepthStencilAttachment: 0
+  m_Version: 1
 --- !u!114 &-1878332245247344467
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -54,8 +74,9 @@ MonoBehaviour:
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
   - {fileID: -1878332245247344467}
-  - {fileID: 3754850382837365814}
-  m_RendererFeatureMap: adc0de57c6d2eee536bcc27587e81b34
+  - {fileID: -8853918269838805033}
+  - {fileID: 9200954283256496390}
+  m_RendererFeatureMap: adc0de57c6d2eee5d7b7ea5f3e90208506c11c002c5bb07f
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -84,7 +105,7 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 1
---- !u!114 &3754850382837365814
+--- !u!114 &9200954283256496390
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -93,15 +114,27 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
-  m_Name: QuantizationPass
-  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
+  m_Script: {fileID: 11500000, guid: 2c53ac396fc4b1a4e95c3a250c15e742, type: 3}
+  m_Name: AtmosphericMassRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::AtmosphericMassRendererFeature
   m_Active: 1
-  injectionPoint: 600
-  fetchColorBuffer: 1
-  requirements: 0
-  passMaterial: {fileID: -876546973899608171, guid: 66acc4ff01ae8894d9ce73d7e4b73654,
-    type: 3}
-  passIndex: 0
-  bindDepthStencilAttachment: 0
-  m_Version: 1
+  settings:
+    atmosphericShader: {fileID: 4800000, guid: 584a37bad10d23341897c9fa92f5aedd, type: 3}
+    renderPassEvent: 600
+    downsample: 3
+    stepCount: 185
+    maxDistance: 150
+    useManualLightCollection: 1
+    maxExtraLights: 11
+    ambientColor: {r: 0, g: 0, b: 0, a: 1}
+    lightScatterMult: 2.1
+    fogDensity: 0.17
+    anisotropy: 0.034
+    shadowContrast: 5.81
+    shadowThreshold: 0.18
+    lightQuantization: 1
+    rampTexture: {fileID: 2800000, guid: 14b4eb9bd94558244afe0e2211442222, type: 3}
+    rampStrength: 0.05
+    blueNoiseTexture: {fileID: 2800000, guid: 278f676d98a507e4c9c2bcc135455f38, type: 3}
+    jitterStrength: 0.171
+    debugMode: 0

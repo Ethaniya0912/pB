@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 using System.Collections.Generic;
 
 /// <summary>
-/// 키워드 상태 및 드림코어 라이팅 파라미터를 정밀 진단하는 디버거입니다.
+/// URP의 실제 렌더링 상태와 키워드 활성화 여부를 정밀 분석하는 개선된 디버거입니다.
 /// </summary>
 public class GlobalRampDebugger : EditorWindow
 {
@@ -18,12 +18,9 @@ public class GlobalRampDebugger : EditorWindow
     private Color _sampledColor;
     private string _targetObjectName = "None";
 
-    private bool _keywordExists = false;
-    private bool _isKeywordActiveOnMaterial = false;
-    private int _urpLightLimit = 0;
-    private LightRenderingMode _lightRenderingMode;
-
-    private List<string> _diagnostics = new List<string>();
+    private bool _receiveShadowsEnabled = false;
+    private string[] _materialKeywords;
+    private string _shaderName = "";
 
     [MenuItem("Window/Analysis/Global Ramp Debugger")]
     public static void ShowWindow() => GetWindow<GlobalRampDebugger>("Ramp Debugger");
@@ -33,77 +30,63 @@ public class GlobalRampDebugger : EditorWindow
 
     void OnGUI()
     {
-        GUILayout.Label("1. System & Global Parameters", EditorStyles.boldLabel);
-
-        // 전역 변수 읽기
-        Texture globalTex = Shader.GetGlobalTexture("_GlobalRampTex");
-        float madness = Shader.GetGlobalFloat("_GlobalMadness");
-        float gamma = Shader.GetGlobalFloat("_GlobalRampGamma");
-        float steps = Shader.GetGlobalFloat("_GlobalSteps");
-
+        GUILayout.Label("1. URP Pipeline & Shadow Settings", EditorStyles.boldLabel);
         EditorGUILayout.BeginVertical("box");
+        UniversalRenderPipelineAsset urpAsset = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+        if (urpAsset != null)
+        {
+            EditorGUILayout.LabelField("Shadow Distance:", $"{urpAsset.shadowDistance} units");
+            EditorGUILayout.LabelField("Main Light Shadows:", urpAsset.supportsMainLightShadows ? "ENABLED" : "DISABLED");
+            EditorGUILayout.LabelField("Additional Light Shadows:", urpAsset.supportsAdditionalLightShadows ? "ENABLED" : "DISABLED");
+        }
+        EditorGUILayout.EndVertical();
 
-        // 키워드 상태 표시 (에러가 아니라 상태로 표시하도록 수정)
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.Label("Keyword [_ADDITIONAL_LIGHTS]:", GUILayout.Width(180));
-        if (_keywordExists)
-        {
-            GUI.color = Color.green;
-            GUILayout.Label("DECLARED (URP Standard)", EditorStyles.boldLabel);
-        }
-        else
-        {
-            GUI.color = Color.white;
-            GUILayout.Label("NOT FOUND");
-        }
-        GUI.color = Color.white;
-        EditorGUILayout.EndHorizontal();
+        GUILayout.Space(10);
 
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.Label("Material Active State:", GUILayout.Width(180));
-        if (_isKeywordActiveOnMaterial)
-        {
-            GUI.color = Color.green;
-            GUILayout.Label("ACTIVE (Point Light Enabled)", EditorStyles.boldLabel);
-        }
-        else
-        {
-            GUI.color = Color.yellow;
-            GUILayout.Label("INACTIVE (Main Light Only)");
-        }
+        GUILayout.Label("2. Target Object Diagnostics", EditorStyles.boldLabel);
+        EditorGUILayout.BeginVertical("box");
+        EditorGUILayout.LabelField("Selected:", _targetObjectName);
+        EditorGUILayout.LabelField("Shader:", _shaderName);
+
+        GUI.color = _receiveShadowsEnabled ? Color.green : Color.red;
+        EditorGUILayout.LabelField("Receive Shadows (MeshRenderer):", _receiveShadowsEnabled ? "ON" : "OFF");
         GUI.color = Color.white;
-        EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.Space(5);
-        if (globalTex != null)
+        GUILayout.Label("Active Keywords (Shader Variant):", EditorStyles.miniBoldLabel);
+        if (_materialKeywords != null && _materialKeywords.Length > 0)
         {
-            EditorGUILayout.LabelField($"Texture: {globalTex.name} | Gamma: {gamma:F2} | Madness: {madness:F2}");
-            Rect rampRect = GUILayoutUtility.GetRect(256, 20);
-            EditorGUI.DrawPreviewTexture(rampRect, globalTex);
+            foreach (var kw in _materialKeywords)
+            {
+                if (kw.Contains("SHADOW") || kw.Length <= 3) GUI.color = Color.cyan;
+                EditorGUILayout.LabelField("- " + kw);
+                GUI.color = Color.white;
+            }
         }
+        else EditorGUILayout.LabelField("(No exposed keywords or Standard Lit)");
 
         EditorGUILayout.EndVertical();
 
         GUILayout.Space(10);
 
-        GUILayout.Label("2. Scene Probe & Diagnostics", EditorStyles.boldLabel);
+        GUILayout.Label("3. Simulated Shadow Probe", EditorStyles.boldLabel);
         EditorGUILayout.BeginVertical("box");
         _enableProbe = EditorGUILayout.Toggle("Enable Probe", _enableProbe);
         if (_enableProbe)
         {
-            EditorGUILayout.LabelField("Target Object:", _targetObjectName);
+            EditorGUILayout.HelpBox("알림: Intensity(U) 수치가 변화한다면 시뮬레이션은 정상입니다. 그림자가 보이지 않는다면 GPU 셰이더 내부의 shadowCoord 전달 문제를 확인하세요.", MessageType.Info);
             EditorGUILayout.LabelField("Calculated Intensity (U):", _finalIntensityU.ToString("F4"));
+
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Sampled Color:", GUILayout.Width(130));
+            EditorGUILayout.LabelField("Simulated Color:", GUILayout.Width(130));
             EditorGUILayout.ColorField(_sampledColor);
             EditorGUILayout.EndHorizontal();
-
-            if (_diagnostics.Count > 0)
-            {
-                foreach (var d in _diagnostics) EditorGUILayout.HelpBox(d, MessageType.Info);
-            }
         }
         EditorGUILayout.EndVertical();
+
+        GUILayout.Space(10);
+        GUILayout.Label("4. Final Troubleshooting Step", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("디버거의 수치는 나오는데 그림자가 안 보인다면?\n\n1. 셰이더 그래프 'Graph Settings'에서 'Receive Shadows'가 꺼져 있는지 확인.\n2. Custom Function 노드의 'WorldPos' 핀에 'Position(World Space)' 노드가 제대로 연결되어 있는지 확인.\n3. 라이트의 'Shadow Strength'가 1인지 확인.", MessageType.Warning);
 
         if (GUILayout.Button("Force Re-sync")) Repaint();
         _autoRefresh = EditorGUILayout.Toggle("Auto Refresh", _autoRefresh);
@@ -111,7 +94,6 @@ public class GlobalRampDebugger : EditorWindow
 
     void OnSceneGUI(SceneView sceneView)
     {
-        UpdateURPSettings();
         if (!_enableProbe) return;
 
         Event e = Event.current;
@@ -123,65 +105,29 @@ public class GlobalRampDebugger : EditorWindow
             _hitPoint = hit.point;
             _hitNormal = hit.normal;
             _targetObjectName = hit.collider.name;
-            _diagnostics.Clear();
 
             Renderer rend = hit.collider.GetComponent<Renderer>();
-            if (rend != null && rend.sharedMaterial != null)
+            if (rend != null)
             {
-                Shader s = rend.sharedMaterial.shader;
-
-                // 키워드 체크 로직 (중복 에러 판단이 아닌 존재 여부 판단으로 변경)
-                _keywordExists = false;
-                LocalKeywordSpace ks = s.keywordSpace;
-                foreach (var kw in ks.keywords)
+                _receiveShadowsEnabled = rend.receiveShadows;
+                if (rend.sharedMaterial != null)
                 {
-                    if (kw.name == "_ADDITIONAL_LIGHTS")
-                    {
-                        _keywordExists = true;
-                        break;
-                    }
-                }
-
-                _isKeywordActiveOnMaterial = rend.sharedMaterial.IsKeywordEnabled("_ADDITIONAL_LIGHTS");
-
-                // 노멀맵 검증
-                if (rend.sharedMaterial.HasProperty("_BumpMap") && Vector3.Dot(_hitNormal, Vector3.up) > 0.99f)
-                {
-                    _diagnostics.Add("표면이 너무 평평합니다. Unpack Normal 노드 연결을 확인하세요.");
-                }
-
-                // 텍스처 Read/Write 검증
-                Texture2D tex = Shader.GetGlobalTexture("_GlobalRampTex") as Texture2D;
-                if (tex != null && !tex.isReadable)
-                {
-                    _diagnostics.Add("램프 텍스처의 'Read/Write Enabled'가 꺼져있어 디버거 색상이 부정확할 수 있습니다.");
+                    _shaderName = rend.sharedMaterial.shader.name;
+                    _materialKeywords = rend.sharedMaterial.shaderKeywords;
                 }
             }
 
-            CalculateLighting();
+            CalculateLightingSimulation();
             sceneView.Repaint();
         }
         if (_autoRefresh) Repaint();
     }
 
-    void UpdateURPSettings()
-    {
-        UniversalRenderPipelineAsset urpAsset = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
-        if (urpAsset != null)
-        {
-            _urpLightLimit = urpAsset.maxAdditionalLightsCount;
-            _lightRenderingMode = urpAsset.additionalLightsRenderingMode;
-        }
-    }
-
-    void CalculateLighting()
+    void CalculateLightingSimulation()
     {
         Texture2D tex2d = Shader.GetGlobalTexture("_GlobalRampTex") as Texture2D;
-        if (tex2d == null) return;
-
-        float madness = Shader.GetGlobalFloat("_GlobalMadness");
         float gamma = Shader.GetGlobalFloat("_GlobalRampGamma");
-        float steps = Shader.GetGlobalFloat("_GlobalSteps");
+        float madness = Shader.GetGlobalFloat("_GlobalMadness");
 
         Color acc = Color.black;
         Light[] lights = GameObject.FindObjectsByType<Light>(FindObjectsSortMode.None);
@@ -197,22 +143,20 @@ public class GlobalRampDebugger : EditorWindow
             if (l.type == LightType.Point)
             {
                 float d = Vector3.Distance(l.transform.position, _hitPoint);
-                // URP 감쇄 근사
-                atten = Mathf.Clamp01(1.0f - Mathf.Pow(d / l.range, 2.0f));
+                atten = Mathf.Clamp01(1.0f - Mathf.Pow(d / l.range, 4.0f));
             }
 
             float ndotl = Mathf.Clamp01(Vector3.Dot(_hitNormal, lDir));
-            float influence = ndotl * atten;
-
-            // 셰이더 로직(Gamma, Steps) 동기화
-            float u = Mathf.Pow(influence, Mathf.Max(0.01f, gamma));
-            if (steps > 0.1f) u = Mathf.Floor(u * steps) / steps;
+            float u = Mathf.Pow(ndotl * atten, Mathf.Max(0.01f, gamma));
 
             maxU = Mathf.Max(maxU, u);
-            acc += tex2d.GetPixelBilinear(u, madness) * l.color * l.intensity;
+            if (tex2d != null) acc += tex2d.GetPixelBilinear(u, madness) * l.color * l.intensity;
         }
 
         _finalIntensityU = maxU;
         _sampledColor = acc;
+
+        Handles.color = Color.cyan;
+        Handles.SphereHandleCap(0, _hitPoint, Quaternion.identity, 0.05f, EventType.Repaint);
     }
 }

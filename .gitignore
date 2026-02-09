@@ -102,3 +102,82 @@ Assets/UI Toolkit/UnityThemes.meta
 Assets/UI Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss
 Assets/UI Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss.meta
 Assets/UI Toolkit.meta
+Assets/Shader/Fog.zip
+Assets/Shader/Fog.zip.meta
+Assets/Shader/Fog_TDA.zip
+Assets/Shader/Fog_대부분 문제 해결함_이제 셀프 쉐도잉만 조금 손보면 됨.zip
+Assets/Shader/Fog_대부분 문제 해결함_이제 셀프 쉐도잉만 조금 손보면 됨.zip.meta
+Assets/Shader/Fog_디렉셔널 라이트만 빛 산란되는 버전. 추가 광원 깜빡임 없앰.zip
+Assets/Shader/Fog_디렉셔널 라이트만 빛 산란되는 버전. 추가 광원 깜빡임 없앰.zip.meta
+Assets/Shader/Fog_이제 다 해결함_다운샘플링1에서 렉 심함_이제 다음단계로 주변부 안개 없애는 거 추가 필요.zip
+Assets/Shader/Fog_이제 다 해결함_다운샘플링1에서 렉 심함_이제 다음단계로 주변부 안개 없애는 거 추가 필요.zip.meta
+Assets/Shader/Fog_추가 광원도 되긴하는데 조명 팝핑 현상있음 buffer index 0,3만 켜짐.zip
+Assets/Shader/Fog_추가 광원도 되긴하는데 조명 팝핑 현상있음 buffer index 0,3만 켜짐.zip.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P1.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P2.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P3.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P4.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P5.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P6.meta
+Assets/Shader/Ramp/PBR Stylized Textures/plane 2 mt.fbx
+Assets/Shader/Ramp/PBR Stylized Textures/plane 2 mt.fbx.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P1/New Material.mat
+Assets/Shader/Ramp/PBR Stylized Textures/P1/New Material.mat.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_Ao.png
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_Ao.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_BaseColor.png
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_BaseColor.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_metal_smooth.tga
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_metal_smooth.tga.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_Normal.png
+Assets/Shader/Ramp/PBR Stylized Textures/P1/P1_Normal.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_Ao.png
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_Ao.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_BaseColor.png
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_BaseColor.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_Material.mat
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_Material.mat.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P2/p2_metallic_roughness.tga
+Assets/Shader/Ramp/PBR Stylized Textures/P2/p2_metallic_roughness.tga.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_Normal.png
+Assets/Shader/Ramp/PBR Stylized Textures/P2/P2_Normal.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_Ao.png
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_Ao.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_BaseColor.png
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_BaseColor.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_Material.mat
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_Material.mat.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_metallic_rough.tga
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_metallic_rough.tga.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_Normal.png
+Assets/Shader/Ramp/PBR Stylized Textures/P3/P3_Normal.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Ao.png
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Ao.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_BaseColor.png
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_BaseColor.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Material.mat
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Material.mat.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Metallic_roughness.tga
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Metallic_roughness.tga.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Normal.png
+Assets/Shader/Ramp/PBR Stylized Textures/P4/P4_Normal.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_Ao.png
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_Ao.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_BaseColor.png
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_BaseColor.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P5/p5_Material.mat
+Assets/Shader/Ramp/PBR Stylized Textures/P5/p5_Material.mat.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_Metallic_Roughness.tga
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_Metallic_Roughness.tga.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_Normal.png
+Assets/Shader/Ramp/PBR Stylized Textures/P5/P5_Normal.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Ao.png
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Ao.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_BaseColor.png
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_BaseColor.png.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Material.mat
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Material.mat.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Metallic_Roughness.tga
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Metallic_Roughness.tga.meta
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Normal.png
+Assets/Shader/Ramp/PBR Stylized Textures/P6/P6_Normal.png.meta
