@@ -400,20 +400,6 @@
         {
             "m_OutputSlot": {
                 "m_Node": {
-                    "m_Id": "64bbece5eba8433791991f2ba50bcbb3"
-                },
-                "m_SlotId": 0
-            },
-            "m_InputSlot": {
-                "m_Node": {
-                    "m_Id": "b46e219773384cafad863a7111ba6ba8"
-                },
-                "m_SlotId": 0
-            }
-        },
-        {
-            "m_OutputSlot": {
-                "m_Node": {
                     "m_Id": "74d10987e9984899970ab5c4dbaaa972"
                 },
                 "m_SlotId": 2
@@ -659,6 +645,20 @@
             "m_InputSlot": {
                 "m_Node": {
                     "m_Id": "21f4c4c17ec748f4adbc73d982ec3578"
+                },
+                "m_SlotId": 0
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "aceffb46d03743f487bd497548222acd"
+                },
+                "m_SlotId": 0
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "b46e219773384cafad863a7111ba6ba8"
                 },
                 "m_SlotId": 0
             }
@@ -2340,7 +2340,7 @@
     "m_ObjectId": "55fbdd32a1224503a0e68c3398215877",
     "m_Title": "Adding Dither",
     "m_Position": {
-        "x": 784.0,
+        "x": 783.9998168945313,
         "y": 399.0
     }
 }
@@ -3630,7 +3630,7 @@
     "m_ObjectId": "8fc7dba4736545f0b9a2740aedc8da12",
     "m_Title": "Quantization",
     "m_Position": {
-        "x": 2521.0,
+        "x": 2520.99951171875,
         "y": 326.0
     }
 }

@@ -9,13 +9,13 @@ TagManager:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Environment
   - Water
   - UI
   - Player
   - Damageable Character
-  - 
-  - 
+  - Enemy
+  - POI
   - Damage Collider
   - Sliceable
   - BackBag

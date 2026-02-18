@@ -8,19 +8,16 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Ramp Buret
-  m_Shader: {fileID: -6465566751694194690, guid: 095ab5629c878104480f1386227397eb,
+  m_Shader: {fileID: -6465566751694194690, guid: d345e0728e34c8944bf68a298eda98ce,
     type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _A
-  - _B
-  - _C
+  m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 1
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 2000
+  m_CustomRenderQueue: -1
   stringTagMap:
     RenderType: Opaque
   disabledShaderPasses:
@@ -29,6 +26,10 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _AlbedoMap:
+        m_Texture: {fileID: 2800000, guid: e576116e34535fe418170a61d1618a44, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _BumpMap:
         m_Texture: {fileID: 2800000, guid: e55b3b6b895de0d4c868b64f4193cb52, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -38,7 +39,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MaskMap:
-        m_Texture: {fileID: 2800000, guid: 05ff3b59960356c4f8b8b967546a83b0, type: 3}
+        m_Texture: {fileID: 2800000, guid: bdebcae285609ae488f97f7cac34d42e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalMap:
+        m_Texture: {fileID: 2800000, guid: e55b3b6b895de0d4c868b64f4193cb52, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - unity_Lightmaps:
@@ -55,31 +60,30 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _A: 1
     - _ADDITIONAL_LIGHTS: 0
     - _ADDITIONAL_LIGHT_SHADOWS: 0
     - _AlphaClip: 0
     - _AlphaToMask: 0
-    - _B: 1
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
-    - _C: 1
     - _CastShadows: 1
     - _Cull: 2
     - _DstBlend: 0
     - _DstBlendAlpha: 0
-    - _MAIN_LIGHT_SHADOWS: 0
-    - _MAIN_LIGHT_SHADOWS_CASCADE: 0
+    - _Height_Scale: 0.35
     - _MetallicScale: 0.91
-    - _NormalStrength: 8
+    - _Metallic_Scale: 0
+    - _NormalStrength: 2
     - _OcclusionStrength: 2
+    - _Occlusion_Scale: 2
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ReflectionToggle: 1
+    - _Roughness_Scale: 20.11
     - _SmoothnessScale: 0
-    - _SpecularAASize: 1
     - _SpecularToggle: 1
+    - _Specular_AA_Size: 0.63
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
@@ -87,9 +91,6 @@ Material:
     - _ZTest: 4
     - _ZWrite: 1
     - _ZWriteControl: 0
-    - _a: 1
-    - _b: 1
-    - _c: 1
     m_Colors:
     - _Offset: {r: 0, g: 0, b: 0, a: 0}
     - _Tiling: {r: 1, g: 1, b: 0, a: 0}

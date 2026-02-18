@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: MultiLayerMasterComposite
+  m_Shader: {fileID: 4800000, guid: 2a9e131b0423a4149908967cd425a562, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BlitTexture:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DefaultNeutralLUT:
+        m_Texture: {fileID: 2800000, guid: b3a5339dfb714bd4c9590bfb17425ba5, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DreamcoreIDMap_Internal:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _HostileLUT:
+        m_Texture: {fileID: 2800000, guid: 878b94bf34bd1f748a1a5fd454b20f42, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _HostileStatusLUT:
+        m_Texture: {fileID: 2800000, guid: 878b94bf34bd1f748a1a5fd454b20f42, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ObjectIDMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _POILUT:
+        m_Texture: {fileID: 2800000, guid: a2d9e7b32ed1afd4fa1bc7a753d3cb6f, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _POIStatusLUT:
+        m_Texture: {fileID: 2800000, guid: a2d9e7b32ed1afd4fa1bc7a753d3cb6f, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _PlayerStatusLUT:
+        m_Texture: {fileID: 2800000, guid: b3a5339dfb714bd4c9590bfb17425ba5, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _WorldLUT_Far:
+        m_Texture: {fileID: 2800000, guid: 8b920a925c51e9549b6e9a25118cc053, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _WorldLUT_Near:
+        m_Texture: {fileID: 2800000, guid: b3a5339dfb714bd4c9590bfb17425ba5, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _DistanceLimit: 15
+    - _GlobalMadness: 0
+    - _TransitionFactor: 1
+    m_Colors:
+    - _FarTeal: {r: 0, g: 0.39999998, b: 0.5, a: 1}
+    - _NearOrange: {r: 1, g: 0.5, b: 0.19999996, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

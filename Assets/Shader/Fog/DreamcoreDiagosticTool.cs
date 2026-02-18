@@ -14,7 +14,7 @@ using System.Collections.Generic;
  * 4. Stable Logic: Unity 6 (URP 17.3)의 내부 구조 변화에 완벽히 대응합니다.
  */
 public class DreamcoreDiagnosticTool : EditorWindow
-{
+{/*
     private Vector2 _scrollPos;
     private bool _heartbeatToggle;
     private float _lastUpdateTime;
@@ -26,7 +26,7 @@ public class DreamcoreDiagnosticTool : EditorWindow
     private void OnEnable() => EditorApplication.update += UpdateHeartbeat;
     private void OnDisable() => EditorApplication.update -= UpdateHeartbeat;
 
-    private void UpdateHeartbeat()
+    private void UpdateHeartbeat() 
     {
         if (Time.realtimeSinceStartup - _lastUpdateTime > 0.2f)
         {
@@ -131,5 +131,5 @@ public class DreamcoreDiagnosticTool : EditorWindow
     {
         var field = typeof(AtmosphericMassRendererFeature).GetField(f, BindingFlags.Public | BindingFlags.Static);
         return field != null ? (T)field.GetValue(null) : d;
-    }
+    }*/
 }

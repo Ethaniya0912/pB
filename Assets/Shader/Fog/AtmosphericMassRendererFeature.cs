@@ -7,13 +7,15 @@ using Dreamcore.Atmosphere;
 
 /// <summary>
 /// [Dreamcore/Atmosphere] 
-/// [v9.0] Recursive Thinking 기반 아티팩트 완전 제거 버전.
+/// [v9.2] Render Graph 안정화 및 오브젝트 블랙 현상 해결 버전.
 /// 
 /// [수정 사항]
 /// 15. [Critical Fix] 원형 구체(Blob) 및 플레어 아티팩트 해결:
 ///     ㄴ 원인: 고정된 샘플 개수와 동심원 구조의 샘플링이 카메라 이동 시 '구' 형태로 가시화됨.
 ///     ㄴ 해결: 2차 레이마칭의 보폭을 픽셀별로 무작위화하고, 광원 방향으로의 탐색을 '비정형 랜덤 분포'로 전환.
 ///     ㄴ 파라미터: SelfShadowParams (x: 강도 3.0, y: 랜덤 확산 계수 0.15, z: 최소 투과 0.05).
+/// [Fix v9.2] Object Black-out Fix:
+///     ㄴ 합성 패스에서 배경(activeColor)을 Temp로 복사한 뒤, 그 위에 안개를 그려 배경 유실 방지.
 /// </summary>
 public class AtmosphericMassRendererFeature : ScriptableRendererFeature
 {
@@ -48,8 +50,6 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             public Material fogMat;
             public TextureHandle colorSource;
             public TextureHandle depthSource;
-            public TextureHandle mainShadowmap;
-            public TextureHandle additionalShadowmap;
             public TextureHandle fogBuffer;
             public Matrix4x4 invViewProj;
             public Vector3 camPosWS;
@@ -64,6 +64,11 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             public Vector4[] customLightColorInt;
             public Texture2D blueNoise;
             public Texture2D rampTex;
+        }
+
+        private class CopyPassData
+        {
+            public TextureHandle input;
         }
 
         private void CollectLightsManual(Vector3 camPos)
@@ -103,21 +108,26 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             if (!LazyInitialize()) return;
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-            UniversalShadowData shadowData = frameData.Get<UniversalShadowData>();
 
             if (resourceData == null || !resourceData.activeColorTexture.IsValid()) return;
 
-            RenderTextureDescriptor desc = cameraData.cameraTargetDescriptor;
-            desc.width = Mathf.Max(1, desc.width / m_Settings.downsample);
-            desc.height = Mathf.Max(1, desc.height / m_Settings.downsample);
-            desc.msaaSamples = 1;
-            desc.depthBufferBits = 0;
-            desc.colorFormat = RenderTextureFormat.ARGBHalf;
+            TextureHandle activeColor = resourceData.activeColorTexture;
 
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_FogRT, desc, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_VolumetricFogRT");
+            // 1. Fog Buffer Descriptor 설정
+            RenderTextureDescriptor fogDesc = cameraData.cameraTargetDescriptor;
+            fogDesc.width = Mathf.Max(1, fogDesc.width / m_Settings.downsample);
+            fogDesc.height = Mathf.Max(1, fogDesc.height / m_Settings.downsample);
+            fogDesc.msaaSamples = 1;
+            fogDesc.depthBufferBits = 0;
+            fogDesc.colorFormat = RenderTextureFormat.ARGBHalf;
+
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_FogRT, fogDesc, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_VolumetricFogRT");
             Matrix4x4 viewProjMat = GL.GetGPUProjectionMatrix(cameraData.camera.projectionMatrix, false) * cameraData.camera.worldToCameraMatrix;
             CollectLightsManual(cameraData.camera.transform.position);
 
+            TextureHandle fogBufferHandle = renderGraph.ImportTexture(m_FogRT);
+
+            // [Pass 1] Volumetric Fog Generation
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("Volumetric_Atmosphere_Gen", out var passData))
             {
                 passData.fogMat = m_FogMat;
@@ -127,22 +137,20 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
                 passData.lightParams = new Vector4(m_Settings.lightScatterMult, m_Settings.jitterStrength, m_Settings.shadowContrast, (float)m_Settings.lightQuantization);
                 passData.styleParams = new Vector4(m_Settings.rampStrength, m_Settings.shadowThreshold, m_Settings.useManualLightCollection ? 1.0f : 0.0f, 0);
                 passData.debugParams = new Vector4((float)m_Settings.debugMode, 0, 0, 0);
-                passData.selfShadowParams = new Vector4(3.0f, 0.15f, 0.05f, 0.0f); // v9.0 정밀 튜닝
+                passData.selfShadowParams = new Vector4(3.0f, 0.15f, 0.05f, 0.0f);
                 passData.ambientColor = m_Settings.ambientColor;
                 passData.blueNoise = m_Settings.blueNoiseTexture;
                 passData.rampTex = m_Settings.rampTexture;
                 passData.customLightCount = Mathf.Min(m_SceneLights.Count, m_Settings.maxExtraLights);
-                passData.customLightPosRange = m_LightPosRange;
-                passData.customLightColorInt = m_LightColorInt;
+                passData.customLightPosRange = (Vector4[])m_LightPosRange.Clone();
+                passData.customLightColorInt = (Vector4[])m_LightColorInt.Clone();
 
-                passData.colorSource = resourceData.activeColorTexture;
                 passData.depthSource = resourceData.activeDepthTexture;
-                passData.fogBuffer = renderGraph.ImportTexture(m_FogRT);
+                passData.fogBuffer = fogBufferHandle;
 
                 if (resourceData.mainShadowsTexture.IsValid()) builder.UseTexture(resourceData.mainShadowsTexture, AccessFlags.Read);
                 if (resourceData.additionalShadowsTexture.IsValid()) builder.UseTexture(resourceData.additionalShadowsTexture, AccessFlags.Read);
 
-                builder.UseTexture(passData.colorSource, AccessFlags.Read);
                 builder.UseTexture(passData.depthSource, AccessFlags.Read);
                 builder.SetRenderAttachment(passData.fogBuffer, 0);
                 builder.AllowPassCulling(false);
@@ -166,17 +174,45 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
                 });
             }
 
+            // [Pass 2] Composition 준비 (배경 보존을 위한 Temp 생성 및 복사)
+            RenderTextureDescriptor compDesc = cameraData.cameraTargetDescriptor;
+            compDesc.depthBufferBits = 0;
+            TextureHandle tempColor = renderGraph.CreateTexture(new TextureDesc(compDesc) { name = "Atmosphere_CompositeTemp" });
+
+            // 현재 화면을 Temp로 복사
+            using (var builder = renderGraph.AddRasterRenderPass<CopyPassData>("Atmosphere_Prepare_Background", out var copyData))
+            {
+                copyData.input = activeColor;
+                builder.UseTexture(activeColor, AccessFlags.Read);
+                builder.SetRenderAttachment(tempColor, 0);
+                builder.SetRenderFunc((CopyPassData data, RasterGraphContext context) =>
+                {
+                    Blitter.BlitTexture(context.cmd, data.input, new Vector4(1, 1, 0, 0), 0.0f, false);
+                });
+            }
+
+            // [Pass 3] Volumetric Fog Composition (Temp 배경 위에 안개 합성)
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("Volumetric_Fog_Composition", out var passData))
             {
                 passData.fogMat = m_FogMat;
-                passData.fogBuffer = renderGraph.ImportTexture(m_FogRT);
+                passData.fogBuffer = fogBufferHandle;
+                passData.colorSource = tempColor; // 복사된 배경
                 passData.debugParams = new Vector4((float)m_Settings.debugMode, 0, 0, 0);
+
                 builder.UseTexture(passData.fogBuffer, AccessFlags.Read);
-                builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
+                builder.UseTexture(passData.colorSource, AccessFlags.Read);
+
+                // 결과물은 다시 activeColorTexture로 출력
+                builder.SetRenderAttachment(activeColor, 0);
+
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {
+                    // 쉐이더가 배경 화면을 인지하도록 _MainTex로 전달
+                    data.fogMat.SetTexture("_MainTex", data.colorSource);
                     data.fogMat.SetTexture("_FogTex", data.fogBuffer);
                     data.fogMat.SetVector("_DebugParams", data.debugParams);
+
+                    // Pass 1 (Composition Pass) 실행
                     context.cmd.DrawProcedural(Matrix4x4.identity, data.fogMat, 1, MeshTopology.Triangles, 3);
                 });
             }
@@ -194,5 +230,10 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             m_Pass.renderPassEvent = settings.renderPassEvent;
             renderer.EnqueuePass(m_Pass);
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (m_Pass != null) m_Pass.Dispose();
     }
 }

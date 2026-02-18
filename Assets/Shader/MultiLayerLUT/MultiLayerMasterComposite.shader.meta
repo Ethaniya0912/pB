@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 2a9e131b0423a4149908967cd425a562
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures:
+  - _MainTex: {instanceID: 0}
+  - _DreamcoreIDMap_Internal: {instanceID: 0}
+  - _DefaultNeutralLUT: {instanceID: 0}
+  - _WorldLUT_Near: {instanceID: 0}
+  - _WorldLUT_Far: {instanceID: 0}
+  - _HostileLUT: {instanceID: 0}
+  - _HostileStatusLUT: {instanceID: 0}
+  - _POILUT: {instanceID: 0}
+  - _POIStatusLUT: {instanceID: 0}
+  - _PlayerStatusLUT: {instanceID: 0}
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

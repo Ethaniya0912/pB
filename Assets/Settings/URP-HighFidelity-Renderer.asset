@@ -18,6 +18,26 @@ MonoBehaviour:
   requirements: 4
   passMaterial: {fileID: 2100000, guid: 705c113c0063ca944893b0a7fbf32d34, type: 2}
   passIndex: 0
+  bindDepthStencilAttachment: 1
+  m_Version: 1
+--- !u!114 &-7046500563337276279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
+  m_Name: FullScreenPassRendererFeature
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
+  m_Active: 1
+  injectionPoint: 600
+  fetchColorBuffer: 1
+  requirements: 0
+  passMaterial: {fileID: 2100000, guid: 6928a84806175c54aa02e2f01a4bcac9, type: 2}
+  passIndex: 0
   bindDepthStencilAttachment: 0
   m_Version: 1
 --- !u!114 &-1878332245247344467
@@ -73,10 +93,13 @@ MonoBehaviour:
     probeSamplingDebugTexture: {fileID: 0}
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
-  - {fileID: -1878332245247344467}
   - {fileID: -8853918269838805033}
-  - {fileID: 9200954283256496390}
-  m_RendererFeatureMap: adc0de57c6d2eee5d7b7ea5f3e90208506c11c002c5bb07f
+  - {fileID: 1535162850036665953}
+  - {fileID: -1878332245247344467}
+  - {fileID: 264889460740356924}
+  - {fileID: 3141213623881023576}
+  - {fileID: -7046500563337276279}
+  m_RendererFeatureMap: d7b7ea5f3e90208561cecf7c7afe4d15adc0de57c6d2eee53c7b2ca48f13ad0358c00be725d5972b8914b15412cd359e
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -105,7 +128,49 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 1
---- !u!114 &9200954283256496390
+--- !u!114 &264889460740356924
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
+  m_Name: RenderObjects
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
+  m_Active: 1
+  settings:
+    passTag: RenderObjects
+    Event: 300
+    filterSettings:
+      RenderQueueType: 0
+      LayerMask:
+        serializedVersion: 2
+        m_Bits: 64
+      PassNames: []
+    overrideMaterial: {fileID: 0}
+    overrideMaterialPassIndex: 0
+    overrideShader: {fileID: 0}
+    overrideShaderPassIndex: 0
+    overrideMode: 1
+    overrideDepthState: 0
+    depthCompareFunction: 4
+    enableWrite: 1
+    stencilSettings:
+      overrideStencilState: 1
+      stencilReference: 1
+      stencilCompareFunction: 8
+      passOperation: 2
+      failOperation: 0
+      zFailOperation: 0
+    cameraSettings:
+      overrideCamera: 0
+      restoreCamera: 1
+      offset: {x: 0, y: 0, z: 0, w: 0}
+      cameraFieldOfView: 60
+--- !u!114 &1535162850036665953
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -121,20 +186,127 @@ MonoBehaviour:
   settings:
     atmosphericShader: {fileID: 4800000, guid: 584a37bad10d23341897c9fa92f5aedd, type: 3}
     renderPassEvent: 600
-    downsample: 3
-    stepCount: 185
+    downsample: 4
+    stepCount: 70
+    maxDistance: 150
+    useManualLightCollection: 1
+    maxExtraLights: 32
+    ambientColor: {r: 0, g: 0, b: 0, a: 1}
+    lightScatterMult: 2
+    fogDensity: 0.016
+    anisotropy: 0.177
+    shadowContrast: 1
+    shadowThreshold: 0.5
+    lightQuantization: 16
+    rampTexture: {fileID: 2800000, guid: d30c08a16c29cab4084d6ddcf308e02e, type: 3}
+    rampStrength: 0.399
+    blueNoiseTexture: {fileID: 2800000, guid: 278f676d98a507e4c9c2bcc135455f38, type: 3}
+    jitterStrength: 0.129
+    debugMode: 0
+--- !u!114 &2658408271781256726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37a605ce996ab32458dcc8cb3de2f772, type: 3}
+  m_Name: MultiLayerLUTRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::MultiLayerLUTRendererFeature
+  m_Active: 1
+  settings: {lutShader: {fileID: 4800000, guid: 7b4199b5f4b5fc448bb23b4ca0502407,
+      type: 3}, passEvent: 550, debugMode: 1}
+--- !u!114 &3141213623881023576
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
+  m_Name: RenderObjects
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
+  m_Active: 1
+  settings:
+    passTag: RenderObjects
+    Event: 550
+    filterSettings:
+      RenderQueueType: 0
+      LayerMask:
+        serializedVersion: 2
+        m_Bits: 64
+      PassNames: []
+    overrideMaterial: {fileID: 2100000, guid: ae45371d435239c489f6000b884de07b, type: 2}
+    overrideMaterialPassIndex: 0
+    overrideShader: {fileID: 0}
+    overrideShaderPassIndex: 0
+    overrideMode: 1
+    overrideDepthState: 0
+    depthCompareFunction: 4
+    enableWrite: 0
+    stencilSettings:
+      overrideStencilState: 1
+      stencilReference: 1
+      stencilCompareFunction: 3
+      passOperation: 0
+      failOperation: 0
+      zFailOperation: 0
+    cameraSettings:
+      overrideCamera: 0
+      restoreCamera: 1
+      offset: {x: 0, y: 0, z: 0, w: 0}
+      cameraFieldOfView: 60
+--- !u!114 &5973812897567307139
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37a605ce996ab32458dcc8cb3de2f772, type: 3}
+  m_Name: MultiLayerLUTRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::MultiLayerLUTRendererFeature
+  m_Active: 1
+  settings:
+    lutShader: {fileID: 0}
+    passEvent: 550
+    debugMode: 0
+--- !u!114 &9200954283256496390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c53ac396fc4b1a4e95c3a250c15e742, type: 3}
+  m_Name: AtmosphericMassRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::AtmosphericMassRendererFeature
+  m_Active: 0
+  settings:
+    atmosphericShader: {fileID: 4800000, guid: 584a37bad10d23341897c9fa92f5aedd, type: 3}
+    renderPassEvent: 600
+    downsample: 4
+    stepCount: 165
     maxDistance: 150
     useManualLightCollection: 1
     maxExtraLights: 11
     ambientColor: {r: 0, g: 0, b: 0, a: 1}
     lightScatterMult: 2.1
-    fogDensity: 0.17
-    anisotropy: 0.034
-    shadowContrast: 5.81
-    shadowThreshold: 0.18
-    lightQuantization: 1
+    fogDensity: 0.054
+    anisotropy: -0.677
+    shadowContrast: 8.07
+    shadowThreshold: 0.121
+    lightQuantization: 4.2
     rampTexture: {fileID: 2800000, guid: 14b4eb9bd94558244afe0e2211442222, type: 3}
     rampStrength: 0.05
     blueNoiseTexture: {fileID: 2800000, guid: 278f676d98a507e4c9c2bcc135455f38, type: 3}
-    jitterStrength: 0.171
+    jitterStrength: 0
     debugMode: 0
