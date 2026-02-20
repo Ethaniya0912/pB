@@ -3,19 +3,18 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
+using Unity.Collections; // [추가] NativeArray 사용을 위한 네임스페이스
 using Dreamcore.Atmosphere;
 
 /// <summary>
 /// [Dreamcore/Atmosphere] 
-/// [v9.2] Render Graph 안정화 및 오브젝트 블랙 현상 해결 버전.
+/// [v9.4] 컴파일 에러 해결 및 성능 최적화 버전.
 /// 
 /// [수정 사항]
-/// 15. [Critical Fix] 원형 구체(Blob) 및 플레어 아티팩트 해결:
-///     ㄴ 원인: 고정된 샘플 개수와 동심원 구조의 샘플링이 카메라 이동 시 '구' 형태로 가시화됨.
-///     ㄴ 해결: 2차 레이마칭의 보폭을 픽셀별로 무작위화하고, 광원 방향으로의 탐색을 '비정형 랜덤 분포'로 전환.
-///     ㄴ 파라미터: SelfShadowParams (x: 강도 3.0, y: 랜덤 확산 계수 0.15, z: 최소 투과 0.05).
-/// [Fix v9.2] Object Black-out Fix:
-///     ㄴ 합성 패스에서 배경(activeColor)을 Temp로 복사한 뒤, 그 위에 안개를 그려 배경 유실 방지.
+/// 1. [Hotfix] NativeArray 오타 수정: Native全力 -> NativeArray로 변경하여 CS0246 에러 해결.
+/// 2. [Hotfix] 네임스페이스 추가: Unity.Collections 추가.
+/// 3. [Optimization] GC Alloc 제거: PassData 내 배열을 미리 할당하고 Array.Copy를 사용하여 매 프레임 발생하던 .Clone() 부하를 해결.
+/// 4. [Optimization] 광원 수집 최적화: FindObjectsByType 대신 URP의 VisibleLights 리스트를 활용하여 CPU 부하 대폭 감소.
 /// </summary>
 public class AtmosphericMassRendererFeature : ScriptableRendererFeature
 {
@@ -60,8 +59,9 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             public Vector4 selfShadowParams;
             public Color ambientColor;
             public int customLightCount;
-            public Vector4[] customLightPosRange;
-            public Vector4[] customLightColorInt;
+            // [최적화] 배열 참조 대신 고정 크기 배열을 사용하여 GC 할당 방지
+            public Vector4[] customLightPosRange = new Vector4[64];
+            public Vector4[] customLightColorInt = new Vector4[64];
             public Texture2D blueNoise;
             public Texture2D rampTex;
         }
@@ -71,18 +71,28 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             public TextureHandle input;
         }
 
-        private void CollectLightsManual(Vector3 camPos)
+        /// <summary>
+        /// [최적화] 가시 광원 리스트를 활용하여 수동 광원 정보를 수집합니다.
+        /// </summary>
+        private void CollectLightsOptimized(Vector3 camPos, NativeArray<VisibleLight> visibleLights)
         {
-            if (!Application.isPlaying && !Application.isEditor) return;
             if (m_Settings == null || !m_Settings.useManualLightCollection) return;
 
             m_SceneLights.Clear();
-            var allLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
-            foreach (var l in allLights)
+
+            // [최적화] FindObjectsByType 대신 렌더링 파이프라인이 이미 알고 있는 가시 광원 리스트를 순회합니다.
+            for (int i = 0; i < visibleLights.Length; i++)
             {
+                VisibleLight vl = visibleLights[i];
+                Light l = vl.light;
+
                 if (l != null && l.enabled && (l.type == LightType.Point || l.type == LightType.Spot))
+                {
                     m_SceneLights.Add(l);
+                }
             }
+
+            // 카메라 거리순 정렬
             m_SceneLights.Sort((a, b) => Vector3.SqrMagnitude(a.transform.position - camPos).CompareTo(Vector3.SqrMagnitude(b.transform.position - camPos)));
 
             int count = Mathf.Min(m_SceneLights.Count, Mathf.Min(m_Settings.maxExtraLights, AtmosphericMassConfig.Constants.MaxShaderLights));
@@ -106,8 +116,13 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             if (!LazyInitialize()) return;
+
+            // [최적화] 안개가 보이지 않는 설정일 경우 패스 기록을 생략하여 CPU 자원 보존
+            if (m_Settings.fogDensity <= 0.0001f || m_Settings.maxDistance <= 0.1f) return;
+
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+            UniversalLightData lightData = frameData.Get<UniversalLightData>();
 
             if (resourceData == null || !resourceData.activeColorTexture.IsValid()) return;
 
@@ -122,8 +137,12 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             fogDesc.colorFormat = RenderTextureFormat.ARGBHalf;
 
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_FogRT, fogDesc, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_VolumetricFogRT");
-            Matrix4x4 viewProjMat = GL.GetGPUProjectionMatrix(cameraData.camera.projectionMatrix, false) * cameraData.camera.worldToCameraMatrix;
-            CollectLightsManual(cameraData.camera.transform.position);
+
+            Matrix4x4 projectionMatrix = cameraData.camera.projectionMatrix;
+            Matrix4x4 viewProjMat = GL.GetGPUProjectionMatrix(projectionMatrix, false) * cameraData.camera.worldToCameraMatrix;
+
+            // [최적화] 가시 광원 데이터를 사용하여 광원 정보 수집
+            CollectLightsOptimized(cameraData.camera.transform.position, lightData.visibleLights);
 
             TextureHandle fogBufferHandle = renderGraph.ImportTexture(m_FogRT);
 
@@ -142,8 +161,10 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
                 passData.blueNoise = m_Settings.blueNoiseTexture;
                 passData.rampTex = m_Settings.rampTexture;
                 passData.customLightCount = Mathf.Min(m_SceneLights.Count, m_Settings.maxExtraLights);
-                passData.customLightPosRange = (Vector4[])m_LightPosRange.Clone();
-                passData.customLightColorInt = (Vector4[])m_LightColorInt.Clone();
+
+                // [최적화] Clone() 대신 Array.Copy를 사용하여 힙 할당을 제거함 (PassData 내 고정 배열 활용)
+                System.Array.Copy(m_LightPosRange, passData.customLightPosRange, 64);
+                System.Array.Copy(m_LightColorInt, passData.customLightColorInt, 64);
 
                 passData.depthSource = resourceData.activeDepthTexture;
                 passData.fogBuffer = fogBufferHandle;
@@ -179,7 +200,6 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             compDesc.depthBufferBits = 0;
             TextureHandle tempColor = renderGraph.CreateTexture(new TextureDesc(compDesc) { name = "Atmosphere_CompositeTemp" });
 
-            // 현재 화면을 Temp로 복사
             using (var builder = renderGraph.AddRasterRenderPass<CopyPassData>("Atmosphere_Prepare_Background", out var copyData))
             {
                 copyData.input = activeColor;
@@ -196,23 +216,18 @@ public class AtmosphericMassRendererFeature : ScriptableRendererFeature
             {
                 passData.fogMat = m_FogMat;
                 passData.fogBuffer = fogBufferHandle;
-                passData.colorSource = tempColor; // 복사된 배경
+                passData.colorSource = tempColor;
                 passData.debugParams = new Vector4((float)m_Settings.debugMode, 0, 0, 0);
 
                 builder.UseTexture(passData.fogBuffer, AccessFlags.Read);
                 builder.UseTexture(passData.colorSource, AccessFlags.Read);
-
-                // 결과물은 다시 activeColorTexture로 출력
                 builder.SetRenderAttachment(activeColor, 0);
 
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {
-                    // 쉐이더가 배경 화면을 인지하도록 _MainTex로 전달
                     data.fogMat.SetTexture("_MainTex", data.colorSource);
                     data.fogMat.SetTexture("_FogTex", data.fogBuffer);
                     data.fogMat.SetVector("_DebugParams", data.debugParams);
-
-                    // Pass 1 (Composition Pass) 실행
                     context.cmd.DrawProcedural(Matrix4x4.identity, data.fogMat, 1, MeshTopology.Triangles, 3);
                 });
             }

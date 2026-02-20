@@ -1,0 +1,46 @@
+// [Lead Architect] 
+// 2,200개의 오브젝트 가시성을 병렬로 판단하는 핵심 컴퓨트 셰이더입니다.
+
+#pragma kernel CSMain
+
+struct InstanceData
+{
+    float4x4 localToWorld;
+    float3 boundsCenter;
+    float boundsRadius;
+};
+
+StructuredBuffer<InstanceData> _InstanceDataBuffer;
+AppendStructuredBuffer<uint> _VisibleIndexBuffer;
+
+float4 _FrustumPlanes[6];
+uint _InstanceCount;
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _InstanceCount)
+        return;
+
+    InstanceData data = _InstanceDataBuffer[id.x];
+
+    float3 worldCenter = mul(data.localToWorld, float4(data.boundsCenter, 1.0)).xyz;
+    float maxScale = max(length(data.localToWorld[0].xyz), max(length(data.localToWorld[1].xyz), length(data.localToWorld[2].xyz)));
+    float worldRadius = data.boundsRadius * maxScale * 1.2; // 1.2는 컬링 마진(Margin)
+
+    bool isVisible = true;
+    for (int i = 0; i < 6; i++)
+    {
+        float distance = dot(_FrustumPlanes[i].xyz, worldCenter) + _FrustumPlanes[i].w;
+        if (distance < -worldRadius)
+        {
+            isVisible = false;
+            break;
+        }
+    }
+
+    if (isVisible)
+    {
+        _VisibleIndexBuffer.Append(id.x);
+    }
+}

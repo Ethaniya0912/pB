@@ -433,7 +433,7 @@ MonoBehaviour:
   slotPadding: 0.2
   slotSizeMultiplier: 0.95
   itemModelScaleOffset: 0.9
-  openPosOffset: {x: 0, y: 0.05, z: 0.15}
+  groundYOffset: 0.05
   colorDefault: {r: 1, g: 1, b: 1, a: 0.2}
   colorValid: {r: 0, g: 1, b: 0, a: 0.5}
   colorInvalid: {r: 1, g: 0, b: 0, a: 0.5}
@@ -947,6 +947,10 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 9202242292753928654}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 1fe69440e72f52d40a007dd392b16a17,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9193014581143191389}
     - targetCorrespondingSourceObject: {fileID: -2426548417520011582, guid: 1fe69440e72f52d40a007dd392b16a17,
         type: 3}
       insertIndex: -1
@@ -1770,6 +1774,9 @@ MonoBehaviour:
   lockOnTransform: {fileID: 7549646920840389065}
   currentWeaponBeingUsed: {fileID: 0}
   canComboWithMainHandWeapon: 0
+  lockOn_Input: 0
+  lockOn_Left_Input: 0
+  lockOn_Right_Input: 0
 --- !u!114 &1360406133973820433
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1832,6 +1839,10 @@ MonoBehaviour:
   endurance:
     m_InternalValue: 10
   vitality:
+    m_InternalValue: 1
+  currentMadness:
+    m_InternalValue: 1
+  maxMadness:
     m_InternalValue: 1
   currentStamina:
     m_InternalValue: 100
@@ -2151,6 +2162,7 @@ MonoBehaviour:
   isInventoryOpen: 0
   bagVisualController: {fileID: 7991972340752744689}
   bagStayPivot: {fileID: 6795045772260818517}
+  currentLootContainer: {fileID: 0}
   inventoryCameraPivot: {fileID: 7419943440144498018}
 --- !u!114 &8722997583671731243
 MonoBehaviour:
@@ -2371,6 +2383,24 @@ MonoBehaviour:
   backBagLayer:
     serializedVersion: 2
     m_Bits: 4096
+  bagVisual: {fileID: 0}
+--- !u!114 &9193014581143191389
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd26feb25385485489cfa0bfb7e49bea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerVisualFeedbackManager
+  maxReferenceSpeed: 10
+  accelerationResponse: 5
+  recoveryResponse: 2
+  breathFrequency: 1.5
+  pulseIntensity: 0.03
 --- !u!4 &8484327650739065940 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8394319411648354943, guid: 1fe69440e72f52d40a007dd392b16a17,

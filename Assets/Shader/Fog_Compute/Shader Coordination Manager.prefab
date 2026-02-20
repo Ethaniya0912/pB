@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1514679763786612267
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1484398648211226083}
+  - component: {fileID: 1135784879608721889}
+  m_Layer: 0
+  m_Name: Shader Coordination Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1484398648211226083
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1514679763786612267}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1135784879608721889
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1514679763786612267}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b37aa90097c277245af7fada77ab477a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShaderCoordinationManager
+  globalRampTexture: {fileID: 2800000, guid: d30c08a16c29cab4084d6ddcf308e02e, type: 3}
+  globalMadness: 0
+  globalRampGamma: 0.22204864
+  globalQuantizeSteps: 6
+  fogDensity: 0.102
+  raySteps: 93
+  maxDistance: 31.6
+  lightQuantization: 3.23
+  fogAmbientColor: {r: 0.2216981, g: 0.11607778, b: 0.11607778, a: 1}
+  blueNoise: {fileID: 2800000, guid: 278f676d98a507e4c9c2bcc135455f38, type: 3}
+  bloomThreshold: 0.316
+  edgeProtectionIntensity: 2.59
+  bleedColor: {r: 1, g: 0.8, b: 0.6, a: 1}
+  currentSpeedFactor: 0
+  currentMovementPulse: 0

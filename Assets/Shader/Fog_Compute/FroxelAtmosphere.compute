@@ -1,0 +1,147 @@
+// [Lead Architect] 
+// ShaderCoordinationManager와 동기화된 Froxel 연산 커널 (Singularity 폭주 완벽 차단)
+
+#pragma kernel CSInjectLighting
+#pragma kernel CSAccumulateScattering
+
+#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+#pragma multi_compile _ _SHADOWS_SOFT
+#pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+
+struct FroxelLightData
+{
+    float4 colorAndInten;
+    float4 posAndRange;
+    int visibleLightIndex;
+    float3 padding;
+};
+
+RWTexture3D<half4> _FroxelVolumeWrite;
+Texture3D<half4> _FroxelVolumeRead;
+
+StructuredBuffer<FroxelLightData> _LightBuffer;
+
+// Global Parameters
+float4x4 _InverseViewProjMatrix;
+float3 _CameraPosWS;
+uint _LightCount;
+float3 _GridSize;
+float _NearClip;
+float _MaxDist;
+float _FogDensity;
+float4 _GlobalAmbientColor;
+float _Anisotropy;
+float _JitterOffset;
+
+float ZSliceToLinearDepth(float z, float jitter)
+{
+    float normalizedZ = (z + jitter) / _GridSize.z;
+    return _NearClip * pow(abs(_MaxDist / _NearClip), normalizedZ);
+}
+
+float3 ComputeWorldPosition(uint3 id, float jitter)
+{
+    float2 uv = (float2(id.xy) + 0.5) / _GridSize.xy;
+    float linearDepth = ZSliceToLinearDepth(id.z, jitter);
+    float4 ndc = float4(uv * 2.0 - 1.0, 1.0, 1.0);
+    
+    float4 worldDir = mul(_InverseViewProjMatrix, ndc);
+    worldDir /= worldDir.w;
+    float3 rayDir = normalize(worldDir.xyz - _CameraPosWS);
+    
+    return _CameraPosWS + rayDir * linearDepth;
+}
+
+float PhaseHG(float cosTheta, float g)
+{
+    float g2 = g * g;
+    float denom = 1.0 + g2 - 2.0 * g * cosTheta;
+    return (1.0 - g2) * rcp(4.0 * PI * pow(max(abs(denom), 0.0001), 1.5));
+}
+
+[numthreads(8, 8, 4)]
+void CSInjectLighting(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= (uint3) _GridSize))
+        return;
+
+    float3 posWS = ComputeWorldPosition(id, _JitterOffset);
+    float3 rayDir = normalize(posWS - _CameraPosWS);
+    
+    float3 totalScattering = _GlobalAmbientColor.rgb * 0.1;
+    
+    // 메인 라이트 (태양광) 
+    float4 shadowCoord = TransformWorldToShadowCoord(posWS);
+    Light mainLight = GetMainLight(shadowCoord);
+    
+    float phase = PhaseHG(dot(rayDir, mainLight.direction), _Anisotropy);
+    totalScattering += mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation * phase);
+    
+    // 추가 광원 처리 (Point / Spot)
+    for (uint i = 0; i < _LightCount; i++)
+    {
+        FroxelLightData lData = _LightBuffer[i];
+        float3 toLight = lData.posAndRange.xyz - posWS;
+        float distSqr = dot(toLight, toLight);
+        float rangeSqr = lData.posAndRange.w * lData.posAndRange.w;
+        
+        if (distSqr < rangeSqr)
+        {
+            float dist = sqrt(distSqr);
+            float3 lDir = toLight * rcp(max(dist, 0.0001));
+            
+            // [핵심 Fix] 볼류메트릭 특이점(Singularity) 방지 + 역제곱 감쇠 복구
+            // 카메라와 겹쳐서 거리가 0이 되더라도, 빛 계산은 최소 1.0의 거리를 가진 것처럼 
+            // 캡(Cap)을 씌워 화면이 미친듯이 튀는 현상을 원천 차단합니다!
+            float safeDistSqr = max(distSqr, 1.0);
+            float window = saturate(1.0 - (distSqr * rcp(rangeSqr)));
+            float safeAtten = rcp(safeDistSqr) * (window * window);
+
+            float p = PhaseHG(dot(rayDir, lDir), _Anisotropy);
+            float shadow = 1.0;
+            
+#if defined(_ADDITIONAL_LIGHT_SHADOWS)
+                shadow = AdditionalLightRealtimeShadow(lData.visibleLightIndex, posWS, lDir);
+#endif
+            
+            totalScattering += lData.colorAndInten.xyz * lData.colorAndInten.w * safeAtten * p * shadow;
+        }
+    }
+    
+    half4 result = half4(totalScattering * _FogDensity, _FogDensity);
+    _FroxelVolumeWrite[id] = result;
+}
+
+[numthreads(8, 8, 1)]
+void CSAccumulateScattering(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint2) _GridSize.xy))
+        return;
+
+    float3 accumLight = 0.0;
+    float transmittance = 1.0;
+    float prevDepth = 0.0;
+
+    for (uint z = 0; z < (uint) _GridSize.z; z++)
+    {
+        uint3 voxelID = uint3(id.xy, z);
+        half4 stepData = _FroxelVolumeRead[voxelID];
+        
+        float currentDepth = ZSliceToLinearDepth(z, _JitterOffset);
+        float stepLen = currentDepth - prevDepth;
+        prevDepth = currentDepth;
+        
+        float extinction = stepData.a;
+        float stepTransmittance = exp(-extinction * stepLen);
+        
+        float3 scatteringCalc = stepData.rgb * (1.0 - stepTransmittance) * rcp(max(extinction, 0.00001));
+        accumLight += scatteringCalc * transmittance;
+        
+        transmittance *= stepTransmittance;
+        _FroxelVolumeWrite[voxelID] = half4(accumLight, transmittance);
+    }
+}

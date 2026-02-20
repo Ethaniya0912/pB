@@ -2,8 +2,17 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
 {
     Properties
     {
+        // SECTION 1: Feature Toggles
+        [Header(Feature Toggles)]
+        [Toggle(_USE_DISTORTION)] _UseDistortion ("Enable Distortion", Float) = 1
+        [Toggle(_USE_CHROMA)] _UseChroma ("Enable Speed Chroma", Float) = 1
+        [Toggle(_USE_MOTION_BLUR)] _UseMotionBlur ("Enable Motion Blur", Float) = 1
+        [Toggle(_USE_MIPMAP)] _UseMipmap ("Enable Mipmap", Float) = 1
+        [Toggle(_USE_DISTANCE_BLUR)] _UseDistanceBlur ("Enable Distance Blur", Float) = 1
+
+        // SECTION 2: Distance Blur Settings
         [Header(Distance Zones)]
-        _NearDist ("Near Distance (Safe End)", Float) = 7.0
+        _NearDist ("Near Distance", Float) = 7.0
         _MidDist ("Mid Distance", Float) = 25.0
         _FarDist ("Far Distance", Float) = 50.0
         
@@ -12,23 +21,44 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
         _MidBlurSize ("Mid Blur Size", Range(0.0, 20.0)) = 4.0
         _FarBlurSize ("Far Blur Size", Range(0.0, 30.0)) = 12.0
         _BlurExponent ("Distance Curve Exponent", Range(1.0, 5.0)) = 2.0
+        _CenterBlurScale ("Center Blur Strength", Range(0.0, 1.0)) = 0.2 
 
         [Header(Artifact Correction)]
         [KeywordEnum(None, SNN, Kuwahara, Median)] _FilterType ("Filter Method", Float) = 1
-        _DepthThreshold ("Depth Awareness (Edge Fix)", Range(0.1, 10.0)) = 2.0
-        _JitterIntensity ("Smooth Mode Jitter", Range(0.0, 1.0)) = 1.0
+        _DepthThreshold ("Depth Awareness", Range(0.1, 10.0)) = 2.0
+        _JitterIntensity ("Smooth Jitter", Range(0.0, 1.0)) = 1.0
         
         [Header(Pixel and Mosaic Settings)]
         _PixelScale ("Near Pixel Scale", Range(1.0, 15.0)) = 4.0
         _FarPixelScale ("Far Pixel Scale", Range(1.0, 50.0)) = 15.0
-        _PixelCurve ("Pixel Scale Curve", Range(0.1, 5.0)) = 1.0
-        _MoireReduction ("Pixel Moire Reduction (AA)", Range(0.0, 2.0)) = 0.5
-        [Toggle(_LOCK_GRID)] _LockGrid ("Lock Grid (Prevent Crawling)", Float) = 1
-        [Toggle(_MOSAIC_MODE)] _MosaicMode ("Mosaic Mode (Blocky Color)", Float) = 0
+        _PixelCurve ("Pixel Curve", Range(0.1, 5.0)) = 1.0
+        _MoireReduction ("Moire Reduction", Range(0.0, 2.0)) = 0.5
+        [Toggle(_LOCK_GRID)] _LockGrid ("Lock Grid", Float) = 1
+        [Toggle(_MOSAIC_MODE)] _MosaicMode ("Mosaic Mode", Float) = 0
         
         [Header(Dreamcore Settings)]
-        _DreamHaze ("Dream Haze Intensity", Range(0.0, 1.0)) = 0.5
-        _DreamChroma ("Dream Chromatic Offset", Range(0.0, 5.0)) = 1.5
+        _DreamHaze ("Dream Haze", Range(0.0, 1.0)) = 0.5
+        _DreamChroma ("Dream Chromatic", Range(0.0, 5.0)) = 1.5
+
+        // SECTION 3: Speed Response
+        [Header(Phase 2 Speed Response)]
+        _VignetteIntensity ("Vignette Intensity", Range(0.0, 1.0)) = 0.8
+        _VignetteRadiusShrink ("Vignette Shrink", Range(0.0, 0.5)) = 0.2
+        _SpeedChromaIntensity ("Speed Chroma", Range(0.0, 10.0)) = 4.0
+        
+        [Header(Phase 2 Lens Distortion)]
+        _IdleLensDistortion ("Idle Distortion", Range(-1.0, 1.0)) = -0.1
+        _SpeedLensDistortion ("Speed Distortion Boost", Range(-1.0, 1.0)) = -0.3
+        _ZoomAutoFitScale ("Zoom Auto Fit", Range(0.0, 1.0)) = 0.25
+
+        [Header(Phase 2 Motion Blur)]
+        _PeripheralMotionBlur ("Motion Blur Intensity", Range(0.0, 0.2)) = 0.05
+        
+        [Header(Phase 2 Mipmap Control)]
+        _IdleMipmapRange ("Idle Mip Range", Range(0.0, 1.0)) = 0.3
+        _SprintMipmapRange ("Sprint Mip Range", Range(0.0, 1.0)) = 0.7
+        _MipDebugLineThickness ("Debug Line Width", Range(0.001, 0.05)) = 0.01
+        [Toggle(_MIP_DEBUG)] _MipDebug ("Enable Mipmap Debug", Float) = 0 
     }
 
     SubShader
@@ -39,42 +69,62 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
 
         Pass
         {
-            Name "DistanceBlurPass"
+            Name "DistanceBlurPassV3"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            
+            // Feature Toggles
+            #pragma shader_feature_local _USE_DISTORTION
+            #pragma shader_feature_local _USE_CHROMA
+            #pragma shader_feature_local _USE_MOTION_BLUR
+            #pragma shader_feature_local _USE_MIPMAP
+            #pragma shader_feature_local _USE_DISTANCE_BLUR
             
             #pragma multi_compile _BLURTYPE_GAUSSIAN _BLURTYPE_DISK _BLURTYPE_SMOOTH _BLURTYPE_PIXEL _BLURTYPE_DREAM
             #pragma multi_compile _FILTERTYPE_NONE _FILTERTYPE_SNN _FILTERTYPE_KUWAHARA _FILTERTYPE_MEDIAN
             #pragma shader_feature_local _LOCK_GRID
             #pragma shader_feature_local _MOSAIC_MODE
+            #pragma shader_feature_local _MIP_DEBUG
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             
-            struct Attributes
-            {
-                uint vertexID : SV_VertexID;
-            };
-
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-                float2 uv : TEXCOORD0;
-            };
+            struct Attributes { uint vertexID : SV_VertexID; };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; };
 
             TEXTURE2D_X(_BlitTexture);
             SAMPLER(sampler_BlitTexture);
             float4 _BlitTexture_TexelSize;
 
             float _NearDist, _MidDist, _FarDist;
-            float _MidBlurSize, _FarBlurSize;
-            float _BlurExponent;
-            float _DepthThreshold;
-            float _JitterIntensity;
-            float _PixelScale, _FarPixelScale, _PixelCurve;
-            float _MoireReduction;
+            float _MidBlurSize, _FarBlurSize, _BlurExponent, _CenterBlurScale;
+            float _DepthThreshold, _JitterIntensity;
+            float _PixelScale, _FarPixelScale, _PixelCurve, _MoireReduction;
             float _DreamHaze, _DreamChroma;
+
+            float _GlobalSpeedFactor;    
+            float _GlobalMovementPulse;  
+            float _VignetteIntensity, _VignetteRadiusShrink, _SpeedChromaIntensity;
+            
+            float _IdleLensDistortion, _SpeedLensDistortion, _ZoomAutoFitScale;
+            float _PeripheralMotionBlur;
+            float _IdleMipmapRange, _SprintMipmapRange, _MipDebugLineThickness;
+
+            float _VFXMipBias;        
+
+            // GetWeight function at the top
+            float GetWeight(float centerDepth, float sampleDepth)
+            {
+                return 1.0 / (1.0 + max(0.0, centerDepth - sampleDepth) * _DepthThreshold);
+            }
+
+            // Custom IGN function to avoid naming conflict with Unity Core.hlsl
+            float CustomIGN(float2 pix)
+            {
+                float3 magic = float3(0.06711056, 0.00583715, 52.9829189);
+                return frac(magic.z * frac(dot(pix, magic.xy)));
+            }
 
             Varyings Vert(Attributes input)
             {
@@ -84,22 +134,19 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 return output;
             }
 
-            float InterleavedGradientNoise(float2 pix)
+            float2 ApplyLensDistortionDynamic(float2 uv, float totalIntensity, float zoomScale)
             {
-                float3 magic = float3(0.06711056, 0.00583715, 52.9829189);
-                return frac(magic.z * frac(dot(pix, magic.xy)));
+                float2 delta = uv - 0.5;
+                float distSq = dot(delta, delta);
+                float autoZoom = 1.0 / (1.0 + abs(totalIntensity) * zoomScale);
+                float factor = (1.0 + distSq * totalIntensity) * autoZoom;
+                return 0.5 + delta * factor;
             }
 
-            float GetWeight(float centerDepth, float sampleDepth)
-            {
-                return 1.0 / (1.0 + max(0, centerDepth - sampleDepth) * _DepthThreshold);
-            }
-
-            // --- Filters (SNN, Kuwahara, Median) ---
+            // --- Blur Core logic ---
             float4 ApplySNN(float2 uv, float4 centerColor)
             {
-                float4 sum = centerColor;
-                float totalWeight = 1.0;
+                float4 sum = centerColor; float totalWeight = 1.0;
                 float2 texelSize = _BlitTexture_TexelSize.xy;
                 float2 offsets[4] = { float2(-1,-1), float2(0,-1), float2(1,-1), float2(-1,0) };
                 [unroll]
@@ -107,9 +154,7 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                     float2 off = offsets[i] * texelSize;
                     float4 c1 = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv + off, 0.0);
                     float4 c2 = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv - off, 0.0);
-                    float d1 = dot(c1 - centerColor, c1 - centerColor);
-                    float d2 = dot(c2 - centerColor, c2 - centerColor);
-                    sum += (d1 < d2) ? c1 : c2;
+                    sum += (dot(c1 - centerColor, c1 - centerColor) < dot(c2 - centerColor, c2 - centerColor)) ? c1 : c2;
                     totalWeight += 1.0;
                 }
                 return sum / totalWeight;
@@ -148,7 +193,6 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 return (c[4] + c[3] + c[5]) / 3.0; 
             }
 
-            // --- Blur Logic ---
             float4 GetGaussian(float2 uv, float strength, float centerDepth)
             {
                 float4 color = 0; float totalWeight = 0;
@@ -158,8 +202,7 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 [unroll]
                 for(int i = 0; i < 9; i++) {
                     float2 sUV = uv + offsets[i] * texelSize;
-                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
-                    float w = gWeights[i] * GetWeight(centerDepth, sDepth);
+                    float w = gWeights[i] * GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
                     color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0) * w;
                     totalWeight += w;
                 }
@@ -174,8 +217,7 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 [unroll]
                 for(int i = 0; i < 13; i++) {
                     float2 sUV = uv + offsets[i] * texelSize;
-                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
-                    float w = GetWeight(centerDepth, sDepth);
+                    float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
                     color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0) * w;
                     totalWeight += w;
                 }
@@ -185,104 +227,67 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
             float4 GetSmooth(float2 uv, float strength, float2 screenPos, float centerDepth)
             {
                 float4 color = 0; float totalWeight = 0;
-                float noise = InterleavedGradientNoise(screenPos) * 6.283185;
+                float noise = CustomIGN(screenPos) * 6.283185;
                 float cosN = cos(noise) * strength; float sinN = sin(noise) * strength;
                 float2x2 rot = float2x2(cosN, -sinN, sinN, cosN);
                 float2 offsets[8] = { float2(1,0), float2(-1,0), float2(0,1), float2(0,-1), float2(0.5,0.5), float2(-0.5,0.5), float2(0.5,-0.5), float2(-0.5,-0.5) };
                 [unroll]
                 for(int i = 0; i < 8; i++) {
                     float2 sUV = uv + mul(rot, offsets[i]) * _BlitTexture_TexelSize.xy;
-                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
-                    float w = GetWeight(centerDepth, sDepth);
+                    float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
                     color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0) * w;
                     totalWeight += w;
                 }
                 return color / max(totalWeight, 0.001);
             }
 
-            // --- Enhanced Pixel (Mosaic) Blur Method ---
             float4 GetPixelBlur(float2 uv, float strength, float centerDepth, float2 screenPos, float normalizedDistance)
             {
-                // Calculate dynamic pixel scale based on distance
                 float currentPixelScale = lerp(_PixelScale, _FarPixelScale, pow(normalizedDistance, _PixelCurve));
-                
-                float2 coordBase;
-                float2 grid;
-
+                float2 coordBase, grid;
                 #if defined(_LOCK_GRID)
-                    coordBase = uv * _ScreenParams.xy;
-                    grid = max(1.0, currentPixelScale);
+                    coordBase = uv * _ScreenParams.xy; grid = max(1.0, currentPixelScale);
                 #else
-                    coordBase = uv;
-                    grid = max(_BlitTexture_TexelSize.xy, _BlitTexture_TexelSize.xy * currentPixelScale);
+                    coordBase = uv; grid = max(_BlitTexture_TexelSize.xy, _BlitTexture_TexelSize.xy * currentPixelScale);
                 #endif
-
-                // For a perfect lock or smooth UV transition, snap based on the calculated grid
-                // Adding a small epsilon to prevent flickering at grid boundaries
                 float2 snappedBase = (floor(coordBase / grid + 0.00001) * grid) + (grid * 0.5);
-                
-                // Block-consistent noise based on snapped position
-                float noise = InterleavedGradientNoise(snappedBase); 
+                float noise = CustomIGN(snappedBase); 
                 float angle = noise * 6.283185 * _MoireReduction;
                 float2x2 rotMat = float2x2(cos(angle), -sin(angle), sin(angle), cos(angle));
-                
-                float4 color = 0;
-                float totalWeight = 0;
+                float4 color = 0; float totalWeight = 0;
 
                 #if defined(_MOSAIC_MODE)
-                    // Mosaic Mode: Stable blocky colors
-                    [unroll]
-                    for(int x = -1; x <= 1; x++)
-                    {
-                        [unroll]
-                        for(int y = -1; y <= 1; y++)
-                        {
+                    [unroll] for(int x = -1; x <= 1; x++) [unroll] for(int y = -1; y <= 1; y++) {
+                        float2 neighborOffset = mul(rotMat, float2(x, y)) * grid * strength;
+                        float2 finalUV;
+                        #if defined(_LOCK_GRID)
+                            finalUV = (snappedBase + neighborOffset) / _ScreenParams.xy;
+                        #else
+                            finalUV = snappedBase + neighborOffset;
+                        #endif
+                        float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams));
+                        color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, finalUV, 0.0) * w;
+                        totalWeight += w;
+                    }
+                #else
+                    float2 subOffsets[4] = { float2(-0.25,-0.25), float2(0.25,-0.25), float2(-0.25,0.25), float2(0.25,0.25) };
+                    [unroll] for(int s = 0; s < 4; s++) {
+                        float2 jitterPos = coordBase + subOffsets[s] * grid;
+                        float2 qPoint = (floor(jitterPos / grid + 0.00001) * grid) + (grid * 0.5);
+                        [unroll] for(int x = -1; x <= 1; x++) [unroll] for(int y = -1; y <= 1; y++) {
                             float2 neighborOffset = mul(rotMat, float2(x, y)) * grid * strength;
                             float2 finalUV;
                             #if defined(_LOCK_GRID)
-                                finalUV = (snappedBase + neighborOffset) / _ScreenParams.xy;
+                                finalUV = (qPoint + neighborOffset) / _ScreenParams.xy;
                             #else
-                                finalUV = snappedBase + neighborOffset;
+                                finalUV = qPoint + neighborOffset;
                             #endif
-                            
-                            float sDepth = LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams);
-                            float w = GetWeight(centerDepth, sDepth);
-                            
+                            float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams));
                             color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, finalUV, 0.0) * w;
                             totalWeight += w;
                         }
                     }
-                #else
-                    // Filtered Pixel Blur (Scattered/Fuzzy)
-                    float2 subOffsets[4] = { float2(-0.25,-0.25), float2(0.25,-0.25), float2(-0.25,0.25), float2(0.25,0.25) };
-                    [unroll]
-                    for(int s = 0; s < 4; s++)
-                    {
-                        float2 jitterPos = coordBase + subOffsets[s] * grid;
-                        float2 qPoint = (floor(jitterPos / grid + 0.00001) * grid) + (grid * 0.5);
-
-                        [unroll]
-                        for(int x = -1; x <= 1; x++)
-                        {
-                            [unroll]
-                            for(int y = -1; y <= 1; y++)
-                            {
-                                float2 neighborOffset = mul(rotMat, float2(x, y)) * grid * strength;
-                                float2 finalUV;
-                                #if defined(_LOCK_GRID)
-                                    finalUV = (qPoint + neighborOffset) / _ScreenParams.xy;
-                                #else
-                                    finalUV = qPoint + neighborOffset;
-                                #endif
-                                float sDepth = LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams);
-                                float w = GetWeight(centerDepth, sDepth);
-                                color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, finalUV, 0.0) * w;
-                                totalWeight += w;
-                            }
-                        }
-                    }
                 #endif
-                
                 return color / max(totalWeight, 0.001);
             }
 
@@ -295,72 +300,151 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 [unroll]
                 for(int i = 0; i < 8; i++) {
                     float2 sUV = uv + offsets[i] * texelSize;
-                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
-                    float w = GetWeight(centerDepth, sDepth);
+                    float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
                     float r = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV + chromaOffset, 0.0).r;
                     float g = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0).g;
                     float b = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV - chromaOffset, 0.0).b;
-                    float4 sCol = float4(r, g, b, 1.0);
-                    color += sCol * w;
-                    totalWeight += w;
+                    color += float4(r, g, b, 1.0) * w; totalWeight += w;
                 }
                 float4 finalBlur = color / max(totalWeight, 0.001);
                 float brightness = max(finalBlur.r, max(finalBlur.g, finalBlur.b));
-                float4 glow = finalBlur * brightness * _DreamHaze * 2.0;
-                float4 hazyResult = finalBlur + glow;
-                hazyResult = lerp(hazyResult, float4(1, 1, 1, 1), _DreamHaze * brightness * 0.4);
-                return hazyResult;
+                float4 hazyResult = finalBlur + finalBlur * brightness * _DreamHaze * 2.0;
+                return lerp(hazyResult, float4(1, 1, 1, 1), _DreamHaze * brightness * 0.4);
             }
 
+            // --- Main Frag ---
             float4 Frag(Varyings input) : SV_Target
             {
-                float depth = SampleSceneDepth(input.uv);
-                float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
-                float2 screenPos = input.positionCS.xy;
+                float2 uv = input.uv;
                 
-                float4 baseColor;
-                #if defined(_FILTERTYPE_SNN)
-                    baseColor = ApplySNN(input.uv, SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, input.uv, 0.0));
-                #elif defined(_FILTERTYPE_KUWAHARA)
-                    baseColor = ApplyKuwahara(input.uv);
-                #elif defined(_FILTERTYPE_MEDIAN)
-                    baseColor = ApplyMedian(input.uv);
-                #else
-                    baseColor = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, input.uv, 0.0);
+                // 1. Distortion Toggle
+                #if defined(_USE_DISTORTION)
+                    float totalDistIntensity = _IdleLensDistortion + (_SpeedLensDistortion * _GlobalSpeedFactor);
+                    uv = ApplyLensDistortionDynamic(input.uv, totalDistIntensity, _ZoomAutoFitScale);
+                #endif
+                
+                float2 toCenter = uv - 0.5;
+                float distFromCenter = length(toCenter);
+
+                // 2. Mipmap logic
+                float currentMipRange = lerp(_IdleMipmapRange, _SprintMipmapRange, _GlobalSpeedFactor);
+                float mipMask = smoothstep(currentMipRange + 0.05, currentMipRange, distFromCenter);
+                
+                float effectiveMipBias = 0.0;
+                #if defined(_USE_MIPMAP)
+                    effectiveMipBias = max(0.0, abs(_VFXMipBias) * mipMask);
+                #endif
+                float mipLevel = effectiveMipBias; 
+                
+                float4 color = 0;
+
+                // 3. Vignette
+                float dynamicRadius = 0.5 - (_GlobalSpeedFactor * _VignetteRadiusShrink) + _GlobalMovementPulse;
+                float vignetteMask = smoothstep(dynamicRadius, dynamicRadius + 0.4, distFromCenter);
+                float vignetteValue = 1.0 - (vignetteMask * _VignetteIntensity * _GlobalSpeedFactor);
+
+                // 4. Sampling
+                float motionBlurAmount = 0.0;
+                #if defined(_USE_MOTION_BLUR)
+                    motionBlurAmount = _PeripheralMotionBlur * _GlobalSpeedFactor * vignetteMask;
                 #endif
 
-                float strength = 0; float mixWeight = 0;
-                float normalizedDist = 0;
-
-                if (linearDepth < _NearDist) return baseColor;
-                else if (linearDepth < _MidDist) {
-                    normalizedDist = saturate((linearDepth - _NearDist) / (_MidDist - _NearDist));
-                    mixWeight = pow(normalizedDist, _BlurExponent);
-                    strength = mixWeight * _MidBlurSize;
+                if(motionBlurAmount > 0.001)
+                {
+                    [unroll]
+                    for(int i = 0; i < 4; i++)
+                    {
+                        float2 mOffset = toCenter * (motionBlurAmount * float(i) / 3.0);
+                        color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv - mOffset, mipLevel);
+                    }
+                    color /= 4.0;
                 }
-                else {
-                    normalizedDist = saturate((linearDepth - _MidDist) / (_FarDist - _MidDist));
-                    float farMix = pow(normalizedDist, _BlurExponent);
-                    mixWeight = 1.0;
-                    strength = lerp(_MidBlurSize, _FarBlurSize, farMix);
-                    // Total normalized distance for chunky calculation
-                    normalizedDist = saturate((linearDepth - _NearDist) / (_FarDist - _NearDist));
+                else
+                {
+                    #if defined(_USE_CHROMA)
+                        if(_GlobalSpeedFactor > 0.1 && vignetteMask > 0.01)
+                        {
+                            float speedChroma = _SpeedChromaIntensity * _GlobalSpeedFactor * vignetteMask;
+                            float2 chromaOff = toCenter * speedChroma * _BlitTexture_TexelSize.xy;
+                            float r = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv + chromaOff, mipLevel).r;
+                            float g = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv, mipLevel).g;
+                            float b = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv - chromaOff, mipLevel).b;
+                            color = float4(r, g, b, 1.0);
+                        }
+                        else
+                        {
+                            color = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv, mipLevel);
+                        }
+                    #else
+                        color = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv, mipLevel);
+                    #endif
                 }
 
+                // 5. Filters
+                #if defined(_FILTERTYPE_SNN)
+                    color = ApplySNN(uv, color);
+                #elif defined(_FILTERTYPE_KUWAHARA)
+                    color = ApplyKuwahara(uv);
+                #elif defined(_FILTERTYPE_MEDIAN)
+                    color = ApplyMedian(uv);
+                #endif
+
+                // 6. Debug View
+                #if defined(_MIP_DEBUG)
+                    float distToEdge = abs(distFromCenter - currentMipRange);
+                    float lineVis = smoothstep(_MipDebugLineThickness + 0.005, _MipDebugLineThickness, distToEdge);
+                    float biasAlpha = saturate(abs(_VFXMipBias) / 2.0); 
+                    float3 debugLineColor = float3(0.0, 0.4, 1.0);
+                    color.rgb = lerp(color.rgb, debugLineColor, lineVis * biasAlpha * 10.0);
+                #endif
+
+                // 7. Distance Blur Calculation
+                float depth = SampleSceneDepth(uv);
+                float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
+                float strength = 0; float mixWeight = 0; float normalizedDist = 0;
+
+                #if defined(_USE_DISTANCE_BLUR)
+                    if (linearDepth < _NearDist) {
+                        strength = 0; mixWeight = 0;
+                    }
+                    else if (linearDepth < _MidDist) {
+                        normalizedDist = saturate((linearDepth - _NearDist) / (_MidDist - _NearDist));
+                        mixWeight = pow(normalizedDist, _BlurExponent);
+                        strength = mixWeight * _MidBlurSize;
+                    }
+                    else {
+                        normalizedDist = saturate((linearDepth - _MidDist) / (_FarDist - _MidDist));
+                        float farMix = pow(normalizedDist, _BlurExponent);
+                        mixWeight = 1.0;
+                        strength = lerp(_MidBlurSize, _FarBlurSize, farMix);
+                    }
+                    
+                    // Center Blur Suppress (Based on Mip Range)
+                    float centerSuppress = lerp(_CenterBlurScale, 1.0, 1.0 - mipMask);
+                    strength *= centerSuppress;
+                    mixWeight *= centerSuppress;
+
+                    strength *= (1.0 + (vignetteMask * _GlobalSpeedFactor * 1.5));
+                #endif
+
+                // 8. Final Mix
                 float4 blurredColor;
                 #if defined(_BLURTYPE_GAUSSIAN)
-                    blurredColor = GetGaussian(input.uv, strength, linearDepth);
+                    blurredColor = GetGaussian(uv, strength, linearDepth);
                 #elif defined(_BLURTYPE_DISK)
-                    blurredColor = GetDisk(input.uv, strength, linearDepth);
+                    blurredColor = GetDisk(uv, strength, linearDepth);
                 #elif defined(_BLURTYPE_SMOOTH)
-                    blurredColor = GetSmooth(input.uv, strength, screenPos, linearDepth);
+                    blurredColor = GetSmooth(uv, strength, input.positionCS.xy, linearDepth);
                 #elif defined(_BLURTYPE_PIXEL)
-                    blurredColor = GetPixelBlur(input.uv, strength, linearDepth, screenPos, normalizedDist);
+                    blurredColor = GetPixelBlur(uv, strength, linearDepth, input.positionCS.xy, normalizedDist);
                 #else // DREAM
-                    blurredColor = GetDreamBlur(input.uv, strength, linearDepth);
+                    blurredColor = GetDreamBlur(uv, strength, linearDepth);
                 #endif
 
-                return lerp(baseColor, blurredColor, mixWeight);
+                float4 finalResult = lerp(color, blurredColor, mixWeight);
+                finalResult.rgb *= vignetteValue;
+
+                return finalResult;
             }
             ENDHLSL
         }

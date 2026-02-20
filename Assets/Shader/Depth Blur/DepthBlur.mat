@@ -14,6 +14,11 @@ Material:
   m_ValidKeywords:
   - _BLURTYPE_DREAM
   - _FILTERTYPE_NONE
+  - _USE_CHROMA
+  - _USE_DISTANCE_BLUR
+  - _USE_DISTORTION
+  - _USE_MIPMAP
+  - _USE_MOTION_BLUR
   m_InvalidKeywords:
   - _USE_SNN
   m_LightmapFlags: 4
@@ -28,28 +33,48 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _BlurExponent: 3.14
+    - _BlurExponent: 1
     - _BlurType: 4
-    - _DepthThreshold: 0.71
-    - _DreamChroma: 0.26
-    - _DreamHaze: 0.122
+    - _CenterBlurScale: 0.2
+    - _DepthThreshold: 0.1
+    - _DistortionZoom: 0.916
+    - _DreamChroma: 0.48
+    - _DreamHaze: 0.114
     - _FadeRange: 1.1
-    - _FarBlurSize: 9.71
-    - _FarDist: 63.37
-    - _FarPixelScale: 18.2
+    - _FarBlurSize: 10
+    - _FarDist: 50
+    - _FarPixelScale: 1
     - _FilterType: 0
-    - _JitterIntensity: 0.402
+    - _IdleLensDistortion: 0
+    - _IdleMipmapRange: 0.105
+    - _JitterIntensity: 0
+    - _LensDistortionIntensity: 0.083
     - _LockGrid: 0
     - _MaxBlurSize: 17.15
-    - _MidBlurSize: 2.04
-    - _MidDist: 6.29
-    - _MoireReduction: 0.043
+    - _MidBlurSize: 8
+    - _MidDist: 40
+    - _MipDebug: 0
+    - _MipDebugLineThickness: 0.0049
+    - _MipmapRange: 0.201
+    - _MoireReduction: 0.012
     - _MosaicMode: 0
-    - _NearDist: 2
+    - _NearDist: 20
+    - _PeripheralMotionBlur: 0.2
     - _PixelCurve: 0.1
     - _PixelScale: 1
     - _SafeZone: 5.1
+    - _SpeedChromaIntensity: 10
+    - _SpeedLensDistortion: 0.1
+    - _SprintMipmapRange: 0.256
+    - _UseChroma: 1
+    - _UseDistanceBlur: 1
+    - _UseDistortion: 1
+    - _UseMipmap: 1
+    - _UseMotionBlur: 1
     - _UseSNN: 1
+    - _VignetteIntensity: 1
+    - _VignetteRadiusShrink: 0.5
+    - _ZoomAutoFitScale: 0.359
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

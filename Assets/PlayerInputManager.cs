@@ -50,8 +50,8 @@ public class PlayerInputManager : MonoBehaviour
     [Header("Movement Signal Data")]
     public Vector2 movementInput;
     public float verticalInput;
-    public float horzontalInput;
-    public float movaAmount;
+    public float horizontalInput;
+    public float moveAmount;
 
     [Header("Camera Signal Data")]
     public Vector2 cameraInput;
@@ -191,117 +191,12 @@ public class PlayerInputManager : MonoBehaviour
         // 연속적인 데이터를 라우터로 전달.
         player.OnMovementInputReceived(movementInput);
         player.OnCameraInputReceived(cameraInput);
-    }
 
-/*    private void HandleAllInputs()
-    {
+        // 260218 남규 추가, 이동 블러 체크용
         HandleMovementInput();
-        HandleCameraMovementInput();
-        HandleDodgeInput();
-        HandleRBInput();
-        HandleRTInput();
-        HandleHoldRTInput();
-        HandleLockOnInput();
-        HandleLockOnSwitchTargetInput();
-        HandleSwitchRightWeaponInput();
-        HandleSwitchLeftWeaponInput();
-        HandleInteractionInput();
     }
 
-    // 락온
-    private void HandleLockOnInput()
-    {
-        // 타겟이 죽었는지 체크
-        if (player.playerNetworkManager.isLockedOn.Value)
-        {
-            // 상대가 파괴되어 null 일 것 대비
-            if (player.playerCombatManager.currentTarget == null)
-                return;
-
-            // 현재 타겟이 사망? (언락)
-            if (player.playerCombatManager.currentTarget.characterNetworkManager.isDead.Value)
-            {
-                player.playerNetworkManager.isLockedOn.Value = false;
-            }
-
-            // 새로운 타겟을 찾기.
-
-            // 코루틴이 동시에 여러개 진행 중첩이 되지 않도록 보장.
-            if (lockOnCoroutine != null)
-                StopCoroutine(lockOnCoroutine);
-
-            lockOnCoroutine = StartCoroutine(PlayerCamera.Instance.WaitThenFindNewTarget());
-
-        }
-
-        if (lockOn_Input && player.playerNetworkManager.isLockedOn.Value)
-        {
-            Debug.Log($"{lockOn_Input}, lockOn_Input && player.playerNetworkManager.isLockedOn.Value");
-            lockOn_Input = false;
-            PlayerCamera.Instance.ClearLockOnTargets();
-            player.playerNetworkManager.isLockedOn.Value = false;
-            // 이미 락온? (언락)
-            return;
-        }
-
-        if (lockOn_Input && !player.playerNetworkManager.isLockedOn.Value)
-        {
-            Debug.Log($"{lockOn_Input}, lockOn_Input && !player.playerNetworkManager.isLockedOn.Value");
-            lockOn_Input = false;
-            // 락온
-
-            // 레인지 무기 사용중이라면 락온 안함.
-
-            PlayerCamera.Instance.HandleLocatingLockOnTargets();
-
-            if (PlayerCamera.Instance.nearestLockOnTarget != null)
-            {
-                player.playerCombatManager.SetTarget(PlayerCamera.Instance.nearestLockOnTarget);
-                // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
-                player.playerNetworkManager.isLockedOn.Value = true;
-            }
-        }
-    }
-
-    private void HandleLockOnSwitchTargetInput()
-    {
-        if (lockOn_Left_Input)
-        {
-            // 초기화
-            lockOn_Left_Input = false;
-
-            // 이미 락온 됫다면 실행.
-            if (player.playerNetworkManager.isLockedOn.Value)
-            {
-                PlayerCamera.Instance.HandleLocatingLockOnTargets();
-
-                if (PlayerCamera.Instance.leftLockOnTarget != null)
-                {
-                    player.playerCombatManager.SetTarget(PlayerCamera.Instance.leftLockOnTarget);
-                }
-            }
-        }
-
-        if (lockOn_Right_Input)
-        {
-            // 초기화
-            lockOn_Right_Input = false;
-
-            // 이미 락온 됫다면 실행.
-            if (player.playerNetworkManager.isLockedOn.Value)
-            {
-                PlayerCamera.Instance.HandleLocatingLockOnTargets();
-
-                if (PlayerCamera.Instance.rightLockOnTarget != null)
-                {
-                    player.playerCombatManager.SetTarget(PlayerCamera.Instance.rightLockOnTarget);
-                }
-            }
-        }
-    }
-
-    // 움직임관련
-
+    // 260218 남규 주석해제, 이동 블러 체크용
     private void HandleMovementInput()
     {
         verticalInput = movementInput.y;
@@ -338,111 +233,256 @@ public class PlayerInputManager : MonoBehaviour
         // 수평에 0 말고 다른 것도 전달, 락온 한 상태.
     }
 
-    private void HandleCameraMovementInput()
-    {
-        cameraVerticalInput = cameraInput.y;
-        cameraHorizontalInput = cameraInput.x;
-    }
-
-    // 액션관련
-    private void HandleDodgeInput()
-    {
-        if (dodgeInput == true)
+    /*    private void HandleAllInputs()
         {
-            // 닷지인풋이 트루일 경우, 다시 false 로 만들어 두번 함수가 실행되지않게함.
-            dodgeInput = false;
-
-            // TD : 미래에 UI가 활성화시 실행되지 않게해줌.
-
-            // 닷지를 퍼폼하기.
-            player.playerLocomotionManager.AttemptToPerformDodge();
+            HandleMovementInput();
+            HandleCameraMovementInput();
+            HandleDodgeInput();
+            HandleRBInput();
+            HandleRTInput();
+            HandleHoldRTInput();
+            HandleLockOnInput();
+            HandleLockOnSwitchTargetInput();
+            HandleSwitchRightWeaponInput();
+            HandleSwitchLeftWeaponInput();
+            HandleInteractionInput();
         }
-    }
 
-    private void HandleRBInput()
-    {
-        if (RB_Input)
+        // 락온
+        private void HandleLockOnInput()
         {
-            RB_Input = false;
-
-            // TD : UI창이 열려있다면, 리턴하고 아무것도 안함.
-
-            player.playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
-
-            // 1. 들고 있는 물건이 있다면 -> 놓기(던지기)
-            if (player.playerInteractionManager.currentlyHeldObject != null)
+            // 타겟이 죽었는지 체크
+            if (player.playerNetworkManager.isLockedOn.Value)
             {
-                player.playerInteractionManager.ReleaseGrabbedObject();
-                // 물건을 던질 때는 무기 공격을 실행하지 않고 리턴
+                // 상대가 파괴되어 null 일 것 대비
+                if (player.playerCombatManager.currentTarget == null)
+                    return;
+
+                // 현재 타겟이 사망? (언락)
+                if (player.playerCombatManager.currentTarget.characterNetworkManager.isDead.Value)
+                {
+                    player.playerNetworkManager.isLockedOn.Value = false;
+                }
+
+                // 새로운 타겟을 찾기.
+
+                // 코루틴이 동시에 여러개 진행 중첩이 되지 않도록 보장.
+                if (lockOnCoroutine != null)
+                    StopCoroutine(lockOnCoroutine);
+
+                lockOnCoroutine = StartCoroutine(PlayerCamera.Instance.WaitThenFindNewTarget());
+
+            }
+
+            if (lockOn_Input && player.playerNetworkManager.isLockedOn.Value)
+            {
+                Debug.Log($"{lockOn_Input}, lockOn_Input && player.playerNetworkManager.isLockedOn.Value");
+                lockOn_Input = false;
+                PlayerCamera.Instance.ClearLockOnTargets();
+                player.playerNetworkManager.isLockedOn.Value = false;
+                // 이미 락온? (언락)
                 return;
             }
 
-            // 2. 들고 있는 물건이 없다면 -> 무기 공격
-            // TD : 양손이라면 양손 액션 사용
-            player.playerCombatManager.PerformWeaponBasedAction
-            (player.playerInventoryManager.currentRightHandWeapon.oh_RB_Action,
-            player.playerInventoryManager.currentRightHandWeapon
-            );
-        }
-    }
-
-    private void HandleRTInput()
-    {
-        if (RT_Input)
-        {
-            RT_Input = false;
-
-            // TD : UI창이 열려있다면, 리턴하고 아무것도 안함.
-
-            player.playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
-
-            // TD : 양손이라면 양손 액션 사용
-
-            player.playerCombatManager.PerformWeaponBasedAction
-            (player.playerInventoryManager.currentRightHandWeapon.oh_RT_Action,
-            player.playerInventoryManager.currentRightHandWeapon
-            );
-        }
-    }
-
-    private void HandleHoldRTInput()
-    {
-        // 홀드/차지는 액션이 해당을 실행할 수 있는가(공격)일때만 체크함.
-        if (player.isPerformingAction)
-        {
-            if (player.playerNetworkManager.isUsingRightHand.Value)
+            if (lockOn_Input && !player.playerNetworkManager.isLockedOn.Value)
             {
-                //차징 어택시 다른 유저도 애니메이션을 봐야함.
-                player.playerNetworkManager.isChargingAttack.Value = Hold_RT_Input;
+                Debug.Log($"{lockOn_Input}, lockOn_Input && !player.playerNetworkManager.isLockedOn.Value");
+                lockOn_Input = false;
+                // 락온
+
+                // 레인지 무기 사용중이라면 락온 안함.
+
+                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+                if (PlayerCamera.Instance.nearestLockOnTarget != null)
+                {
+                    player.playerCombatManager.SetTarget(PlayerCamera.Instance.nearestLockOnTarget);
+                    // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
+                    player.playerNetworkManager.isLockedOn.Value = true;
+                }
             }
         }
-    }
 
-    private void HandleSwitchRightWeaponInput()
-    {
-        if (switch_Right_Weapon_Input)
+        private void HandleLockOnSwitchTargetInput()
         {
-            switch_Right_Weapon_Input = false;
-            player.playerEquipmentManager.SwitchRightWeapon();
-        }
-    }
+            if (lockOn_Left_Input)
+            {
+                // 초기화
+                lockOn_Left_Input = false;
 
-    private void HandleSwitchLeftWeaponInput()
-    {
-        if (switch_Left_Weapon_Input)
-        {
-            switch_Left_Weapon_Input = false;
-            player.playerEquipmentManager.SwitchLeftWeapon();
-        }
-    }
+                // 이미 락온 됫다면 실행.
+                if (player.playerNetworkManager.isLockedOn.Value)
+                {
+                    PlayerCamera.Instance.HandleLocatingLockOnTargets();
 
-    private void HandleInteractionInput()
-    {
-        if (interaction_Input)
-        {
-            Debug.Log("interaction_Input true");
-            interaction_Input = false;
-            player.playerInteractionManager.Interact();
+                    if (PlayerCamera.Instance.leftLockOnTarget != null)
+                    {
+                        player.playerCombatManager.SetTarget(PlayerCamera.Instance.leftLockOnTarget);
+                    }
+                }
+            }
+
+            if (lockOn_Right_Input)
+            {
+                // 초기화
+                lockOn_Right_Input = false;
+
+                // 이미 락온 됫다면 실행.
+                if (player.playerNetworkManager.isLockedOn.Value)
+                {
+                    PlayerCamera.Instance.HandleLocatingLockOnTargets();
+
+                    if (PlayerCamera.Instance.rightLockOnTarget != null)
+                    {
+                        player.playerCombatManager.SetTarget(PlayerCamera.Instance.rightLockOnTarget);
+                    }
+                }
+            }
         }
-    }*/
+
+        // 움직임관련
+
+        private void HandleMovementInput()
+        {
+            verticalInput = movementInput.y;
+            horizontalInput = movementInput.x;
+
+            // 숫자의 절대값을 반환 (음수 없이 양수로만 반환시키기)
+            moveAmount = Mathf.Clamp01(Mathf.Abs(verticalInput) + Mathf.Abs(horizontalInput));
+
+            // 값을 clamp 해줘서 0,0.5,1로 고정되게 함.
+            if (moveAmount <= 0.5 && moveAmount > 0)
+            {
+                //걷고있다는 인디케이터
+                moveAmount = 0.5f;
+            }
+            else if (moveAmount > 0.5 && moveAmount <= 1)
+            {
+                // 달리기 인디케이터
+                moveAmount = 1;
+            }
+
+            if (player == null)
+                return;
+
+            // 수평에 0만 전달하는 이유는 락온 하지 않을 시 앞으로만 가게 하려고 함.
+            if (!player.playerNetworkManager.isLockedOn.Value || player.playerNetworkManager.isSprinting.Value)
+            {
+                player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, player.playerNetworkManager.isSprinting.Value);
+            }
+            else
+            {
+                player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalInput, verticalInput, player.playerNetworkManager.isSprinting.Value);
+            }
+
+            // 수평에 0 말고 다른 것도 전달, 락온 한 상태.
+        }
+
+        private void HandleCameraMovementInput()
+        {
+            cameraVerticalInput = cameraInput.y;
+            cameraHorizontalInput = cameraInput.x;
+        }
+
+        // 액션관련
+        private void HandleDodgeInput()
+        {
+            if (dodgeInput == true)
+            {
+                // 닷지인풋이 트루일 경우, 다시 false 로 만들어 두번 함수가 실행되지않게함.
+                dodgeInput = false;
+
+                // TD : 미래에 UI가 활성화시 실행되지 않게해줌.
+
+                // 닷지를 퍼폼하기.
+                player.playerLocomotionManager.AttemptToPerformDodge();
+            }
+        }
+
+        private void HandleRBInput()
+        {
+            if (RB_Input)
+            {
+                RB_Input = false;
+
+                // TD : UI창이 열려있다면, 리턴하고 아무것도 안함.
+
+                player.playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
+
+                // 1. 들고 있는 물건이 있다면 -> 놓기(던지기)
+                if (player.playerInteractionManager.currentlyHeldObject != null)
+                {
+                    player.playerInteractionManager.ReleaseGrabbedObject();
+                    // 물건을 던질 때는 무기 공격을 실행하지 않고 리턴
+                    return;
+                }
+
+                // 2. 들고 있는 물건이 없다면 -> 무기 공격
+                // TD : 양손이라면 양손 액션 사용
+                player.playerCombatManager.PerformWeaponBasedAction
+                (player.playerInventoryManager.currentRightHandWeapon.oh_RB_Action,
+                player.playerInventoryManager.currentRightHandWeapon
+                );
+            }
+        }
+
+        private void HandleRTInput()
+        {
+            if (RT_Input)
+            {
+                RT_Input = false;
+
+                // TD : UI창이 열려있다면, 리턴하고 아무것도 안함.
+
+                player.playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
+
+                // TD : 양손이라면 양손 액션 사용
+
+                player.playerCombatManager.PerformWeaponBasedAction
+                (player.playerInventoryManager.currentRightHandWeapon.oh_RT_Action,
+                player.playerInventoryManager.currentRightHandWeapon
+                );
+            }
+        }
+
+        private void HandleHoldRTInput()
+        {
+            // 홀드/차지는 액션이 해당을 실행할 수 있는가(공격)일때만 체크함.
+            if (player.isPerformingAction)
+            {
+                if (player.playerNetworkManager.isUsingRightHand.Value)
+                {
+                    //차징 어택시 다른 유저도 애니메이션을 봐야함.
+                    player.playerNetworkManager.isChargingAttack.Value = Hold_RT_Input;
+                }
+            }
+        }
+
+        private void HandleSwitchRightWeaponInput()
+        {
+            if (switch_Right_Weapon_Input)
+            {
+                switch_Right_Weapon_Input = false;
+                player.playerEquipmentManager.SwitchRightWeapon();
+            }
+        }
+
+        private void HandleSwitchLeftWeaponInput()
+        {
+            if (switch_Left_Weapon_Input)
+            {
+                switch_Left_Weapon_Input = false;
+                player.playerEquipmentManager.SwitchLeftWeapon();
+            }
+        }
+
+        private void HandleInteractionInput()
+        {
+            if (interaction_Input)
+            {
+                Debug.Log("interaction_Input true");
+                interaction_Input = false;
+                player.playerInteractionManager.Interact();
+            }
+        }*/
 }

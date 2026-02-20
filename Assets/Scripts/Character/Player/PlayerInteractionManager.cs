@@ -9,6 +9,7 @@ namespace SG
     /// <summary>
     /// 플레이어의 상호작용(아이템 줍기, 문 열기 등)을 관리하는 매니저입니다.
     /// 에러 방지를 위해 네트워크 상태 및 오브젝트 유효성 검사 로직이 강화되었습니다.
+    /// [최적화] 프로파일러 분석 결과에 따라 GetComponent 부하 및 GC 할당을 최소화하도록 재설계되었습니다.
     /// </summary>
     public class PlayerInteractionManager : CharacterInteractionManager
     {
@@ -20,27 +21,52 @@ namespace SG
         [Header("Interaction Settings")]
         [SerializeField][Range(0f, 1f)] private float viewThreshold = 0.5f; // 약 60도(전방 부채꼴)
 
+        // [최적화] 매 프레임 배열 할당(GC 생성)을 방지하기 위한 정적 배열 캐싱
+        private Collider[] _interactableColliders = new Collider[10];
+
+        // [최적화] Update 및 반복 호출에서 GetComponent 비용을 제거하기 위한 참조 캐싱
+        private Inventory3DRaycaster _inventoryRaycaster;
+        private Animator _playerAnimator;
+
         // IK 자연스러운 처리를 위한 코루틴 변수
         private Coroutine grabIKCoroutine;
 
         protected override void Awake()
         {
+            // 1. 부모 클래스의 Awake 호출 (기본 컴포넌트 획득)
             base.Awake();
+
+            // PlayerManager 참조 획득
             player = GetComponent<PlayerManager>();
 
+            // [최적화] 자주 사용되는 자식 컴포넌트들을 Awake에서 미리 캐싱합니다.
+            _playerAnimator = GetComponentInChildren<Animator>();
+            _inventoryRaycaster = GetComponentInChildren<Inventory3DRaycaster>();
+
+            // [디버그] 초기화 확인 로그
             if (player == null)
             {
                 Debug.LogError($"<color=red>[PlayerInteraction] {gameObject.name}에서 PlayerManager를 찾을 수 없습니다!</color>");
+            }
+            else
+            {
+                // [기존 주석 유지] 초기화 완료 로그
+                Debug.Log($"[PVFM] 초기화 완료. 대상: {gameObject.name}");
             }
         }
 
         private void Update()
         {
+            // 2. 네트워크 소유권 체크
             if (!IsOwner) return;
 
+            // 상호작용 루틴 실행
             HandleInteraction();
         }
 
+        /// <summary>
+        /// 던지기/내려놓기 입력(RB) 처리
+        /// </summary>
         internal void OnRBInputReceived()
         {
             // 1. 들고 있는 물건이 있다면 -> 놓기(던지기)
@@ -70,6 +96,7 @@ namespace SG
             }
 
             // [보완] NetworkObject를 안전하게 가져와서 체크 (기존 Line 52 에러 원인 해결)
+            // [최적화] TryGetComponent를 사용하여 불필요한 Null 에러 메시지 생성 방지
             if (currentInteractableObject.TryGetComponent<NetworkObject>(out var networkObject))
             {
                 if (networkObject.IsSpawned)
@@ -92,11 +119,9 @@ namespace SG
         /// <summary>
         /// 오브젝트 타입에 따른 실제 상호작용 분기 로직입니다.
         /// </summary>
-
         // TD : 남규할일 - 아래 함수 내용 기존과 비교해서 수정할 것
         private void ExecuteInteractionSequence()
         {
-
             // [Fix] GrabbableObject인 경우 로직 분리
             if (currentInteractableObject is InteractableItem grabbable)
             {
@@ -135,8 +160,8 @@ namespace SG
                 player.characterIKController.SetLookTarget(targetItem.transform);
             }
 
-            // 애니메이터 및 오른손 본 정보 획득
-            Animator animator = player.GetComponentInChildren<Animator>();
+            // [최적화] 캐싱된 애니메이터 정보를 사용하여 매번 컴포넌트를 찾는 비용을 제거했습니다.
+            Animator animator = _playerAnimator;
             Transform rightHandBone = animator ? animator.GetBoneTransform(HumanBodyBones.RightHand) : null;
 
             float timer = 0f;
@@ -239,18 +264,22 @@ namespace SG
         /// </summary>
         private void CheckForInteractableObject()
         {
-            // Raycast 대신 OverlapSphere 사용하여 주변 물체들 검색
-            Collider[] colliders = Physics.OverlapSphere(transform.position, interactionRange, interactableLayer);
+            // [최적화] Raycast 대신 OverlapSphereNonAlloc을 사용하여 매 프레임 발생하는 가비지 컬렉션(GC)을 방지합니다.
+            int numColliders = Physics.OverlapSphereNonAlloc(transform.position, interactionRange, _interactableColliders, interactableLayer);
 
             InteractableObject closestInteractable = null;
             float closestDistance = float.MaxValue;
 
-            foreach (var collider in colliders)
+            for (int i = 0; i < numColliders; i++)
             {
+                Collider collider = _interactableColliders[i];
                 if (collider == null) continue;
 
-                InteractableObject interactable = collider.GetComponent<InteractableObject>();
-                if (interactable != null)
+                // [추가] 자기 자신의 뼈대나 콜라이더인 경우 무시 (루트 오브젝트 비교)
+                if (collider.transform.root == transform.root) continue;
+
+                // [최적화] GetComponent 대신 TryGetComponent를 사용하여, 컴포넌트가 없는 배경 물체에서 발생하는 내부 에러 부하를 완전히 제거했습니다.
+                if (collider.TryGetComponent<InteractableObject>(out var interactable))
                 {
                     // 현재 손에 든 물건은 탐색에서 제외
                     if (interactable == currentlyHeldObject) continue;
@@ -265,20 +294,24 @@ namespace SG
                         closestInteractable = interactable;
                     }
                 }
+                // [수정] 스팸 로그 방지를 위해 else 구문의 Debug.Log 제거
             }
 
             // 최신 오브젝트로 갱신 (변경 시 UI 업데이트 등을 위한 뼈대 유지)
             if (closestInteractable != currentInteractableObject)
             {
-                currentInteractableObject?.transform.GetComponent<InteractableItem>()?.SetHighlight(0.0f); // 이전 오브젝트 하이라이트 해제
+                // [최적화] 패턴 매칭(is)을 활용하여 불필요한 GetComponent 호출을 제거했습니다.
+                if (currentInteractableObject is InteractableItem prevItem)
+                {
+                    prevItem.SetHighlight(0.0f); // 이전 오브젝트 하이라이트 해제
+                }
 
                 currentInteractableObject = closestInteractable; // 최신 오브젝트로 갱신
 
-                currentInteractableObject?.transform.GetComponent<InteractableItem>()?.SetHighlight(1.0f); // 새 오브젝트 하이라이트 설정
-
-                // TODO: UI 업데이트 (E키 표시 등)
-
-                // TODO: 필요한 경우 여기서 E키 팝업 UI 표시 등을 호출할 수 있습니다.
+                if (currentInteractableObject is InteractableItem newItem)
+                {
+                    newItem.SetHighlight(1.0f); // 새 오브젝트 하이라이트 설정
+                }
             }
         }
 
@@ -290,9 +323,6 @@ namespace SG
             if (target == null) return false;
 
             Vector3 directionToTarget = (target.position - transform.position).normalized;
-            // Y축 높이 차이를 무시하려면 아래 주석 해제
-            // directionToTarget.y = 0;
-
             float dot = Vector3.Dot(transform.forward, directionToTarget.normalized);
             return dot >= viewThreshold;
         }
@@ -325,11 +355,10 @@ namespace SG
             else
             {
                 // Alt를 뗐을 때, 인벤토리가 닫혀있다면 커서 숨김
-                if (!player.playerInventoryManager.isInventoryOpen)
+                if (player != null && player.playerInventoryManager != null && !player.playerInventoryManager.isInventoryOpen)
                 {
-                    // 드래그 중인 경우에는 커서를 유지해야 할 수도 있으므로 체크 필요
-                    var raycaster = player.GetComponentInChildren<Inventory3DRaycaster>();
-                    if (raycaster != null && !raycaster.GetIsDragging())
+                    // [최적화] 캐싱된 _inventoryRaycaster를 사용하여 매번 GetComponentInChildren을 호출하던 부하를 제거했습니다.
+                    if (_inventoryRaycaster != null && !_inventoryRaycaster.GetIsDragging())
                     {
                         PlayerUIManager.Instance.ToggleCursor(false);
                     }

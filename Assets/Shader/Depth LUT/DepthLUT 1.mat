@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: DepthLUT
+  m_Name: DepthLUT 1
   m_Shader: {fileID: 4800000, guid: e153a8dd10389d84386efd20905060e2, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -29,7 +29,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ColdLUT:
-        m_Texture: {fileID: 11700000, guid: 878b94bf34bd1f748a1a5fd454b20f42, type: 3}
+        m_Texture: {fileID: 11700000, guid: b3a5339dfb714bd4c9590bfb17425ba5, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -37,7 +37,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _WarmLUT:
-        m_Texture: {fileID: 11700000, guid: b3a5339dfb714bd4c9590bfb17425ba5, type: 3}
+        m_Texture: {fileID: 11700000, guid: 503e29a7843534c47912dc75e82d04b5, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
