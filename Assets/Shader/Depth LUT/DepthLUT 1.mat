@@ -43,15 +43,21 @@ Material:
     m_Ints: []
     m_Floats:
     - _BlackPreservation: 1
+    - _BlurDownsample: 8
+    - _BlurStrength: 1
+    - _BlurType: 0
     - _DEBUG_VIEW: 1
     - _DebugMode: 0
     - _DistRange: 11
     - _DistStart: 7.3
     - _EffectIntensity: 1
+    - _EnemySpeedFactor: 0
     - _FarSaturation: -0.2
     - _GlobalMadness: 0
     - _LUTSize: 32
     - _LogIntensity: 2.8
+    - _MotionSensitivity: 150
+    - _UseMotionMap: 0
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

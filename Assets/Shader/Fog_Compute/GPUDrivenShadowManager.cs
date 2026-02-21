@@ -132,13 +132,44 @@ public class GPUDrivenShadowManager : MonoBehaviour
 
         // 3. GPU Buffer 할당
         int stride = Marshal.SizeOf<InstanceData>(); // 80 bytes
+
+        // [누락 복구] 실제 VRAM 버퍼 할당 및 데이터 전송 로직
+        _instanceDataBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _instanceCount, stride);
+        _instanceDataBuffer.SetData(_instanceDataNative);
+
+        _visibleIndexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, _instanceCount, sizeof(uint));
+
+        _argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1, sizeof(uint) * 5);
+        _args[0] = instanceMesh.GetIndexCount(0);
+        _argsBuffer.SetData(_args);
+
+        // 4. Compute Shader 및 Material 바인딩
+        _kernelID = cullingCompute.FindKernel("CSMain");
+        cullingCompute.SetBuffer(_kernelID, _InstanceBufferID, _instanceDataBuffer);
+        cullingCompute.SetBuffer(_kernelID, _VisibleIndexBufferID, _visibleIndexBuffer);
+
+        shadowMaterial.SetBuffer(_InstanceBufferID, _instanceDataBuffer);
+        shadowMaterial.SetBuffer(_VisibleIndexBufferID, _visibleIndexBuffer);
+
+        // 초기화 완료 플래그 설정
+        _isInitialized = true;
     }
 
     private void Update()
     {
         if (_instanceCount == 0) return;
 
-        Plane[] planes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
+        // [핵심 Fix] 런타임 NullReferenceException 완벽 차단 (방어 코드 복구)
+        // 1. 에디터 할당 및 GPU 버퍼 생성 여부 체크
+        if (cullingCompute == null || shadowMaterial == null || instanceMesh == null) return;
+        if (_visibleIndexBuffer == null || _argsBuffer == null || _instanceDataBuffer == null) return;
+
+        // 2. 씬에 메인 카메라가 존재하는지 체크 (가장 유력한 에러 원인)
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        // 카메라 프러스텀 평면 계산 (6개 평면)
+        Plane[] planes = GeometryUtility.CalculateFrustumPlanes(cam);
         Vector4[] planeVectors = new Vector4[6];
         for (int i = 0; i < 6; i++)
         {
