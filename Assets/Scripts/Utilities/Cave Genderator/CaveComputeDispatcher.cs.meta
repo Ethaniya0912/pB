@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2e85c3502a124ff4bae7beb9a4670494
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - densityShader: {fileID: 7200000, guid: 109b418452deb21488a3bde6a416c600, type: 3}
+  - marchingCubesShader: {fileID: 7200000, guid: 50a3c771e823573458e84e488530c10e,
+      type: 3}
+  - caveSettings: {fileID: 11400000, guid: 4545773118017e446926a72773858cff, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

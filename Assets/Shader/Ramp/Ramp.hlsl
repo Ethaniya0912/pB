@@ -13,6 +13,14 @@
 float _GlobalMadness;
 float _GlobalRampGamma;
 float _GlobalSteps;
+
+// [최적화 Opt 4: 거리 기반 POM 페이딩 토글 변수 선언]
+// Shader Graph의 Blackboard에 아래 변수들을 추가해 주세요.
+// _EnablePomFading (Boolean/Float), _PomFadeStart (Float), _PomFadeEnd (Float)
+// float _EnablePomFading;
+// float _PomFadeStart;
+// float _PomFadeEnd;
+// [최적화 Opt 4: 거리 기반 POM 페이딩 토글 변수 선언 끝]
 #endif
 
 /**
@@ -92,36 +100,56 @@ void CalculateDreamcorePBR_float(
     float3 viewDirWS = normalize(_WorldSpaceCameraPos - WorldPos);
     float3 viewDirTS = mul(worldToTangent, viewDirWS);
 
+    // [최적화 Opt 4: 거리 기반 POM 페이딩 토글 적용]
     // 2. POM (Parallax Occlusion Mapping)
     float minSteps = 8.0;
     float maxSteps = 32.0;
     float numSteps = lerp(maxSteps, minSteps, saturate(abs(viewDirTS.z)));
-    float layerDepth = 1.0 / numSteps;
-    float currentLayerDepth = 0.0;
     
-    float safeHeightScale = HeightScale * 0.1;
-    float2 P = viewDirTS.xy * safeHeightScale / (max(0.001, viewDirTS.z + 0.05));
-    float2 deltaUV = P / numSteps;
-    
-    float2 currentUV = UV;
-    float heightFromTexture = SAMPLE_TEXTURE2D(MaskTex, SS, currentUV).b;
-    
-    [loop]
-    for (int i = 0; i < 32; i++)
+    // 거리 기반 페이딩 연산
+    if (_EnablePomFading > 0.5)
     {
-        if (currentLayerDepth < 1.0 - heightFromTexture)
-        {
-            currentUV -= deltaUV;
-            heightFromTexture = SAMPLE_TEXTURE2D(MaskTex, SS, currentUV).b;
-            currentLayerDepth += layerDepth;
-        }
-        else
-            break;
+        float distToCam = length(_WorldSpaceCameraPos - WorldPos);
+        float fadeFactor = 1.0 - saturate((distToCam - _PomFadeStart) / max(0.001, (_PomFadeEnd - _PomFadeStart)));
+        numSteps *= fadeFactor;
     }
     
-    float2 prevUV = currentUV + deltaUV;
-    float weight = (heightFromTexture - (1.0 - currentLayerDepth)) / (max(0.0001, (heightFromTexture - (1.0 - currentLayerDepth)) - (SAMPLE_TEXTURE2D(MaskTex, SS, prevUV).b - (1.0 - currentLayerDepth + layerDepth))));
-    float2 parallaxUV = lerp(currentUV, prevUV, weight);
+    // Bypass용 기본 UV 초기화
+    float2 parallaxUV = UV;
+    
+    // numSteps가 1.0 미만이면 무거운 루프를 완전히 건너뜁니다 (Bypass)
+    UNITY_BRANCH
+
+    if (numSteps >= 1.0)
+    {
+        float layerDepth = 1.0 / numSteps;
+        float currentLayerDepth = 0.0;
+        
+        float safeHeightScale = HeightScale * 0.1;
+        float2 P = viewDirTS.xy * safeHeightScale / (max(0.001, viewDirTS.z + 0.05));
+        float2 deltaUV = P / numSteps;
+        
+        float2 currentUV = UV;
+        float heightFromTexture = SAMPLE_TEXTURE2D(MaskTex, SS, currentUV).b;
+        
+        [loop]
+        for (int i = 0; i < 32; i++)
+        {
+            if (currentLayerDepth < 1.0 - heightFromTexture)
+            {
+                currentUV -= deltaUV;
+                heightFromTexture = SAMPLE_TEXTURE2D(MaskTex, SS, currentUV).b;
+                currentLayerDepth += layerDepth;
+            }
+            else
+                break;
+        }
+        
+        float2 prevUV = currentUV + deltaUV;
+        float weight = (heightFromTexture - (1.0 - currentLayerDepth)) / (max(0.0001, (heightFromTexture - (1.0 - currentLayerDepth)) - (SAMPLE_TEXTURE2D(MaskTex, SS, prevUV).b - (1.0 - currentLayerDepth + layerDepth))));
+        parallaxUV = lerp(currentUV, prevUV, weight);
+    }
+    // [최적화 Opt 4: 거리 기반 POM 페이딩 토글 적용 끝]
 
     // 3. 텍스처 샘플링
     float3 sampledAlbedo = SAMPLE_TEXTURE2D(AlbedoTex, SS, parallaxUV).rgb;

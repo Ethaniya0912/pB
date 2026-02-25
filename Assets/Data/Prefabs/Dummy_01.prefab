@@ -1055,7 +1055,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: -216.633, z: 0}
 --- !u!95 &8344248069717636810
 Animator:
-  serializedVersion: 5
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1069,6 +1069,7 @@ Animator:
   m_ApplyRootMotion: 1
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
@@ -1086,8 +1087,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 306973432
+  GlobalObjectIdHash: 2936990586
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
+  DeferredDespawnTick: 0
+  Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
@@ -1095,6 +1098,8 @@ MonoBehaviour:
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!143 &2187960731613901782
 CharacterController:
   m_ObjectHideFlags: 0
@@ -1110,7 +1115,6 @@ CharacterController:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -1132,6 +1136,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1
@@ -1224,10 +1229,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4233442530097016134}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1270,6 +1275,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f63139e2b92a7794d9f711adad05153e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   isDead:
     m_InternalValue: 0
   networkPosition:
@@ -1299,6 +1305,10 @@ MonoBehaviour:
     m_InternalValue: 1
   vitality:
     m_InternalValue: 1
+  currentMadness:
+    m_InternalValue: 1
+  maxMadness:
+    m_InternalValue: 1
   currentStamina:
     m_InternalValue: 1
   maxStamina:
@@ -1307,6 +1317,8 @@ MonoBehaviour:
     m_InternalValue: 1
   maxHealth:
     m_InternalValue: 1
+  currentRightHandGrabbedObjectID:
+    m_InternalValue: 0
 --- !u!114 &6782924023794600288
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1383,6 +1395,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f629c70c10d4e9a44a8602924377bd28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  currentRightHandWeapon: {fileID: 0}
+  currentLeftHandWeapon: {fileID: 0}
+  weaponInRightHandSlots:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  rightHandWeaponIndex: 0
+  weaponInLeftHandSlots:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  leftHandWeaponIndex: 0
+  currentGridWidth:
+    m_InternalValue: 0
+  currentGridHeight:
+    m_InternalValue: 0
 --- !u!114 &6763002828612951526
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1395,6 +1424,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5a40e5f14e676b42896289a39b1613f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  currentRightHandWeaponID:
+    m_InternalValue: -1
+  currentLeftHandWeaponID:
+    m_InternalValue: -1
+  currentHelmetID:
+    m_InternalValue: -1
+  currentChestArmorID:
+    m_InternalValue: -1
+  currentBackpackID:
+    m_InternalValue: -1
 --- !u!114 &-6378788767511415067
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1407,6 +1447,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 274c205850c1e5743adadaf8226bc87f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   characterController: {fileID: 0}
   animator: {fileID: 0}
   characterNetworkManager: {fileID: 0}
@@ -1415,6 +1456,8 @@ MonoBehaviour:
   characterCombatManager: {fileID: 0}
   characterSoundFxManager: {fileID: 0}
   characterLocomotionManager: {fileID: 0}
+  characterInventoryManager: {fileID: 0}
+  characterIKController: {fileID: 0}
   characterGroup: 1
   isPerformingAction: 0
   applyRootMotion: 0
@@ -1422,6 +1465,9 @@ MonoBehaviour:
   canMove: 1
   aiCharacterCombatManager: {fileID: 0}
   currentState: {fileID: 11400000, guid: 7caaae16eea16ca4eaf9fa0ee52c4b81, type: 2}
+  navMeshAgent: {fileID: 0}
+  idle: {fileID: 0}
+  pursueTarget: {fileID: 0}
 --- !u!114 &5216278544218004338
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1434,6 +1480,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a1669a93e91e514baf21802bfd06a7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   lastAttackAnimationPerformed: 
   currentTarget: {fileID: 0}
   currentAttackType: 0
@@ -1490,6 +1537,11 @@ SkinnedMeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 3
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -1511,9 +1563,11 @@ SkinnedMeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
   m_UpdateWhenOffscreen: 0

@@ -44,6 +44,15 @@
         },
         {
             "m_Id": "316f57b315814fdca16fc09c42ec8189"
+        },
+        {
+            "m_Id": "7682b25dfb934fba906dcf76fbee4b78"
+        },
+        {
+            "m_Id": "cc78be88b2424982b0ff601230720efd"
+        },
+        {
+            "m_Id": "9ef658c156614fd098c9b5c9ef673e52"
         }
     ],
     "m_Keywords": [],
@@ -1468,8 +1477,8 @@
     "m_ObjectId": "5e09a9bad68a42c696b77b823955ec76",
     "m_Title": "단계 4: 최종 합성 및 바이패스(Bypass) 전략",
     "m_Position": {
-        "x": 832.0,
-        "y": 766.0000610351563
+        "x": 832.0001220703125,
+        "y": 765.9999389648438
     }
 }
 
@@ -1683,6 +1692,50 @@
 }
 
 {
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "7682b25dfb934fba906dcf76fbee4b78",
+    "m_Guid": {
+        "m_GuidSerialized": "d19a91a4-2b21-42aa-947e-177c4afc35f9"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "_EnablePomFading",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "_EnablePomFading",
+    "m_DefaultReferenceName": "_EnablePomFading",
+    "m_OverrideReferenceName": "",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 0.0,
+    "m_FloatType": 0,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 1.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
+}
+
+{
     "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.TilingAndOffsetNode",
     "m_ObjectId": "7b8f628c84484b95b8b72fff2663c83b",
@@ -1803,8 +1856,8 @@
     "m_ObjectId": "88aee860ae1344ec918f1b8cff757190",
     "m_Title": "그룹 A : 텍스처 및 샘플링 데이터",
     "m_Position": {
-        "x": -489.9999694824219,
-        "y": 270.99993896484377
+        "x": -489.99993896484377,
+        "y": 271.0
     }
 }
 
@@ -1838,8 +1891,8 @@
     "m_ObjectId": "89b6c00b73094dcd86f29fcc290b4645",
     "m_Title": "그룹 C : PBR 조절 파라미터",
     "m_Position": {
-        "x": -496.9999694824219,
-        "y": 1401.999755859375
+        "x": -496.99993896484377,
+        "y": 1401.9998779296875
     }
 }
 
@@ -1940,6 +1993,15 @@
         },
         {
             "m_Id": "316f57b315814fdca16fc09c42ec8189"
+        },
+        {
+            "m_Id": "7682b25dfb934fba906dcf76fbee4b78"
+        },
+        {
+            "m_Id": "cc78be88b2424982b0ff601230720efd"
+        },
+        {
+            "m_Id": "9ef658c156614fd098c9b5c9ef673e52"
         }
     ]
 }
@@ -2145,6 +2207,50 @@
 }
 
 {
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "9ef658c156614fd098c9b5c9ef673e52",
+    "m_Guid": {
+        "m_GuidSerialized": "197e7452-5281-450a-83bb-26159bdb3990"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "_PomFadeEnd",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "_PomFadeEnd",
+    "m_DefaultReferenceName": "_PomFadeEnd",
+    "m_OverrideReferenceName": "",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 0.0,
+    "m_FloatType": 0,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 1.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
+}
+
+{
     "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.BlockNode",
     "m_ObjectId": "a005dd315c9347e3b14c22b704e10eec",
@@ -2220,8 +2326,8 @@
     "m_ObjectId": "a8f451db1e044626853ba40db363e128",
     "m_Title": "그룹 D : 환경 및 보조 제어",
     "m_Position": {
-        "x": -495.0,
-        "y": 1717.999755859375
+        "x": -494.99993896484377,
+        "y": 1718.0
     }
 }
 
@@ -2683,6 +2789,50 @@
     "m_Property": {
         "m_Id": "9e83aa1791f74834bbabef77077f6e8d"
     }
+}
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "cc78be88b2424982b0ff601230720efd",
+    "m_Guid": {
+        "m_GuidSerialized": "d4822ffe-3e48-45b4-9bbd-235689412f51"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "_PomFadeStart",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "_PomFadeStart",
+    "m_DefaultReferenceName": "_PomFadeStart",
+    "m_OverrideReferenceName": "",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 0.0,
+    "m_FloatType": 0,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 1.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
 }
 
 {
@@ -3302,8 +3452,8 @@
     "m_ObjectId": "ffd036006be64a55bf6df0de59b5eae9",
     "m_Title": "그룹 B : 공간 및 기하학 데이터",
     "m_Position": {
-        "x": -492.0000305175781,
-        "y": 916.9999389648438
+        "x": -492.0,
+        "y": 917.0
     }
 }
 

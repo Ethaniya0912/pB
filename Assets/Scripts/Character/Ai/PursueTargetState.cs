@@ -1,24 +1,40 @@
-﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+[CreateAssetMenu(menuName = "AI/States/Pursue Target")]
 public class PursueTargetState : AIState
 {
-    public override AIState Tick(AICharacterManager aICharacter)
+    [Header("Next States")]
+    public CombatStanceState combatStanceState;
+    public PatrolState patrolState; // 수정됨: Idle 대신 Patrol
+
+    [Header("Pursue Settings")]
+    public float attackRange = 2.5f;
+
+    public override AIState Tick(AICharacterManager aiCharacter)
     {
-        return base.Tick(aICharacter);
+        if (aiCharacter.aiCharacterCombatManager.currentTarget == null ||
+            aiCharacter.aiCharacterCombatManager.currentTarget.characterNetworkManager.isDead.Value)
+        {
+            return SwitchState(aiCharacter, patrolState); // 수정됨: SwitchState 사용
+        }
 
-        // 우리가 액션을 퍼폼하는지 체크 (만약 그렇다면 액션 종료까지 뭘 하지 말것)
-        
-        // 타겟이 null 상태인지 체크, 타겟이 없다면 idle 상태로 돌아감.
+        aiCharacter.navMeshAgent.SetDestination(aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
+        aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 1f, false);
 
-        // 네브메쉬 에이전트가 활성화되어있는지 체크하고, 아니라면 활성화.
+        float distanceFromTarget = Vector3.Distance(aiCharacter.transform.position, aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
 
-        // 범위 내 존재한다면 컴뱃 스테이트로 교체.
+        if (distanceFromTarget <= attackRange)
+        {
+            return SwitchState(aiCharacter, combatStanceState); // 수정됨: SwitchState 사용
+        }
 
-        // 만약 타겟에 도달할 수 없다면, 그리고 멀다면, 위치로 돌아감.
+        return this;
+    }
 
-        // 타겟을 pursue 하라.
-
+    // 수정됨: 달리기 애니메이션 값을 정리하고 전환
+    protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
+    {
+        base.ResetStateFlags(aiCharacterManager);
+        aiCharacterManager.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
     }
 }

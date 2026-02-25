@@ -1,0 +1,230 @@
+// ===============================================================================
+// 파일: CaveMarchingCubes.compute
+// 역할: 3D Voxel 밀도장을 바탕으로 이산적인 3D 메쉬를 추출하는 마칭 큐브 커널
+// 고도화: Central Difference 노멀 스무딩, Zero-Division 방어, Out-of-Bounds 방벽
+// ===============================================================================
+#pragma kernel GenerateMesh
+
+#include "CaveDataStructs.hlsl" // 공통 구조체 (CaveVoxel, CaveVertex, CaveTriangle, CaveOreData)
+
+// --- [버퍼 및 변수 선언] ---
+StructuredBuffer<CaveVoxel> _VoxelBuffer;
+
+// C#에서 직렬화되어 전달된 1D 마칭 큐브 룩업 테이블
+StructuredBuffer<int> _EdgeTable;
+StructuredBuffer<int> _TriangleTable;
+
+// 스레드 경합을 막고 대역폭을 최적화하는 Append 버퍼
+AppendStructuredBuffer<CaveTriangle> _TriangleBuffer;
+AppendStructuredBuffer<CaveOreData> _OreBuffer;
+
+float3 _ChunkBasePosition;
+int _ChunkSize;
+float _VoxelSize;
+float _IsoLevel;
+
+// [마칭 큐브 표준 규격] Paul Bourke 기준 꼭짓점(Corner) 오프셋
+// Y축 기준: 0~3은 바닥면(Bottom), 4~7은 윗면(Top)
+static const int3 cornerOffsets[8] =
+{
+    int3(0, 0, 0), // 0: Bottom-Left-Front
+    int3(1, 0, 0), // 1: Bottom-Right-Front
+    int3(1, 0, 1), // 2: Bottom-Right-Back
+    int3(0, 0, 1), // 3: Bottom-Left-Back
+    int3(0, 1, 0), // 4: Top-Left-Front
+    int3(1, 1, 0), // 5: Top-Right-Front
+    int3(1, 1, 1), // 6: Top-Right-Back
+    int3(0, 1, 1) // 7: Top-Left-Back
+};
+
+// 큐브의 12개 모서리(Edge)가 연결하는 꼭짓점 번호
+static const int edgeConnections[12][2] =
+{
+    { 0, 1 },
+    { 1, 2 },
+    { 2, 3 },
+    { 3, 0 },
+    { 4, 5 },
+    { 5, 6 },
+    { 6, 7 },
+    { 7, 4 },
+    { 0, 4 },
+    { 1, 5 },
+    { 2, 6 },
+    { 3, 7 }
+};
+
+// --- [유틸리티 함수] ---
+
+// 3D Grid 좌표를 1D 버퍼 인덱스로 변환
+int GetVoxelIndex(int x, int y, int z)
+{
+    return x + y * _ChunkSize + z * _ChunkSize * _ChunkSize;
+}
+
+// [🔥 핵심 요구사항 2: Zero Division 및 NaN 에러 방어]
+// 두 꼭짓점 사이에서 밀도가 IsoLevel과 일치하는 정확한 교차점(Vertex)을 보간합니다.
+float3 VertexInterp(float isoLevel, float3 p1, float3 p2, float valp1, float valp2)
+{
+    float diff = valp2 - valp1;
+    
+    // 밀도 차이가 0에 수렴하여 0으로 나누기(Divide by zero)가 발생하는 상황 원천 차단
+    if (abs(diff) < 0.00001)
+    {
+        return (p1 + p2) * 0.5; // 차이가 없으면 중앙값 반환(Fallback)
+    }
+
+    float mu = (isoLevel - valp1) / diff;
+    mu = saturate(mu); // mu 값이 0~1을 벗어나 좌표가 폭주하는 것을 방지
+    
+    return lerp(p1, p2, mu);
+}
+
+// [🔥 핵심 요구사항 1: Central Difference (중앙 차분법) 노멀 추출]
+// 폴리곤의 Flat Normal 대신, 3D 공간상의 밀도 기울기(Gradient)를 편미분하여
+// 완벽한 곡면 착시를 일으키는 고정밀 법선 벡터를 계산합니다.
+float3 CalculateGradientNormal(int x, int y, int z)
+{
+    // 경계 초과 방지를 위한 Index Clamping
+    int nx = max(0, x - 1);
+    int px = min(_ChunkSize - 1, x + 1);
+    int ny = max(0, y - 1);
+    int py = min(_ChunkSize - 1, y + 1);
+    int nz = max(0, z - 1);
+    int pz = min(_ChunkSize - 1, z + 1);
+
+    // X, Y, Z 양방향의 밀도 차이를 측정 (Epsilon = VoxelSize 단위)
+    float dx = _VoxelBuffer[GetVoxelIndex(px, y, z)].density - _VoxelBuffer[GetVoxelIndex(nx, y, z)].density;
+    float dy = _VoxelBuffer[GetVoxelIndex(x, py, z)].density - _VoxelBuffer[GetVoxelIndex(x, ny, z)].density;
+    float dz = _VoxelBuffer[GetVoxelIndex(x, y, pz)].density - _VoxelBuffer[GetVoxelIndex(x, y, nz)].density;
+
+    // Gradient 벡터의 반대 방향이 표면이 향하는 법선(Normal) 방향이 됨
+    return normalize(float3(-dx, -dy, -dz));
+}
+
+// --- [메인 커널] ---
+
+[numthreads(8, 8, 8)]
+void GenerateMesh(uint3 id : SV_DispatchThreadID)
+{
+    // 경계 복셀은 큐브를 형성하지 않으므로 제외
+    if (id.x >= (uint) (_ChunkSize - 1) || id.y >= (uint) (_ChunkSize - 1) || id.z >= (uint) (_ChunkSize - 1))
+        return;
+
+    float cubeDensities[8];
+    int cubeOreTypes[8];
+    float3 cornerPositions[8];
+    int cubeIndex = 0;
+
+    // 1. 현재 큐브의 8개 꼭짓점(Corner) 데이터 수집
+    for (int i = 0; i < 8; i++)
+    {
+        int3 gridPos = id + cornerOffsets[i];
+        int voxelIdx = GetVoxelIndex(gridPos.x, gridPos.y, gridPos.z);
+        
+        CaveVoxel voxel = _VoxelBuffer[voxelIdx];
+        cubeDensities[i] = voxel.density;
+        cubeOreTypes[i] = voxel.oreType;
+        
+        // 메시는 GameObject의 Transform을 기준으로 하므로 Local Space 좌표 사용
+        cornerPositions[i] = gridPos * _VoxelSize;
+
+        // 밀도가 IsoLevel보다 작으면 표면 내부에 있는 것으로 간주하여 Index 비트 마스킹
+        if (cubeDensities[i] < _IsoLevel)
+        {
+            cubeIndex |= (1 << i);
+        }
+    }
+
+    // 2. EdgeTable을 조회하여 교차하는 모서리 파악
+    int edgeFlag = _EdgeTable[cubeIndex];
+    if (edgeFlag == 0)
+        return; // 교차점이 없으면 그릴 폴리곤이 없음 (Early Exit)
+
+    float3 edgeVertices[12];
+    float3 edgeNormals[12];
+    
+    // 3. 표면과 교차하는 모서리에 정점(Vertex)과 노멀(Normal) 생성
+    for (int e = 0; e < 12; e++)
+    {
+        if ((edgeFlag & (1 << e)) != 0)
+        {
+            int v1 = edgeConnections[e][0];
+            int v2 = edgeConnections[e][1];
+
+            // 보간된 정점 위치 계산
+            edgeVertices[e] = VertexInterp(_IsoLevel, cornerPositions[v1], cornerPositions[v2], cubeDensities[v1], cubeDensities[v2]);
+
+            // 중앙 차분법으로 구한 노멀을 다시 보간하여 완벽한 곡면 노멀 산출
+            int3 gridPos1 = id + cornerOffsets[v1];
+            int3 gridPos2 = id + cornerOffsets[v2];
+            
+            float3 norm1 = CalculateGradientNormal(gridPos1.x, gridPos1.y, gridPos1.z);
+            float3 norm2 = CalculateGradientNormal(gridPos2.x, gridPos2.y, gridPos2.z);
+            
+            float diff = cubeDensities[v2] - cubeDensities[v1];
+            float mu = 0.5;
+            if (abs(diff) > 0.00001) // 노멀 보간 시에도 Zero Division 방어
+            {
+                mu = saturate((_IsoLevel - cubeDensities[v1]) / diff);
+            }
+            edgeNormals[e] = normalize(lerp(norm1, norm2, mu));
+            
+            // 광석(Ore) 추출
+            if (cubeOreTypes[v1] > 0 || cubeOreTypes[v2] > 0)
+            {
+                CaveOreData oreData;
+                oreData.position = edgeVertices[e] + _ChunkBasePosition; // 프롭은 World Space 기준으로 배치됨
+                oreData.type = max(cubeOreTypes[v1], cubeOreTypes[v2]);
+                oreData.normal = edgeNormals[e];
+                oreData.padding = 0;
+                
+                _OreBuffer.Append(oreData);
+            }
+        }
+    }
+
+    // 4. 삼각형 구성 및 Append 버퍼 기록
+    for (int t = 0; t < 16; t += 3)
+    {
+        int triIndex0 = _TriangleTable[cubeIndex * 16 + t];
+        if (triIndex0 == -1)
+            break; // -1을 만나면 삼각형 구성 종료
+
+        int triIndex1 = _TriangleTable[cubeIndex * 16 + t + 1];
+        int triIndex2 = _TriangleTable[cubeIndex * 16 + t + 2];
+
+        // [🔥 핵심 요구사항 3: Out-of-bounds 방벽 (거미줄 버그 방지)]
+        // LUT 데이터가 오염되었을 경우 쓰레기 메모리 접근을 막고 강제 스킵합니다.
+        if (triIndex0 < 0 || triIndex0 > 11 ||
+            triIndex1 < 0 || triIndex1 > 11 ||
+            triIndex2 < 0 || triIndex2 > 11)
+        {
+            continue;
+        }
+
+        CaveVertex v0, v1, v2;
+        
+        // 정점 데이터 패킹 (16바이트 정렬을 위해 nx와 nyz를 분리한 구조)
+        v0.position = edgeVertices[triIndex0];
+        v0.normal = edgeNormals[triIndex0];
+        v0.uv = float2(0, 0);
+
+        v1.position = edgeVertices[triIndex1];
+        v1.normal = edgeNormals[triIndex1];
+        v1.uv = float2(0, 0);
+
+        v2.position = edgeVertices[triIndex2];
+        v2.normal = edgeNormals[triIndex2];
+        v2.uv = float2(0, 0);
+
+        // [🔥 핵심 요구사항 4: CaveTriangle 단위 원자적(Atomic) Append]
+        // 정점 순서가 뒤엉키는 Race Condition을 방지하기 위해 단 한 번의 구조체 Append 실행
+        CaveTriangle tri;
+        tri.v0 = v0;
+        tri.v1 = v1;
+        tri.v2 = v2;
+
+        _TriangleBuffer.Append(tri);
+    }
+}
