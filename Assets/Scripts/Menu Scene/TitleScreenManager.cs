@@ -180,9 +180,17 @@ public class TitleScreenManager : MonoBehaviour
     {
         // 클라이언트 모드로 설정
         currentConnectionType = NetworkConnectionType.Client;
-        // 멀티플레이어 메뉴 닫고 초대 대기 팝업으로 직행 (클라이언트는 캐릭터 선택 패스)
         titleScreenMultiplayerMenu.SetActive(false);
-        OpenWaitingForInvitePopUp();
+
+        // [수정된 부분] 초대 대기 팝업 대신 LobbyUIManager의 방 목록 창을 엽니다!
+        if (LobbyUIManager.Instance != null)
+        {
+            LobbyUIManager.Instance.OpenRoomBrowser();
+        }
+        else
+        {
+            Debug.LogError("LobbyUIManager를 찾을 수 없습니다.");
+        }
     }
 
     public void OpenLoadGameMenu()

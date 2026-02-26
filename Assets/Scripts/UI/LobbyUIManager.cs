@@ -149,8 +149,10 @@ public class LobbyUIManager : MonoBehaviour
         foreach (Transform child in roomListContent) Destroy(child.gameObject);
 
         // 스팀 매치메이킹을 통해 최대 10개의 로비를 비동기 검색
-        var lobbies = await SteamMatchmaking.LobbyList.WithMaxResults(10).RequestAsync();
-
+        var lobbies = await SteamMatchmaking.LobbyList
+                    .WithKeyValue(SteamLobbyManager.GameIdKey, SteamLobbyManager.GameIdValue) // <-- 이 줄 추가
+                    .WithMaxResults(10)
+                    .RequestAsync();
         if (lobbies != null && roomListItemPrefab != null)
         {
             Log($"총 {lobbies.Length}개의 방을 찾았습니다.");

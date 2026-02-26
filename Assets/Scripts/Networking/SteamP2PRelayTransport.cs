@@ -267,10 +267,23 @@ public class SteamP2PRelayTransport : NetworkTransport
         Steamworks.SteamClient.Shutdown();
     }
 
+
+    // 방 퇴장 시 NullReferenceException 에러 해결(소켓이 닫히면서 Receive()에서 발생하는 에러)
     void LateUpdate()
     {
-        socketManager?.Receive();
-        clientConnection?.Receive();
+        // 스팀 API가 꺼졌거나 네트워크가 닫혀있다면 수신 시도를 아예 하지 않음
+        if (!Steamworks.SteamClient.IsValid || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            return;
+
+        try
+        {
+            socketManager?.Receive();
+            clientConnection?.Receive();
+        }
+        catch (System.NullReferenceException)
+        {
+            // 방을 나갈 때 소켓이 닫히면서 발생하는 정상적인 Null 에러이므로 무시 (콘솔 도배 방지)
+        }
     }
 
     static SendType CastToSendType(NetworkDelivery networkDelivery)
