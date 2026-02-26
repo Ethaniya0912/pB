@@ -1,7 +1,5 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting.Antlr3.Runtime.Tree;
-using UnityEditor.SearchService;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Unity.Netcode;
@@ -69,6 +67,10 @@ public class WorldSaveGameManager : MonoBehaviour
     {
         DontDestroyOnLoad(gameObject);
         LoadAllCharacterProfiles();
+
+        // [추가된 부분 시작] 늦게 참여한 클라이언트(난입)의 씬 동기화 및 데이터 로드를 위한 이벤트 구독
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        // [추가된 부분 끝]
     }
 
     private void Update()
@@ -85,6 +87,54 @@ public class WorldSaveGameManager : MonoBehaviour
             LoadGame();
         }
     }
+
+    // [추가된 부분 시작] 씬 전환 시 클라이언트 데이터 처리 로직
+    private void OnDestroy()
+    {
+        // 메모리 누수 방지
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    // 이름 충돌 방지를 위해 명시적으로 UnityEngine.SceneManagement.Scene 사용
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, LoadSceneMode mode)
+    {
+        // 방금 로드된 씬이 메인 메뉴가 아닌 월드(게임) 씬인지 확인
+        if (IsWorldScene(scene.buildIndex))
+        {
+            // 내가 호스트가 아니라 클라이언트로 이미 시작된 게임에 난입하여 NGO에 의해 씬이 강제 동기화된 경우
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer)
+            {
+                Debug.Log("[WorldSaveGameManager] 이미 시작된 게임에 접속했습니다. 씬 동기화 및 로컬 데이터 로드를 진행합니다.");
+
+                // 스팀 초대 등으로 슬롯 선택 화면을 건너뛰고 바로 들어온 경우 기본 슬롯(1번) 강제 지정
+                if (currentCharacterSlotBeingUsed == CharacterSlots.No_Slot)
+                {
+                    currentCharacterSlotBeingUsed = CharacterSlots.CharacterSlots_01;
+                    Debug.Log("[WorldSaveGameManager] 캐릭터 슬롯이 미지정되어 기본 슬롯(1번) 데이터를 로드합니다.");
+                }
+
+                // 1. 클라이언트 본인의 로컬 PC에서 세이브 파일을 읽어옵니다.
+                saveFileName = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(currentCharacterSlotBeingUsed);
+                saveFileDataWriter = new SaveFileDataWriter();
+                saveFileDataWriter.saveDataDirectoryPath = Application.persistentDataPath;
+                saveFileDataWriter.saveFileName = saveFileName;
+
+                currentCharacterData = saveFileDataWriter.LoadSaveFile();
+
+                if (currentCharacterData == null)
+                {
+                    currentCharacterData = new CharacterSaveData(); // 새로하기의 경우
+                }
+
+                // 2. 내 플레이어 객체에 로컬 세이브 데이터를 주입하여 캐릭터 정보 복구
+                if (player != null)
+                {
+                    player.LoadGameDataFromCurrentCharacterData(ref currentCharacterData);
+                }
+            }
+        }
+    }
+    // [추가된 부분 끝]
 
     // --[저장/로드 I/O]--
     public void SaveWorld()
@@ -191,7 +241,7 @@ public class WorldSaveGameManager : MonoBehaviour
         // Check to see if file exist first before create new file.
         saveFileDataWriter.saveFileName = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots.CharacterSlots_01);
 
-        if(!saveFileDataWriter.CheckToSeeIfFileExists())
+        if (!saveFileDataWriter.CheckToSeeIfFileExists())
         {
             // If this profile slot is not taken, make new one using this slot.
             currentCharacterSlotBeingUsed = CharacterSlots.CharacterSlots_01;
@@ -202,7 +252,7 @@ public class WorldSaveGameManager : MonoBehaviour
 
         saveFileDataWriter.saveFileName = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots.CharacterSlots_02);
 
-        if(!saveFileDataWriter.CheckToSeeIfFileExists())
+        if (!saveFileDataWriter.CheckToSeeIfFileExists())
         {
             // If this profile slot is not taken, make new one using this slot.
             currentCharacterSlotBeingUsed = CharacterSlots.CharacterSlots_02;
@@ -210,7 +260,7 @@ public class WorldSaveGameManager : MonoBehaviour
             NewGame();
             return;
         }
-        
+
         // ?먯쑀 ?щ’???놁쓣?? ?뚮젅?댁뼱???명떚?뚯씠
         TitleScreenManager.Instance.DisplayNofreeCharacterSlotPopUp();
 
@@ -274,7 +324,7 @@ public class WorldSaveGameManager : MonoBehaviour
         saveFileDataWriter = new SaveFileDataWriter();
         saveFileDataWriter.saveDataDirectoryPath = Application.persistentDataPath;
 
-        saveFileDataWriter.saveFileName = 
+        saveFileDataWriter.saveFileName =
             DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots.CharacterSlots_01);
         characterSlots01 = saveFileDataWriter.LoadSaveFile();
 
@@ -306,7 +356,7 @@ public class WorldSaveGameManager : MonoBehaviour
     }
 
     // 2. 상태/위치 업데이트 (문 열기, 상자 밀기)
-    public void  UpdateObjectState(int id, bool state, Vector3? pos = null, Quaternion? rot = null)
+    public void UpdateObjectState(int id, bool state, Vector3? pos = null, Quaternion? rot = null)
     {
         WorldObjectState data = new WorldObjectState
         {
@@ -368,17 +418,30 @@ public class WorldSaveGameManager : MonoBehaviour
     // 유틸리티 : 상태 조회
     public bool TryGetObjectState(int id, out WorldObjectState state)
     {
-        return currentWorldData.objectStates.TryGetValue(id, out state);    
+        return currentWorldData.objectStates.TryGetValue(id, out state);
     }
 
     // 코루틴 역할을 하는 IEnumerator을 사용.
     public IEnumerator LoadWorldScene()
     {
-        // 씬 하나일 경우 아래 코드
-        AsyncOperation loadOperation = SceneManager.LoadSceneAsync(worldSceneIndex);
+        // [수정된 부분 시작] 멀티플레이어 환경에서 클라이언트들의 씬이 함께 동기화되도록 분기 처리 추가
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && NetworkManager.Singleton.IsServer)
+        {
+            // 호스트(서버)인 경우 NGO 전용 씬 매니저를 사용해 씬을 로드합니다. (클라이언트 자동 동기화)
+            // 빌드 인덱스를 바탕으로 씬의 실제 이름을 추출하여 넘겨줍니다.
+            string sceneName = System.IO.Path.GetFileNameWithoutExtension(SceneUtility.GetScenePathByBuildIndex(worldSceneIndex));
+            NetworkManager.Singleton.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+        }
+        else
+        {
+            // 싱글플레이 환경일 경우 기존 유니티 기본 씬 로더를 사용합니다.
+            // 씬 하나일 경우 아래 코드
+            AsyncOperation loadOperation = SceneManager.LoadSceneAsync(worldSceneIndex);
 
-        // 씬 여럿일 경우 아래코드
-        // AsyncOperation loadOperation = SceneManager.LoadSceneAsync(currentCharacterData.sceneIndex);
+            // 씬 여럿일 경우 아래코드
+            // AsyncOperation loadOperation = SceneManager.LoadSceneAsync(currentCharacterData.sceneIndex);
+        }
+        // [수정된 부분 끝]
 
         player.LoadGameDataFromCurrentCharacterData(ref currentCharacterData);
 
@@ -498,6 +561,4 @@ public class WorldSaveGameManagerEditor : Editor
     }
 }
 #endif
-    #endregion
-
-
+#endregion
