@@ -21,27 +21,25 @@ public class TitleScreenManager : MonoBehaviour
     public NetworkConnectionType currentConnectionType = NetworkConnectionType.Singleplayer;
 
     [Header("Press Start Screen")]
-    [SerializeField] GameObject pressStartUI; // Press Start UI 그룹 (버튼을 포함하는 캔버스/패널)
-    [SerializeField] Button pressStartButton; // 실제 Press Start 버튼
+    [SerializeField] GameObject pressStartUI;
+    [SerializeField] Button pressStartButton;
 
     [Header("Menus")]
     [SerializeField] GameObject titleScreenMainMenu;
     [SerializeField] GameObject titleScreenLoadMenu;
     [SerializeField] GameObject titleScreenMultiplayerMenu; // 멀티플레이어 메뉴 패널
 
-    [Header("Main Menu Buttons")]
+    [Header("Buttons")]
     [SerializeField] Button mainMenuNewGameButton;
+    [SerializeField] Button loadMenuReturnButton;
     [SerializeField] Button mainMenuLoadGameButton;
-    [SerializeField] Button mainMenuMultiplayerButton; // 메인 -> 멀티 메뉴 이동 버튼
+    [SerializeField] Button deleteCharacterPopUpConfirmButton;
 
-    [Header("Multiplayer Menu Buttons")]
+    [Header("Multiplayer Buttons")]
+    [SerializeField] Button mainMenuMultiplayerButton; // 메인 -> 멀티 메뉴 이동 버튼
     [SerializeField] Button multiplayerCreateRoomButton; // 방 만들기 (Host)
     [SerializeField] Button multiplayerJoinRoomButton;   // 참여하기 (Client)
-    [SerializeField] Button multiplayerReturnButton;     // 뒤로 가기
-
-    [Header("Load Menu Buttons")]
-    [SerializeField] Button loadMenuReturnButton;
-    [SerializeField] Button deleteCharacterPopUpConfirmButton;
+    [SerializeField] Button multiplayerReturnButton;     // 멀티메뉴 -> 메인메뉴 뒤로 가기
     [SerializeField] Button loadMenuStartGameButton;     // 선택된 슬롯으로 게임 시작 버튼
 
     [Header("Pop Ups")]
@@ -80,29 +78,24 @@ public class TitleScreenManager : MonoBehaviour
     /// </summary>
     private void RegisterButtonEvents()
     {
-        // 0. Press Start 버튼
         if (pressStartButton != null) pressStartButton.onClick.AddListener(OpenMainMenuFromPressStart);
 
-        // 1. 메인 메뉴 버튼들
         if (mainMenuNewGameButton != null) mainMenuNewGameButton.onClick.AddListener(StartNewGame);
         if (mainMenuLoadGameButton != null) mainMenuLoadGameButton.onClick.AddListener(OpenLoadGameMenu);
         if (mainMenuMultiplayerButton != null) mainMenuMultiplayerButton.onClick.AddListener(OpenMultiplayerMenu);
 
-        // 2. 멀티플레이어 메뉴 버튼들
         if (multiplayerCreateRoomButton != null) multiplayerCreateRoomButton.onClick.AddListener(StartCreateRoomFlow);
         if (multiplayerJoinRoomButton != null) multiplayerJoinRoomButton.onClick.AddListener(StartJoinRoomFlow);
         if (multiplayerReturnButton != null) multiplayerReturnButton.onClick.AddListener(CloseMultiplayerMenu);
 
-        // 3. 로드 메뉴 버튼들
         if (loadMenuReturnButton != null) loadMenuReturnButton.onClick.AddListener(CloseLoadGameMenu);
         if (loadMenuStartGameButton != null) loadMenuStartGameButton.onClick.AddListener(AttemptToStartGameWithSelectedSlot);
 
-        // 4. 팝업 버튼들
         if (deleteCharacterPopUpConfirmButton != null) deleteCharacterPopUpConfirmButton.onClick.AddListener(DeleteCharacterSlot);
         if (noCharacterSlotsOkayButton != null) noCharacterSlotsOkayButton.onClick.AddListener(CloseNoFreeCharacterSlotsPopUp);
         if (closeWaitingPopUpButton != null) closeWaitingPopUpButton.onClick.AddListener(CloseWaitingForInvitePopUp);
 
-        // 5. 캐릭터 슬롯 버튼들 (반복문으로 일괄 등록)
+        // 배열로 관리되는 세이브 슬롯 버튼들을 일괄 등록
         if (saveSlotButtons != null)
         {
             for (int i = 0; i < saveSlotButtons.Length; i++)
@@ -122,20 +115,16 @@ public class TitleScreenManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        // 씬이 파괴될 때 이벤트 리스너를 해제하여 메모리 누수를 방지합니다. (권장 사항)
+        // 씬 파괴 시 메모리 누수 방지를 위한 리스너 일괄 해제
         if (pressStartButton != null) pressStartButton.onClick.RemoveAllListeners();
-
         if (mainMenuNewGameButton != null) mainMenuNewGameButton.onClick.RemoveAllListeners();
         if (mainMenuLoadGameButton != null) mainMenuLoadGameButton.onClick.RemoveAllListeners();
         if (mainMenuMultiplayerButton != null) mainMenuMultiplayerButton.onClick.RemoveAllListeners();
-
         if (multiplayerCreateRoomButton != null) multiplayerCreateRoomButton.onClick.RemoveAllListeners();
         if (multiplayerJoinRoomButton != null) multiplayerJoinRoomButton.onClick.RemoveAllListeners();
         if (multiplayerReturnButton != null) multiplayerReturnButton.onClick.RemoveAllListeners();
-
         if (loadMenuReturnButton != null) loadMenuReturnButton.onClick.RemoveAllListeners();
         if (loadMenuStartGameButton != null) loadMenuStartGameButton.onClick.RemoveAllListeners();
-
         if (deleteCharacterPopUpConfirmButton != null) deleteCharacterPopUpConfirmButton.onClick.RemoveAllListeners();
         if (noCharacterSlotsOkayButton != null) noCharacterSlotsOkayButton.onClick.RemoveAllListeners();
         if (closeWaitingPopUpButton != null) closeWaitingPopUpButton.onClick.RemoveAllListeners();
@@ -153,6 +142,7 @@ public class TitleScreenManager : MonoBehaviour
 
     public void OpenMainMenuFromPressStart()
     {
+        // Press Start UI 숨기고 메인 메뉴 열기
         if (pressStartUI != null) pressStartUI.SetActive(false);
         if (titleScreenMainMenu != null) titleScreenMainMenu.SetActive(true);
         if (mainMenuNewGameButton != null) mainMenuNewGameButton.Select();
@@ -160,32 +150,38 @@ public class TitleScreenManager : MonoBehaviour
 
     public void OpenMultiplayerMenu()
     {
+        // 메인메뉴 닫기
         titleScreenMainMenu.SetActive(false);
+        // 멀티플레이어 메뉴 열기
         titleScreenMultiplayerMenu.SetActive(true);
         multiplayerCreateRoomButton.Select();
     }
 
     public void CloseMultiplayerMenu()
     {
+        // 멀티플레이어 메뉴 닫기
         titleScreenMultiplayerMenu.SetActive(false);
+        // 메인 메뉴 열기
         titleScreenMainMenu.SetActive(true);
         mainMenuMultiplayerButton.Select();
     }
 
     public void StartCreateRoomFlow()
     {
+        // 호스트 모드로 설정
         currentConnectionType = NetworkConnectionType.Host;
+        // 멀티플레이어 메뉴 닫고 캐릭터 로드 메뉴 열기 (방장용)
         titleScreenMultiplayerMenu.SetActive(false);
-        titleScreenLoadMenu.SetActive(true); // 방을 파기 전 사용할 월드/캐릭터(호스트용) 선택
+        titleScreenLoadMenu.SetActive(true);
         loadMenuReturnButton.Select();
     }
 
     public void StartJoinRoomFlow()
     {
+        // 클라이언트 모드로 설정
         currentConnectionType = NetworkConnectionType.Client;
+        // 멀티플레이어 메뉴 닫고 초대 대기 팝업으로 직행 (클라이언트는 캐릭터 선택 패스)
         titleScreenMultiplayerMenu.SetActive(false);
-
-        // LoadMenu(슬롯 선택)를 띄우지 않고 곧바로 초대 대기 팝업으로 넘어감
         OpenWaitingForInvitePopUp();
     }
 
@@ -194,41 +190,62 @@ public class TitleScreenManager : MonoBehaviour
         // 메인 메뉴에서 Load를 누르면 기본적으로 싱글플레이어 모드로 진입
         currentConnectionType = NetworkConnectionType.Singleplayer;
 
+        // 메인메뉴 닫기 (이전 코드의 중복 SetActive 오류 방지)
         titleScreenMainMenu.SetActive(false);
         titleScreenMultiplayerMenu.SetActive(false);
+
+        // 로딩 메뉴 열기
         titleScreenLoadMenu.SetActive(true);
 
+        // 리턴 슬롯을 찾고 자동 셀렉트하기.
         loadMenuReturnButton.Select();
     }
 
     public void CloseLoadGameMenu()
     {
+        // 로드 메뉴 닫기.
         titleScreenLoadMenu.SetActive(false);
 
-        // 이전 메뉴(메인 또는 멀티메뉴)로 알맞게 돌아갑니다.
+        // 진입 경로에 맞춰 이전 메뉴 열기.
         if (currentConnectionType == NetworkConnectionType.Singleplayer)
         {
+            // 메인 메뉴 열기.
             titleScreenMainMenu.SetActive(true);
+            // 로드 버튼 고르기.
             mainMenuLoadGameButton.Select();
         }
         else
         {
+            // 멀티플레이어 메뉴 열기.
             titleScreenMultiplayerMenu.SetActive(true);
             multiplayerCreateRoomButton.Select();
         }
     }
 
     /// <summary>
-    /// 로비로 진입할 때 모든 타이틀 화면 UI를 깨끗하게 숨겨주는 함수입니다.
-    /// LobbyUIManager 등 다른 스크립트에서 호출할 수 있습니다.
+    /// 로비로 진입할 때 캔버스 자체를 꺼버려서 배경 이미지까지 확실히 가려지게 합니다.
     /// </summary>
     public void HideTitleScreen()
     {
-        if (pressStartUI) pressStartUI.SetActive(false);
-        if (titleScreenMainMenu) titleScreenMainMenu.SetActive(false);
+        Debug.Log("[TitleScreenManager] 타이틀 화면 UI 캔버스를 끕니다.");
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas != null) canvas.enabled = false;
+    }
+
+    /// <summary>
+    /// 로비를 빠져나와 다시 메인 메뉴로 돌아올 때 캔버스를 켭니다.
+    /// </summary>
+    public void ShowTitleScreen()
+    {
+        Debug.Log("[TitleScreenManager] 타이틀 화면 UI를 다시 표시합니다.");
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas != null) canvas.enabled = true;
+
+        // 초기 화면으로 복구
+        if (waitingForInvitePopUp) waitingForInvitePopUp.SetActive(false);
         if (titleScreenLoadMenu) titleScreenLoadMenu.SetActive(false);
         if (titleScreenMultiplayerMenu) titleScreenMultiplayerMenu.SetActive(false);
-        if (waitingForInvitePopUp) waitingForInvitePopUp.SetActive(false);
+        if (titleScreenMainMenu) titleScreenMainMenu.SetActive(true);
     }
 
     #endregion
@@ -237,13 +254,14 @@ public class TitleScreenManager : MonoBehaviour
 
     public void StartNetworkAsHost()
     {
+        // 기존 버튼 직접 연결용 예비 기능 (현재는 AttemptToStartGameWithSelectedSlot 로직으로 흡수됨)
         if (SteamLobbyManager.Instance != null)
         {
             SteamLobbyManager.Instance.StartHostWithLobby();
         }
         else
         {
-            Debug.LogError("[에러] 씬에 SteamLobbyManager가 없습니다! 빈 오브젝트를 만들고 스크립트를 추가해주세요.");
+            NetworkManager.Singleton.StartHost();
         }
     }
 
@@ -251,7 +269,7 @@ public class TitleScreenManager : MonoBehaviour
     {
         currentConnectionType = NetworkConnectionType.Singleplayer;
 
-        // 싱글플레이어라도 NGO에서는 Host 모드로 작동해야 캐릭터가 스폰됩니다.
+        // 싱글플레이어라도 NGO에서는 Host 모드로 작동해야 캐릭터가 정상 스폰됩니다.
         if (!NetworkManager.Singleton.IsServer && !NetworkManager.Singleton.IsClient)
         {
             NetworkManager.Singleton.StartHost();
@@ -269,39 +287,31 @@ public class TitleScreenManager : MonoBehaviour
             return;
         }
 
-        // 1. 선택한 슬롯을 세이브 매니저에 알림
+        // 선택한 슬롯을 세이브 매니저에 알림
         WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed = currentSelectedSlot;
-        Debug.Log($"[TitleScreenManager] {currentConnectionType} 모드로 {currentSelectedSlot} 슬롯 접속 시작!");
 
-        // 2. 연결 모드에 따라 게임 로드 및 씬 전환 수행
         switch (currentConnectionType)
         {
             case NetworkConnectionType.Singleplayer:
+                // 싱글플레이어도 호스트 권한으로 엔진 구동
                 if (!NetworkManager.Singleton.IsServer && !NetworkManager.Singleton.IsClient)
-                {
                     NetworkManager.Singleton.StartHost();
-                }
 
-                WorldSaveGameManager.Instance.LoadGame(); // 싱글은 즉시 로드
+                // 해당 슬롯에 저장된 씬과 캐릭터 정보 즉시 로드
+                WorldSaveGameManager.Instance.LoadGame();
                 break;
 
             case NetworkConnectionType.Host:
+                // 호스트는 스팀 로비 생성 후, 대기방 UI(LobbyUIManager)를 띄우기 위해 타이틀 화면을 가립니다.
                 if (SteamLobbyManager.Instance != null)
                 {
-                    // [변경점] 씬을 로드하지 않고 로비 매니저에 권한을 넘깁니다.
-                    SteamLobbyManager.Instance.StartHostWithLobby();
-
-                    // 타이틀 화면 UI들을 숨겨서 LobbyUIManager의 대기방 패널이 보이게 합니다.
                     HideTitleScreen();
-                }
-                else
-                {
-                    Debug.LogError("[에러] SteamLobbyManager가 씬에 없습니다. 멀티플레이어 서버를 열 수 없습니다.");
+                    SteamLobbyManager.Instance.StartHostWithLobby();
                 }
                 break;
 
             case NetworkConnectionType.Client:
-                Debug.LogWarning("[TitleScreenManager] 클라이언트는 슬롯 선택 없이 바로 접속해야 합니다.");
+                // 클라이언트는 여기를 호출할 일이 보통 없지만, 방어 코드로 비워둡니다.
                 break;
         }
     }
@@ -315,19 +325,16 @@ public class TitleScreenManager : MonoBehaviour
         waitingForInvitePopUp.SetActive(true);
         closeWaitingPopUpButton.Select();
 
-        if (Steamworks.SteamClient.IsValid)
-        {
-            SteamFriends.OpenOverlay("friends");
-        }
-        else
-        {
-            Debug.LogWarning("Steam API가 초기화되지 않아 오버레이를 열 수 없습니다.");
-        }
+        // 스팀 오버레이를 열어서 친구의 초대를 기다립니다.
+        if (Steamworks.SteamClient.IsValid) SteamFriends.OpenOverlay("friends");
+        else Debug.LogWarning("Steam API가 초기화되지 않아 오버레이를 열 수 없습니다.");
     }
 
     public void CloseWaitingForInvitePopUp()
     {
         waitingForInvitePopUp.SetActive(false);
+
+        // 초대 대기를 취소하면 다시 멀티플레이어 메뉴로 돌아갑니다.
         titleScreenMultiplayerMenu.SetActive(true);
         multiplayerJoinRoomButton.Select();
     }
@@ -352,7 +359,6 @@ public class TitleScreenManager : MonoBehaviour
     public void SelectCharacterSlot(CharacterSlots characterSlots)
     {
         currentSelectedSlot = characterSlots;
-        Debug.Log($"[TitleScreenManager] 슬롯이 선택되었습니다: {currentSelectedSlot}");
     }
 
     public void SelectNoSlot()
@@ -360,6 +366,7 @@ public class TitleScreenManager : MonoBehaviour
         currentSelectedSlot = CharacterSlots.No_Slot;
     }
 
+    // 슬롯 인덱스 번호를 enum으로 변환해주는 헬퍼 함수
     private CharacterSlots GetCharacterSlotFromIndex(int index)
     {
         switch (index)
@@ -387,6 +394,7 @@ public class TitleScreenManager : MonoBehaviour
         deleteCharacterSlotPopUp.SetActive(false);
         WorldSaveGameManager.Instance.DeleteGame(currentSelectedSlot);
 
+        // 삭제 후 리프레시하기 위함으로 타이틀스크린로드메뉴를 비활성화/활성화
         titleScreenLoadMenu.SetActive(false);
         titleScreenLoadMenu.SetActive(true);
 

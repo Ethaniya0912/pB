@@ -5,7 +5,7 @@ using UnityEngine;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-/* * [확장된 SteamLobbyManager - 싱글톤 적용]
+/* * [확장된 SteamLobbyManager - 싱글톤 적용 및 예외 처리 강화]
  * 이 스크립트는 Facepunch.Steamworks와 UnityNetcodeSteamP2PRelayTransport를 
  * 사용하는 환경에 최적화되었으며, NGO와의 원활한 연동 및 상세한 로비 관리를 지원합니다.
  */
@@ -35,12 +35,16 @@ public class SteamLobbyManager : MonoBehaviour
     // --- 디버깅용 래퍼 함수 ---
     private void Log(string message)
     {
-        if (showDebugLogs) Debug.Log($"[SteamLobbyManager] {message}");
+        if (showDebugLogs) Debug.Log($"<color=#42f5bf>[SteamLobbyManager]</color> {message}");
     }
 
     private void LogError(string message)
     {
-        if (showDebugLogs) Debug.LogError($"[SteamLobbyManager] {message}");
+        if (showDebugLogs) Debug.LogError($"[SteamLobbyManager ERROR] {message}");
+    }
+    private void LogWarning(string message)
+    {
+        if (showDebugLogs) Debug.LogWarning($"[SteamLobbyManager WARNING] {message}");
     }
     // --------------------------
 
@@ -71,10 +75,6 @@ public class SteamLobbyManager : MonoBehaviour
 
     private void Update()
     {
-        /* * [중요] Facepunch 라이브러리는 수동으로 콜백을 호출해야 합니다.
-         * 트랜스포트의 SteamClient 컴포넌트와 이름이 겹칠 경우를 대비해 
-         * Steamworks.SteamClient로 명시적 선언을 유지합니다.
-         */
         if (Steamworks.SteamClient.IsValid)
         {
             Steamworks.SteamClient.RunCallbacks();
@@ -83,11 +83,9 @@ public class SteamLobbyManager : MonoBehaviour
 
     private void OnEnable()
     {
-        // Instance가 this일 때만 이벤트 구독 (중복 객체에서 이벤트 여러번 구독되는 것 방지)
         if (Instance != this) return;
 
         Log("OnEnable: 이벤트 콜백 구독을 시작합니다.");
-        // SteamMatchmaking 이벤트 구독: 로비의 생성, 입장, 초대 등을 감지합니다.
         SteamMatchmaking.OnLobbyCreated += OnLobbyCreated;
         SteamMatchmaking.OnLobbyEntered += OnLobbyEntered;
         SteamMatchmaking.OnLobbyInvite += OnLobbyInvite;
@@ -100,7 +98,6 @@ public class SteamLobbyManager : MonoBehaviour
         if (Instance != this) return;
 
         Log("OnDisable: 이벤트 콜백 구독을 해제합니다.");
-        // 오브젝트 파괴 시 이벤트 구독 해제 (메모리 누수 방지)
         SteamMatchmaking.OnLobbyCreated -= OnLobbyCreated;
         SteamMatchmaking.OnLobbyEntered -= OnLobbyEntered;
         SteamMatchmaking.OnLobbyInvite -= OnLobbyInvite;
@@ -110,7 +107,6 @@ public class SteamLobbyManager : MonoBehaviour
 
     #region Lobby Callbacks
 
-    // 로비가 생성된 직후 호출되는 콜백
     private void OnLobbyCreated(Result result, Lobby lobby)
     {
         if (result != Result.OK)
@@ -122,13 +118,24 @@ public class SteamLobbyManager : MonoBehaviour
         Log($"로비 생성 성공! ID: {lobby.Id}");
     }
 
-    // 실제로 로비에 입장(나 혹은 타인)했을 때 호출되는 콜백
     private void OnLobbyEntered(Lobby lobby)
     {
         CurrentLobby = lobby;
         Log($"로비 입장 완료: {lobby.GetData(LobbyNameKey)} (ID: {lobby.Id})");
 
-        // 만약 내가 호스트가 아니라면(클라이언트라면), 로비 데이터에서 호스트 주소를 읽어옵니다.
+        // 호스트가 방을 만들 때도 이 함수가 호출되므로 클라이언트 로직 무시
+        if (TitleScreenManager.Instance != null &&
+            TitleScreenManager.Instance.currentConnectionType == TitleScreenManager.NetworkConnectionType.Host)
+        {
+            Log("현재 사용자는 호스트이므로 OnLobbyEntered의 클라이언트 접속 로직을 건너뜁니다.");
+            return;
+        }
+
+        Log("클라이언트 자격으로 로비에 접속했습니다. 대기방 UI를 엽니다.");
+        if (TitleScreenManager.Instance != null) TitleScreenManager.Instance.HideTitleScreen();
+        if (LobbyUIManager.Instance != null) LobbyUIManager.Instance.OpenLobbyRoom(lobby);
+
+        // 클라이언트 로직
         if (!NetworkManager.Singleton.IsHost)
         {
             string hostSteamIDStr = lobby.GetData(HostAddressKey);
@@ -136,38 +143,38 @@ public class SteamLobbyManager : MonoBehaviour
 
             if (ulong.TryParse(hostSteamIDStr, out ulong hostSteamID))
             {
-                // 트랜스포트의 대상 주소를 호스트의 SteamID로 설정합니다.
-                // 주의: SteamP2PRelayTransport의 실제 연결 변수명(예: TargetSteamID)을 확인하세요.
                 // transport.TargetSteamID = hostSteamID; 
 
-                // NGO 클라이언트 가동
                 Log("NGO 클라이언트 시작을 시도합니다...");
-                if (NetworkManager.Singleton.StartClient())
+                try
                 {
-                    Log($"호스트({hostSteamID})에게 클라이언트 접속 시도 중...");
+                    if (NetworkManager.Singleton.StartClient())
+                    {
+                        Log($"호스트({hostSteamID})에게 클라이언트 접속 시도 중...");
+                    }
+                    else
+                    {
+                        LogError("NGO 클라이언트 시작에 실패했습니다.");
+                        RevertToTitleScreen();
+                    }
                 }
-                else
+                catch (System.Exception e)
                 {
-                    LogError("NGO 클라이언트 시작에 실패했습니다.");
+                    LogError($"NGO 클라이언트 시작 중 예외 발생: {e.Message}");
+                    RevertToTitleScreen();
                 }
             }
             else
             {
                 LogError("로비 데이터에서 호스트 SteamID를 찾을 수 없습니다. 파싱 실패.");
+                RevertToTitleScreen();
             }
-        }
-        else
-        {
-            Log("현재 인스턴스가 호스트이므로 클라이언트 접속 로직을 건너뜁니다.");
         }
     }
 
-    // 친구로부터 초대를 받았을 때 호출되는 콜백
     private void OnLobbyInvite(Friend friend, Lobby lobby)
     {
         Log($"{friend.Name}님이 게임에 초대했습니다. 로비 ID: {lobby.Id}");
-        // 여기에 초대를 수락할지 묻는 UI 팝업을 띄우는 로직을 추가할 수 있습니다.
-        // 예: SteamMatchmaking.JoinLobbyAsync(lobby.Id);
     }
 
     private void OnMemberJoined(Lobby lobby, Friend friend)
@@ -184,7 +191,6 @@ public class SteamLobbyManager : MonoBehaviour
 
     #region UI Buttons Actions
 
-    // [UI 버튼 등에서 호출용] 호스트 시작 및 로비 생성 로직
     public async void StartHostWithLobby()
     {
         Log("호스트 시작 및 로비 생성을 시도합니다...");
@@ -192,57 +198,106 @@ public class SteamLobbyManager : MonoBehaviour
         if (!Steamworks.SteamClient.IsValid)
         {
             LogError("Steam API가 초기화되지 않았습니다. Steam이 실행 중인지 확인하세요.");
+            RevertToTitleScreen();
             return;
+        }
+
+        // [방어 코드] 이전 실행의 찌꺼기 네트워크 세션이 켜져있다면 확실히 종료시킵니다.
+        if (NetworkManager.Singleton.IsListening)
+        {
+            LogWarning("이미 활성화된 네트워크 세션이 발견되었습니다. 강제 셧다운을 진행합니다...");
+            NetworkManager.Singleton.Shutdown();
+            await Task.Delay(1000); // 좀비 소켓이 완전히 닫히도록 1초 대기
         }
 
         Log($"SteamMatchmaking.CreateLobbyAsync 호출 중... (최대 {maxPlayers}명)");
 
-        // 최대 플레이어 수에 맞춰 비동기 로비 생성
         var lobbyOpt = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
 
         if (!lobbyOpt.HasValue)
         {
             LogError("로비 생성 비동기 작업 실패 (응답 없음)");
+            RevertToTitleScreen();
             return;
         }
 
         CurrentLobby = lobbyOpt.Value;
-
-        // 로비 속성 설정
-        CurrentLobby?.SetPublic(); // 검색 가능하게 설정
-        CurrentLobby?.SetJoinable(true); // 참여 가능하게 설정
-
-        // 로비 메타데이터 설정 (다른 유저가 주소를 알 수 있게 함)
+        CurrentLobby?.SetPublic();
+        CurrentLobby?.SetJoinable(true);
         CurrentLobby?.SetData(HostAddressKey, Steamworks.SteamClient.SteamId.ToString());
-        CurrentLobby?.SetData(LobbyNameKey, $"{Steamworks.SteamClient.Name}의 대전 게임");
+        CurrentLobby?.SetData(LobbyNameKey, $"{Steamworks.SteamClient.Name}'s Lobby");
 
         Log($"Steam 로비 생성 완료. 메타데이터 설정 완료. (호스트 ID: {Steamworks.SteamClient.SteamId})");
-
         Log("NGO 호스트 가동을 시도합니다...");
-        // NGO의 Host 가동 (서버 기능 시작)
-        if (NetworkManager.Singleton.StartHost())
+
+        try
         {
-            Log("NGO 호스트가 가동되었습니다. 이제 플레이어를 기다립니다.");
+            // NGO의 Host 가동 (서버 기능 시작)
+            if (NetworkManager.Singleton.StartHost())
+            {
+                Log("NGO 호스트가 가동되었습니다. 이제 플레이어를 기다립니다.");
+
+                // 성공적으로 켜졌다면 대기방 UI 오픈
+                if (LobbyUIManager.Instance != null && CurrentLobby.HasValue)
+                {
+                    LobbyUIManager.Instance.OpenLobbyRoom(CurrentLobby.Value);
+                }
+                else
+                {
+                    LogError("LobbyUIManager가 씬에 없거나 할당되지 않아 패널을 켤 수 없습니다!");
+                }
+            }
+            else
+            {
+                LogError("NGO 호스트 시작 실패 (NetworkManager.StartHost 반환값: false)");
+                RevertToTitleScreen();
+            }
         }
-        else
+        catch (System.Exception e)
         {
-            LogError("NGO 호스트 시작 실패");
+            // Invalid Socket 에러가 터져도 여기서 방어하여 게임이 멈추지 않게 함
+            LogError($"NGO 호스트 시작 중 예외 발생: {e.Message}");
+            LogError("❗ [중요] Invalid Socket 에러가 발생했다면, 유니티 에디터를 완전히 껐다가 다시 켜야 해결됩니다! (P2P 포트 충돌)");
+            RevertToTitleScreen();
         }
     }
 
-    // 로비 떠나기 기능 (필요 시 호출)
-    public void LeaveLobby()
+    // 에러 발생 시 UI를 원상복구하고 로비를 빠져나오는 안전망 함수
+    private void RevertToTitleScreen()
     {
-        Log("로비 퇴장 및 NGO 셧다운을 시도합니다.");
+        LogWarning("에러 복구 로직 가동: 로비를 파괴하고 타이틀 화면으로 돌아갑니다.");
         CurrentLobby?.Leave();
         CurrentLobby = null;
 
-        if (NetworkManager.Singleton.IsListening)
+        if (TitleScreenManager.Instance != null)
+        {
+            TitleScreenManager.Instance.ShowTitleScreen();
+        }
+    }
+
+    public void LeaveLobby()
+    {
+        Log("로비 퇴장 및 NGO 셧다운을 시도합니다.");
+
+        // [수정됨] Steam API가 살아있을 때만 로비를 떠나도록 예외 처리 추가
+        if (Steamworks.SteamClient.IsValid)
+        {
+            CurrentLobby?.Leave();
+        }
+        CurrentLobby = null;
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
         {
             NetworkManager.Singleton.Shutdown();
         }
 
         Log("로비에서 퇴장했습니다.");
+    }
+
+    private void OnApplicationQuit()
+    {
+        // 강제 종료 시 소켓 누수 방지
+        LeaveLobby();
     }
 
     #endregion
