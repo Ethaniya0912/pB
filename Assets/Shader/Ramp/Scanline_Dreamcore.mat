@@ -38,8 +38,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Scanline_Density: 811
-    - _Scanline_Intensity: 0.438
+    - _Scanline_Density: 508
+    - _Scanline_Intensity: 0.464
     - _Scanline_Speed: 0
     m_Colors: []
   m_BuildTextureStacks: []

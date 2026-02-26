@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33cf34a020380e1479e3f6785de194b7, type: 3}
+  m_Name: CaveBiomeSettings
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveBiomeSettings
+  debugStage: 4
+  seed: 12345
+  maxOctaves: 5
+  lacunarity: 2
+  gain: 0.5
+  depthLayers:
+  - layerName: 1F
+    maxAltitude: 15
+    minAltitude: -50
+    floorBlendRadius: 3
+    ceilBlendRadius: 4
+    noiseFrequency: 0.05
+    sdfSmoothness: 0
+    sinkholeProbability: 0
+    sinkholeMinRadius: 6
+    sinkholeMaxRadius: 12
+    sinkholeSmoothness: 5
+    ledgeStepHeight: 2.5
+    spiralFrequency: 0.5
+    spiralAmplitude: 2
+    layerFogColor: {r: 0.22745098, g: 0.20784314, b: 0.1882353, a: 0}
+    terrainMaterial: {fileID: 2100000, guid: 06176ee8cef908b4b89c0ff7abe19ff3, type: 2}
+    waterLevel: -45
+    oreDistributions: []

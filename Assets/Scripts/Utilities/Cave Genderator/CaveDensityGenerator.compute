@@ -1,6 +1,6 @@
 // ===============================================================================
 // 파일: CaveDensityGenerator.compute
-// 역할: 3D 공간 밀도 연산 및 물리 기반 수력 침식(Hydraulic Erosion) 시뮬레이션
+// 역할: 2.5D 평면 기반 공간 밀도 연산 및 물리 기반 수력 침식(Hydraulic Erosion) 시뮬레이션
 // 구조: Multi-Kernel (GenerateDensity -> SimulateErosion)
 // ===============================================================================
 #pragma kernel GenerateDensity
@@ -33,6 +33,26 @@ float _WarpStrength;
 float _WarpFreq;
 
 int _DebugStage;
+
+// [파라미터화: 하드코딩 변수 노출]
+float _FloorAltitude;
+float _CeilAltitude;
+float _FloorBlendRadius;
+float _CeilBlendRadius;
+
+// [신규 파라미터] 바닥 요철 제어
+float _FloorBumpAmplitude;
+float _FloorBumpFrequency;
+
+float _SinkholeProbability;
+float _SinkholeMinRadius;
+float _SinkholeMaxRadius;
+float _SinkholeSmoothness;
+
+float _LedgeStepHeight;
+float _SpiralFrequency;
+float _SpiralAmplitude;
+
 
 // --- [유틸리티 및 해시 함수] ---
 
@@ -124,30 +144,42 @@ float fBm2D(float2 p)
     return sum;
 }
 
-void Voronoi(float3 p, out float f1, out float f2)
+// 2.5D 구조를 위해 2D Voronoi로 교체 및 싱크홀 판단을 위한 노드 데이터 추가 반환
+void Voronoi2D_Data(float2 p, out float f1, out float f2, out float2 closestCenter, out float cellHash)
 {
-    float3 n = floor(p);
-    float3 f = frac(p);
+    float2 n = floor(p);
+    float2 f = frac(p);
     f1 = 8.0;
     f2 = 8.0;
-    for (int k = -1; k <= 1; k++)
-        for (int j = -1; j <= 1; j++)
-            for (int i = -1; i <= 1; i++)
+    closestCenter = float2(0, 0);
+    float2 closestG = float2(0, 0);
+
+    for (int j = -1; j <= 1; j++)
+    {
+        for (int i = -1; i <= 1; i++)
+        {
+            float2 g = float2(float(i), float(j));
+            float2 o = hash22(n + g);
+            float2 r = g - f + o;
+            float d = dot(r, r);
+            
+            if (d < f1)
             {
-                float3 g = float3(float(i), float(j), float(k));
-                float d = dot(g - f + hash33(n + g), g - f + hash33(n + g));
-                if (d < f1)
-                {
-                    f2 = f1;
-                    f1 = d;
-                }
-                else if (d < f2)
-                {
-                    f2 = d;
-                }
+                f2 = f1;
+                f1 = d;
+                closestCenter = n + g + o;
+                closestG = n + g;
             }
+            else if (d < f2)
+            {
+                f2 = d;
+            }
+        }
+    }
     f1 = sqrt(f1);
     f2 = sqrt(f2);
+    // 노드(셀) 고유의 식별자로 0.0 ~ 1.0 사이의 해시값 생성
+    cellHash = frac(sin(dot(closestG, float2(12.9898, 78.233))) * 43758.5453);
 }
 
 float Voronoi2D(float2 p)
@@ -166,16 +198,18 @@ float Voronoi2D(float2 p)
     return sqrt(f1);
 }
 
+// 두 공간이 교차하는 지점을 부드러운 곡면(Fillet)으로 처리하는 함수
 float smin(float a, float b, float k)
 {
     float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
     return lerp(b, a, h) - k * h * (1.0 - h);
 }
 
+// 다항식 smax 구현 및 Capping
 float smax(float a, float b, float k)
 {
-    float h = clamp(0.5 - 0.5 * (b - a) / k, 0.0, 1.0);
-    return lerp(b, a, h) + k * h * (1.0 - h);
+    float h = max(k - abs(a - b), 0.0) / k;
+    return max(a, b) + h * h * k * (1.0 / 4.0);
 }
 
 float sdBox(float3 p, float3 b)
@@ -217,14 +251,43 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     int index = GetVoxelIndex(id.x, id.y, id.z);
     float3 worldPos = _ChunkBasePosition + (id * _VoxelSize);
     
-    // 1. 도메인 워핑
-    float3 warpNoise = float3(snoise(worldPos * _WarpFreq), snoise(worldPos * _WarpFreq + 15.2), snoise(worldPos * _WarpFreq - 32.1));
+    // --------------------------------------------------------------------------
+    // 1. 3D 도메인 워핑 (Full 3D Domain Warping)
+    // --------------------------------------------------------------------------
+    float3 warpNoise = float3(
+        snoise(worldPos * _WarpFreq),
+        0.0, // Y축 자체는 층의 경계를 넘지 않도록 변형에서 제외
+        snoise(worldPos * _WarpFreq - 32.1)
+    );
     float3 warpedPos = worldPos + (warpNoise * _WarpStrength);
 
-    // 2. Hub & Spoke 뼈대 SDF
+    // --------------------------------------------------------------------------
+    // 2. 2D Voronoi 뼈대 생성 (뒤틀린 XZ 좌표 사용)
+    // --------------------------------------------------------------------------
     float f1, f2;
-    Voronoi(warpedPos * _NoiseScale * 0.5, f1, f2);
-    float baseDensity = min(f1 - 0.35, (f2 - f1) - 0.15) * 40.0;
+    float2 cellCenterNoiseSpace;
+    float cellHash;
+    Voronoi2D_Data(warpedPos.xz * _NoiseScale * 0.5, f1, f2, cellCenterNoiseSpace, cellHash);
+
+    // --------------------------------------------------------------------------
+    // 3. Y축 프로파일링 (항아리/둥근 방 형태 만들기)
+    // --------------------------------------------------------------------------
+    float layerHeight = max(1.0, _CeilAltitude - _FloorAltitude); // 0 나누기 방지
+    float heightRatio = saturate((worldPos.y - _FloorAltitude) / layerHeight);
+
+    float bulgeProfile = sin(heightRatio * 3.141592);
+    float baseDensity = min(f1 - (0.2 + bulgeProfile * 0.15), (f2 - f1) - 0.15) * 40.0;
+
+    // --------------------------------------------------------------------------
+    // 4. 3D Carving Noise 및 바닥 융합 마스킹 (Floor Preservation)
+    // --------------------------------------------------------------------------
+    float carvingNoise = fBm(worldPos * _NoiseScale * 2.0) * 10.0;
+
+    // [바닥 복원 1] 노이즈를 칼같이 자르지 않고, 바닥(0~3m) 부근에서 서서히 진폭을 줄입니다.
+    float floorPreservationMask = smoothstep(0.0, 3.0, worldPos.y - _FloorAltitude);
+
+    // 마스크를 곱해서 벽면에는 거친 노이즈를, 바닥 쪽은 매끄러움을 유지합니다.
+    baseDensity += (carvingNoise * floorPreservationMask);
 
     if (_DebugStage == 0)
     {
@@ -232,7 +295,49 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         return;
     }
 
-    // 3. 고정 구역 마스킹
+    // --------------------------------------------------------------------------
+    // [바닥 복원 2] 파라미터화된 유기적 바닥 평탄화 및 필렛(Fillet) 효과
+    // --------------------------------------------------------------------------
+    // 얕은 웅덩이와 둔덕을 2D 노이즈로 생성 (_FloorBumpFrequency, _FloorBumpAmplitude 활용)
+    float floorBump = snoise2D(worldPos.xz * _FloorBumpFrequency) * _FloorBumpAmplitude;
+    
+    // 기본 평면(Y축)에 요철을 더해 유기적인 바닥 SDF 완성
+    float floorSDF = (_FloorAltitude - worldPos.y) + floorBump;
+    
+    // 기존의 거친 동굴 벽면과 울퉁불퉁한 흙바닥을 smax로 찰흙처럼 부드럽게 융합(Fillet)
+    baseDensity = smax(baseDensity, floorSDF, _FloorBlendRadius);
+
+    // 천장 Capping
+    float ceilSDF = worldPos.y - _CeilAltitude;
+    baseDensity = smax(baseDensity, ceilSDF, _CeilBlendRadius);
+
+    // --- 싱크홀 판정 및 조각 ---
+    if (cellHash > (1.0 - _SinkholeProbability))
+    {
+        float2 sinkholeCenter = cellCenterNoiseSpace / (_NoiseScale * 0.5);
+        float radiusHash = frac(cellHash * 13.51);
+        float sinkholeRadius = lerp(_SinkholeMinRadius, _SinkholeMaxRadius, radiusHash);
+        
+        float cylinderSDF = length(worldPos.xz - sinkholeCenter) - sinkholeRadius;
+        baseDensity = smax(baseDensity, -cylinderSDF, _SinkholeSmoothness);
+
+        float distToCenter = length(worldPos.xz - sinkholeCenter);
+        float sinkholeMask = 1.0 - smoothstep(sinkholeRadius - 1.0, sinkholeRadius + 3.0, distToCenter);
+        
+        float terrace = (floor(worldPos.y / _LedgeStepHeight) * _LedgeStepHeight) - worldPos.y;
+        float angle = atan2(worldPos.z - sinkholeCenter.y, worldPos.x - sinkholeCenter.x);
+        float spiral = sin(worldPos.y * _SpiralFrequency + angle * 3.0) * _SpiralAmplitude;
+        
+        baseDensity += (terrace + spiral) * sinkholeMask;
+    }
+
+    if (_DebugStage == 1)
+    {
+        _VoxelBuffer[index].density = baseDensity;
+        return;
+    }
+
+    // 고정 구역(Fixed Zones) 마스킹 융합
     float fixedZoneSDF = 9999.0;
     for (int i = 0; i < _FixedZoneCount; i++)
     {
@@ -242,28 +347,17 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     }
     baseDensity = smin(baseDensity, fixedZoneSDF, _SdfSmoothness * 2.0);
 
-    // 4. 바닥 평탄화
-    float layerY = floor(worldPos.y / 50.0) * 50.0 + 25.0;
-    float floorPlane = layerY - worldPos.y + (fBm2D(warpedPos.xz * _NoiseScale * 2.0) * 3.0);
-    baseDensity = smax(baseDensity, -floorPlane, 5.0);
-
-    if (_DebugStage == 1)
-    {
-        _VoxelBuffer[index].density = baseDensity;
-        return;
-    }
-
-    // 5. 마크로 바이옴 혼합
+    // 마크로 바이옴 혼합 (디테일 노이즈)
     float biomeBlend = snoise(worldPos * 0.005) * 0.5 + 0.5;
     float karstNoise = fBm(float3(warpedPos.x, warpedPos.y * 0.25, warpedPos.z) * _NoiseScale * 2.0) * 12.0;
     float columnarNoise = step(0.15, 1.0 - Voronoi2D(worldPos.xz * 0.2)) * 15.0 - 5.0;
-    float terrace = (floor(warpedPos.y * 2.0) / 2.0) - warpedPos.y;
-    float sediNoise = terrace * 10.0 + fBm(warpedPos * _NoiseScale * 1.5) * 3.0;
+    float biomeTerrace = (floor(warpedPos.y * 2.0) / 2.0) - warpedPos.y;
+    float sediNoise = biomeTerrace * 10.0 + fBm(warpedPos * _NoiseScale * 1.5) * 3.0;
 
     float detailNoise = biomeBlend < 0.33 ? lerp(karstNoise, columnarNoise, smoothstep(0.0, 0.33, biomeBlend)) :
                        (biomeBlend < 0.66 ? lerp(columnarNoise, sediNoise, smoothstep(0.33, 0.66, biomeBlend)) : sediNoise);
 
-    // 6. Surface Attenuation
+    // 허공 파편 발생 원천 차단
     float attenuation = smoothstep(20.0, 0.0, abs(baseDensity));
     float finalDensity = baseDensity + (detailNoise * attenuation);
 

@@ -22,7 +22,7 @@ namespace CaveSystem
         public GlobalSystemState CurrentState { get; private set; }
 
         [Header("Configuration")]
-        public CaveSettings caveSettings;
+        public CaveBiomeSettings caveSettings;
         public Transform playerTransform;
 
         [Header("System References")]

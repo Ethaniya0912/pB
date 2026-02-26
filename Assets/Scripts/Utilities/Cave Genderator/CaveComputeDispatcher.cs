@@ -41,7 +41,7 @@ namespace CaveSystem
         public ComputeShader marchingCubesShader;
 
         [Header("Settings")]
-        public CaveSettings caveSettings;
+        public CaveBiomeSettings caveSettings; // CaveSettings를 CaveBiomeSettings로 타입 변경
         public int chunkSize = 16;
         public float voxelSize = 1.0f;
 
@@ -137,13 +137,38 @@ namespace CaveSystem
             densityShader.SetInt("_ChunkSize", chunkSize + 1);
             densityShader.SetFloat("_VoxelSize", voxelSize);
 
-            densityShader.SetFloat("_NoiseScale", caveSettings.frequency);
+            // [에러 수정] 현재 청크의 Y 고도를 바탕으로 해당 층(Layer)의 데이터를 가져옵니다.
+            float chunkWorldY = context.ChunkPos.y * chunkSize * voxelSize;
+            DepthLayer currentLayer = caveSettings.GetLayerSettings(chunkWorldY);
+
+            // 공통 설정 전달 (CaveBiomeSettings에 남은 글로벌 변수들)
             densityShader.SetInt("_Octaves", caveSettings.GetActiveOctaves());
             densityShader.SetFloat("_Lacunarity", caveSettings.lacunarity);
             densityShader.SetFloat("_Gain", caveSettings.gain);
-            densityShader.SetFloat("_SdfSmoothness", caveSettings.sdfSmoothness);
             densityShader.SetFloat("_WarpStrength", 1.5f);
             densityShader.SetFloat("_WarpFreq", 0.02f);
+
+            // [에러 수정 및 파라미터화] 층(Layer)별 고유 데이터 셰이더로 전달
+            densityShader.SetFloat("_NoiseScale", currentLayer.noiseFrequency);
+            densityShader.SetFloat("_SdfSmoothness", currentLayer.sdfSmoothness);
+
+            densityShader.SetFloat("_FloorAltitude", currentLayer.minAltitude);
+            densityShader.SetFloat("_CeilAltitude", currentLayer.maxAltitude);
+            densityShader.SetFloat("_FloorBlendRadius", currentLayer.floorBlendRadius);
+            densityShader.SetFloat("_CeilBlendRadius", currentLayer.ceilBlendRadius);
+
+            // [바닥 복원] 자연스러운 요철 파라미터 전달
+            densityShader.SetFloat("_FloorBumpAmplitude", currentLayer.floorBumpAmplitude);
+            densityShader.SetFloat("_FloorBumpFrequency", currentLayer.floorBumpFrequency);
+
+            densityShader.SetFloat("_SinkholeProbability", currentLayer.sinkholeProbability);
+            densityShader.SetFloat("_SinkholeMinRadius", currentLayer.sinkholeMinRadius);
+            densityShader.SetFloat("_SinkholeMaxRadius", currentLayer.sinkholeMaxRadius);
+            densityShader.SetFloat("_SinkholeSmoothness", currentLayer.sinkholeSmoothness);
+
+            densityShader.SetFloat("_LedgeStepHeight", currentLayer.ledgeStepHeight);
+            densityShader.SetFloat("_SpiralFrequency", currentLayer.spiralFrequency);
+            densityShader.SetFloat("_SpiralAmplitude", currentLayer.spiralAmplitude);
 
             // C# 디버그 스위치 연동
             densityShader.SetInt("_DebugStage", currentDebugStage);

@@ -57,7 +57,7 @@ namespace CaveSystem
         [Header("Settings")]
         public Material caveMaterial;
         public Material waterMaterial;
-        public CaveSettings caveSettings;
+        public CaveBiomeSettings caveSettings;
         public int chunkSize = 16;
         public float voxelSize = 1.0f;
 
@@ -146,8 +146,11 @@ namespace CaveSystem
             float chunkWorldY = context.ChunkPos.y * chunkSize * voxelSize;
             float chunkTopY = chunkWorldY + (chunkSize * voxelSize);
 
-            // 현재 청크의 Y축 고도 범위 내에 WaterLevel이 존재하는지 확인
-            if (caveSettings.waterLevel >= chunkWorldY && caveSettings.waterLevel <= chunkTopY)
+            // [에러 수정] 현재 청크 고도에 맞는 층(Layer) 데이터를 가져옵니다.
+            DepthLayer currentLayer = caveSettings.GetLayerSettings(chunkWorldY);
+
+            // 현재 청크의 Y축 고도 범위 내에 해당 층의 waterLevel이 존재하는지 확인
+            if (currentLayer.waterLevel >= chunkWorldY && currentLayer.waterLevel <= chunkTopY)
             {
                 // 충돌체가 없는 단순 Plane 메시 생성
                 GameObject waterObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -159,7 +162,7 @@ namespace CaveSystem
 
                 // 청크 크기에 맞게 스케일 조정 (청크 중앙 배치)
                 float halfSize = (chunkSize * voxelSize) * 0.5f;
-                waterObj.transform.localPosition = new Vector3(halfSize, caveSettings.waterLevel - chunkWorldY, halfSize);
+                waterObj.transform.localPosition = new Vector3(halfSize, currentLayer.waterLevel - chunkWorldY, halfSize);
                 waterObj.transform.localScale = new Vector3(chunkSize * voxelSize, chunkSize * voxelSize, 1f);
 
                 // 불필요한 기본 콜라이더 즉시 제거

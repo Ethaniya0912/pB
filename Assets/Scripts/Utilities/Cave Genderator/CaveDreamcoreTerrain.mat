@@ -13,7 +13,6 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords:
-  - _ENABLEPOMFADING_ON
   - _REFLECTIONTOGGLE_ON
   - _SPECULARTOGGLE_ON
   m_LightmapFlags: 4
@@ -48,15 +47,15 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtAlbedo:
-        m_Texture: {fileID: 2800000, guid: 29f8f9166bcd7984da53d1c8820313fb, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtMask:
-        m_Texture: {fileID: 2800000, guid: c806cca341224d145a8c044e2fb1a40b, type: 3}
+        m_Texture: {fileID: 2800000, guid: ed2aa48bce7d4474e9f579832f03c08b, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtNormal:
-        m_Texture: {fileID: 2800000, guid: 7d654c8c1bef41b4380f24ec81b2c4ae, type: 3}
+        m_Texture: {fileID: 2800000, guid: 2a60a2582c03c984fb51fabdd0bcc022, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
@@ -76,15 +75,15 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossAlbedo:
-        m_Texture: {fileID: 2800000, guid: 8010ebe697842274c8cfdc8fc4001e57, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossMask:
-        m_Texture: {fileID: 2800000, guid: 83c3881951489274d951e99a26f7b738, type: 3}
+        m_Texture: {fileID: 2800000, guid: 48947c78e45049948a67813a83e56fb4, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossNormal:
-        m_Texture: {fileID: 2800000, guid: b228fd48394bacc41ade23ad06f819a0, type: 3}
+        m_Texture: {fileID: 2800000, guid: 058085510e211ba48af71f9278e15206, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
@@ -96,15 +95,15 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RockAlbedo:
-        m_Texture: {fileID: 2800000, guid: 8010ebe697842274c8cfdc8fc4001e57, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RockMask:
-        m_Texture: {fileID: 2800000, guid: 83c3881951489274d951e99a26f7b738, type: 3}
+        m_Texture: {fileID: 2800000, guid: 57669f7ec1f23344c99a8d2ea3d3e0e7, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RockNormal:
-        m_Texture: {fileID: 2800000, guid: b228fd48394bacc41ade23ad06f819a0, type: 3}
+        m_Texture: {fileID: 2800000, guid: fae6385479cb9e84395480627a599861, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SpecGlossMap:
@@ -140,7 +139,7 @@ Material:
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _Dummy: 0
-    - _EnablePomFading: 1
+    - _EnablePomFading: 0
     - _EnvironmentReflections: 1
     - _GlobalMadness: 0.5
     - _GlobalRampGamma: 0.19
@@ -152,7 +151,7 @@ Material:
     - _Metallic: 0
     - _MetallicScale: 0
     - _NormalScale: 1
-    - _OcclusionScale: 3
+    - _OcclusionScale: 1
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PomFadeEnd: 0
@@ -163,13 +162,13 @@ Material:
     - _RoughnessScale: 0
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
-    - _SpecularAASize: 3
+    - _SpecularAASize: 2
     - _SpecularHighlights: 1
     - _SpecularToggle: 1
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _Tiling: 0.3
+    - _Tiling: 1
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
