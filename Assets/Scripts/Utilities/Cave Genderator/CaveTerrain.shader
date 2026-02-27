@@ -85,8 +85,12 @@ Shader "CaveSystem/CaveTerrain"
 
                 GetCaveSurfaceData(
                     input.positionWS, normalize(input.normalWS), viewDirWS, 
-                    _Tiling, 0.05,
-                    0.0, 15.0, 25.0,
+                    _Tiling, 
+                    0.05, // heightScale
+                    1.0,  // normalScale (이 인자가 누락되어 에러가 발생했습니다!)
+                    0.0,  // enablePomFading
+                    15.0, // pomFadeStart
+                    25.0, // pomFadeEnd
                     albedo, normal, mohr
                 );
 

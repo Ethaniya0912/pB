@@ -5,13 +5,9 @@ using UnityEngine;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-/* * [확장된 SteamLobbyManager - 싱글톤 적용 및 예외 처리 강화]
+/* * [확장된 SteamLobbyManager - 끊김 감지 및 씬 복구 추가]
  * 이 스크립트는 Facepunch.Steamworks와 UnityNetcodeSteamP2PRelayTransport를 
  * 사용하는 환경에 최적화되었으며, NGO와의 원활한 연동 및 상세한 로비 관리를 지원합니다.
- * * [중요 연동 흐름]
- * 1. 호스트: StartHostWithLobby() 호출 -> 로비 생성 -> NGO 호스트 시작 -> Lobby Room UI 오픈
- * 2. 클라이언트: TitleScreen에서 Join Room 클릭 -> LobbyUIManager.OpenRoomBrowser() 호출 (UI 레이어)
- * 3. 클라이언트: Browser에서 방 선택 -> JoinLobby(lobby) 호출 -> OnLobbyEntered 콜백 -> NGO 클라이언트 시작 -> Lobby Room UI 오픈
  */
 
 public class SteamLobbyManager : MonoBehaviour
@@ -27,7 +23,7 @@ public class SteamLobbyManager : MonoBehaviour
     private const string HostAddressKey = "HostAddress";
     private const string LobbyNameKey = "LobbyName";
 
-    // [추가됨] 전 세계 480(Spacewar) 앱 유저들과 우리 게임을 구분하기 위한 고유 식별 키
+    // 전 세계 480(Spacewar) 앱 유저들과 우리 게임을 구분하기 위한 고유 식별 키
     public const string GameIdKey = "GameUniqueId";
     public const string GameIdValue = "PennutButterProject";
 
@@ -39,6 +35,10 @@ public class SteamLobbyManager : MonoBehaviour
 
     // NGO와 연동된 Transport 컴포넌트 참조
     private SteamP2PRelayTransport transport;
+
+    // 중복 셧다운 및 씬 로드 방지용 플래그
+    private bool isDisconnecting = false;
+    private bool isQuitting = false;
 
     // --- 디버깅용 래퍼 함수 ---
     private void Log(string message)
@@ -81,11 +81,17 @@ public class SteamLobbyManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        // [추가됨] NGO 네트워크 끊김 이벤트 구독 (호스트 강제 종료 감지)
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+        }
+    }
+
     private void Update()
     {
-        /* * Facepunch 라이브러리는 명시적으로 매 프레임 콜백을 호출해야 합니다.
-         * SteamClient가 유효하지 않은 셧다운 상태에서는 호출을 건너뛰어 예외를 방지합니다.
-         */
         if (Steamworks.SteamClient.IsValid)
         {
             Steamworks.SteamClient.RunCallbacks();
@@ -94,7 +100,6 @@ public class SteamLobbyManager : MonoBehaviour
 
     private void OnEnable()
     {
-        // Instance가 this일 때만 이벤트 구독
         if (Instance != this) return;
 
         Log("OnEnable: 스팀 네트워크 이벤트 콜백 구독을 시작합니다.");
@@ -115,6 +120,26 @@ public class SteamLobbyManager : MonoBehaviour
         SteamMatchmaking.OnLobbyInvite -= OnLobbyInvite;
         SteamMatchmaking.OnLobbyMemberJoined -= OnMemberJoined;
         SteamMatchmaking.OnLobbyMemberDisconnected -= OnMemberLeft;
+    }
+
+    private void OnDestroy()
+    {
+        // [추가됨] NGO 이벤트 구독 해제
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    // [핵심 추가] 연결이 끊어졌을 때 호출되는 콜백
+    private void OnClientDisconnected(ulong clientId)
+    {
+        // 서버(Host)가 닫혀서 끊겼거나(0번), 나 자신(로컬 클라이언트)이 튕겼을 때
+        if (clientId == NetworkManager.ServerClientId || clientId == NetworkManager.Singleton.LocalClientId)
+        {
+            LogWarning("호스트와의 연결이 끊어졌거나 네트워크가 종료되었습니다. 메인 화면으로 돌아갑니다.");
+            RevertToTitleScreen();
+        }
     }
 
     #region Lobby Callbacks
@@ -160,7 +185,6 @@ public class SteamLobbyManager : MonoBehaviour
             {
                 if (transport != null)
                 {
-                    // 트랜스포트의 대상 주소를 호스트의 SteamID로 설정
                     transport.serverId = hostSteamID;
                 }
 
@@ -246,8 +270,6 @@ public class SteamLobbyManager : MonoBehaviour
         CurrentLobby?.SetJoinable(true);
         CurrentLobby?.SetData(HostAddressKey, Steamworks.SteamClient.SteamId.ToString());
         CurrentLobby?.SetData(LobbyNameKey, $"{Steamworks.SteamClient.Name}의 대전 게임");
-
-        // [추가됨] 우리 게임 전용 방임을 명시하는 필터용 데이터 세팅
         CurrentLobby?.SetData(GameIdKey, GameIdValue);
 
         Log($"Steam 로비 생성 완료. (호스트 ID: {Steamworks.SteamClient.SteamId})");
@@ -294,14 +316,16 @@ public class SteamLobbyManager : MonoBehaviour
             LogError($"로비 접속 실패: {result}");
             return;
         }
-
-        // 성공 시 OnLobbyEntered 콜백이 자동으로 호출되어 이후 과정을 처리합니다.
     }
 
-    // 에러 발생 시 UI를 원상복구하고 로비를 빠져나오는 안전망 함수
+    // [개선됨] 씬 복구 및 안전한 셧다운을 총괄하는 함수
     private void RevertToTitleScreen()
     {
-        LogWarning("에러 복구 로직 가동: 로비를 파괴하고 타이틀 화면으로 돌아갑니다.");
+        // 무한 루프 셧다운 방지
+        if (isDisconnecting) return;
+        isDisconnecting = true;
+
+        LogWarning("에러 복구/연결 종료 로직 가동: 자원을 해제하고 타이틀 화면으로 돌아갑니다.");
 
         // Steam 관련 자원 해제
         if (Steamworks.SteamClient.IsValid)
@@ -310,40 +334,44 @@ public class SteamLobbyManager : MonoBehaviour
         }
         CurrentLobby = null;
 
-        // UI 복구
-        if (TitleScreenManager.Instance != null)
+        // NGO 네트워크 셧다운
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
         {
-            TitleScreenManager.Instance.ShowTitleScreen();
+            NetworkManager.Singleton.Shutdown();
         }
+
+        // 앱이 강제 종료되는 중이 아니라면 씬(화면) 복구 시도
+        if (!isQuitting)
+        {
+            // 현재 씬이 메인 메뉴(0번)가 아니라 게임 씬에 있다면 강제로 0번 씬 로드
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex != 0)
+            {
+                UnityEngine.SceneManagement.SceneManager.LoadScene(0);
+            }
+            else
+            {
+                // 이미 메인 화면 씬이라면 UI만 복구 (대기방 UI 등 끄기)
+                if (TitleScreenManager.Instance != null)
+                {
+                    TitleScreenManager.Instance.ShowTitleScreen();
+                }
+            }
+        }
+
+        isDisconnecting = false;
     }
 
     // [LobbyUIManager 등에서 호출] 로비 퇴장 및 세션 종료
     public void LeaveLobby()
     {
-        Log("로비 퇴장 및 NGO 셧다운을 시도합니다.");
-
-        // [중요] 1. 먼저 NGO 네트워크부터 셧다운하여 트랜스포트의 패킷 수신 작업을 중단시킵니다.
-        // Singleton이 null일 수도 있으므로 안전하게 접근합니다.
-        var networkManager = NetworkManager.Singleton;
-        if (networkManager != null && networkManager.IsListening)
-        {
-            networkManager.Shutdown();
-        }
-
-        // [중요] 2. 그 다음 Steam 로비를 떠납니다. 
-        // SteamClient 자체가 이미 종료되었을 경우(OnApplicationQuit 등) 예외를 피하기 위해 IsValid를 확인합니다.
-        if (Steamworks.SteamClient.IsValid)
-        {
-            CurrentLobby?.Leave();
-        }
-        CurrentLobby = null;
-
-        Log("로비에서 퇴장했습니다.");
+        Log("로비 퇴장을 요청받았습니다. 안전하게 셧다운을 시도합니다.");
+        RevertToTitleScreen();
     }
 
     private void OnApplicationQuit()
     {
-        // 앱이 강제 종료될 때도 안전한 셧다운 시퀀스를 따릅니다.
+        // 앱이 강제 종료될 때 씬 이동 에러를 막기 위한 플래그
+        isQuitting = true;
         LeaveLobby();
     }
 

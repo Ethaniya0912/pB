@@ -58,7 +58,8 @@ public class CharacterNetworkManager : NetworkBehaviour
 
     public void CheckHP(int oldHealth, int newHealth)
     {
-        if (currentHealth.Value <= 0)
+        // [수정] 스폰 시점이나 일시적 오류로 체력이 0이 되었을 때, 이미 죽은 상태(!isDead.Value)가 아닐 때만 사망 로직 실행
+        if (currentHealth.Value <= 0 && !isDead.Value)
         {
             StartCoroutine(character.ProcessDeathEvent());
         }
@@ -67,7 +68,7 @@ public class CharacterNetworkManager : NetworkBehaviour
         if (character.IsOwner)
         {
             if (currentHealth.Value > maxHealth.Value)
-            { 
+            {
                 currentHealth.Value = maxHealth.Value;
             }
         }
@@ -101,7 +102,7 @@ public class CharacterNetworkManager : NetworkBehaviour
         // 수신자가 호스트나 서버라면, 클라이언트 RPC를 활성화
         if (IsServer)
         {
-            PlayActionAnimationFromAllClientsClientRpc(clientID,animationID, applyRootMotion);
+            PlayActionAnimationFromAllClientsClientRpc(clientID, animationID, applyRootMotion);
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
@@ -62,15 +62,39 @@ public class PlayerNetworkManager : CharacterNetworkManager
 
     public void SetNewMaxHealthValue(int oldVitality, int newVitality)
     {
+        // [수정] 스폰 시 데이터 동기화 지연으로 Vitality가 0이 들어와 캐릭터가 즉사하는 현상 방어
+        if (newVitality <= 0) newVitality = 1;
+
         maxHealth.Value = player.playerStatsManager.CalculateHealthBasedOnVitalityLevel(newVitality);
-        PlayerUIManager.Instance.playerUIHUDManager.SetMaxHealthValue(maxHealth.Value);
+
+        // [수정] 최대 체력이 0 이하가 되지 않도록 안전장치 추가
+        if (maxHealth.Value <= 0) maxHealth.Value = 100;
+
+        // [수정] 내 캐릭터(Owner)일 때만 화면의 UI를 업데이트하도록 제한
+        // (타인이 방에 접속했을 때 내 화면의 체력바가 타인의 체력으로 덮어씌워지는 버그 방지)
+        if (player.IsOwner && PlayerUIManager.Instance != null)
+        {
+            PlayerUIManager.Instance.playerUIHUDManager.SetMaxHealthValue(maxHealth.Value);
+        }
+
         currentHealth.Value = maxHealth.Value;
     }
 
     public void SetNewMaxStaminaValue(int oldEndurance, int newEndurance)
     {
+        // [수정] 스폰 시 스태미나가 0으로 계산되는 버그 방어
+        if (newEndurance <= 0) newEndurance = 1;
+
         maxStamina.Value = player.playerStatsManager.CalculateHealthBasedOnVitalityLevel(newEndurance);
-        PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(maxStamina.Value);
+
+        if (maxStamina.Value <= 0) maxStamina.Value = 100;
+
+        // [수정] 내 캐릭터일 때만 스태미나 UI 업데이트
+        if (player.IsOwner && PlayerUIManager.Instance != null)
+        {
+            PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(maxStamina.Value);
+        }
+
         currentStamina.Value = maxStamina.Value;
     }
 
