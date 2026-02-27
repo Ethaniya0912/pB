@@ -3,6 +3,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System;
+using Unity.Collections; // [추가됨] NativeArray 사용을 위해 필요
+using UnityEngine.Rendering; // [추가됨] AsyncGPUReadback 사용을 위해 필요
 
 namespace CaveSystem
 {
@@ -59,6 +61,16 @@ namespace CaveSystem
             for (int i = 0; i < MaxPoolSize; i++)
             {
                 GameObject obj = Instantiate(ChunkPrefab, poolRoot);
+
+                // --- [수정/중요] '사각형' 잔상 원천 차단 ---
+                // ChunkPrefab을 만들 때 기본 생성된 큐브(Cube) 메쉬가 남아있으면, 
+                // 빈 허공 청크들이 1x1 사각형 큐브로 둥둥 떠다니는 버그가 발생합니다. 이를 초기화 시 완전히 제거합니다.
+                MeshFilter mf = obj.GetComponent<MeshFilter>();
+                if (mf != null) mf.sharedMesh = null;
+                MeshCollider mc = obj.GetComponent<MeshCollider>();
+                if (mc != null) mc.sharedMesh = null;
+                // -------------------------------------------
+
                 obj.SetActive(false);
 
                 ChunkRequestContext ctx = new ChunkRequestContext
@@ -85,7 +97,7 @@ namespace CaveSystem
 
         private void Update()
         {
-            if (!isInitialized || CaveManager.Instance == null || CaveManager.Instance.CurrentState == GlobalSystemState.Initializing) return;
+            if (!isInitialized || CaveManager.Instance == null || CaveManager.Instance.currentState == GlobalSystemState.Initializing) return;
             if (CaveManager.Instance.playerTransform == null) return;
 
             // 플레이어 하강 속도 추적
@@ -94,8 +106,16 @@ namespace CaveSystem
             lastPlayerY = currentPlayerY;
 
             CheckLayerTransition(currentPlayerY);
+            try
+            {
+                UpdateChunkPositions();
 
-            UpdateChunkPositions();
+            }
+            catch (Exception e)
+            {
+                // 외부 요인으로 에러 발생 시 반복 에러로 인한 프레임 드랍 방지를 위해 로그만 남김
+                Debug.Log($"<color=red>청크 스트리밍 업데이트 중 오류:</color> {e.Message}");
+            }
             ProcessGenerationQueue();
             ProcessLODAndCulling();
         }
@@ -162,7 +182,7 @@ namespace CaveSystem
             }
         }
 
-        private void UpdateChunkPositions()
+        public void UpdateChunkPositions()
         {
             Vector3 playerPos = CaveManager.Instance.playerTransform.position;
             float worldChunkSize = ChunkSize * VoxelSize;
@@ -256,8 +276,89 @@ namespace CaveSystem
                 context.ChunkObject.transform.position = new Vector3(posToGenerate.x, posToGenerate.y, posToGenerate.z) * ChunkSize * VoxelSize;
                 context.ChunkObject.SetActive(true);
 
+                // --- [강력한 디버그 추가] 매터리얼 누락 시 사각형(WaterPlane)만 보이는 버그 방어 ---
+                if (CaveManager.Instance.meshJobManager != null && CaveManager.Instance.meshJobManager.caveMaterial == null)
+                {
+                    Debug.LogError("<color=red>🚨 [치명적 오류] CaveMeshJobManager의 'Cave Material' 칸이 비어있습니다!</color>\n" +
+                                   "이 때문에 동굴 지형이 완전히 투명해지고, 그 안의 거대한 사각형(WaterPlane)만 허공에 보이는 상태입니다. " +
+                                   "지금 바로 인스펙터에서 CaveMeshJobManager의 Cave Material에 동굴용 매터리얼을 할당해주세요!");
+                }
+
+                MeshRenderer mr = context.ChunkObject.GetComponent<MeshRenderer>();
+                if (mr != null && (mr.sharedMaterial == null || mr.sharedMaterial.name == "Default-Material"))
+                {
+                    Debug.LogWarning($"<color=yellow>[CaveChunkManager] {context.ChunkObject.name} 프리팹의 MeshRenderer에 Material이 비어있습니다.</color>");
+                }
+                // ----------------------------------------------------------------------------------
+
                 activeChunks.Add(posToGenerate, context);
-                CaveManager.Instance.computeDispatcher.EnqueueChunk(context);
+
+                CaveManager.Instance.computeDispatcher.DispatchChunk(context, ChunkSize, VoxelSize, (ctx, triBuffer, oreBuffer) =>
+                {
+                    if (CaveManager.Instance.meshJobManager != null)
+                    {
+                        // 1. Append 버퍼에 저장된 실제 데이터 개수(Count)를 GPU에서 빼오기
+                        ComputeBuffer triCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+                        ComputeBuffer.CopyCount(triBuffer, triCountBuffer, 0);
+                        int[] triCountArr = new int[1];
+                        triCountBuffer.GetData(triCountArr);
+                        int triCount = triCountArr[0]; // 그려진 삼각형 개수
+                        triCountBuffer.Release();
+
+                        ComputeBuffer oreCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+                        ComputeBuffer.CopyCount(oreBuffer, oreCountBuffer, 0);
+                        int[] oreCountArr = new int[1];
+                        oreCountBuffer.GetData(oreCountArr);
+                        int oreCount = oreCountArr[0]; // 생성된 광석 개수
+                        oreCountBuffer.Release();
+
+                        // 삼각형 1개당 정점 3개로 환산
+                        int vertexCount = triCount * 3;
+
+                        // [최적화] 빈 청크(완전한 허공 또는 꽉 막힌 땅) 처리 건너뛰기
+                        if (vertexCount == 0)
+                        {
+                            ctx.State = ChunkState.Completed;
+                            return;
+                        }
+
+                        // 2. JobTempAlloc 메모리 한계(4프레임) 에러를 막기 위해 TempJob 대신 Persistent 사용
+                        NativeArray<CaveVertex> nativeVertices = new NativeArray<CaveVertex>(vertexCount, Allocator.Persistent);
+
+                        int byteSizeTri = vertexCount * System.Runtime.InteropServices.Marshal.SizeOf(typeof(CaveVertex));
+                        var triReq = AsyncGPUReadback.Request(triBuffer, byteSizeTri, 0);
+                        triReq.WaitForCompletion(); // ComputeShader가 다음 청크를 덮어쓰기 전에 동기 대기
+                        if (!triReq.hasError)
+                        {
+                            nativeVertices.CopyFrom(triReq.GetData<CaveVertex>());
+                        }
+
+                        // 광석 데이터 추출 (정점 배열 크기가 0이 아니도록 예외 처리)
+                        NativeArray<CaveOreData> nativeOres = default;
+                        if (oreCount > 0)
+                        {
+                            nativeOres = new NativeArray<CaveOreData>(oreCount, Allocator.Persistent);
+                            int byteSizeOre = oreCount * System.Runtime.InteropServices.Marshal.SizeOf(typeof(CaveOreData));
+                            var oreReq = AsyncGPUReadback.Request(oreBuffer, byteSizeOre, 0);
+                            oreReq.WaitForCompletion();
+                            if (!oreReq.hasError)
+                            {
+                                nativeOres.CopyFrom(oreReq.GetData<CaveOreData>());
+                            }
+                        }
+
+                        // 4. 추출이 끝난 NativeArray를 메쉬 생성 공장으로 전달
+                        CaveManager.Instance.meshJobManager.ProcessMeshJob(ctx, nativeVertices, nativeOres, (completedCtx, ores) =>
+                        {
+                            completedCtx.State = ChunkState.Completed;
+                            if (ores.IsCreated) ores.Dispose();
+                        });
+                    }
+                    else
+                    {
+                        Debug.LogError("<color=red>[CaveChunkManager] CaveMeshJobManager 참조가 누락되어 실제 지형 메쉬를 만들 수 없습니다!</color>");
+                    }
+                });
             }
         }
 
@@ -266,6 +367,14 @@ namespace CaveSystem
             List<Vector3Int> chunksToRemove = new List<Vector3Int>();
 
             Camera mainCam = Camera.main;
+
+            // --- [수정됨] 메인 카메라 태그 문제 대비 방어 로직 ---
+            if (mainCam == null && CaveManager.Instance.playerTransform != null)
+            {
+                mainCam = CaveManager.Instance.playerTransform.GetComponentInChildren<Camera>();
+            }
+            // -----------------------------------------------------
+
             float worldChunkSize = ChunkSize * VoxelSize;
 
             // [거대 청크 최적화: AABB 컬링] 메인 카메라 절두체 평면 캐싱 (GC 없음)
@@ -306,8 +415,10 @@ namespace CaveSystem
                         // Y축 포함 완벽한 3D 절대 거리 검사
                         float distAbsolute = Vector3Int.Distance(lastPlayerChunkPos, chunkPos);
 
-                        // 예외 축소: 오직 플레이어가 정확히 두 발을 딛고 있는 바로 그 청크(거리 0)만 컬링 면제
-                        if (distAbsolute < 1.0f)
+                        // --- [수정됨] 안전 구역(Safe Zone) 확장 ---
+                        // 카메라 각도 동기화 지연 등의 버그로 렌더러가 꺼지는 현상을 완벽 방어하기 위해
+                        // 플레이어 주변 반경 2.5칸 내의 청크는 시야와 무관하게 "무조건" 렌더링을 강제합니다.
+                        if (distAbsolute <= 2.5f)
                         {
                             if (renderer != null && !renderer.enabled) renderer.enabled = true;
                         }
@@ -316,9 +427,11 @@ namespace CaveSystem
                             // 시야 내/외 여부에 따라 렌더러 즉각 토글
                             if (renderer != null && renderer.enabled != isVisible) renderer.enabled = isVisible;
                         }
+                        // ------------------------------------------
                     }
                     else
                     {
+                        // 카메라가 아예 없거나 오클루전 컬링이 꺼져있을 땐 무조건 켬
                         if (renderer != null && !renderer.enabled) renderer.enabled = true;
                     }
 

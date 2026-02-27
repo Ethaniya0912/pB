@@ -5435,6 +5435,7 @@ GameObject:
   - component: {fileID: 925786147}
   - component: {fileID: 925786146}
   - component: {fileID: 925786150}
+  - component: {fileID: 925786152}
   - component: {fileID: 925786151}
   m_Layer: 5
   m_Name: Title Screen Canvas
@@ -5580,6 +5581,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4566389b86373e4dbbbef27096658a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyUIManager
+  ShowTopMostFoldoutHeaderGroup: 1
   showDebugLogs: 1
   roomBrowserPanel: {fileID: 1168965853}
   lobbyRoomPanel: {fileID: 715405448}
@@ -5598,6 +5600,32 @@ MonoBehaviour:
   generationProgressPanel: {fileID: 388301481}
   generationStatusText: {fileID: 18952787}
   generationProgressBar: {fileID: 1939371695}
+  partyStatusSummaryText: {fileID: 0}
+--- !u!114 &925786152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 925786145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3684125281
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &926492343
 GameObject:
   m_ObjectHideFlags: 0
@@ -9138,6 +9166,74 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1644035821}
   m_CullTransparentMesh: 1
+--- !u!1001 &1670054366
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 45.00996
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 23.78318
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 55.25279
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_Name
+      value: CaveSystem
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1 &1693359577
 GameObject:
   m_ObjectHideFlags: 0
@@ -12807,3 +12903,4 @@ SceneRoots:
   - {fileID: 4924092403711443158}
   - {fileID: 1392100957}
   - {fileID: 505922046}
+  - {fileID: 1670054366}

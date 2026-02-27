@@ -519,179 +519,85 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!1 &2049077245
-GameObject:
+--- !u!1001 &8335076152183273339
+PrefabInstance:
   m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2049077253}
-  - component: {fileID: 2049077252}
-  - component: {fileID: 2049077251}
-  - component: {fileID: 2049077250}
-  - component: {fileID: 2049077249}
-  - component: {fileID: 2049077248}
-  - component: {fileID: 2049077247}
-  - component: {fileID: 2049077246}
-  m_Layer: 0
-  m_Name: CaveSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2049077246
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c1923e1199add0644bbfdb41194d7ffd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveLightingManager
-  sinkholeLightPrefab: {fileID: 4229376272469593895, guid: ba01a1ad7bd7b3c4284a08155e3eeb46,
-    type: 3}
-  enableFarClipOptimization: 1
-  optimalFarClipDistance: 50
-  defaultFarClipDistance: 1000
-  lightIntensity: 5000
-  caveFogColor: {r: 0.01, g: 0.02, b: 0.03, a: 1}
-  caveFogDensity: 1
---- !u!114 &2049077247
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8d9fdb57c34874241bd17fef8c8e1175, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveEcosystemManager
-  stalactiteMesh: {fileID: 10206, guid: 0000000000000000e000000000000000, type: 0}
-  stalactiteMaterial: {fileID: 2100000, guid: 31d6fb170b60cc149858b4003b837625, type: 2}
-  malachiteMesh: {fileID: 4300000, guid: 376153f3bc577c84ead7c2bc8df9c990, type: 3}
-  malachiteMaterial: {fileID: 2100000, guid: 31d6fb170b60cc149858b4003b837625, type: 2}
-  fernMesh: {fileID: -2854881152963004063, guid: 1a730167767664bb38d527ab1d2fdf7c,
-    type: 3}
-  fernMaterial: {fileID: 2100000, guid: 31d6fb170b60cc149858b4003b837625, type: 2}
-  minStalactiteDistance: 2
-  minMalachiteDistance: 1.5
-  minFernDistance: 1
-  maxInstancesPerType: 100000
---- !u!114 &2049077248
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9478f7ce3404edb419e7a6b2023d778d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveSaveLoadSystem
---- !u!114 &2049077249
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
-  caveMaterial: {fileID: 2100000, guid: 06176ee8cef908b4b89c0ff7abe19ff3, type: 2}
-  waterMaterial: {fileID: 2100000, guid: 4f40f7821ba5f1c46afc4f41450591f6, type: 2}
-  caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
-  chunkSize: 64
-  voxelSize: 0.5
---- !u!114 &2049077250
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2e85c3502a124ff4bae7beb9a4670494, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveComputeDispatcher
-  densityShader: {fileID: 7200000, guid: 109b418452deb21488a3bde6a416c600, type: 3}
-  marchingCubesShader: {fileID: 7200000, guid: 50a3c771e823573458e84e488530c10e, type: 3}
-  caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
-  chunkSize: 64
-  voxelSize: 0.5
---- !u!114 &2049077251
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 39c83a7d1a298db4ba4e95f97e978b31, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveChunkManager
-  enableOcclusionCulling: 1
-  ChunkSize: 64
-  VoxelSize: 0.5
-  ViewDistance: 4
-  PhysicsDistance: 4
-  MaxPoolSize: 500
-  ChunkPrefab: {fileID: 9027138362142067134, guid: f57f2bdd811060a43849a95f3ed6cd44,
-    type: 3}
-  fallVelocityThreshold: -5
-  preLoadBaseDepth: 2
-  transitionMargin: 10
---- !u!114 &2049077252
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a21a9d27c0a59024d92203a0fe7c2f04, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveManager
-  caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
-  playerTransform: {fileID: 1520715047}
-  saveLoadSystem: {fileID: 2049077248}
-  chunkManager: {fileID: 2049077251}
-  computeDispatcher: {fileID: 2049077250}
---- !u!4 &2049077253
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049077245}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 12.83033, y: 87.68857, z: 75.4617}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 12.83033
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 87.68857
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 75.4617
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_Name
+      value: CaveSystem
+      objectReference: {fileID: 0}
+    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: playerTransform
+      value: 
+      objectReference: {fileID: 1520715047}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1520715047}
   - {fileID: 531871313}
-  - {fileID: 2049077253}
+  - {fileID: 8335076152183273339}
   - {fileID: 945015362}
   - {fileID: 153955363}

@@ -1,37 +1,60 @@
 using UnityEngine;
 using System.Runtime.InteropServices;
+using System;
 
 namespace CaveSystem
 {
-    // C#과 HLSL 간의 1:1 메모리 매칭을 위해 레이아웃을 순차적으로 강제합니다.
+    // ====================================================================
+    // [시스템 매니지먼트 데이터] 누락 복구
+    // ====================================================================
 
     /// <summary>
-    /// 동굴의 기본 복셀 데이터 (총 8 바이트)
+    /// 청크의 생성 및 로딩 상태를 정의하는 열거형
     /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    public struct CaveVoxel
+    public enum ChunkState
     {
-        // 0을 기준으로 마칭 큐브 표면이 결정됨 (4 바이트)
-        public float density;
-        // 광물 식별자 (0=일반 바위, 1=말라카이트 등) (4 바이트)
-        public int oreType;
+        Queued,         // 생성 대기열 진입
+        Generating,     // GPU 연산 중
+        BakingPhysics,  // 물리 메시 베이킹 중
+        Completed,      // 생성 완료 및 배치 성공
+        Aborted         // 생성 취소됨 (플레이어 멀어짐 등)
     }
 
     /// <summary>
-    /// 마칭 큐브 연산으로 생성되는 정점 데이터 (총 32 바이트)
-    /// 16바이트(float4)의 배수로 맞추어 GPU 대역폭을 최적화합니다.
+    /// 청크 생성을 요청할 때 필요한 모든 정보를 담는 컨텍스트 객체
     /// </summary>
+    public class ChunkRequestContext : IDisposable
+    {
+        public Vector3Int ChunkPos;      // 청크의 그리드 좌표
+        public ChunkState State;         // 현재 진행 상태
+        public GameObject ChunkObject;   // 씬 내 실제 오브젝트 참조 (Headless일 경우 null)
+
+        public void Dispose()
+        {
+            // 리소스 해제 로직 (필요 시 확장)
+        }
+    }
+
+    // ====================================================================
+    // [Phase 1/7] 16바이트(float4) 정렬을 엄격하게 준수하는 크로스 플랫폼 데이터 구조체
+    // ====================================================================
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CaveVoxel
+    {
+        public float density;  // 4 바이트
+        public int oreType;    // 4 바이트
+        public Vector2 padding; // 8 바이트 (총 16바이트)
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct CaveVertex
     {
         public Vector3 position; // 12 바이트
         public Vector3 normal;   // 12 바이트
-        public Vector2 uv;       // 8 바이트 (최적화를 위해 추가됨, 총 32 바이트)
+        public Vector2 uv;       // 8 바이트 (총 32바이트)
     }
 
-    /// <summary>
-    /// 스레드 경합(Race Condition)을 원천 차단하기 위해 3개의 정점을 묶은 삼각형 단위 구조체 (총 96 바이트)
-    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct CaveTriangle
     {
@@ -40,15 +63,30 @@ namespace CaveSystem
         public CaveVertex v2;
     }
 
-    /// <summary>
-    /// 표면에 노출된 광물 및 식생 프롭 배치를 위한 데이터 (총 32 바이트)
-    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct CaveOreData
     {
         public Vector3 position; // 12 바이트
-        public int type;         // 4 바이트
+        public int oreType;      // 4 바이트 ('type'에서 'oreType'으로 통일됨)
         public Vector3 normal;   // 12 바이트
-        public float padding;    // 4 바이트 (16바이트 정렬을 위한 명시적 더미 데이터)
+        public float padding;    // 4 바이트 (총 32바이트)
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct NodeData
+    {
+        public Vector3 position; // 12 바이트
+        public float radius;     // 4 바이트
+        public int roomType;     // 4 바이트
+        public Vector3 padding;  // 12 바이트 (총 32바이트)
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct EdgeData
+    {
+        public Vector3 startPos; // 12 바이트
+        public Vector3 endPos;   // 12 바이트
+        public float width;      // 4 바이트
+        public float padding;    // 4 바이트 (총 32바이트)
     }
 }

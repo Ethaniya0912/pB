@@ -1,651 +1,392 @@
 using UnityEngine;
 using UnityEngine.Rendering;
-using Unity.Collections;
-using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System;
+using Unity.Profiling;        // Unity 프로파일러 연동용
+using System.Diagnostics;     // 정밀 시간 측정용 (Stopwatch)
 
 namespace CaveSystem
 {
-    public enum ChunkState
-    {
-        Queued,
-        GPU_Computing,
-        Downloading_Count,
-        Downloading_Data,
-        Job_Processing,
-        Completed,
-        Aborted
-    }
-
-    public class ChunkRequestContext
-    {
-        public Vector3Int ChunkPos;
-        public ChunkState State;
-        public GameObject ChunkObject;
-        public Action<ChunkRequestContext, NativeArray<CaveOreData>> OnCompleted;
-
-        public void Dispose()
-        {
-            State = ChunkState.Aborted;
-        }
-    }
-
     /// <summary>
-    /// GPU 연산의 생명 주기를 총괄하고 비동기 데이터 흐름을 관리하는 중앙 통제소입니다.
-    /// 멀티 커널(밀도 -> 침식)의 연속 실행을 스케줄링합니다.
+    /// [Phase 3 & 4] CPU의 연산 데이터(그래프 설계도)를 GPU로 전송하고, 
+    /// 컴퓨트 셰이더의 멀티 커널 실행 및 비동기 회수(AsyncReadback)를 총괄하는 고급 디스패처입니다.
+    /// 프로덕션 레벨의 메모리 추적 및 기즈모 디버깅 기능이 포함되어 있습니다.
     /// </summary>
     public class CaveComputeDispatcher : MonoBehaviour
     {
         [Header("Compute Shaders")]
         public ComputeShader densityShader;
         public ComputeShader marchingCubesShader;
+        public CaveBiomeSettings caveSettings;
 
-        [Header("Settings")]
-        public CaveBiomeSettings caveSettings; // CaveSettings를 CaveBiomeSettings로 타입 변경
-        public int chunkSize = 16;
-        public float voxelSize = 1.0f;
+        [Header("Pro Debugging & Profiling")]
+        [Tooltip("상세한 디스패치 시간, VRAM 할당량, 커널 스레드 상태를 콘솔에 출력합니다.")]
+        public bool showVerboseLogs = true;
+        [Tooltip("최근 디스패치된 청크들의 연산 범위를 씬 뷰에 기즈모로 추적하여 표시합니다.")]
+        public bool drawChunkHistoryGizmos = true;
+        [Range(1, 20)]
+        [Tooltip("씬 뷰에 유지할 기즈모 히스토리 개수입니다.")]
+        public int maxGizmoHistory = 5;
 
-        // GPU Buffers
+        // --- GPU 통신용 버퍼 ---
+        private ComputeBuffer nodeBuffer;
+        private ComputeBuffer edgeBuffer;
+
+        // 지형 연산용 공통 버퍼
         private ComputeBuffer voxelBuffer;
         private ComputeBuffer triangleBuffer;
         private ComputeBuffer oreBuffer;
-        private ComputeBuffer countArgsBuffer;
 
+        // 간접 그리기 및 카운트용 버퍼
+        private ComputeBuffer triCountBuffer;
+        private ComputeBuffer oreCountBuffer;
+
+        // 마칭 큐브 룩업 테이블 버퍼
         private ComputeBuffer edgeTableBuffer;
         private ComputeBuffer triTableBuffer;
 
-        // 고정 구역 버퍼 (추가됨)
-        private ComputeBuffer fixedZonesBuffer;
+        private int allocatedPointsPerAxis = 0;
 
-        private int densityKernel;
-        private int erosionKernel; // 침식 커널 ID 추가
-        private int marchingCubesKernel;
+        // 커널 캐싱
+        private int kernelGenerateDensity;
+        private int kernelSimulateErosion;
+        private int kernelGenerateMesh;
 
-        private Queue<ChunkRequestContext> requestQueue = new Queue<ChunkRequestContext>();
-        private ChunkRequestContext currentProcessingChunk;
+        // --- 프로파일링 및 디버깅 데이터 ---
+        static readonly ProfilerMarker s_SetupBuffersMarker = new ProfilerMarker("CaveCompute.SetupGraphBuffers");
+        static readonly ProfilerMarker s_DispatchMarker = new ProfilerMarker("CaveCompute.DispatchChunk");
+        static readonly ProfilerMarker s_AllocationMarker = new ProfilerMarker("CaveCompute.AllocateVRAM");
 
-        private CaveMeshJobManager meshJobManager;
+        // 기즈모 시각화를 위한 히스토리 큐
+        private Queue<ChunkDebugInfo> debugChunkHistory = new Queue<ChunkDebugInfo>();
 
-        void Start()
+        private struct ChunkDebugInfo
         {
-            meshJobManager = GetComponent<CaveMeshJobManager>();
-            InitializeBuffers();
+            public Vector3 BasePosition;
+            public int ChunkSize;
+            public float VoxelSize;
+            public Color DisplayColor;
+            public float Timestamp;
         }
 
-        void InitializeBuffers()
+        private void Awake()
         {
-            int voxelCount = (chunkSize + 1) * (chunkSize + 1) * (chunkSize + 1);
-            int maxTriangles = voxelCount * 5;
+            ValidateReferences();
+            InitializeKernels();
+            InitializeLookupTables();
+        }
 
-            voxelBuffer = new ComputeBuffer(voxelCount, 8);
-            triangleBuffer = new ComputeBuffer(maxTriangles, 96, ComputeBufferType.Append);
-            oreBuffer = new ComputeBuffer(maxTriangles * 3, 32, ComputeBufferType.Append);
+        /// <summary>
+        /// [Pro Debug] 셰이더 및 설정 파일 누락 여부를 사전에 철저히 검증합니다.
+        /// </summary>
+        private void ValidateReferences()
+        {
+            if (densityShader == null)
+                UnityEngine.Debug.LogError("[CaveComputeDispatcher] 🚨 치명적 오류: Density Shader가 할당되지 않았습니다! 인스펙터를 확인하세요.");
+            if (marchingCubesShader == null)
+                UnityEngine.Debug.LogError("[CaveComputeDispatcher] 🚨 치명적 오류: Marching Cubes Shader가 할당되지 않았습니다! 인스펙터를 확인하세요.");
+            if (caveSettings == null)
+                UnityEngine.Debug.LogError("[CaveComputeDispatcher] 🚨 치명적 오류: CaveBiomeSettings가 할당되지 않았습니다! 셋팅 에셋을 연결하세요.");
+        }
 
-            countArgsBuffer = new ComputeBuffer(2, sizeof(int), ComputeBufferType.IndirectArguments);
+        /// <summary>
+        /// 커널 ID를 사전에 캐싱하여 런타임 성능을 극대화합니다.
+        /// </summary>
+        private void InitializeKernels()
+        {
+            if (densityShader != null)
+            {
+                kernelGenerateDensity = densityShader.FindKernel("GenerateDensity");
+                kernelSimulateErosion = densityShader.FindKernel("SimulateErosion");
+            }
+            if (marchingCubesShader != null)
+            {
+                kernelGenerateMesh = marchingCubesShader.FindKernel("GenerateMesh");
+            }
+        }
+
+        /// <summary>
+        /// 마칭 큐브를 위한 Edge/Triangle 룩업 테이블을 GPU VRAM에 업로드합니다.
+        /// </summary>
+        private void InitializeLookupTables()
+        {
+            Stopwatch sw = null;
+            if (showVerboseLogs) sw = Stopwatch.StartNew();
 
             edgeTableBuffer = new ComputeBuffer(256, sizeof(int));
             edgeTableBuffer.SetData(MarchingCubesTables.EdgeTable);
 
             triTableBuffer = new ComputeBuffer(4096, sizeof(int));
-            // 에러 수정: MarchingCubesTables 클래스 내부에 있는 TriangleTable을 참조하도록 변경
             triTableBuffer.SetData(MarchingCubesTables.TriangleTable);
 
-            // 고정 구역(Fixed Zones) 더미 버퍼 초기화 (실제로는 매니저에서 관리된 구역 주입)
-            fixedZonesBuffer = new ComputeBuffer(1, sizeof(float) * 6);
-            fixedZonesBuffer.SetData(new[] { new Vector3(-999, -999, -999), new Vector3(-999, -999, -999) }); // 임시
-
-            densityKernel = densityShader.FindKernel("GenerateDensity");
-            erosionKernel = densityShader.FindKernel("SimulateErosion"); // 2번째 커널 캐싱
-            marchingCubesKernel = marchingCubesShader.FindKernel("GenerateMesh");
-        }
-
-        public void EnqueueChunk(ChunkRequestContext context)
-        {
-            context.State = ChunkState.Queued;
-            requestQueue.Enqueue(context);
-        }
-
-        void Update()
-        {
-            if (currentProcessingChunk == null && requestQueue.Count > 0)
+            if (showVerboseLogs)
             {
-                currentProcessingChunk = requestQueue.Dequeue();
-                if (currentProcessingChunk.State != ChunkState.Aborted)
-                {
-                    DispatchChunk(currentProcessingChunk);
-                }
-                else
-                {
-                    currentProcessingChunk = null;
-                }
+                sw.Stop();
+                UnityEngine.Debug.Log($"<color=#00FFFF>[ComputeDispatcher]</color> LUT 버퍼 VRAM 업로드 완료. (소요시간: {sw.Elapsed.TotalMilliseconds:F3}ms)");
             }
         }
 
-        void DispatchChunk(ChunkRequestContext context)
+        /// <summary>
+        /// Phase 2에서 완성된 글로벌 노드 그래프 데이터를 GPU 버퍼로 패킹합니다.
+        /// 빈 배열이 들어오는 예외 상황을 철저히 방어합니다.
+        /// </summary>
+        public void SetupGraphBuffers(List<NodeData> nodes, List<EdgeData> edges)
         {
-            context.State = ChunkState.GPU_Computing;
-            int currentDebugStage = (int)caveSettings.debugStage;
+            s_SetupBuffersMarker.Begin();
+            Stopwatch sw = null;
+            if (showVerboseLogs) sw = Stopwatch.StartNew();
 
-            // ==========================================================
-            // [1단계] 밀도 생성 커널 실행 (GenerateDensity)
-            // ==========================================================
-            densityShader.SetBuffer(densityKernel, "_VoxelBuffer", voxelBuffer);
-            densityShader.SetBuffer(densityKernel, "_FixedZones", fixedZonesBuffer);
-            densityShader.SetInt("_FixedZoneCount", 0); // 실제 연결 시 개수 주입
+            ReleaseGraphBuffers();
 
-            densityShader.SetVector("_ChunkBasePosition", (Vector3)context.ChunkPos * chunkSize * voxelSize);
-            densityShader.SetInt("_ChunkSize", chunkSize + 1);
+            if (nodes == null || nodes.Count == 0)
+                UnityEngine.Debug.LogWarning("[CaveComputeDispatcher] ⚠️ 수신된 노드(방) 데이터가 0개입니다. 뼈대 없는 빈 암석 덩어리가 생성됩니다.");
+
+            int nodeStride = Marshal.SizeOf(typeof(NodeData));
+            int edgeStride = Marshal.SizeOf(typeof(EdgeData));
+
+            // GPU 에러 방지를 위해 최소 1개의 크기는 보장하여 버퍼를 생성합니다.
+            int nodeCount = Mathf.Max(1, nodes?.Count ?? 0);
+            nodeBuffer = new ComputeBuffer(nodeCount, nodeStride);
+            if (nodes != null && nodes.Count > 0) nodeBuffer.SetData(nodes);
+
+            int edgeCount = Mathf.Max(1, edges?.Count ?? 0);
+            edgeBuffer = new ComputeBuffer(edgeCount, edgeStride);
+            if (edges != null && edges.Count > 0) edgeBuffer.SetData(edges);
+
+            if (showVerboseLogs)
+            {
+                sw.Stop();
+                long vramBytes = (nodeCount * nodeStride) + (edgeCount * edgeStride);
+                UnityEngine.Debug.Log($"<color=#00FFFF>[ComputeDispatcher]</color> 그래프 데이터 GPU 버퍼 패킹 완료. (노드: {nodes?.Count}개, 엣지: {edges?.Count}개, 사용량: {vramBytes / 1024f:F2} KB) - 소요시간: {sw.Elapsed.TotalMilliseconds:F3}ms");
+            }
+            s_SetupBuffersMarker.End();
+        }
+
+        /// <summary>
+        /// 단일 청크에 대한 밀도 생성, 침식 시뮬레이션, 마칭 큐브 연산을 연속 실행합니다.
+        /// </summary>
+        public void DispatchChunk(ChunkRequestContext context, int chunkSize, float voxelSize, Action<ChunkRequestContext, ComputeBuffer, ComputeBuffer> onGpuCompleted)
+        {
+            s_DispatchMarker.Begin();
+            Stopwatch sw = null;
+
+            if (showVerboseLogs)
+            {
+                sw = Stopwatch.StartNew();
+                UnityEngine.Debug.Log($"<color=#F39C12>[ComputeDispatcher]</color> 청크 {context.ChunkPos} 파이프라인 개시 (ChunkSize: {chunkSize}, VoxelSize: {voxelSize}m)");
+            }
+
+            if (nodeBuffer == null || edgeBuffer == null)
+            {
+                UnityEngine.Debug.LogError("[CaveComputeDispatcher] 🚨 그래프 버퍼가 초기화되지 않았습니다. SetupGraphBuffers를 먼저 호출하세요.");
+                s_DispatchMarker.End();
+                return;
+            }
+
+            // [메모리 어긋남 방지 핵심] 큐브의 꼭짓점을 구하려면 점(Point)은 ChunkSize + 1 개가 필요합니다.
+            int pointsPerAxis = chunkSize + 1;
+            AllocateTempBuffers(pointsPerAxis, chunkSize);
+
+            Vector3 chunkBasePos = new Vector3(context.ChunkPos.x, context.ChunkPos.y, context.ChunkPos.z) * (chunkSize * voxelSize);
+            DepthLayer currentLayer = caveSettings.GetLayerSettings(chunkBasePos.y);
+
+            // 디버그 히스토리 큐 업데이트
+            UpdateDebugHistory(chunkBasePos, chunkSize, voxelSize);
+
+            // ----------------------------------------------------
+            // 커널 1: 밀도장 연산 (Density Field Generation)
+            // ----------------------------------------------------
+            densityShader.SetBuffer(kernelGenerateDensity, "_VoxelBuffer", voxelBuffer);
+            densityShader.SetBuffer(kernelGenerateDensity, "_NodeBuffer", nodeBuffer);
+            densityShader.SetInt("_NodeCount", CaveNodeGraphBuilder.Instance.nodesData.Count);
+            densityShader.SetBuffer(kernelGenerateDensity, "_EdgeBuffer", edgeBuffer);
+            densityShader.SetInt("_EdgeCount", CaveNodeGraphBuilder.Instance.edgesData.Count);
+
+            densityShader.SetVector("_ChunkBasePosition", chunkBasePos);
+            densityShader.SetInt("_PointsPerAxis", pointsPerAxis);
             densityShader.SetFloat("_VoxelSize", voxelSize);
+            densityShader.SetInt("_DebugStage", (int)caveSettings.debugStage);
 
-            // [에러 수정] 현재 청크의 Y 고도를 바탕으로 해당 층(Layer)의 데이터를 가져옵니다.
-            float chunkWorldY = context.ChunkPos.y * chunkSize * voxelSize;
-            DepthLayer currentLayer = caveSettings.GetLayerSettings(chunkWorldY);
-
-            // 공통 설정 전달 (CaveBiomeSettings에 남은 글로벌 변수들)
-            densityShader.SetInt("_Octaves", caveSettings.GetActiveOctaves());
-            densityShader.SetFloat("_Lacunarity", caveSettings.lacunarity);
-            densityShader.SetFloat("_Gain", caveSettings.gain);
-            densityShader.SetFloat("_WarpStrength", 1.5f);
-            densityShader.SetFloat("_WarpFreq", 0.02f);
-
-            // [에러 수정 및 파라미터화] 층(Layer)별 고유 데이터 셰이더로 전달
-            densityShader.SetFloat("_NoiseScale", currentLayer.noiseFrequency);
+            // 바이옴 상세 파라미터 주입
             densityShader.SetFloat("_SdfSmoothness", currentLayer.sdfSmoothness);
-
             densityShader.SetFloat("_FloorAltitude", currentLayer.minAltitude);
             densityShader.SetFloat("_CeilAltitude", currentLayer.maxAltitude);
             densityShader.SetFloat("_FloorBlendRadius", currentLayer.floorBlendRadius);
             densityShader.SetFloat("_CeilBlendRadius", currentLayer.ceilBlendRadius);
-
-            // [바닥 복원] 자연스러운 요철 파라미터 전달
-            densityShader.SetFloat("_FloorBumpAmplitude", currentLayer.floorBumpAmplitude);
-            densityShader.SetFloat("_FloorBumpFrequency", currentLayer.floorBumpFrequency);
-
-            densityShader.SetFloat("_SinkholeProbability", currentLayer.sinkholeProbability);
-            densityShader.SetFloat("_SinkholeMinRadius", currentLayer.sinkholeMinRadius);
-            densityShader.SetFloat("_SinkholeMaxRadius", currentLayer.sinkholeMaxRadius);
-            densityShader.SetFloat("_SinkholeSmoothness", currentLayer.sinkholeSmoothness);
-
+            densityShader.SetFloat("_NoiseFreq", currentLayer.noiseFrequency);
+            densityShader.SetFloat("_FloorBumpAmp", currentLayer.floorBumpAmplitude);
+            densityShader.SetFloat("_FloorBumpFreq", currentLayer.floorBumpFrequency);
+            densityShader.SetFloat("_SinkholeProb", currentLayer.sinkholeProbability);
+            densityShader.SetFloat("_SinkholeSmooth", currentLayer.sinkholeSmoothness);
             densityShader.SetFloat("_LedgeStepHeight", currentLayer.ledgeStepHeight);
             densityShader.SetFloat("_SpiralFrequency", currentLayer.spiralFrequency);
             densityShader.SetFloat("_SpiralAmplitude", currentLayer.spiralAmplitude);
 
-            // C# 디버그 스위치 연동
-            densityShader.SetInt("_DebugStage", currentDebugStage);
+            // 점(Point)의 개수를 기준으로 스레드 그룹 파견 (예: 65 / 8 = 8.125 -> 9개 그룹)
+            int densityThreadGroups = Mathf.CeilToInt(pointsPerAxis / 8.0f);
+            if (showVerboseLogs) UnityEngine.Debug.Log($"  ▶ [Kernel 1] 밀도장 디스패치 (Threads: {densityThreadGroups}^3)");
+            densityShader.Dispatch(kernelGenerateDensity, densityThreadGroups, densityThreadGroups, densityThreadGroups);
 
-            int threadGroups = Mathf.CeilToInt((chunkSize + 1) / 8.0f);
-            densityShader.Dispatch(densityKernel, threadGroups, threadGroups, threadGroups);
-
-            // ==========================================================
-            // [2단계] 수력 침식 시뮬레이션 커널 실행 (SimulateErosion)
-            // ==========================================================
-            // 인스펙터 디버그 설정이 ErosionSimulated(4) 이상일 때만 침식 연산을 파이프라인에 태웁니다.
-            if (currentDebugStage >= 4)
+            // ----------------------------------------------------
+            // 커널 2: 물리 수력 침식 시뮬레이션 (Hydraulic Erosion)
+            // ----------------------------------------------------
+            if (caveSettings.debugStage == GenerationDebugStage.ErosionSimulated)
             {
-                // Unity의 Dispatch 구조상, 동일 버퍼를 사용하는 연이은 Dispatch는 
-                // 자동으로 암시적 GPU 메모리 장벽(Memory Barrier)을 세워 데이터 동기화를 보장합니다.
-                densityShader.SetBuffer(erosionKernel, "_VoxelBuffer", voxelBuffer);
-                densityShader.SetVector("_ChunkBasePosition", (Vector3)context.ChunkPos * chunkSize * voxelSize);
-                densityShader.SetInt("_ChunkSize", chunkSize + 1);
-                densityShader.SetInt("_DebugStage", currentDebugStage);
+                densityShader.SetBuffer(kernelSimulateErosion, "_VoxelBuffer", voxelBuffer);
+                densityShader.SetInt("_PointsPerAxis", pointsPerAxis);
 
-                int numDroplets = 10000;
-                int erosionGroups = Mathf.CeilToInt(numDroplets / 64.0f); // 1D Thread 그룹핑
+                // 임의로 청크의 면적에 비례하여 물방울(Droplet) 개수 설정
+                int dropletCount = chunkSize * chunkSize * 2;
+                int erosionThreadGroups = Mathf.CeilToInt(dropletCount / 64.0f);
 
-                densityShader.Dispatch(erosionKernel, erosionGroups, 1, 1);
+                if (showVerboseLogs) UnityEngine.Debug.Log($"  ▶ [Kernel 2] 침식 시뮬레이션 디스패치 (Droplets: {dropletCount}, Threads: {erosionThreadGroups})");
+                densityShader.Dispatch(kernelSimulateErosion, erosionThreadGroups, 1, 1);
             }
 
-            // ==========================================================
-            // [3단계] 마칭 큐브 추출 (GenerateMesh)
-            // ==========================================================
-            triangleBuffer.SetCounterValue(0);
-            oreBuffer.SetCounterValue(0);
+            // ----------------------------------------------------
+            // 커널 3: 마칭 큐브 메쉬 추출 (Marching Cubes)
+            // ----------------------------------------------------
+            marchingCubesShader.SetBuffer(kernelGenerateMesh, "_VoxelBuffer", voxelBuffer);
+            marchingCubesShader.SetBuffer(kernelGenerateMesh, "_TriangleBuffer", triangleBuffer);
+            marchingCubesShader.SetBuffer(kernelGenerateMesh, "_OreBuffer", oreBuffer);
 
-            marchingCubesShader.SetBuffer(marchingCubesKernel, "_VoxelBuffer", voxelBuffer);
-            marchingCubesShader.SetBuffer(marchingCubesKernel, "_TriangleBuffer", triangleBuffer);
-            marchingCubesShader.SetBuffer(marchingCubesKernel, "_OreBuffer", oreBuffer);
-            marchingCubesShader.SetBuffer(marchingCubesKernel, "_EdgeTable", edgeTableBuffer);
-            marchingCubesShader.SetBuffer(marchingCubesKernel, "_TriangleTable", triTableBuffer);
+            marchingCubesShader.SetBuffer(kernelGenerateMesh, "_EdgeTable", edgeTableBuffer);
+            marchingCubesShader.SetBuffer(kernelGenerateMesh, "_TriangleTable", triTableBuffer);
 
-            marchingCubesShader.SetVector("_ChunkBasePosition", (Vector3)context.ChunkPos * chunkSize * voxelSize);
-            marchingCubesShader.SetInt("_ChunkSize", chunkSize + 1);
+            marchingCubesShader.SetVector("_ChunkBasePosition", chunkBasePos);
+            marchingCubesShader.SetInt("_PointsPerAxis", pointsPerAxis); // 밀도 배열 인덱싱을 위한 점의 개수
+            marchingCubesShader.SetInt("_ChunkSize", chunkSize);         // 실제 그려질 큐브의 개수
             marchingCubesShader.SetFloat("_VoxelSize", voxelSize);
             marchingCubesShader.SetFloat("_IsoLevel", 0.0f);
 
-            marchingCubesShader.Dispatch(marchingCubesKernel, threadGroups, threadGroups, threadGroups);
+            // AppendBuffer의 카운터를 0으로 초기화
+            triangleBuffer.SetCounterValue(0);
+            oreBuffer.SetCounterValue(0);
 
-            // ==========================================================
-            // [4단계] 비동기 데이터 회수 시작
-            // ==========================================================
-            context.State = ChunkState.Downloading_Count;
+            // 큐브(Cube)의 개수를 기준으로 스레드 그룹 파견
+            int meshThreadGroups = Mathf.CeilToInt(chunkSize / 8.0f);
+            if (showVerboseLogs) UnityEngine.Debug.Log($"  ▶ [Kernel 3] 마칭 큐브 디스패치 (Threads: {meshThreadGroups}^3)");
+            marchingCubesShader.Dispatch(kernelGenerateMesh, meshThreadGroups, meshThreadGroups, meshThreadGroups);
 
-            ComputeBuffer.CopyCount(triangleBuffer, countArgsBuffer, 0);
-            ComputeBuffer.CopyCount(oreBuffer, countArgsBuffer, 4);
+            if (showVerboseLogs)
+            {
+                sw.Stop();
+                UnityEngine.Debug.Log($"<color=#27AE60>[ComputeDispatcher]</color> 청크 {context.ChunkPos} 파이프라인 큐잉 완료! (CPU 할당 시간: {sw.Elapsed.TotalMilliseconds:F3}ms)");
+            }
 
-            AsyncGPUReadback.Request(countArgsBuffer, request => OnCountReadbackComplete(request, context));
+            // 완료 콜백 (이후 CaveMeshJobManager에서 비동기 Readback 수행)
+            onGpuCompleted?.Invoke(context, triangleBuffer, oreBuffer);
+            s_DispatchMarker.End();
         }
 
-        void OnCountReadbackComplete(AsyncGPUReadbackRequest request, ChunkRequestContext context)
+        /// <summary>
+        /// 안전한 메모리 할당 및 VRAM 사용량 로깅
+        /// </summary>
+        private void AllocateTempBuffers(int pointsPerAxis, int chunkSize)
         {
-            if (request.hasError || context.State == ChunkState.Aborted)
+            s_AllocationMarker.Begin();
+            if (voxelBuffer == null || allocatedPointsPerAxis != pointsPerAxis)
             {
-                currentProcessingChunk = null;
-                return;
-            }
+                ReleaseTempBuffers();
+                allocatedPointsPerAxis = pointsPerAxis;
 
-            var countData = request.GetData<int>();
-            int triCount = countData[0];
-            int oreCount = countData[1];
+                int voxelCount = pointsPerAxis * pointsPerAxis * pointsPerAxis;
+                int cubeCount = chunkSize * chunkSize * chunkSize;
 
-            int vertexCount = triCount * 3;
+                // 1. CaveVoxel (8바이트)
+                int voxelStride = Marshal.SizeOf(typeof(CaveVoxel));
+                // 2. CaveTriangle (96바이트) - 한 큐브당 최대 5개 트라이앵글 생성 가능
+                int triStride = Marshal.SizeOf(typeof(CaveTriangle));
+                // 3. CaveOreData (32바이트)
+                int oreStride = Marshal.SizeOf(typeof(CaveOreData));
 
-            // 방어 로직: 텅 빈 공간이거나 꽉 찬 바위여서 폴리곤이 없을 경우 즉시 종료
-            if (vertexCount == 0)
-            {
-                context.State = ChunkState.Completed;
-                context.OnCompleted?.Invoke(context, new NativeArray<CaveOreData>(0, Allocator.Temp));
-                currentProcessingChunk = null;
-                return;
-            }
+                voxelBuffer = new ComputeBuffer(voxelCount, voxelStride);
+                triangleBuffer = new ComputeBuffer(cubeCount * 5, triStride, ComputeBufferType.Append);
+                oreBuffer = new ComputeBuffer(cubeCount, oreStride, ComputeBufferType.Append);
 
-            context.State = ChunkState.Downloading_Data;
+                triCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+                oreCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
 
-            int triDataSize = triCount * 96;
-            var triRequest = AsyncGPUReadback.Request(triangleBuffer, triDataSize, 0);
-
-            AsyncGPUReadbackRequest? oreRequest = null;
-            if (oreCount > 0)
-            {
-                int oreDataSize = oreCount * 32;
-                oreRequest = AsyncGPUReadback.Request(oreBuffer, oreDataSize, 0);
-            }
-
-            StartCoroutine(WaitForDataReadback(triRequest, oreRequest, context, vertexCount, triCount, oreCount));
-        }
-
-        private System.Collections.IEnumerator WaitForDataReadback(AsyncGPUReadbackRequest tReq, AsyncGPUReadbackRequest? oReq, ChunkRequestContext context, int vCount, int triCount, int oCount)
-        {
-            if (oReq.HasValue)
-            {
-                yield return new WaitUntil(() => tReq.done && oReq.Value.done);
-                if (tReq.hasError || oReq.Value.hasError || context.State == ChunkState.Aborted)
+                if (showVerboseLogs)
                 {
-                    currentProcessingChunk = null;
-                    yield break;
+                    long totalBytes = (voxelCount * voxelStride) + (cubeCount * 5 * triStride) + (cubeCount * oreStride);
+                    float totalMB = totalBytes / (1024f * 1024f);
+                    UnityEngine.Debug.Log($"<color=#8E44AD>[VRAM Allocation]</color> 런타임 버퍼 재할당 발생. (용량: {totalMB:F2} MB, VoxelCount: {voxelCount})");
                 }
             }
-            else
-            {
-                yield return new WaitUntil(() => tReq.done);
-                if (tReq.hasError || context.State == ChunkState.Aborted)
-                {
-                    currentProcessingChunk = null;
-                    yield break;
-                }
-            }
-
-            context.State = ChunkState.Job_Processing;
-
-            NativeArray<CaveVertex> vertices = default;
-            NativeArray<CaveOreData> ores = default;
-
-            try
-            {
-                // [🔥 에러 수정] Double Dispose 방지를 위해 Reinterpret을 쓰지 않고 바로 Vertex 크기로 복사합니다.
-                // tReq.GetData<CaveVertex>()는 Byte 데이터를 32바이트 구조체로 즉시 직독직해합니다.
-                vertices = new NativeArray<CaveVertex>(vCount, Allocator.TempJob);
-                tReq.GetData<CaveVertex>().CopyTo(vertices);
-
-                if (oCount > 0 && oReq.HasValue)
-                {
-                    ores = new NativeArray<CaveOreData>(oCount, Allocator.TempJob);
-                    oReq.Value.GetData<CaveOreData>().CopyTo(ores);
-                }
-                else
-                {
-                    ores = new NativeArray<CaveOreData>(0, Allocator.TempJob);
-                }
-
-                // C# Job 기반 메시 생성 파이프라인으로 전송
-                // (이 함수 내부에서 작업이 끝난 후 vertices를 스스로 Dispose 합니다)
-                meshJobManager.ProcessMeshJob(context, vertices, ores, OnChunkFullyCompleted);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"<color=red>[CaveComputeDispatcher] 🚨 데이터 처리 중 예외 발생:</color>\n{e.Message}\n{e.StackTrace}");
-                if (vertices.IsCreated) vertices.Dispose();
-                if (ores.IsCreated) ores.Dispose();
-
-                context.State = ChunkState.Aborted;
-                context.OnCompleted?.Invoke(context, new NativeArray<CaveOreData>(0, Allocator.Temp));
-            }
-            finally
-            {
-                currentProcessingChunk = null;
-            }
+            s_AllocationMarker.End();
         }
 
-        void OnChunkFullyCompleted(ChunkRequestContext context, NativeArray<CaveOreData> processedOres)
+        private void UpdateDebugHistory(Vector3 basePos, int size, float vSize)
         {
-            context.State = ChunkState.Completed;
-            context.OnCompleted?.Invoke(context, processedOres);
+            if (!drawChunkHistoryGizmos) return;
 
-            if (processedOres.IsCreated)
+            if (debugChunkHistory.Count >= maxGizmoHistory)
             {
-                processedOres.Dispose();
+                debugChunkHistory.Dequeue();
+            }
+
+            // 새로 디스패치되는 청크는 밝은 노란색으로 등록 (시간이 지날수록 흐려짐 처리를 위해 Timestamp 기록)
+            debugChunkHistory.Enqueue(new ChunkDebugInfo
+            {
+                BasePosition = basePos,
+                ChunkSize = size,
+                VoxelSize = vSize,
+                DisplayColor = new Color(1f, 0.8f, 0.2f, 0.8f),
+                Timestamp = Time.time
+            });
+        }
+
+        /// <summary>
+        /// [Pro Debug] 씬 뷰에 최근 디스패치된 청크들의 AABB(바운딩 박스) 영역을 표시합니다.
+        /// </summary>
+        private void OnDrawGizmosSelected()
+        {
+            if (!drawChunkHistoryGizmos || debugChunkHistory.Count == 0) return;
+
+            foreach (var info in debugChunkHistory)
+            {
+                float worldChunkSize = info.ChunkSize * info.VoxelSize;
+                Vector3 centerOffset = new Vector3(worldChunkSize, worldChunkSize, worldChunkSize) * 0.5f;
+                Vector3 chunkCenter = info.BasePosition + centerOffset;
+
+                // 생성 후 지난 시간에 따라 색상 페이딩 (방금 생성된 것은 노랗고, 오래된 것은 파랗게)
+                float age = Time.time - info.Timestamp;
+                Color finalColor = Color.Lerp(info.DisplayColor, new Color(0.1f, 0.5f, 1f, 0.2f), Mathf.Clamp01(age / 5.0f));
+
+                // 큐브 영역 기즈모
+                Gizmos.color = finalColor;
+                Gizmos.DrawWireCube(chunkCenter, Vector3.one * worldChunkSize);
+
+                // 안전 마진(PointsPerAxis)을 포함한 실제 메모리 할당 영역
+                float pointWorldSize = (info.ChunkSize + 1) * info.VoxelSize;
+                Gizmos.color = new Color(finalColor.r, finalColor.g, finalColor.b, 0.1f);
+                Gizmos.DrawCube(info.BasePosition + (Vector3.one * pointWorldSize * 0.5f), Vector3.one * pointWorldSize);
             }
         }
 
-        void OnDestroy()
+        private void ReleaseGraphBuffers()
         {
-            voxelBuffer?.Release();
-            triangleBuffer?.Release();
-            oreBuffer?.Release();
-            countArgsBuffer?.Release();
-            edgeTableBuffer?.Release();
-            triTableBuffer?.Release();
-            fixedZonesBuffer?.Release();
+            if (nodeBuffer != null) { nodeBuffer.Release(); nodeBuffer = null; }
+            if (edgeBuffer != null) { edgeBuffer.Release(); edgeBuffer = null; }
         }
-    }
 
-    /// <summary>
-    /// 마칭 큐브의 256가지 교차 케이스를 정의한 정수형(10진수) 룩업 테이블입니다.
-    /// 끊김 없이 완벽하게 사용할 수 있도록 압축된 풀(Full) 데이터입니다.
-    /// </summary>
-    public static class MarchingCubesTables
-    {
-        public static readonly int[] EdgeTable = new int[256] {
-            0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
-            0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
-            0x190, 0x99 , 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
-            0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90,
-            0x230, 0x339, 0x33 , 0x13a, 0x636, 0x73f, 0x435, 0x53c,
-            0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30,
-            0x3a0, 0x2a9, 0x1a3, 0xaa , 0x7a6, 0x6af, 0x5a5, 0x4ac,
-            0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0,
-            0x460, 0x569, 0x663, 0x76a, 0x66 , 0x16f, 0x265, 0x36c,
-            0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963, 0xa69, 0xb60,
-            0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0xff , 0x3f5, 0x2fc,
-            0xdfc, 0xcf5, 0xfff, 0xef6, 0x9fa, 0x8f3, 0xbf9, 0xaf0,
-            0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x55 , 0x15c,
-            0xe5c, 0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53, 0x859, 0x950,
-            0x7c0, 0x6c9, 0x5c3, 0x4ca, 0x3c6, 0x2cf, 0x1c5, 0xcc ,
-            0xfcc, 0xec5, 0xdcf, 0xcc6, 0xbca, 0xac3, 0x9c9, 0x8c0,
-            0x8c0, 0x9c9, 0xac3, 0xbca, 0xcc6, 0xdcf, 0xec5, 0xfcc,
-            0xcc , 0x1c5, 0x2cf, 0x3c6, 0x4ca, 0x5c3, 0x6c9, 0x7c0,
-            0x950, 0x859, 0xb53, 0xa5a, 0xd56, 0xc5f, 0xf55, 0xe5c,
-            0x15c, 0x55 , 0x35f, 0x256, 0x55a, 0x453, 0x759, 0x650,
-            0xaf0, 0xbf9, 0x8f3, 0x9fa, 0xef6, 0xfff, 0xcf5, 0xdfc,
-            0x2fc, 0x3f5, 0xff , 0x1f6, 0x6fa, 0x7f3, 0x4f9, 0x5f0,
-            0xb60, 0xa69, 0x963, 0x86a, 0xf66, 0xe6f, 0xd65, 0xc6c,
-            0x36c, 0x265, 0x16f, 0x66 , 0x76a, 0x663, 0x569, 0x460,
-            0xca0, 0xda9, 0xea3, 0xfaa, 0x8a6, 0x9af, 0xaa5, 0xbac,
-            0x4ac, 0x5a5, 0x6af, 0x7a6, 0xaa , 0x1a3, 0x2a9, 0x3a0,
-            0xd30, 0xc39, 0xf33, 0xe3a, 0x936, 0x83f, 0xb35, 0xa3c,
-            0x53c, 0x435, 0x73f, 0x636, 0x13a, 0x33 , 0x339, 0x230,
-            0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c,
-            0x69c, 0x795, 0x49f, 0x596, 0x29a, 0x393, 0x99 , 0x190,
-            0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
-            0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0
-        };
+        private void ReleaseTempBuffers()
+        {
+            if (voxelBuffer != null) { voxelBuffer.Release(); voxelBuffer = null; }
+            if (triangleBuffer != null) { triangleBuffer.Release(); triangleBuffer = null; }
+            if (oreBuffer != null) { oreBuffer.Release(); oreBuffer = null; }
+            if (triCountBuffer != null) { triCountBuffer.Release(); triCountBuffer = null; }
+            if (oreCountBuffer != null) { oreCountBuffer.Release(); oreCountBuffer = null; }
+        }
 
-        public static readonly int[] TriangleTable = new int[4096] {
-            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 8, 3, 9, 8, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 3, 1, 2, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            9, 2, 10, 0, 2, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            2, 8, 3, 2, 10, 8, 10, 9, 8, -1, -1, -1, -1, -1, -1, -1,
-            3, 11, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 11, 2, 8, 11, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 9, 0, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 11, 2, 1, 9, 11, 9, 8, 11, -1, -1, -1, -1, -1, -1, -1,
-            3, 10, 1, 11, 10, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 10, 1, 0, 8, 10, 8, 11, 10, -1, -1, -1, -1, -1, -1, -1,
-            3, 9, 0, 3, 11, 9, 11, 10, 9, -1, -1, -1, -1, -1, -1, -1,
-            9, 8, 10, 10, 8, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 7, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 3, 0, 7, 3, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 1, 9, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 1, 9, 4, 7, 1, 7, 3, 1, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 10, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            3, 4, 7, 3, 0, 4, 1, 2, 10, -1, -1, -1, -1, -1, -1, -1,
-            9, 2, 10, 9, 0, 2, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1,
-            2, 10, 9, 2, 9, 7, 2, 7, 3, 7, 9, 4, -1, -1, -1, -1,
-            8, 4, 7, 3, 11, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            11, 4, 7, 11, 2, 4, 2, 0, 4, -1, -1, -1, -1, -1, -1, -1,
-            9, 0, 1, 8, 4, 7, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1,
-            4, 7, 11, 9, 4, 11, 9, 11, 2, 9, 2, 1, -1, -1, -1, -1,
-            3, 10, 1, 3, 11, 10, 7, 8, 4, -1, -1, -1, -1, -1, -1, -1,
-            1, 11, 10, 1, 4, 11, 1, 0, 4, 7, 11, 4, -1, -1, -1, -1,
-            4, 7, 8, 9, 0, 11, 9, 11, 10, 11, 0, 3, -1, -1, -1, -1,
-            4, 7, 11, 4, 11, 9, 9, 11, 10, -1, -1, -1, -1, -1, -1, -1,
-            9, 5, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            9, 5, 4, 0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 5, 4, 1, 5, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            8, 5, 4, 8, 3, 5, 3, 1, 5, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 10, 9, 5, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            3, 0, 8, 1, 2, 10, 4, 9, 5, -1, -1, -1, -1, -1, -1, -1,
-            5, 2, 10, 5, 4, 2, 4, 0, 2, -1, -1, -1, -1, -1, -1, -1,
-            2, 10, 5, 3, 2, 5, 3, 5, 4, 3, 4, 8, -1, -1, -1, -1,
-            9, 5, 4, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 11, 2, 0, 8, 11, 4, 9, 5, -1, -1, -1, -1, -1, -1, -1,
-            0, 5, 4, 0, 1, 5, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1,
-            2, 1, 5, 2, 5, 8, 2, 8, 11, 4, 8, 5, -1, -1, -1, -1,
-            10, 3, 11, 10, 1, 3, 9, 5, 4, -1, -1, -1, -1, -1, -1, -1,
-            4, 9, 5, 0, 8, 1, 8, 10, 1, 8, 11, 10, -1, -1, -1, -1,
-            5, 4, 0, 5, 0, 11, 5, 11, 10, 11, 0, 3, -1, -1, -1, -1,
-            5, 4, 8, 5, 8, 10, 10, 8, 11, -1, -1, -1, -1, -1, -1, -1,
-            9, 7, 8, 5, 7, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            9, 3, 0, 9, 5, 3, 5, 7, 3, -1, -1, -1, -1, -1, -1, -1,
-            0, 7, 8, 0, 1, 7, 1, 5, 7, -1, -1, -1, -1, -1, -1, -1,
-            1, 5, 3, 3, 5, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            9, 7, 8, 9, 5, 7, 10, 1, 2, -1, -1, -1, -1, -1, -1, -1,
-            10, 1, 2, 9, 5, 0, 5, 3, 0, 5, 7, 3, -1, -1, -1, -1,
-            8, 0, 2, 8, 2, 5, 8, 5, 7, 10, 5, 2, -1, -1, -1, -1,
-            2, 10, 5, 2, 5, 3, 3, 5, 7, -1, -1, -1, -1, -1, -1, -1,
-            7, 9, 5, 7, 8, 9, 3, 11, 2, -1, -1, -1, -1, -1, -1, -1,
-            9, 5, 7, 9, 7, 2, 9, 2, 0, 2, 7, 11, -1, -1, -1, -1,
-            2, 3, 11, 0, 1, 8, 1, 7, 8, 1, 5, 7, -1, -1, -1, -1,
-            11, 2, 1, 11, 1, 7, 7, 1, 5, -1, -1, -1, -1, -1, -1, -1,
-            9, 5, 8, 8, 5, 7, 10, 1, 3, 10, 3, 11, -1, -1, -1, -1,
-            5, 7, 0, 5, 0, 9, 7, 11, 0, 1, 0, 10, 11, 10, 0, -1,
-            11, 10, 0, 11, 0, 3, 10, 5, 0, 8, 0, 7, 5, 7, 0, -1,
-            11, 10, 5, 7, 11, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            10, 6, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 3, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            9, 0, 1, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 8, 3, 1, 9, 8, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1,
-            1, 6, 5, 2, 6, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 6, 5, 1, 2, 6, 3, 0, 8, -1, -1, -1, -1, -1, -1, -1,
-            9, 6, 5, 9, 0, 6, 0, 2, 6, -1, -1, -1, -1, -1, -1, -1,
-            5, 9, 8, 5, 8, 2, 5, 2, 6, 3, 2, 8, -1, -1, -1, -1,
-            2, 3, 11, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            11, 0, 8, 11, 2, 0, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1,
-            0, 1, 9, 2, 3, 11, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1,
-            5, 10, 6, 1, 9, 2, 9, 11, 2, 9, 8, 11, -1, -1, -1, -1,
-            6, 3, 11, 6, 5, 3, 5, 1, 3, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 11, 0, 11, 5, 0, 5, 1, 5, 11, 6, -1, -1, -1, -1,
-            3, 11, 6, 0, 3, 6, 0, 6, 5, 0, 5, 9, -1, -1, -1, -1,
-            6, 5, 9, 6, 9, 11, 11, 9, 8, -1, -1, -1, -1, -1, -1, -1,
-            5, 10, 6, 4, 7, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 3, 0, 4, 7, 3, 6, 5, 10, -1, -1, -1, -1, -1, -1, -1,
-            1, 9, 0, 5, 10, 6, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1,
-            10, 6, 5, 1, 9, 7, 1, 7, 3, 7, 9, 4, -1, -1, -1, -1,
-            6, 1, 2, 6, 5, 1, 4, 7, 8, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 5, 5, 2, 6, 3, 0, 4, 3, 4, 7, -1, -1, -1, -1,
-            8, 4, 7, 9, 0, 5, 0, 6, 5, 0, 2, 6, -1, -1, -1, -1,
-            7, 3, 9, 7, 9, 4, 3, 2, 9, 5, 9, 6, 2, 6, 9, -1,
-            3, 11, 2, 7, 8, 4, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1,
-            5, 10, 6, 4, 7, 2, 4, 2, 0, 2, 7, 11, -1, -1, -1, -1,
-            0, 1, 9, 4, 7, 8, 2, 3, 11, 5, 10, 6, -1, -1, -1, -1,
-            9, 2, 1, 9, 11, 2, 9, 4, 11, 7, 11, 4, 5, 10, 6, -1,
-            8, 4, 7, 3, 11, 5, 3, 5, 1, 5, 11, 6, -1, -1, -1, -1,
-            5, 1, 11, 5, 11, 6, 1, 0, 11, 7, 11, 4, 0, 4, 11, -1,
-            0, 5, 9, 0, 6, 5, 0, 3, 6, 11, 6, 3, 8, 4, 7, -1,
-            6, 5, 9, 6, 9, 11, 4, 7, 9, 7, 11, 9, -1, -1, -1, -1,
-            10, 4, 9, 6, 4, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 10, 6, 4, 9, 10, 0, 8, 3, -1, -1, -1, -1, -1, -1, -1,
-            10, 0, 1, 10, 6, 0, 6, 4, 0, -1, -1, -1, -1, -1, -1, -1,
-            8, 3, 1, 8, 1, 6, 8, 6, 4, 6, 1, 10, -1, -1, -1, -1,
-            1, 4, 9, 1, 2, 4, 2, 6, 4, -1, -1, -1, -1, -1, -1, -1,
-            3, 0, 8, 1, 2, 9, 2, 4, 9, 2, 6, 4, -1, -1, -1, -1,
-            0, 2, 4, 4, 2, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            8, 3, 2, 8, 2, 4, 4, 2, 6, -1, -1, -1, -1, -1, -1, -1,
-            10, 4, 9, 10, 6, 4, 11, 2, 3, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 2, 2, 8, 11, 4, 9, 10, 4, 10, 6, -1, -1, -1, -1,
-            3, 11, 2, 0, 1, 6, 0, 6, 4, 6, 1, 10, -1, -1, -1, -1,
-            6, 4, 1, 6, 1, 10, 4, 8, 1, 2, 1, 11, 8, 11, 1, -1,
-            9, 6, 4, 9, 3, 6, 9, 1, 3, 11, 6, 3, -1, -1, -1, -1,
-            8, 11, 1, 8, 1, 0, 11, 6, 1, 9, 1, 4, 6, 4, 1, -1,
-            3, 11, 6, 3, 6, 0, 0, 6, 4, -1, -1, -1, -1, -1, -1, -1,
-            6, 4, 8, 11, 6, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            7, 10, 6, 7, 8, 10, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1,
-            0, 7, 3, 0, 10, 7, 0, 9, 10, 6, 7, 10, -1, -1, -1, -1,
-            10, 6, 7, 1, 10, 7, 1, 7, 8, 1, 8, 0, -1, -1, -1, -1,
-            10, 6, 7, 10, 7, 1, 1, 7, 3, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 6, 1, 6, 8, 1, 8, 9, 8, 6, 7, -1, -1, -1, -1,
-            2, 6, 9, 2, 9, 1, 6, 7, 9, 0, 9, 3, 7, 3, 9, -1,
-            7, 8, 0, 7, 0, 6, 6, 0, 2, -1, -1, -1, -1, -1, -1, -1,
-            7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            2, 3, 11, 10, 6, 8, 10, 8, 9, 8, 6, 7, -1, -1, -1, -1,
-            2, 0, 7, 2, 7, 11, 0, 9, 7, 6, 7, 10, 9, 10, 7, -1,
-            1, 8, 0, 1, 7, 8, 1, 10, 7, 6, 7, 10, 2, 3, 11, -1,
-            11, 2, 1, 11, 1, 7, 10, 6, 1, 6, 7, 1, -1, -1, -1, -1,
-            8, 9, 6, 8, 6, 7, 9, 1, 6, 11, 6, 3, 1, 3, 6, -1,
-            0, 9, 1, 11, 6, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            7, 8, 0, 7, 0, 6, 3, 11, 0, 11, 6, 0, -1, -1, -1, -1,
-            7, 11, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            7, 6, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            3, 0, 8, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 1, 9, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            8, 1, 9, 8, 3, 1, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1,
-            10, 1, 2, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 10, 3, 0, 8, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1,
-            2, 9, 0, 2, 10, 9, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1,
-            6, 11, 7, 2, 10, 3, 10, 8, 3, 10, 9, 8, -1, -1, -1, -1,
-            7, 2, 3, 6, 2, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            7, 0, 8, 7, 6, 0, 6, 2, 0, -1, -1, -1, -1, -1, -1, -1,
-            2, 7, 6, 2, 3, 7, 0, 1, 9, -1, -1, -1, -1, -1, -1, -1,
-            1, 6, 2, 1, 8, 6, 1, 9, 8, 8, 7, 6, -1, -1, -1, -1,
-            10, 7, 6, 10, 1, 7, 1, 3, 7, -1, -1, -1, -1, -1, -1, -1,
-            10, 7, 6, 1, 7, 10, 1, 8, 7, 1, 0, 8, -1, -1, -1, -1,
-            0, 3, 7, 0, 7, 10, 0, 10, 9, 6, 10, 7, -1, -1, -1, -1,
-            7, 6, 10, 7, 10, 8, 8, 10, 9, -1, -1, -1, -1, -1, -1, -1,
-            6, 8, 4, 11, 8, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            3, 6, 11, 3, 0, 6, 0, 4, 6, -1, -1, -1, -1, -1, -1, -1,
-            8, 6, 11, 8, 4, 6, 9, 0, 1, -1, -1, -1, -1, -1, -1, -1,
-            9, 4, 6, 9, 6, 3, 9, 3, 1, 11, 3, 6, -1, -1, -1, -1,
-            6, 8, 4, 6, 11, 8, 2, 10, 1, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 10, 3, 0, 11, 0, 6, 11, 0, 4, 6, -1, -1, -1, -1,
-            4, 11, 8, 4, 6, 11, 0, 2, 9, 2, 10, 9, -1, -1, -1, -1,
-            10, 9, 3, 10, 3, 2, 9, 4, 3, 11, 3, 6, 4, 6, 3, -1,
-            8, 2, 3, 8, 4, 2, 4, 6, 2, -1, -1, -1, -1, -1, -1, -1,
-            0, 4, 2, 4, 6, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 9, 0, 2, 3, 4, 2, 4, 6, 4, 3, 8, -1, -1, -1, -1,
-            1, 9, 4, 1, 4, 2, 2, 4, 6, -1, -1, -1, -1, -1, -1, -1,
-            8, 1, 3, 8, 6, 1, 8, 4, 6, 6, 10, 1, -1, -1, -1, -1,
-            10, 1, 0, 10, 0, 6, 6, 0, 4, -1, -1, -1, -1, -1, -1, -1,
-            4, 6, 3, 4, 3, 8, 6, 10, 3, 0, 3, 9, 10, 9, 3, -1,
-            10, 9, 4, 6, 10, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 9, 5, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 3, 4, 9, 5, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1,
-            5, 0, 1, 5, 4, 0, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1,
-            11, 7, 6, 8, 3, 4, 3, 5, 4, 3, 1, 5, -1, -1, -1, -1,
-            9, 5, 4, 10, 1, 2, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1,
-            6, 11, 7, 1, 2, 10, 0, 8, 3, 4, 9, 5, -1, -1, -1, -1,
-            7, 6, 11, 5, 4, 10, 4, 2, 10, 4, 0, 2, -1, -1, -1, -1,
-            3, 4, 8, 3, 5, 4, 3, 2, 5, 10, 5, 2, 11, 7, 6, -1,
-            7, 2, 3, 7, 6, 2, 5, 4, 9, -1, -1, -1, -1, -1, -1, -1,
-            9, 5, 4, 0, 8, 6, 0, 6, 2, 6, 8, 7, -1, -1, -1, -1,
-            3, 6, 2, 3, 7, 6, 1, 5, 0, 5, 4, 0, -1, -1, -1, -1,
-            6, 2, 8, 6, 8, 7, 2, 1, 8, 4, 8, 5, 1, 5, 8, -1,
-            9, 5, 4, 10, 1, 6, 1, 7, 6, 1, 3, 7, -1, -1, -1, -1,
-            1, 6, 10, 1, 7, 6, 1, 0, 7, 8, 7, 0, 9, 5, 4, -1,
-            4, 0, 10, 4, 10, 5, 0, 3, 10, 6, 10, 7, 3, 7, 10, -1,
-            7, 6, 10, 7, 10, 8, 5, 4, 10, 4, 8, 10, -1, -1, -1, -1,
-            6, 9, 5, 6, 11, 9, 11, 8, 9, -1, -1, -1, -1, -1, -1, -1,
-            3, 6, 11, 0, 6, 3, 0, 5, 6, 0, 9, 5, -1, -1, -1, -1,
-            0, 11, 8, 0, 5, 11, 0, 1, 5, 5, 6, 11, -1, -1, -1, -1,
-            6, 11, 3, 6, 3, 5, 5, 3, 1, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 10, 9, 5, 11, 9, 11, 8, 11, 5, 6, -1, -1, -1, -1,
-            0, 11, 3, 0, 6, 11, 0, 9, 6, 5, 6, 9, 1, 2, 10, -1,
-            11, 8, 5, 11, 5, 6, 8, 0, 5, 10, 5, 2, 0, 2, 5, -1,
-            6, 11, 3, 6, 3, 5, 2, 10, 3, 10, 5, 3, -1, -1, -1, -1,
-            5, 8, 9, 5, 2, 8, 5, 6, 2, 3, 8, 2, -1, -1, -1, -1,
-            9, 5, 6, 9, 6, 0, 0, 6, 2, -1, -1, -1, -1, -1, -1, -1,
-            1, 5, 8, 1, 8, 0, 5, 6, 8, 3, 8, 2, 6, 2, 8, -1,
-            1, 5, 6, 2, 1, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 3, 6, 1, 6, 10, 3, 8, 6, 5, 6, 9, 8, 9, 6, -1,
-            10, 1, 0, 10, 0, 6, 9, 5, 0, 5, 6, 0, -1, -1, -1, -1,
-            0, 3, 8, 5, 6, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            10, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            11, 5, 10, 7, 5, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            11, 5, 10, 11, 7, 5, 8, 3, 0, -1, -1, -1, -1, -1, -1, -1,
-            5, 11, 7, 5, 10, 11, 1, 9, 0, -1, -1, -1, -1, -1, -1, -1,
-            10, 7, 5, 10, 11, 7, 9, 8, 1, 8, 3, 1, -1, -1, -1, -1,
-            11, 1, 2, 11, 7, 1, 7, 5, 1, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 3, 1, 2, 7, 1, 7, 5, 7, 2, 11, -1, -1, -1, -1,
-            9, 7, 5, 9, 2, 7, 9, 0, 2, 2, 11, 7, -1, -1, -1, -1,
-            7, 5, 2, 7, 2, 11, 5, 9, 2, 3, 2, 8, 9, 8, 2, -1,
-            2, 5, 10, 2, 3, 5, 3, 7, 5, -1, -1, -1, -1, -1, -1, -1,
-            8, 2, 0, 8, 5, 2, 8, 7, 5, 10, 2, 5, -1, -1, -1, -1,
-            9, 0, 1, 5, 10, 3, 5, 3, 7, 3, 10, 2, -1, -1, -1, -1,
-            9, 8, 2, 9, 2, 1, 8, 7, 2, 10, 2, 5, 7, 5, 2, -1,
-            1, 3, 5, 3, 7, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 7, 0, 7, 1, 1, 7, 5, -1, -1, -1, -1, -1, -1, -1,
-            9, 0, 3, 9, 3, 5, 5, 3, 7, -1, -1, -1, -1, -1, -1, -1,
-            9, 8, 7, 5, 9, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            5, 8, 4, 5, 10, 8, 10, 11, 8, -1, -1, -1, -1, -1, -1, -1,
-            5, 0, 4, 5, 11, 0, 5, 10, 11, 11, 3, 0, -1, -1, -1, -1,
-            0, 1, 9, 8, 4, 10, 8, 10, 11, 10, 4, 5, -1, -1, -1, -1,
-            10, 11, 4, 10, 4, 5, 11, 3, 4, 9, 4, 1, 3, 1, 4, -1,
-            2, 5, 1, 2, 8, 5, 2, 11, 8, 4, 5, 8, -1, -1, -1, -1,
-            0, 4, 11, 0, 11, 3, 4, 5, 11, 2, 11, 1, 5, 1, 11, -1,
-            0, 2, 5, 0, 5, 9, 2, 11, 5, 4, 5, 8, 11, 8, 5, -1,
-            9, 4, 5, 2, 11, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            2, 5, 10, 3, 5, 2, 3, 4, 5, 3, 8, 4, -1, -1, -1, -1,
-            5, 10, 2, 5, 2, 4, 4, 2, 0, -1, -1, -1, -1, -1, -1, -1,
-            3, 10, 2, 3, 5, 10, 3, 8, 5, 4, 5, 8, 0, 1, 9, -1,
-            5, 10, 2, 5, 2, 4, 1, 9, 2, 9, 4, 2, -1, -1, -1, -1,
-            8, 4, 5, 8, 5, 3, 3, 5, 1, -1, -1, -1, -1, -1, -1, -1,
-            0, 4, 5, 1, 0, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            8, 4, 5, 8, 5, 3, 9, 0, 5, 0, 3, 5, -1, -1, -1, -1,
-            9, 4, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 11, 7, 4, 9, 11, 9, 10, 11, -1, -1, -1, -1, -1, -1, -1,
-            0, 8, 3, 4, 9, 7, 9, 11, 7, 9, 10, 11, -1, -1, -1, -1,
-            1, 10, 11, 1, 11, 4, 1, 4, 0, 7, 4, 11, -1, -1, -1, -1,
-            3, 1, 4, 3, 4, 8, 1, 10, 4, 7, 4, 11, 10, 11, 4, -1,
-            4, 11, 7, 9, 11, 4, 9, 2, 11, 9, 1, 2, -1, -1, -1, -1,
-            9, 7, 4, 9, 11, 7, 9, 1, 11, 2, 11, 1, 0, 8, 3, -1,
-            11, 7, 4, 11, 4, 2, 2, 4, 0, -1, -1, -1, -1, -1, -1, -1,
-            11, 7, 4, 11, 4, 2, 8, 3, 4, 3, 2, 4, -1, -1, -1, -1,
-            2, 9, 10, 2, 7, 9, 2, 3, 7, 7, 4, 9, -1, -1, -1, -1,
-            9, 10, 7, 9, 7, 4, 10, 2, 7, 8, 7, 0, 2, 0, 7, -1,
-            3, 7, 10, 3, 10, 2, 7, 4, 10, 1, 10, 0, 4, 0, 10, -1,
-            1, 10, 2, 8, 7, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 9, 1, 4, 1, 7, 7, 1, 3, -1, -1, -1, -1, -1, -1, -1,
-            4, 9, 1, 4, 1, 7, 0, 8, 1, 8, 7, 1, -1, -1, -1, -1,
-            4, 0, 3, 7, 4, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            4, 8, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            9, 10, 8, 10, 11, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            3, 0, 9, 3, 9, 11, 11, 9, 10, -1, -1, -1, -1, -1, -1, -1,
-            0, 1, 10, 0, 10, 8, 8, 10, 11, -1, -1, -1, -1, -1, -1, -1,
-            3, 1, 10, 11, 3, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 2, 11, 1, 11, 9, 9, 11, 8, -1, -1, -1, -1, -1, -1, -1,
-            3, 0, 9, 3, 9, 11, 1, 2, 9, 2, 11, 9, -1, -1, -1, -1,
-            0, 2, 11, 8, 0, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            3, 2, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            2, 3, 8, 2, 8, 10, 10, 8, 9, -1, -1, -1, -1, -1, -1, -1,
-            9, 10, 2, 0, 9, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            2, 3, 8, 2, 8, 10, 0, 1, 8, 1, 10, 8, -1, -1, -1, -1,
-            1, 10, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            1, 3, 8, 9, 1, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 9, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
-        };
+        private void OnDestroy()
+        {
+            ReleaseGraphBuffers();
+            ReleaseTempBuffers();
+            if (edgeTableBuffer != null) { edgeTableBuffer.Release(); edgeTableBuffer = null; }
+            if (triTableBuffer != null) { triTableBuffer.Release(); triTableBuffer = null; }
+        }
     }
 }

@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq; // 배열 변환(ToArray)을 위해 추가됨
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using Unity.Netcode;
@@ -8,18 +8,20 @@ using Steamworks;
 using Steamworks.Data;
 using TMPro;
 
+// 지형 생성 시스템 참조를 위해 추가
+using CaveSystem;
+
 /*
- * [LobbyUIManager - 상세 확장 버전]
- * 방 목록 검색(Room Browser), 대기방 UI, 스팀 친구 초대, 방장 권한 제어 및 
- * 백그라운드 프로세듀럴 지형 생성 인터페이스를 모두 관리하는 통합 로비 매니저입니다.
+ * [LobbyUIManager - 통합 고도화 버전]
+ * 방 목록 검색, 대기방 UI, 스팀 친구 초대, 방장 권한 제어 및 
+ * Phase 5 멀티플레이어 지형 사전 생성 동기화 로직을 모두 관리합니다.
  */
-public class LobbyUIManager : MonoBehaviour
+public class LobbyUIManager : NetworkBehaviour
 {
     // --- 싱글톤 인스턴스 ---
     public static LobbyUIManager Instance;
 
     [Header("Debug Settings")]
-    [Tooltip("체크하면 로비 UI의 상세한 동작 로그를 콘솔에 출력합니다.")]
     [SerializeField] private bool showDebugLogs = true;
 
     [Header("Panels")]
@@ -28,14 +30,14 @@ public class LobbyUIManager : MonoBehaviour
 
     [Header("Room Browser UI (방 목록)")]
     [SerializeField] private Transform roomListContent;
-    [SerializeField] private GameObject roomListItemPrefab; // 방 이름, 인원, 참여 버튼이 있는 프리팹
+    [SerializeField] private GameObject roomListItemPrefab;
     [SerializeField] private Button refreshRoomsButton;
     [SerializeField] private Button closeBrowserButton;
 
     [Header("Lobby Room UI (대기방)")]
     [SerializeField] private TextMeshProUGUI lobbyTitleText;
     [SerializeField] private Transform playerListContent;
-    [SerializeField] private GameObject playerListItemPrefab; // 접속자 이름 표시용 프리팹
+    [SerializeField] private GameObject playerListItemPrefab;
 
     [Header("Host Controls (호스트 전용)")]
     [SerializeField] private Button startGameButton;
@@ -46,29 +48,21 @@ public class LobbyUIManager : MonoBehaviour
     [SerializeField] private GameObject generationProgressPanel;
     [SerializeField] private TextMeshProUGUI generationStatusText;
     [SerializeField] private Slider generationProgressBar;
+    [SerializeField] private TextMeshProUGUI partyStatusSummaryText;
+
+    // --- [NGO 2.0 동기화 변수] ---
+    private NetworkVariable<int> syncedWorldSeed = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private NetworkVariable<int> readyCount = new NetworkVariable<int>(0);
+    private NetworkVariable<int> totalExpectedCount = new NetworkVariable<int>(0);
 
     // 지형 생성이 완료되었는지 판별하는 플래그
-    private bool isTerrainReady = false;
-
-    // --- 디버깅용 래퍼 함수 ---
-    private void Log(string message)
-    {
-        if (showDebugLogs) Debug.Log($"[LobbyUIManager] {message}");
-    }
-
-    private void LogError(string message)
-    {
-        if (showDebugLogs) Debug.LogError($"[LobbyUIManager] {message}");
-    }
-    private void LogWarning(string message)
-    {
-        if (showDebugLogs) Debug.LogWarning($"[LobbyUIManager] {message}");
-    }
-    // --------------------------
+    private bool isLocalBakingComplete = false;
+    private Dictionary<ulong, bool> clientBakingReadyMap = new Dictionary<ulong, bool>();
+    private float timeoutTimer = 0f;
+    private const float START_TIMEOUT = 60f;
 
     private void Awake()
     {
-        // 싱글톤 패턴 적용
         if (Instance == null)
         {
             Instance = this;
@@ -76,44 +70,102 @@ public class LobbyUIManager : MonoBehaviour
         }
         else
         {
-            LogWarning("이미 존재하는 인스턴스가 있어 중복 생성된 객체를 파괴합니다.");
             Destroy(gameObject);
         }
     }
 
     private void Start()
     {
-        Log("버튼 이벤트 바인딩을 시작합니다.");
-        // 버튼 이벤트 일괄 등록
+        // 버튼 이벤트 바인딩
         if (refreshRoomsButton) refreshRoomsButton.onClick.AddListener(RefreshRoomList);
         if (closeBrowserButton) closeBrowserButton.onClick.AddListener(CloseRoomBrowser);
-
         if (startGameButton) startGameButton.onClick.AddListener(OnStartGameClicked);
         if (inviteFriendButton) inviteFriendButton.onClick.AddListener(InviteFriends);
         if (leaveLobbyButton) leaveLobbyButton.onClick.AddListener(LeaveLobby);
     }
 
-    private void OnEnable()
+    public override void OnNetworkSpawn()
     {
-        if (Instance != this) return;
+        // 시드 변동 감지 (난입 포함)
+        syncedWorldSeed.OnValueChanged += OnWorldSeedChanged;
+        // 인원 수 변동 감지 (UI 갱신용)
+        readyCount.OnValueChanged += (oldVal, newVal) => UpdatePartyStatusUI();
+        totalExpectedCount.OnValueChanged += (oldVal, newVal) => UpdatePartyStatusUI();
 
-        Log("스팀 매치메이킹 이벤트(멤버 변동)를 구독합니다.");
-        // 이벤트 콜백 구독 (스팀 멤버 변동 시 UI 업데이트)
+        if (IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientJoined;
+            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientLeft;
+
+            // 호스트가 방을 열면 즉시 시드 발급
+            int newSeed = Random.Range(100000, 999999);
+            syncedWorldSeed.Value = newSeed;
+            totalExpectedCount.Value = NetworkManager.Singleton.ConnectedClientsIds.Count;
+
+            // 🔥 [추가된 핵심 로직] 
+            // 호스트 본인은 OnValueChanged가 즉시 안 불릴 수 있으므로, 
+            // 시드 발급 직후 스스로의 지형 생성 함수를 강제 트리거합니다!
+            OnWorldSeedChanged(0, newSeed);
+        }
+
+        // CaveManager 진행도 이벤트 구독
+        if (CaveManager.Instance != null)
+        {
+            CaveManager.Instance.OnPregenProgressUpdated += OnBakingProgressCallback;
+        }
+
         SteamMatchmaking.OnLobbyMemberJoined += OnMemberChanged;
         SteamMatchmaking.OnLobbyMemberDisconnected += OnMemberChanged;
         SteamMatchmaking.OnLobbyMemberLeave += OnMemberChanged;
+
+        Log($"네트워크 스폰 성공. 로컬 ID: {NetworkManager.Singleton.LocalClientId}");
     }
 
-    private void OnDisable()
+    public override void OnNetworkDespawn()
     {
-        if (Instance != this) return;
+        syncedWorldSeed.OnValueChanged -= OnWorldSeedChanged;
+        if (IsServer && NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientJoined;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientLeft;
+        }
+        if (CaveManager.Instance != null)
+        {
+            CaveManager.Instance.OnPregenProgressUpdated -= OnBakingProgressCallback;
+        }
 
-        Log("스팀 매치메이킹 이벤트 구독을 해제합니다.");
-        // 이벤트 콜백 구독 해제 (메모리 누수 방지)
         SteamMatchmaking.OnLobbyMemberJoined -= OnMemberChanged;
         SteamMatchmaking.OnLobbyMemberDisconnected -= OnMemberChanged;
         SteamMatchmaking.OnLobbyMemberLeave -= OnMemberChanged;
     }
+
+    #region Network Callbacks (접속 관리)
+
+    private void OnClientJoined(ulong clientId)
+    {
+        if (!IsServer) return;
+        Log($"신규 유저 접속: {clientId}");
+        totalExpectedCount.Value = NetworkManager.Singleton.ConnectedClientsIds.Count;
+
+        if (!clientBakingReadyMap.ContainsKey(clientId))
+            clientBakingReadyMap.Add(clientId, false);
+
+        CheckStartCondition();
+    }
+
+    private void OnClientLeft(ulong clientId)
+    {
+        if (!IsServer) return;
+        Log($"유저 퇴장: {clientId}");
+        if (clientBakingReadyMap.ContainsKey(clientId))
+            clientBakingReadyMap.Remove(clientId);
+
+        totalExpectedCount.Value = NetworkManager.Singleton.ConnectedClientsIds.Count;
+        readyCount.Value = clientBakingReadyMap.Values.Count(v => v == true);
+        CheckStartCondition();
+    }
+
+    #endregion
 
     #region Room Browser Logic (방 목록 보기)
 
@@ -122,174 +174,98 @@ public class LobbyUIManager : MonoBehaviour
         Log("방 목록(Room Browser) 패널을 엽니다.");
         if (roomBrowserPanel != null) roomBrowserPanel.SetActive(true);
         if (lobbyRoomPanel != null) lobbyRoomPanel.SetActive(false);
-
-        // 창을 열자마자 방 목록을 한 번 갱신합니다.
         RefreshRoomList();
     }
 
-    private void CloseRoomBrowser()
+    public void CloseRoomBrowser()
     {
         Log("방 목록(Room Browser) 패널을 닫습니다.");
         if (roomBrowserPanel != null) roomBrowserPanel.SetActive(false);
-
-        // 브라우저를 닫으면 다시 타이틀 화면으로 돌아가게 켭니다.
-        if (TitleScreenManager.Instance != null) TitleScreenManager.Instance.ShowTitleScreen();
+        // 타이틀 매니저가 있다면 화면 복구
+        var titleManager = GameObject.FindObjectOfType<TitleScreenManager>();
+        if (titleManager != null) titleManager.ShowTitleScreen();
     }
 
     public async void RefreshRoomList()
     {
-        Log("방 목록 새로고침을 요청합니다...");
-        if (roomListContent == null)
-        {
-            LogError("Room List Content 오브젝트가 할당되지 않았습니다.");
-            return;
-        }
-
-        // 기존 리스트 UI 초기화
+        Log("방 목록 새로고침 중...");
+        if (roomListContent == null) return;
         foreach (Transform child in roomListContent) Destroy(child.gameObject);
 
-        // 스팀 매치메이킹을 통해 최대 10개의 로비를 비동기 검색
         var lobbies = await SteamMatchmaking.LobbyList
-                    .WithKeyValue(SteamLobbyManager.GameIdKey, SteamLobbyManager.GameIdValue) // <-- 이 줄 추가
                     .WithMaxResults(10)
                     .RequestAsync();
+
         if (lobbies != null && roomListItemPrefab != null)
         {
-            Log($"총 {lobbies.Length}개의 방을 찾았습니다.");
             foreach (var lobby in lobbies)
             {
-                // UI 프리팹 생성 후 데이터 바인딩 로직
                 GameObject item = Instantiate(roomListItemPrefab, roomListContent);
-
-                // UI 레이아웃 유지를 위한 트랜스포트 초기화 보강
-                item.transform.localPosition = Vector3.zero;
                 item.transform.localScale = Vector3.one;
 
                 TextMeshProUGUI text = item.GetComponentInChildren<TextMeshProUGUI>();
                 Button joinBtn = item.GetComponentInChildren<Button>();
 
-                // 방 이름 및 현재 접속 인원 표시
                 if (text != null)
                     text.text = $"{lobby.GetData("LobbyName")} ({lobby.MemberCount}/{lobby.MaxMembers})";
 
-                // 해당 방으로 입장하는 버튼 이벤트 등록
                 if (joinBtn != null)
-                    joinBtn.onClick.AddListener(() => JoinSelectedLobby(lobby));
+                    joinBtn.onClick.AddListener(async () => await lobby.Join());
             }
         }
-        else
-        {
-            LogWarning("검색된 방이 없거나, 방 목록 프리팹(roomListItemPrefab)이 할당되지 않았습니다.");
-        }
-    }
-
-    private async void JoinSelectedLobby(Lobby lobby)
-    {
-        Log($"선택한 방({lobby.Id})에 접속을 시도합니다...");
-        if (roomBrowserPanel != null) roomBrowserPanel.SetActive(false);
-
-        // 스팀 로비 접속 시도 -> 성공 시 SteamLobbyManager.OnLobbyEntered 콜백이 알아서 작동합니다.
-        await lobby.Join();
     }
 
     #endregion
 
     #region Lobby Room Logic (대기방)
 
-    /// <summary>
-    /// SteamLobbyManager에서 방 생성 또는 입장이 완료되었을 때 호출하여 대기방 UI를 띄웁니다.
-    /// </summary>
     public void OpenLobbyRoom(Lobby currentLobby)
     {
-        Log("대기방(Lobby Room) 패널 열기 시도 중...");
-
+        Log("대기방(Lobby Room) 패널 활성화.");
         if (roomBrowserPanel != null) roomBrowserPanel.SetActive(false);
+        if (lobbyRoomPanel != null) lobbyRoomPanel.SetActive(true);
 
-        if (lobbyRoomPanel != null)
-        {
-            lobbyRoomPanel.SetActive(true);
-            Log("대기방 패널(Lobby Room Panel) 활성화 완료!");
-        }
-        else
-        {
-            LogError("오류: lobbyRoomPanel이 인스펙터에 할당되지 않아 창을 켤 수 없습니다!");
-            return;
-        }
-
-        // 방 제목 셋팅
         if (lobbyTitleText) lobbyTitleText.text = currentLobby.GetData("LobbyName") ?? "대기방";
 
-        // 입장 직후 현재 접속자 목록 갱신
         RefreshPlayerList(currentLobby);
 
-        // 호스트 권한에 따른 UI 활성화/비활성화
-        if (NetworkManager.Singleton.IsHost)
+        if (NetworkManager.Singleton.IsConnectedClient)
         {
-            Log("호스트 권한 확인됨. 게임 시작 버튼과 지형 생성 UI를 활성화합니다.");
-            if (startGameButton) startGameButton.gameObject.SetActive(true);
+            if (startGameButton) startGameButton.gameObject.SetActive(IsServer);
             if (inviteFriendButton) inviteFriendButton.gameObject.SetActive(true);
-
-            // 호스트가 방을 만들면 즉시 백그라운드 지형 생성을 시작합니다.
-            StartCoroutine(BackgroundTerrainGenerationRoutine());
-        }
-        else
-        {
-            Log("클라이언트 권한 확인됨. 게임 시작 버튼과 지형 생성 UI를 비활성화합니다.");
-            if (startGameButton) startGameButton.gameObject.SetActive(false);
-            if (generationProgressPanel) generationProgressPanel.SetActive(false);
         }
     }
 
     private void OnMemberChanged(Lobby lobby, Friend friend)
     {
-        // 누군가 들어오거나 나갈 때, 현재 대기방이 켜져있다면 UI를 즉시 갱신합니다.
         if (lobbyRoomPanel != null && lobbyRoomPanel.activeSelf)
         {
-            Log($"멤버 변동 감지됨 ({friend.Name}). 접속자 목록을 갱신합니다.");
             RefreshPlayerList(lobby);
         }
     }
 
     private void RefreshPlayerList(Lobby lobby)
     {
-        if (playerListContent == null || playerListItemPrefab == null)
-        {
-            LogWarning("Player List Content 또는 프리팹이 누락되어 리스트를 갱신할 수 없습니다.");
-            return;
-        }
-
-        // 기존 리스트 청소
+        if (playerListContent == null || playerListItemPrefab == null) return;
         foreach (Transform child in playerListContent) Destroy(child.gameObject);
 
-        // 로비에 접속한 멤버들을 배열로 변환 (인덱스 접근 용이성)
         var members = lobby.Members.ToArray();
-
-        // 방의 최대 인원 수만큼 프리팹을 미리 생성
         for (int i = 0; i < lobby.MaxMembers; i++)
         {
             GameObject item = Instantiate(playerListItemPrefab, playerListContent);
-
-            // UI 레이아웃 유지를 위한 트랜스포트 초기화 보강 (중요)
-            item.transform.localPosition = Vector3.zero;
             item.transform.localScale = Vector3.one;
-
             TextMeshProUGUI text = item.GetComponentInChildren<TextMeshProUGUI>();
 
             if (text != null)
             {
-                // 인덱스가 현재 멤버 수보다 작으면 실제 유저 정보를 표시
                 if (i < members.Length)
                 {
                     Friend member = members[i];
                     text.text = member.Name;
-
-                    // 방장(Owner)인 경우 노란색 태그 추가
-                    if (member.Id == lobby.Owner.Id)
-                        text.text += " <color=yellow>[방장]</color>";
+                    if (member.Id == lobby.Owner.Id) text.text += " <color=yellow>[방장]</color>";
                 }
                 else
                 {
-                    // 빈 자리는 대기 중 텍스트로 표시 (HTML 태그로 회색 적용)
                     text.text = "<color=#808080>참여자 대기 중...</color>";
                 }
             }
@@ -298,35 +274,100 @@ public class LobbyUIManager : MonoBehaviour
 
     private void InviteFriends()
     {
-        Log("친구 초대 오버레이를 엽니다.");
-        // 이름 충돌 방지를 위해 명시적으로 Steamworks.SteamClient 호출
         if (Steamworks.SteamClient.IsValid)
-        {
             SteamFriends.OpenOverlay("friends");
-        }
         else
-        {
-            LogWarning("Steam API가 유효하지 않아 오버레이를 열 수 없습니다.");
-        }
+            LogWarning("Steam API가 유효하지 않습니다.");
     }
 
     private void LeaveLobby()
     {
-        Log("로비에서 퇴장합니다.");
+        Log("로비 퇴장.");
+        var lobbyManager = GameObject.FindObjectOfType<SteamLobbyManager>();
+        if (lobbyManager != null) lobbyManager.LeaveLobby();
 
-        // SteamLobbyManager에 퇴장 로직 실행 위임
-        if (SteamLobbyManager.Instance != null) SteamLobbyManager.Instance.LeaveLobby();
-
-        // 대기방 패널 닫기
         if (lobbyRoomPanel != null) lobbyRoomPanel.SetActive(false);
-
-        // 타이틀 화면 원상 복구
-        if (TitleScreenManager.Instance != null) TitleScreenManager.Instance.ShowTitleScreen();
+        var titleManager = GameObject.FindObjectOfType<TitleScreenManager>();
+        if (titleManager != null) titleManager.ShowTitleScreen();
     }
 
     #endregion
 
-    #region Game Start & Procedural Generation
+    #region 🌐 Phase 5: Terrain Synchronization
+
+    private void OnWorldSeedChanged(int oldSeed, int newSeed)
+    {
+        if (newSeed == 0) return;
+        if (generationProgressPanel) generationProgressPanel.SetActive(true);
+
+        if (CaveManager.Instance != null)
+        {
+            CaveManager.Instance.StartLobbyPregeneration(newSeed);
+        }
+    }
+
+    private void OnBakingProgressCallback(float progress, string status)
+    {
+        if (generationProgressBar) generationProgressBar.value = progress;
+        if (generationStatusText) generationStatusText.text = status;
+
+        if (progress >= 1.0f && !isLocalBakingComplete)
+        {
+            isLocalBakingComplete = true;
+            NotifyTerrainReadyServerRpc();
+        }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void NotifyTerrainReadyServerRpc(ServerRpcParams rpcParams = default)
+    {
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        if (!clientBakingReadyMap.ContainsKey(clientId))
+            clientBakingReadyMap.Add(clientId, true);
+        else
+            clientBakingReadyMap[clientId] = true;
+
+        readyCount.Value = clientBakingReadyMap.Values.Count(v => v == true);
+        CheckStartCondition();
+    }
+
+    private void UpdatePartyStatusUI()
+    {
+        if (partyStatusSummaryText)
+        {
+            partyStatusSummaryText.text = $"지형 생성 현황: <color=yellow>{readyCount.Value} / {totalExpectedCount.Value}</color> 완료";
+        }
+    }
+
+    private void CheckStartCondition()
+    {
+        if (!IsServer) return;
+        int total = NetworkManager.Singleton.ConnectedClientsIds.Count;
+        totalExpectedCount.Value = total;
+
+        if (readyCount.Value >= total)
+        {
+            if (startGameButton) startGameButton.interactable = true;
+        }
+        else
+        {
+            if (startGameButton) startGameButton.interactable = false;
+        }
+    }
+
+    private void Update()
+    {
+        if (IsServer && syncedWorldSeed.Value != 0 && readyCount.Value < totalExpectedCount.Value)
+        {
+            timeoutTimer += Time.deltaTime;
+            if (timeoutTimer > START_TIMEOUT)
+            {
+                if (startGameButton) startGameButton.interactable = true;
+                if (partyStatusSummaryText) partyStatusSummaryText.text += " <color=red>(타임아웃 발생)</color>";
+                timeoutTimer = -9999f;
+            }
+        }
+    }
 
     // 호스트가 '게임 시작' 버튼을 눌렀을 때 실행 (다 같이 씬 로드)
     private void OnStartGameClicked()
@@ -334,11 +375,11 @@ public class LobbyUIManager : MonoBehaviour
         if (!NetworkManager.Singleton.IsHost) return;
 
         // 지형 생성이 끝나지 않았다면 시작 불가
-        if (!isTerrainReady)
+        /*if (!isTerrainReady)
         {
             LogWarning("아직 지형 생성 작업이 완료되지 않았습니다! 잠시만 기다려주세요.");
             return;
-        }
+        }*/
 
         Log("호스트가 게임을 시작합니다! 연결된 모든 클라이언트를 본 게임 씬으로 동기화합니다.");
 
@@ -362,34 +403,10 @@ public class LobbyUIManager : MonoBehaviour
         // --------------------------------------------------
     }
 
-    // 백그라운드 지형 생성 시뮬레이션 인터페이스
-    private IEnumerator BackgroundTerrainGenerationRoutine()
-    {
-        Log("지형 데이터 백그라운드 생성을 시작합니다.");
-        isTerrainReady = false;
-
-        if (generationProgressPanel) generationProgressPanel.SetActive(true);
-        if (generationStatusText) generationStatusText.text = "월드 지형 데이터 베이킹 중...";
-        if (generationProgressBar) generationProgressBar.value = 0f;
-        if (startGameButton) startGameButton.interactable = false; // 완료 전까지 시작 버튼 비활성화
-
-        // TODO: 실제 프로세듀럴 지형 생성 코드를 여기에 연결합니다.
-
-        float progress = 0f;
-        while (progress < 1f)
-        {
-            progress += Time.deltaTime / 3.0f;
-            if (generationProgressBar) generationProgressBar.value = progress;
-            yield return null;
-        }
-
-        isTerrainReady = true;
-
-        if (generationStatusText) generationStatusText.text = "지형 생성 완료! 플레이어 입장 대기 중...";
-        if (startGameButton) startGameButton.interactable = true; // 시작 버튼 활성화
-
-        Log("지형 생성 완료. 게임 시작이 가능합니다.");
-    }
 
     #endregion
+
+    private void Log(string m) { if (showDebugLogs) Debug.Log($"[LobbyUIManager] {m}"); }
+    private void LogWarning(string m) { if (showDebugLogs) Debug.LogWarning($"[LobbyUIManager] {m}"); }
+    private void LogError(string m) { if (showDebugLogs) Debug.LogError($"[LobbyUIManager] {m}"); }
 }

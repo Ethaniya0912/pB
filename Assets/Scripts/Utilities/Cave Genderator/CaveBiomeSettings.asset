@@ -23,9 +23,11 @@ MonoBehaviour:
     minAltitude: -50
     floorBlendRadius: 3
     ceilBlendRadius: 4
+    floorBumpAmplitude: 0
+    floorBumpFrequency: 0
     noiseFrequency: 0.05
-    sdfSmoothness: 0
-    sinkholeProbability: 0
+    sdfSmoothness: 3
+    sinkholeProbability: 0.146
     sinkholeMinRadius: 6
     sinkholeMaxRadius: 12
     sinkholeSmoothness: 5

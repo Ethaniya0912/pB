@@ -45,12 +45,19 @@ namespace CaveSystem
         public JobHandle BakeJobHandle;
         public Mesh GeneratedMesh;
         public ChunkRequestContext ChunkContext;
-        public NativeArray<CaveOreData> OreData; // 완료 시 전달용
+
+        public NativeArray<CaveOreData> OreData;
+
+        // [Phase 3] TerrainCacheManager 전달을 위해 메모리 해제를 지연시킬 참조 보관
+        public NativeArray<CaveVertex> Vertices;
+        public NativeArray<int> Indices;
+
         public MeshCollider TargetCollider;
     }
 
     /// <summary>
     /// 회수된 Native 메모리를 유니티가 렌더링하고 충돌할 수 있는 객체로 가공하는 공장입니다.
+    /// 비가시적(Headless) 모드 시 캐시 매니저로 데이터를 우회시킵니다.
     /// </summary>
     public class CaveMeshJobManager : MonoBehaviour
     {
@@ -95,7 +102,6 @@ namespace CaveSystem
             mesh.SetIndexBufferParams(vertexCount, UnityEngine.Rendering.IndexFormat.UInt32);
 
             // GC 할당 없이 NativeArray의 메모리를 그대로 Mesh에 다이렉트 복사
-            // MeshUpdateFlags를 통해 CPU 재연산(Bounds, Indices 검증 등)을 강제 생략하여 메인 스레드 스파이크 방지
             mesh.SetVertexBufferData(vertices, 0, 0, vertexCount, 0, MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices);
             mesh.SetIndexBufferData(indices, 0, 0, vertexCount, MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices);
 
@@ -107,38 +113,47 @@ namespace CaveSystem
             Vector3 centerOffset = new Vector3(halfSize, halfSize, halfSize);
             mesh.bounds = new Bounds(centerOffset, new Vector3(chunkSize * voxelSize, chunkSize * voxelSize, chunkSize * voxelSize));
 
-            // 데이터 전달이 끝난 NativeArray 즉시 해제 (메모리 누수 원천 차단)
-            vertices.Dispose();
-            indices.Dispose();
+            // [Phase 3] 기존의 vertices.Dispose(); indices.Dispose(); 삭제
+            // (Headless 모드에서는 데이터를 보존하여 캐시 매니저로 넘겨야 하기 때문입니다)
 
-            // 3. 지형 오브젝트 및 컴포넌트 셋업
-            MeshFilter filter = context.ChunkObject.GetComponent<MeshFilter>();
-            if (filter == null) filter = context.ChunkObject.AddComponent<MeshFilter>();
-            filter.sharedMesh = mesh;
+            MeshCollider collider = null;
 
-            MeshRenderer renderer = context.ChunkObject.GetComponent<MeshRenderer>();
-            if (renderer == null) renderer = context.ChunkObject.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = caveMaterial;
+            // 3. 지형 오브젝트 셋업 (Headless 모드 분기 처리)
+            bool isHeadless = (CaveManager.Instance != null && CaveManager.Instance.isHeadlessPregenMode);
 
-            MeshCollider collider = context.ChunkObject.GetComponent<MeshCollider>();
-            if (collider == null) collider = context.ChunkObject.AddComponent<MeshCollider>();
+            if (!isHeadless)
+            {
+                // 일반 게임 모드: 씬의 GameObject에 렌더러와 콜라이더 즉시 할당
+                MeshFilter filter = context.ChunkObject.GetComponent<MeshFilter>();
+                if (filter == null) filter = context.ChunkObject.AddComponent<MeshFilter>();
+                filter.sharedMesh = mesh;
+
+                MeshRenderer renderer = context.ChunkObject.GetComponent<MeshRenderer>();
+                if (renderer == null) renderer = context.ChunkObject.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = caveMaterial;
+
+                collider = context.ChunkObject.GetComponent<MeshCollider>();
+                if (collider == null) collider = context.ChunkObject.AddComponent<MeshCollider>();
+
+                // 지하 수위(Water Level) 동적 배치 판별
+                CheckAndSpawnWaterPlane(context);
+            }
 
             // 4. 물리 베이킹 비동기 Job 스케줄링 (Unity 6 핵심)
             var bakeJob = new PhysicsBakeJob { meshId = mesh.GetInstanceID() };
             JobHandle bakeHandle = bakeJob.Schedule();
 
-            // 5. 진행 상태 등록 (Update 루프에서 완료 여부 감시)
+            // 5. 진행 상태 등록 (메모리 해제를 지연시키기 위해 구조체에 보관)
             activeJobs.Add(new MeshJobContext
             {
                 BakeJobHandle = bakeHandle,
                 GeneratedMesh = mesh,
                 ChunkContext = context,
                 OreData = ores,
+                Vertices = vertices,
+                Indices = indices,
                 TargetCollider = collider
             });
-
-            // 6. 지하 수위(Water Level) 동적 배치 판별
-            CheckAndSpawnWaterPlane(context);
         }
 
         private void CheckAndSpawnWaterPlane(ChunkRequestContext context)
@@ -146,31 +161,25 @@ namespace CaveSystem
             float chunkWorldY = context.ChunkPos.y * chunkSize * voxelSize;
             float chunkTopY = chunkWorldY + (chunkSize * voxelSize);
 
-            // [에러 수정] 현재 청크 고도에 맞는 층(Layer) 데이터를 가져옵니다.
             DepthLayer currentLayer = caveSettings.GetLayerSettings(chunkWorldY);
 
-            // 현재 청크의 Y축 고도 범위 내에 해당 층의 waterLevel이 존재하는지 확인
             if (currentLayer.waterLevel >= chunkWorldY && currentLayer.waterLevel <= chunkTopY)
             {
-                // 충돌체가 없는 단순 Plane 메시 생성
                 GameObject waterObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 waterObj.name = "WaterPlane";
                 waterObj.transform.SetParent(context.ChunkObject.transform);
 
-                // 물은 항상 위를 보도록 X축 90도 회전
                 waterObj.transform.localRotation = Quaternion.Euler(90, 0, 0);
 
-                // 청크 크기에 맞게 스케일 조정 (청크 중앙 배치)
                 float halfSize = (chunkSize * voxelSize) * 0.5f;
                 waterObj.transform.localPosition = new Vector3(halfSize, currentLayer.waterLevel - chunkWorldY, halfSize);
                 waterObj.transform.localScale = new Vector3(chunkSize * voxelSize, chunkSize * voxelSize, 1f);
 
-                // 불필요한 기본 콜라이더 즉시 제거
                 Destroy(waterObj.GetComponent<Collider>());
 
                 MeshRenderer waterRenderer = waterObj.GetComponent<MeshRenderer>();
                 waterRenderer.sharedMaterial = waterMaterial;
-                waterRenderer.shadowCastingMode = ShadowCastingMode.Off; // 물은 그림자 캐스팅 제외 최적화
+                waterRenderer.shadowCastingMode = ShadowCastingMode.Off;
             }
         }
 
@@ -183,9 +192,11 @@ namespace CaveSystem
 
                 if (jobCtx.ChunkContext.State == ChunkState.Aborted)
                 {
-                    // 취소된 경우 Job을 강제로 끝내고 NativeArray를 정리함
+                    // 취소된 경우 Job 강제 종료 후 모든 NativeArray 수동 해제
                     jobCtx.BakeJobHandle.Complete();
                     if (jobCtx.OreData.IsCreated) jobCtx.OreData.Dispose();
+                    if (jobCtx.Vertices.IsCreated) jobCtx.Vertices.Dispose();
+                    if (jobCtx.Indices.IsCreated) jobCtx.Indices.Dispose();
                     activeJobs.RemoveAt(i);
                     continue;
                 }
@@ -194,14 +205,47 @@ namespace CaveSystem
                 {
                     jobCtx.BakeJobHandle.Complete();
 
-                    // 물리 트리가 완성된 직후 메인 스레드에 할당해야 스파이크가 발생하지 않음
-                    if (jobCtx.TargetCollider != null && jobCtx.GeneratedMesh != null)
-                    {
-                        jobCtx.TargetCollider.sharedMesh = jobCtx.GeneratedMesh;
-                    }
+                    bool isHeadless = (CaveManager.Instance != null && CaveManager.Instance.isHeadlessPregenMode);
 
-                    // 모든 작업 완료, Callback 트리거
-                    externalCallback?.Invoke(jobCtx.ChunkContext, jobCtx.OreData);
+                    if (isHeadless)
+                    {
+                        // [Phase 3] Headless 로비 모드: 
+                        // 메시에 씌우지 않고 TerrainCacheManager로 데이터를 조용히 우회(Bypass)시킵니다.
+                        PrecookedChunkData data = new PrecookedChunkData
+                        {
+                            vertices = jobCtx.Vertices,
+                            indices = jobCtx.Indices,
+                            oreData = jobCtx.OreData,
+                            bakedMesh = jobCtx.GeneratedMesh
+                        };
+
+                        if (TerrainCacheManager.Instance != null)
+                        {
+                            TerrainCacheManager.Instance.AddCache(jobCtx.ChunkContext.ChunkPos, data);
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[CaveMeshJobManager] TerrainCacheManager가 존재하지 않아 데이터를 수동 폐기합니다.");
+                            if (jobCtx.Vertices.IsCreated) jobCtx.Vertices.Dispose();
+                            if (jobCtx.Indices.IsCreated) jobCtx.Indices.Dispose();
+                            if (jobCtx.OreData.IsCreated) jobCtx.OreData.Dispose();
+                        }
+                    }
+                    else
+                    {
+                        // 일반 플레이 모드: 완성된 물리 트리를 콜라이더에 즉시 할당
+                        if (jobCtx.TargetCollider != null && jobCtx.GeneratedMesh != null)
+                        {
+                            jobCtx.TargetCollider.sharedMesh = jobCtx.GeneratedMesh;
+                        }
+
+                        // 일반 모드에서는 TerrainCacheManager로 넘기지 않으므로, 여기서 즉시 Dispose
+                        if (jobCtx.Vertices.IsCreated) jobCtx.Vertices.Dispose();
+                        if (jobCtx.Indices.IsCreated) jobCtx.Indices.Dispose();
+
+                        // 외부 Callback 트리거 (생태계 매니저 등)
+                        externalCallback?.Invoke(jobCtx.ChunkContext, jobCtx.OreData);
+                    }
 
                     activeJobs.RemoveAt(i);
                 }
@@ -215,6 +259,8 @@ namespace CaveSystem
             {
                 job.BakeJobHandle.Complete();
                 if (job.OreData.IsCreated) job.OreData.Dispose();
+                if (job.Vertices.IsCreated) job.Vertices.Dispose();
+                if (job.Indices.IsCreated) job.Indices.Dispose();
             }
             activeJobs.Clear();
         }

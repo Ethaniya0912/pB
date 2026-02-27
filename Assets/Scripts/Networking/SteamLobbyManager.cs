@@ -4,6 +4,7 @@ using Unity.Netcode;
 using UnityEngine;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using CaveSystem.Multiplayer;
 
 /* * [확장된 SteamLobbyManager - 끊김 감지 및 씬 복구 추가]
  * 이 스크립트는 Facepunch.Steamworks와 UnityNetcodeSteamP2PRelayTransport를 
