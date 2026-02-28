@@ -84,8 +84,9 @@ namespace CaveSystem
             externalCallback = onCompleted;
             int vertexCount = vertices.Length;
 
-            // 1. 인덱스 배열 생성 (Burst Job)
-            NativeArray<int> indices = new NativeArray<int>(vertexCount, Allocator.TempJob);
+            // [🔥 핵심 에러 수정] Allocator.TempJob -> Allocator.Persistent
+            // 물리 베이킹 작업이 4프레임 이상 걸릴 경우 발생하는 'JobTempAlloc' 생명주기 에러를 방지합니다.
+            NativeArray<int> indices = new NativeArray<int>(vertexCount, Allocator.Persistent);
             var indexJob = new GenerateIndicesJob { indices = indices };
             JobHandle indexHandle = indexJob.Schedule(vertexCount, 64);
             indexHandle.Complete(); // 인덱스 생성은 극도로 빠르므로 여기서 대기해도 무방
@@ -113,15 +114,12 @@ namespace CaveSystem
             Vector3 centerOffset = new Vector3(halfSize, halfSize, halfSize);
             mesh.bounds = new Bounds(centerOffset, new Vector3(chunkSize * voxelSize, chunkSize * voxelSize, chunkSize * voxelSize));
 
-            // [Phase 3] 기존의 vertices.Dispose(); indices.Dispose(); 삭제
-            // (Headless 모드에서는 데이터를 보존하여 캐시 매니저로 넘겨야 하기 때문입니다)
-
             MeshCollider collider = null;
 
             // 3. 지형 오브젝트 셋업 (Headless 모드 분기 처리)
             bool isHeadless = (CaveManager.Instance != null && CaveManager.Instance.isHeadlessPregenMode);
 
-            if (!isHeadless)
+            if (!isHeadless && context.ChunkObject != null)
             {
                 // 일반 게임 모드: 씬의 GameObject에 렌더러와 콜라이더 즉시 할당
                 MeshFilter filter = context.ChunkObject.GetComponent<MeshFilter>();
@@ -161,9 +159,13 @@ namespace CaveSystem
             float chunkWorldY = context.ChunkPos.y * chunkSize * voxelSize;
             float chunkTopY = chunkWorldY + (chunkSize * voxelSize);
 
+            // 방어 코드: 설정이 비어있으면 물 생성 취소
+            if (caveSettings == null) return;
+
             DepthLayer currentLayer = caveSettings.GetLayerSettings(chunkWorldY);
 
-            if (currentLayer.waterLevel >= chunkWorldY && currentLayer.waterLevel <= chunkTopY)
+            // waterLevel이 유효한 범위 안에 있는지 체크
+            if (currentLayer.waterLevel > -990f && currentLayer.waterLevel >= chunkWorldY && currentLayer.waterLevel <= chunkTopY)
             {
                 GameObject waterObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 waterObj.name = "WaterPlane";

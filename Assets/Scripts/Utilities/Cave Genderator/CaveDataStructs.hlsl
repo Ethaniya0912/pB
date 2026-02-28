@@ -1,10 +1,7 @@
-// ===============================================================================
-// 파일: CaveDataStructs.hlsl
-// 역할: C#과 GPU(Compute Shader) 간의 16바이트 메모리 정렬을 맞추는 공통 구조체
-// ===============================================================================
 #ifndef CAVE_DATA_STRUCTS_INCLUDED
 #define CAVE_DATA_STRUCTS_INCLUDED
 
+// C#의 CaveVoxel과 동일 (16 bytes)
 struct CaveVoxel
 {
     float density;
@@ -12,6 +9,7 @@ struct CaveVoxel
     float2 padding;
 };
 
+// C#의 CaveVertex와 동일 (32 bytes)
 struct CaveVertex
 {
     float3 position;
@@ -19,6 +17,7 @@ struct CaveVertex
     float2 uv;
 };
 
+// (96 bytes)
 struct CaveTriangle
 {
     CaveVertex v0;
@@ -26,14 +25,16 @@ struct CaveTriangle
     CaveVertex v2;
 };
 
+// C#의 CaveOreData와 동일 (32 bytes)
 struct CaveOreData
 {
     float3 position;
-    int oreType; // [에러 원인 수정] type -> oreType 으로 명칭 완벽 통일
+    int oreType;
     float3 normal;
     float padding;
 };
 
+// C#의 NodeData와 동일 (32 bytes)
 struct NodeData
 {
     float3 position;
@@ -42,11 +43,26 @@ struct NodeData
     float3 padding;
 };
 
+// C#의 EdgeData와 동일 (32 bytes)
 struct EdgeData
 {
     float3 startPos;
     float3 endPos;
     float width;
+    float padding;
+};
+
+// C#의 BiomeParamData와 동일 (32 bytes)
+struct BiomeParamData
+{
+    float noiseFrequency;
+    float yCompression;
+    float sminStrength;
+    float terraceSteps;
+
+    float bumpAmplitude;
+    float bumpFrequency;
+    int noiseType;
     float padding;
 };
 

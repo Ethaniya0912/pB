@@ -17,6 +17,10 @@ MonoBehaviour:
   maxOctaves: 5
   lacunarity: 2
   gain: 0.5
+  macroBiomeScale: 500
+  globalBiomes:
+  - {fileID: 11400000, guid: 23062ff654eafe2438553c5eb819c6e9, type: 2}
+  - {fileID: 11400000, guid: 2e0520f991830f042949f12073e0b060, type: 2}
   depthLayers:
   - layerName: 1F
     maxAltitude: 15
@@ -26,7 +30,7 @@ MonoBehaviour:
     floorBumpAmplitude: 0
     floorBumpFrequency: 0
     noiseFrequency: 0.05
-    sdfSmoothness: 3
+    sdfSmoothness: 2.5
     sinkholeProbability: 0.146
     sinkholeMinRadius: 6
     sinkholeMaxRadius: 12
@@ -35,6 +39,5 @@ MonoBehaviour:
     spiralFrequency: 0.5
     spiralAmplitude: 2
     layerFogColor: {r: 0.22745098, g: 0.20784314, b: 0.1882353, a: 0}
-    terrainMaterial: {fileID: 2100000, guid: 06176ee8cef908b4b89c0ff7abe19ff3, type: 2}
     waterLevel: -45
     oreDistributions: []

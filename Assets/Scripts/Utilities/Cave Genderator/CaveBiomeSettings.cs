@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace CaveSystem
 {
@@ -20,47 +21,44 @@ namespace CaveSystem
         public float clusterSize;
     }
 
-    // [파라미터화: 하드코딩 변수 노출] 특정 고도 구간에서 사용될 모든 파라미터 묶음을 정의합니다.
     [System.Serializable]
     public struct DepthLayer
     {
-        public string layerName;          // 예: "1층: 건조한 단층 지대"
-        public float maxAltitude;         // 예: 15.0f (천장 고도)
-        public float minAltitude;         // 예: -50.0f (하층부 전환 고도)
+        public string layerName;
+        public float maxAltitude;
+        public float minAltitude;
 
         [Header("2.5D SDF Constraints")]
-        public float floorBlendRadius;    // 기본 3.0 (바닥 필렛 곡률)
-        public float ceilBlendRadius;     // 기본 4.0 (천장 필렛 곡률)
-        public float floorBumpAmplitude;  // 기본 2.0 (바닥 요철 깊이/높이)
-        public float floorBumpFrequency;  // 기본 0.05 (바닥 요철 넓이/빈도)
+        public float floorBlendRadius;
+        public float ceilBlendRadius;
+        public float floorBumpAmplitude;
+        public float floorBumpFrequency;
 
         [Header("Geometry Settings")]
-        public float noiseFrequency;      // 뼈대 생성 촘촘함 (빈도)
-        public float sdfSmoothness;       // 벽면 부드러움 (smin k값)
+        public float noiseFrequency;
+        public float sdfSmoothness;
 
-        [Header("Sinkhole & Ledge (함정 및 발판)")]
-        [Range(0f, 1f)] public float sinkholeProbability; // 5% = 0.05
-        public float sinkholeMinRadius;   // 기본 6.0
-        public float sinkholeMaxRadius;   // 기본 12.0
-        public float sinkholeSmoothness;  // 기본 5.0
+        [Header("Sinkhole & Ledge")]
+        [Range(0f, 1f)] public float sinkholeProbability;
+        public float sinkholeMinRadius;
+        public float sinkholeMaxRadius;
+        public float sinkholeSmoothness;
 
-        public float ledgeStepHeight;     // 기본 2.5 (계단 단차)
-        public float spiralFrequency;     // 기본 0.5 (나선형 촘촘함)
-        public float spiralAmplitude;     // 기본 2.0 (나선형 튀어나온 깊이)
+        public float ledgeStepHeight;
+        public float spiralFrequency;
+        public float spiralAmplitude;
 
-        [Header("Biome & Atmosphere")]
-        public Color layerFogColor;       // 이 층의 포그 색상
-        public Material terrainMaterial;  // 층 전용 트라이플래너 매터리얼
-
+        [Header("Atmosphere")]
+        public Color layerFogColor;
         public float waterLevel;
 
         [Header("Ecosystem")]
-        public List<OreProbability> oreDistributions; // 층별 드롭 테이블
+        public List<OreProbability> oreDistributions;
     }
 
     /// <summary>
-    /// 동굴 생성의 파라미터를 고도(Depth)별로 제어하는 마스터 설정 파일입니다.
-    /// 하드코딩되었던 매직 넘버를 흡수하여 완벽한 데이터 주도형 아키텍처를 완성합니다.
+    /// 동굴 생성의 파라미터를 제어하는 마스터 설정 파일입니다.
+    /// 구조적(Layer) 설정과 표면 질감(Biome) 설정을 분리 관리합니다.
     /// </summary>
     [CreateAssetMenu(fileName = "CaveBiomeSettings", menuName = "Cave System/Layered Biome Settings", order = 1)]
     public class CaveBiomeSettings : ScriptableObject
@@ -76,8 +74,14 @@ namespace CaveSystem
         public float lacunarity = 2.0f;
         public float gain = 0.5f;
 
-        [Header("Layered Biome Data")]
-        // [파라미터화: 하드코딩 변수 노출] 리스트 형태로 여러 층(DepthLayer)의 데이터를 관리합니다.
+        [Header("Multi-Biome Distribution")]
+        [Tooltip("거시적(Macro) 바이옴 맵의 스케일입니다. 값이 클수록 한 바이옴의 영역이 넓어집니다.")]
+        public float macroBiomeScale = 500.0f;
+
+        [Tooltip("월드에 출현할 바이옴 데이터 에셋들을 등록합니다. 이 인덱스가 GPU 바이옴 ID가 됩니다.")]
+        public List<CaveBiomeData> globalBiomes = new List<CaveBiomeData>();
+
+        [Header("Layered Constraints Data")]
         public List<DepthLayer> depthLayers = new List<DepthLayer>();
 
         /// <summary>
@@ -86,50 +90,49 @@ namespace CaveSystem
         public int GetActiveOctaves()
         {
             int qualityLevel = QualitySettings.GetQualityLevel();
-
-            // 저사양 기기 (Low / Very Low)
-            if (qualityLevel <= 1)
-            {
-                return Mathf.Clamp(maxOctaves - 3, 2, 8);
-            }
-            // 중사양 기기 (Medium / High)
-            else if (qualityLevel <= 3)
-            {
-                return Mathf.Clamp(maxOctaves - 1, 2, 8);
-            }
-
-            // 고사양 기기 (Ultra)
+            if (qualityLevel <= 1) return Mathf.Clamp(maxOctaves - 3, 2, 8);
+            else if (qualityLevel <= 3) return Mathf.Clamp(maxOctaves - 1, 2, 8);
             return maxOctaves;
         }
 
         /// <summary>
-        /// [파라미터화: 하드코딩 변수 노출]
-        /// 게임 루프에서 플레이어의 위치를 받아 어떤 층의 데이터를 사용할지 반환해 주는 핵심 API입니다.
+        /// 플레이어의 Y 고도를 바탕으로 현재 층(Layer)의 데이터를 반환합니다.
         /// </summary>
-        /// <param name="playerY">플레이어의 현재 Y 고도</param>
-        /// <returns>해당 고도에 매칭되는 DepthLayer 구조체</returns>
         public DepthLayer GetLayerSettings(float playerY)
         {
-            // 기본값 반환 방어
-            if (depthLayers == null || depthLayers.Count == 0)
-            {
-                Debug.LogWarning("[CaveBiomeSettings] ⚠️ 정의된 DepthLayer가 없습니다. 빈 레이어 데이터를 반환합니다.");
-                return default;
-            }
+            if (depthLayers == null || depthLayers.Count == 0) return default;
 
             foreach (var layer in depthLayers)
             {
-                // 현재 Y좌표가 해당 레이어의 고도 범위 내에 존재하는지 확인
-                if (playerY <= layer.maxAltitude && playerY > layer.minAltitude)
-                {
-                    return layer;
-                }
+                if (playerY <= layer.maxAltitude && playerY > layer.minAltitude) return layer;
             }
-
-            // [파라미터화: 하드코딩 변수 노출] Fallback 처리
-            // 플레이어가 맵 밖이나 정의된 최하층보다 더 깊은 곳으로 떨어졌을 경우,
-            // 크래시를 방지하기 위해 리스트의 가장 마지막(가장 깊은) 레이어 데이터를 반환합니다.
+            // 맵 밖으로 떨어졌을 경우 가장 깊은 층 반환 (Fallback)
             return depthLayers[depthLayers.Count - 1];
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// 에디터 로드 시점에 데이터 구조체의 메모리 정렬(Alignment) 무결성을 강제 검증합니다.
+        /// </summary>
+        [UnityEditor.InitializeOnLoadMethod]
+        private static void ValidateDataStructures()
+        {
+            int biomeSize = Marshal.SizeOf(typeof(BiomeParamData));
+            if (biomeSize % 16 != 0 || biomeSize != 32)
+            {
+                Debug.LogError($"[치명적 오류] BiomeParamData가 16바이트 정렬 규칙을 위반했습니다! 현재 크기: {biomeSize} Bytes. GPU 메모리 밀림이 발생합니다.");
+            }
+            int nodeSize = Marshal.SizeOf(typeof(NodeData));
+            if (nodeSize != 32)
+            {
+                Debug.LogError($"[치명적 오류] NodeData의 메모리 크기가 32바이트가 아닙니다! 패딩을 확인하세요. 현재: {nodeSize}");
+            }
+            int oreDataSize = Marshal.SizeOf(typeof(CaveOreData));
+            if (oreDataSize != 32)
+            {
+                Debug.LogError($"[치명적 오류] CaveOreData의 메모리 크기가 32바이트가 아닙니다! 패딩을 확인하세요. 현재: {oreDataSize}");
+            }
+        }
+#endif
     }
 }

@@ -36,6 +36,7 @@ Shader "CaveSystem/CaveTerrain"
 
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"

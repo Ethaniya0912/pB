@@ -1518,83 +1518,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 308072786}
   m_CullTransparentMesh: 1
---- !u!1 &330209638
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 330209641}
-  - component: {fileID: 330209642}
-  - component: {fileID: 330209640}
-  m_Layer: 0
-  m_Name: TerrainSyncManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &330209640
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330209638}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7c6d4c029cb6c344194b58042866dd04, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.Multiplayer.TerrainSyncNetworkManager
-  ShowTopMostFoldoutHeaderGroup: 1
-  SyncedWorldSeed:
-    m_InternalValue: 0
-  SyncedSpawnPosition:
-    m_InternalValue: {x: 0, y: 0, z: 0}
-  ReadyClientCount:
-    m_InternalValue: 0
---- !u!4 &330209641
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330209638}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 4.16777, y: 0, z: -2.32064}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &330209642
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330209638}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1969880148
-  InScenePlacedSourceGlobalObjectIdHash: 0
-  DeferredDespawnTick: 0
-  Ownership: 1
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
 --- !u!1 &355997045
 GameObject:
   m_ObjectHideFlags: 0
@@ -3145,7 +3068,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3901769885
+  GlobalObjectIdHash: 2728423742
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -3720,48 +3643,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SteamLobbyManager
   showDebugLogs: 1
   maxPlayers: 4
---- !u!114 &633036787
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 633036774}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 593a2fe42fa9d37498c96f9a383b6521, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkManager
-  NetworkManagerExpanded: 0
-  NetworkConfig:
-    ProtocolVersion: 0
-    NetworkTransport: {fileID: 633036782}
-    PlayerPrefab: {fileID: 0}
-    Prefabs:
-      NetworkPrefabsLists:
-      - {fileID: 11400000, guid: 015865897db139d47b3474e3f2b64676, type: 2}
-    TickRate: 30
-    ClientConnectionBufferTimeout: 10
-    ConnectionApproval: 0
-    ConnectionData: 
-    EnableTimeResync: 0
-    TimeResyncInterval: 30
-    EnsureNetworkVariableLengthSafety: 0
-    EnableSceneManagement: 1
-    ForceSamePrefabs: 1
-    RecycleNetworkIds: 1
-    NetworkIdRecycleDelay: 120
-    RpcHashSize: 0
-    LoadSceneTimeOut: 120
-    SpawnTimeout: 10
-    EnableNetworkLogs: 1
-    NetworkTopology: 0
-    UseCMBService: 0
-    AutoSpawnPlayerPrefabClientSide: 1
-    NetworkProfilingMetrics: 1
-    OldPrefabList: []
-  RunInBackground: 1
-  LogLevel: 1
 --- !u!224 &634733958 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6239625048053077620, guid: faf5e9c7ffa87f04ab72391566b3d487,
@@ -5732,7 +5613,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3684125281
+  GlobalObjectIdHash: 3187219198
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -6127,6 +6008,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 943955740}
   m_CullTransparentMesh: 1
+--- !u!1 &967332038 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+    type: 3}
+  m_PrefabInstance: {fileID: 1670054366}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &967332049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 967332038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3563490887
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &967332050
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 967332038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c6d4c029cb6c344194b58042866dd04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.Multiplayer.TerrainSyncNetworkManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  SyncedWorldSeed:
+    m_InternalValue: 0
+  SyncedSpawnPosition:
+    m_InternalValue: {x: 0, y: 0, z: 0}
+  ReadyClientCount:
+    m_InternalValue: 0
 --- !u!1 &1006977774
 GameObject:
   m_ObjectHideFlags: 0
@@ -8265,30 +8196,6 @@ RectTransform:
   m_AnchoredPosition: {x: 959.99994, y: -43.770638}
   m_SizeDelta: {x: 200, y: 38.2}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1 &1464201060 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
-    type: 3}
-  m_PrefabInstance: {fileID: 1670054366}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1464201071
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1464201060}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d22cb963f00be644b949edfb78ee5aec, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveTerrainValidator
-  sampleCount: 5
-  seamTolerance: 0.01
-  autoValidateOnStart: 0
-  showGizmos: 1
-  currentSeed: 0
-  lastFoundIssues: []
 --- !u!224 &1466137898 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3286728277505491436, guid: b4c5370b3c09bce4a996898584135628,
@@ -9372,52 +9279,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: CaveSystem
       objectReference: {fileID: 0}
-    - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: voxelSize
-      value: 0.25
-      objectReference: {fileID: 0}
-    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: mainPathWidth
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: maxRoomRadius
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: minRoomRadius
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: sidePathWidth
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: bossRoomRadiusMultiplier
-      value: 1.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: VoxelSize
-      value: 0.25
-      objectReference: {fileID: 0}
-    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: playerPrefab
-      value: 
-      objectReference: {fileID: 8286174861153668228, guid: 3318d12126834414399665f3559c9c97,
-        type: 3}
-    - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
-        type: 3}
-      propertyPath: voxelSize
-      value: 0.25
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -9425,7 +9286,11 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1464201071}
+      addedObject: {fileID: 967332049}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 967332050}
   m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1 &1693359577
 GameObject:
@@ -11778,14 +11643,9 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 9140104723480786182, guid: 13ed5a85a6b52e44188a67f08cc071f6, type: 3}
-    - {fileID: 6676019540780025953, guid: 13ed5a85a6b52e44188a67f08cc071f6, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 633036787}
     - targetCorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
         type: 3}
       insertIndex: -1
@@ -13102,4 +12962,3 @@ SceneRoots:
   - {fileID: 1392100957}
   - {fileID: 505922046}
   - {fileID: 1670054366}
-  - {fileID: 330209641}

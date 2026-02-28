@@ -103,12 +103,13 @@ namespace CaveSystem
         {
             if (oreDataArray.Length == 0) return;
 
-            NativeList<Matrix4x4> stalactiteList = new NativeList<Matrix4x4>(Allocator.TempJob);
-            NativeList<Matrix4x4> malachiteList = new NativeList<Matrix4x4>(Allocator.TempJob);
-            NativeList<Matrix4x4> fernList = new NativeList<Matrix4x4>(Allocator.TempJob);
+            // [수정] TempJob 대신 Persistent를 사용하여 4프레임 수명 에러(JobTempAlloc) 해결
+            NativeList<Matrix4x4> stalactiteList = new NativeList<Matrix4x4>(Allocator.Persistent);
+            NativeList<Matrix4x4> malachiteList = new NativeList<Matrix4x4>(Allocator.Persistent);
+            NativeList<Matrix4x4> fernList = new NativeList<Matrix4x4>(Allocator.Persistent);
 
             // 공간 해싱을 통한 거리 필터링(Poisson Disk 유사 효과)을 위한 그리드 맵
-            NativeParallelHashMap<int3, bool> spatialGrid = new NativeParallelHashMap<int3, bool>(oreDataArray.Length, Allocator.TempJob);
+            NativeParallelHashMap<int3, bool> spatialGrid = new NativeParallelHashMap<int3, bool>(oreDataArray.Length, Allocator.Persistent);
 
             // C# Job System 스케줄링
             PropPlacementJob job = new PropPlacementJob

@@ -6,9 +6,12 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using CaveSystem.Multiplayer;
 
-/* * [확장된 SteamLobbyManager - 끊김 감지 및 씬 복구 추가]
- * 이 스크립트는 Facepunch.Steamworks와 UnityNetcodeSteamP2PRelayTransport를 
- * 사용하는 환경에 최적화되었으며, NGO와의 원활한 연동 및 상세한 로비 관리를 지원합니다.
+/* * [확장된 SteamLobbyManager - 소켓 충돌 방지 및 멀티플레이어 안전성 강화 버전]
+ * * 역할:
+ * 1. Facepunch.Steamworks를 이용한 스팀 로비 생성 및 관리
+ * 2. NGO(Netcode for GameObjects)의 SteamP2PRelayTransport와 연동하여 호스트/클라이언트 가동
+ * 3. 이전 세션의 찌꺼기 소켓으로 인한 'Invalid Socket' 및 'Vport 0' 충돌 에러 방어
+ * 4. 씬 전환 및 연결 끊김 시 안전한 타이틀 화면 복구 로직 수행
  */
 
 public class SteamLobbyManager : MonoBehaviour
@@ -20,11 +23,11 @@ public class SteamLobbyManager : MonoBehaviour
     [Tooltip("체크하면 연결 과정의 상세한 로그를 콘솔에 출력합니다.")]
     [SerializeField] private bool showDebugLogs = true;
 
-    // 로비 데이터 식별을 위한 키 값
+    // 로비 데이터 식별을 위한 고유 키 값
     private const string HostAddressKey = "HostAddress";
     private const string LobbyNameKey = "LobbyName";
 
-    // 전 세계 480(Spacewar) 앱 유저들과 우리 게임을 구분하기 위한 고유 식별 키
+    // 전 세계 480(Spacewar) 앱 유저들과 우리 게임을 구분하기 위한 식별자
     public const string GameIdKey = "GameUniqueId";
     public const string GameIdValue = "PennutButterProject";
 
@@ -37,11 +40,12 @@ public class SteamLobbyManager : MonoBehaviour
     // NGO와 연동된 Transport 컴포넌트 참조
     private SteamP2PRelayTransport transport;
 
-    // 중복 셧다운 및 씬 로드 방지용 플래그
-    private bool isDisconnecting = false;
-    private bool isQuitting = false;
+    // 상태 제어용 플래그
+    private bool isDisconnecting = false; // 중복 셧다운 방지
+    private bool isQuitting = false;      // 앱 종료 중 여부
+    private bool isCreatingRoom = false;  // 방 생성 프로세스 중복 실행 방지
 
-    // --- 디버깅용 래퍼 함수 ---
+    // --- 디버깅용 래퍼 함수 (콘솔 가독성 향상) ---
     private void Log(string message)
     {
         if (showDebugLogs) Debug.Log($"<color=#42f5bf>[SteamLobbyManager]</color> {message}");
@@ -49,31 +53,30 @@ public class SteamLobbyManager : MonoBehaviour
 
     private void LogError(string message)
     {
-        if (showDebugLogs) Debug.LogError($"[SteamLobbyManager ERROR] {message}");
+        if (showDebugLogs) Debug.LogError($"<color=red>[SteamLobbyManager ERROR]</color> {message}");
     }
+
     private void LogWarning(string message)
     {
-        if (showDebugLogs) Debug.LogWarning($"[SteamLobbyManager WARNING] {message}");
+        if (showDebugLogs) Debug.LogWarning($"<color=yellow>[SteamLobbyManager WARNING]</color> {message}");
     }
     // --------------------------
 
     private void Awake()
     {
-        // 싱글톤 패턴 적용
+        // 싱글톤 패턴 적용: 오브젝트 영속성 유지
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject); // 씬이 넘어가도 로비 매니저가 파괴되지 않도록 유지
+            DontDestroyOnLoad(gameObject);
             Log("Awake: 싱글톤 인스턴스 생성 및 DontDestroyOnLoad 적용 완료");
         }
         else
         {
-            Log("Awake: 이미 존재하는 인스턴스가 있어 중복 생성된 객체를 파괴합니다.");
             Destroy(gameObject);
             return;
         }
 
-        Log("Awake: 트랜스포트 컴포넌트 캐싱 시작");
         // 런타임에 Transport 컴포넌트 캐싱
         transport = GetComponent<SteamP2PRelayTransport>();
         if (transport == null)
@@ -84,7 +87,7 @@ public class SteamLobbyManager : MonoBehaviour
 
     private void Start()
     {
-        // [추가됨] NGO 네트워크 끊김 이벤트 구독 (호스트 강제 종료 감지)
+        // NGO 네트워크 끊김 이벤트 구독 (호스트 종료 또는 나 자신의 튕김 감지)
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
@@ -93,6 +96,7 @@ public class SteamLobbyManager : MonoBehaviour
 
     private void Update()
     {
+        // 스팀 API의 콜백을 매 프레임 실행하여 이벤트를 수신합니다.
         if (Steamworks.SteamClient.IsValid)
         {
             Steamworks.SteamClient.RunCallbacks();
@@ -103,275 +107,269 @@ public class SteamLobbyManager : MonoBehaviour
     {
         if (Instance != this) return;
 
-        Log("OnEnable: 스팀 네트워크 이벤트 콜백 구독을 시작합니다.");
+        // 스팀 매치메이킹 이벤트 구독
         SteamMatchmaking.OnLobbyCreated += OnLobbyCreated;
         SteamMatchmaking.OnLobbyEntered += OnLobbyEntered;
-        SteamMatchmaking.OnLobbyInvite += OnLobbyInvite;
-        SteamMatchmaking.OnLobbyMemberJoined += OnMemberJoined;
-        SteamMatchmaking.OnLobbyMemberDisconnected += OnMemberLeft;
+        // [수정] OnMemberJoined -> OnLobbyMemberJoined 로 수정하여 컴파일 에러 해결
+        SteamMatchmaking.OnLobbyMemberJoined += HandleMemberJoined;
     }
 
     private void OnDisable()
     {
         if (Instance != this) return;
 
-        Log("OnDisable: 이벤트 콜백 구독을 해제합니다.");
+        // 이벤트 구독 해제
         SteamMatchmaking.OnLobbyCreated -= OnLobbyCreated;
         SteamMatchmaking.OnLobbyEntered -= OnLobbyEntered;
-        SteamMatchmaking.OnLobbyInvite -= OnLobbyInvite;
-        SteamMatchmaking.OnLobbyMemberJoined -= OnMemberJoined;
-        SteamMatchmaking.OnLobbyMemberDisconnected -= OnMemberLeft;
+        SteamMatchmaking.OnLobbyMemberJoined -= HandleMemberJoined;
     }
 
     private void OnDestroy()
     {
-        // [추가됨] NGO 이벤트 구독 해제
+        // NGO 이벤트 구독 해제
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
         }
     }
 
-    // [핵심 추가] 연결이 끊어졌을 때 호출되는 콜백
+    // 람다식 대신 메서드로 분리하여 OnDisable에서 안전하게 구독 해제 가능하게 변경
+    private void HandleMemberJoined(Lobby lobby, Friend friend)
+    {
+        Log($"[Lobby] 새로운 플레이어 입장: {friend.Name}");
+    }
+
+    /// <summary>
+    /// NGO 네트워크 연결이 끊어졌을 때 호출되는 콜백입니다.
+    /// </summary>
     private void OnClientDisconnected(ulong clientId)
     {
-        // 서버(Host)가 닫혀서 끊겼거나(0번), 나 자신(로컬 클라이언트)이 튕겼을 때
+        if (NetworkManager.Singleton == null) return;
+
+        // 서버(Host)가 닫혔거나, 나 자신(로컬 클라이언트)의 연결이 끊긴 경우
         if (clientId == NetworkManager.ServerClientId || clientId == NetworkManager.Singleton.LocalClientId)
         {
-            LogWarning("호스트와의 연결이 끊어졌거나 네트워크가 종료되었습니다. 메인 화면으로 돌아갑니다.");
+            LogWarning("네트워크 연결이 종료되었습니다. 타이틀 화면으로 복귀합니다.");
             RevertToTitleScreen();
         }
     }
 
-    #region Lobby Callbacks
+    #region 🏠 Lobby & Host Actions
 
-    // 로비가 생성된 직후 호출되는 콜백
-    private void OnLobbyCreated(Result result, Lobby lobby)
-    {
-        if (result != Result.OK)
-        {
-            LogError($"로비 생성 실패: {result}");
-            return;
-        }
-
-        Log($"로비 생성 성공! ID: {lobby.Id}");
-    }
-
-    // 실제로 로비에 입장(나 혹은 타인)했을 때 호출되는 콜백
-    private void OnLobbyEntered(Lobby lobby)
-    {
-        CurrentLobby = lobby;
-        Log($"로비 입장 완료: {lobby.GetData(LobbyNameKey)} (ID: {lobby.Id})");
-
-        // 호스트가 방을 만들 때도 이 함수가 호출되므로 호스트 모드라면 클라이언트 로직 무시
-        if (TitleScreenManager.Instance != null &&
-            TitleScreenManager.Instance.currentConnectionType == TitleScreenManager.NetworkConnectionType.Host)
-        {
-            Log("현재 사용자는 호스트이므로 OnLobbyEntered의 클라이언트 접속 로직을 건너뜁니다.");
-            return;
-        }
-
-        // 클라이언트 자격으로 초대 수락 또는 방 목록을 통해 들어온 경우 UI 전환
-        Log("클라이언트 자격으로 로비에 접속했습니다. 대기방 UI를 엽니다.");
-        if (TitleScreenManager.Instance != null) TitleScreenManager.Instance.HideTitleScreen();
-        if (LobbyUIManager.Instance != null) LobbyUIManager.Instance.OpenLobbyRoom(lobby);
-
-        // 클라이언트 연결 로직 (NGO Client 시작)
-        if (!NetworkManager.Singleton.IsHost)
-        {
-            string hostSteamIDStr = lobby.GetData(HostAddressKey);
-            Log($"로비 메타데이터에서 호스트 ID 추출 시도... 결과: {hostSteamIDStr}");
-
-            if (ulong.TryParse(hostSteamIDStr, out ulong hostSteamID))
-            {
-                if (transport != null)
-                {
-                    transport.serverId = hostSteamID;
-                }
-
-                Log("NGO 클라이언트 시작을 시도합니다...");
-                try
-                {
-                    if (NetworkManager.Singleton.StartClient())
-                    {
-                        Log($"호스트({hostSteamID})에게 클라이언트 접속 시도 중...");
-                    }
-                    else
-                    {
-                        LogError("NGO 클라이언트 시작에 실패했습니다.");
-                        RevertToTitleScreen();
-                    }
-                }
-                catch (System.Exception e)
-                {
-                    LogError($"NGO 클라이언트 시작 중 예외 발생: {e.Message}");
-                    RevertToTitleScreen();
-                }
-            }
-            else
-            {
-                LogError("로비 데이터에서 호스트 SteamID를 찾을 수 없습니다. 파싱 실패.");
-                RevertToTitleScreen();
-            }
-        }
-    }
-
-    private void OnLobbyInvite(Friend friend, Lobby lobby)
-    {
-        Log($"{friend.Name}님이 게임에 초대했습니다. 로비 ID: {lobby.Id}");
-    }
-
-    private void OnMemberJoined(Lobby lobby, Friend friend)
-    {
-        Log($"새로운 플레이어 입장: {friend.Name}");
-    }
-
-    private void OnMemberLeft(Lobby lobby, Friend friend)
-    {
-        Log($"플레이어 퇴장: {friend.Name}");
-    }
-
-    #endregion
-
-    #region UI Actions (Called by UI Managers' code)
-
-    // [TitleScreenManager 등에서 호출] 호스트 시작 및 로비 생성 로직
+    /// <summary>
+    /// [핵심 로직] 이전 세션의 소켓 찌꺼기를 청소하고 안전하게 호스트를 시작합니다.
+    /// </summary>
     public async void StartHostWithLobby()
     {
-        Log("호스트 시작 및 로비 생성을 시도합니다...");
+        if (isCreatingRoom) return;
+        isCreatingRoom = true;
+
+        Log("🚀 호스트 가동 및 소켓 정밀 클린업 프로세스를 시작합니다...");
 
         if (!Steamworks.SteamClient.IsValid)
         {
-            LogError("Steam API가 초기화되지 않았습니다. Steam이 실행 중인지 확인하세요.");
-            RevertToTitleScreen();
+            LogError("Steam API가 유효하지 않습니다. 스팀 실행 여부를 확인하세요.");
+            isCreatingRoom = false;
             return;
         }
 
-        // [방어 코드] 이전 실행의 찌꺼기 네트워크 세션이 있다면 강제 종료
-        if (NetworkManager.Singleton.IsListening)
+        if (NetworkManager.Singleton == null)
         {
-            LogWarning("이미 활성화된 네트워크 세션이 발견되었습니다. 강제 셧다운을 진행합니다...");
+            LogError("씬에 NetworkManager가 존재하지 않습니다.");
+            isCreatingRoom = false;
+            return;
+        }
+
+        // [방어 코드] 'Invalid Socket' 에러 방지를 위해 이전 리소스 강제 해제
+        if (NetworkManager.Singleton.IsListening || CurrentLobby.HasValue)
+        {
+            LogWarning("⚠️ 활성화된 세션 감지됨. 1.5초간 강제 초기화를 진행합니다...");
+
+            if (CurrentLobby.HasValue) CurrentLobby.Value.Leave();
+            CurrentLobby = null;
+
             NetworkManager.Singleton.Shutdown();
-            await Task.Delay(1000);
+
+            // Steam API가 내부 소켓을 완전히 닫을 때까지 기다려줍니다. (중요)
+            await Task.Delay(1500);
+            Log("✅ 소켓 클린업 완료. 새로운 로비를 생성합니다.");
         }
 
         Log($"SteamMatchmaking.CreateLobbyAsync 호출 중... (최대 {maxPlayers}명)");
 
-        var lobbyOpt = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
-
-        if (!lobbyOpt.HasValue)
-        {
-            LogError("로비 생성 비동기 작업 실패 (응답 없음)");
-            RevertToTitleScreen();
-            return;
-        }
-
-        CurrentLobby = lobbyOpt.Value;
-        CurrentLobby?.SetPublic();
-        CurrentLobby?.SetJoinable(true);
-        CurrentLobby?.SetData(HostAddressKey, Steamworks.SteamClient.SteamId.ToString());
-        CurrentLobby?.SetData(LobbyNameKey, $"{Steamworks.SteamClient.Name}의 대전 게임");
-        CurrentLobby?.SetData(GameIdKey, GameIdValue);
-
-        Log($"Steam 로비 생성 완료. (호스트 ID: {Steamworks.SteamClient.SteamId})");
-        Log("NGO 호스트 가동을 시도합니다...");
-
         try
         {
+            var lobbyOpt = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
+
+            if (!lobbyOpt.HasValue)
+            {
+                LogError("로비 생성 비동기 작업 실패 (Steam 응답 없음)");
+                RevertToTitleScreen();
+                isCreatingRoom = false;
+                return;
+            }
+
+            // 로비 데이터 설정
+            var lobby = lobbyOpt.Value;
+            lobby.SetPublic();
+            lobby.SetJoinable(true);
+            lobby.SetData(HostAddressKey, Steamworks.SteamClient.SteamId.ToString());
+            lobby.SetData(LobbyNameKey, $"{Steamworks.SteamClient.Name}의 탐험대");
+            lobby.SetData(GameIdKey, GameIdValue);
+            CurrentLobby = lobby;
+
+            Log($"Steam 로비 생성 완료 (ID: {lobby.Id}). NGO 호스트 시작을 시도합니다...");
+
+            // NGO 호스트 가동
             if (NetworkManager.Singleton.StartHost())
             {
-                Log("NGO 호스트 가동 성공! 대기방 UI를 엽니다.");
-
-                if (LobbyUIManager.Instance != null && CurrentLobby.HasValue)
+                Log("✨ NGO 호스트 가동 성공! 대기방 UI를 활성화합니다.");
+                if (LobbyUIManager.Instance != null)
                 {
-                    LobbyUIManager.Instance.OpenLobbyRoom(CurrentLobby.Value);
-                }
-                else
-                {
-                    LogError("LobbyUIManager가 씬에 없거나 할당되지 않아 패널을 켤 수 없습니다!");
+                    LobbyUIManager.Instance.OpenLobbyRoom(lobby);
                 }
             }
             else
             {
-                LogError("NGO 호스트 시작 실패 (NetworkManager.StartHost 반환값: false)");
+                LogError("NGO 호스트 시작 실패 (StartHost returned false)");
                 RevertToTitleScreen();
             }
         }
         catch (System.Exception e)
         {
-            LogError($"NGO 호스트 시작 중 예외 발생: {e.Message}");
-            LogError("❗ [Invalid Socket 에러 발생 시] 유니티 에디터를 완전히 종료하고 다시 시작해야 해결됩니다.");
+            LogError($"호스트 생성 중 치명적 예외 발생: {e.Message}");
             RevertToTitleScreen();
+        }
+        finally
+        {
+            isCreatingRoom = false;
         }
     }
 
-    // [LobbyUIManager의 방 목록에서 호출] 특정 로비에 접속을 시도하는 public 메서드
+    /// <summary>
+    /// [LobbyUIManager 등에서 호출] 특정 로비에 접속을 시도합니다.
+    /// </summary>
     public async void JoinLobby(Lobby lobby)
     {
-        Log($"로비 {lobby.Id}에 접속을 시도합니다...");
-
+        Log($"로비 {lobby.Id}에 접속 시도 중...");
         var result = await lobby.Join();
 
         if (result != RoomEnter.Success)
         {
             LogError($"로비 접속 실패: {result}");
-            return;
         }
     }
 
-    // [개선됨] 씬 복구 및 안전한 셧다운을 총괄하는 함수
+    #endregion
+
+    #region 📡 Internal Callbacks
+
+    private void OnLobbyCreated(Result result, Lobby lobby)
+    {
+        if (result != Result.OK)
+        {
+            LogError($"OnLobbyCreated 콜백 에러: {result}");
+            return;
+        }
+        // 우리 게임만 검색되도록 태그 주입
+        lobby.SetData("GameID", "TDA");
+        Log("OnLobbyCreated: 검색용 식별자 데이터 주입 완료.");
+    }
+
+    private void OnLobbyEntered(Lobby lobby)
+    {
+        CurrentLobby = lobby;
+
+        // 호스트는 이미 위에서 처리가 끝났으므로 클라이언트 접속 로직 중복 방지
+        if (TitleScreenManager.Instance != null &&
+            TitleScreenManager.Instance.currentConnectionType == TitleScreenManager.NetworkConnectionType.Host)
+        {
+            return;
+        }
+
+        Log("클라이언트로 로비 입장 완료. 네트워크 연결을 시작합니다.");
+        if (LobbyUIManager.Instance != null)
+        {
+            LobbyUIManager.Instance.OpenLobbyRoom(lobby);
+        }
+
+        // 호스트의 스팀 ID를 추출하여 Transport에 주입
+        string hostSteamIDStr = lobby.GetData(HostAddressKey);
+        if (ulong.TryParse(hostSteamIDStr, out ulong hostSteamID))
+        {
+            if (transport != null)
+            {
+                transport.serverId = hostSteamID;
+            }
+
+            Log($"NGO 클라이언트 시작: 호스트 ID {hostSteamID}");
+            if (NetworkManager.Singleton != null)
+            {
+                NetworkManager.Singleton.StartClient();
+            }
+        }
+        else
+        {
+            LogError("로비 데이터에서 호스트의 SteamId를 파싱하는 데 실패했습니다.");
+        }
+    }
+
+    #endregion
+
+    #region 🔄 Cleanup & Revert
+
+    /// <summary>
+    /// 모든 네트워크 자원을 해제하고 초기 타이틀 화면으로 안전하게 복귀합니다.
+    /// </summary>
     private void RevertToTitleScreen()
     {
-        // 무한 루프 셧다운 방지
         if (isDisconnecting) return;
         isDisconnecting = true;
 
-        LogWarning("에러 복구/연결 종료 로직 가동: 자원을 해제하고 타이틀 화면으로 돌아갑니다.");
+        LogWarning("RevertToTitleScreen: 모든 연결을 해제하고 초기 상태로 복구합니다.");
 
-        // Steam 관련 자원 해제
-        if (Steamworks.SteamClient.IsValid)
+        // 스팀 로비 퇴장
+        if (Steamworks.SteamClient.IsValid && CurrentLobby.HasValue)
         {
-            CurrentLobby?.Leave();
+            CurrentLobby.Value.Leave();
         }
         CurrentLobby = null;
 
-        // NGO 네트워크 셧다운
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        // NGO 네트워크 종료
+        if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.Shutdown();
         }
 
-        // 앱이 강제 종료되는 중이 아니라면 씬(화면) 복구 시도
+        // 앱 종료 중이 아닐 때만 씬 및 UI 복구
         if (!isQuitting)
         {
-            // 현재 씬이 메인 메뉴(0번)가 아니라 게임 씬에 있다면 강제로 0번 씬 로드
+            // 게임 씬(1번 이후)에 있다면 타이틀 씬(0번)으로 로드
             if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex != 0)
             {
                 UnityEngine.SceneManagement.SceneManager.LoadScene(0);
             }
-            else
+            else if (TitleScreenManager.Instance != null)
             {
-                // 이미 메인 화면 씬이라면 UI만 복구 (대기방 UI 등 끄기)
-                if (TitleScreenManager.Instance != null)
-                {
-                    TitleScreenManager.Instance.ShowTitleScreen();
-                }
+                // 이미 타이틀 씬이라면 대기방 UI 등을 끄고 메인 메뉴 표시
+                TitleScreenManager.Instance.ShowTitleScreen();
             }
         }
 
         isDisconnecting = false;
     }
 
-    // [LobbyUIManager 등에서 호출] 로비 퇴장 및 세션 종료
+    /// <summary>
+    /// 외부 UI에서 호출하여 방을 나가거나 세션을 종료합니다.
+    /// </summary>
     public void LeaveLobby()
     {
-        Log("로비 퇴장을 요청받았습니다. 안전하게 셧다운을 시도합니다.");
+        Log("로비 퇴장 요청 수신.");
         RevertToTitleScreen();
     }
 
     private void OnApplicationQuit()
     {
-        // 앱이 강제 종료될 때 씬 이동 에러를 막기 위한 플래그
         isQuitting = true;
         LeaveLobby();
     }

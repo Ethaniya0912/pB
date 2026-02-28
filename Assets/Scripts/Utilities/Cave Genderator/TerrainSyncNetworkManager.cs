@@ -31,12 +31,26 @@ namespace CaveSystem.Multiplayer
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
-            else Destroy(gameObject);
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
+
+            // [에러 수정] 씬 전환 시 파괴되지 않도록 영속성 부여
+            DontDestroyOnLoad(this.gameObject);
         }
 
         public override void OnNetworkSpawn()
         {
+            // [에러 수정] NGO가 씬을 전환할 때 이 NetworkObject를 파괴하지 않도록 강제 설정
+            if (NetworkObject != null)
+            {
+                NetworkObject.DestroyWithScene = false;
+            }
+
             if (IsServer)
             {
                 // 서버(호스트)는 새로운 클라이언트가 접속하거나 나갈 때 상태를 갱신해야 함
@@ -134,12 +148,7 @@ namespace CaveSystem.Multiplayer
             // 모든 유저가 준비되었는지 확인 (Interlock)
             bool allReady = (readyClients.Count >= totalClients);
 
-            if (LobbyUIManager.Instance != null)
-            {
-                // LobbyUIManager는 이 상태를 보고 게임 시작 버튼의 활성화 여부를 결정합니다.
-                // NGO 환경에서는 서버만 UI를 직접 조작하므로 호스트 화면에서만 버튼이 켜짐
-                // 클라이언트는 ReadyClientCount NetworkVariable을 통해 진행도를 UI에 표시함
-            }
+            // LobbyUIManager 등 외부에서 UI 갱신을 원할 때 참조합니다.
         }
 
         #endregion

@@ -7,37 +7,25 @@
 
 #include "CaveDataStructs.hlsl" 
 
-// --- [버퍼 및 변수 선언] ---
 StructuredBuffer<CaveVoxel> _VoxelBuffer;
-
-// C#에서 직렬화되어 전달된 1D 마칭 큐브 룩업 테이블
 StructuredBuffer<int> _EdgeTable;
 StructuredBuffer<int> _TriangleTable;
 
-// 스레드 경합을 막고 대역폭을 최적화하는 Append 버퍼
 AppendStructuredBuffer<CaveTriangle> _TriangleBuffer;
 AppendStructuredBuffer<CaveOreData> _OreBuffer;
 
 float3 _ChunkBasePosition;
-int _ChunkSize; // 렌더링할 실제 큐브의 개수 (예: 16 또는 64)
-int _PointsPerAxis; // 밀도장 배열의 한 축당 점의 개수 (ChunkSize + 1)
+int _ChunkSize;
+int _PointsPerAxis;
 float _VoxelSize;
 float _IsoLevel;
 
-// [마칭 큐브 표준 규격] 꼭짓점(Corner) 오프셋
 static const int3 cornerOffsets[8] =
 {
-    int3(0, 0, 0), // 0: Bottom-Left-Front
-    int3(1, 0, 0), // 1: Bottom-Right-Front
-    int3(1, 0, 1), // 2: Bottom-Right-Back
-    int3(0, 0, 1), // 3: Bottom-Left-Back
-    int3(0, 1, 0), // 4: Top-Left-Front
-    int3(1, 1, 0), // 5: Top-Right-Front
-    int3(1, 1, 1), // 6: Top-Right-Back
-    int3(0, 1, 1) // 7: Top-Left-Back
+    int3(0, 0, 0), int3(1, 0, 0), int3(1, 0, 1), int3(0, 0, 1),
+    int3(0, 1, 0), int3(1, 1, 0), int3(1, 1, 1), int3(0, 1, 1)
 };
 
-// 큐브의 12개 모서리(Edge)가 연결하는 꼭짓점 번호
 static const int edgeConnections[12][2] =
 {
     { 0, 1 },
@@ -54,32 +42,22 @@ static const int edgeConnections[12][2] =
     { 3, 7 }
 };
 
-// --- [유틸리티 함수] ---
-
-// 3D Grid 좌표를 1D 버퍼 인덱스로 변환 (PointsPerAxis 기준 연산으로 사선 찢어짐 방지)
 int GetVoxelIndex(int x, int y, int z)
 {
     return x + y * _PointsPerAxis + z * _PointsPerAxis * _PointsPerAxis;
 }
 
-// Zero Division 및 NaN 에러 방어 보간
 float3 VertexInterp(float isoLevel, float3 p1, float3 p2, float valp1, float valp2)
 {
     float diff = valp2 - valp1;
-
     if (abs(diff) < 0.00001)
-    {
         return (p1 + p2) * 0.5;
-    }
-
     float mu = saturate((isoLevel - valp1) / diff);
     return lerp(p1, p2, mu);
 }
 
-// Central Difference (중앙 차분법) 노멀 추출
 float3 CalculateGradientNormal(int x, int y, int z)
 {
-    // 경계 초과 방지를 위한 Index Clamping
     int maxIdx = _PointsPerAxis - 1;
     int nx = max(0, x - 1);
     int px = min(maxIdx, x + 1);
@@ -95,12 +73,9 @@ float3 CalculateGradientNormal(int x, int y, int z)
     return normalize(float3(-dx, -dy, -dz));
 }
 
-// --- [메인 커널] ---
-
 [numthreads(8, 8, 8)]
 void GenerateMesh(uint3 id : SV_DispatchThreadID)
 {
-    // 큐브의 개수는 ChunkSize와 동일하므로 _ChunkSize 미만까지만 연산합니다.
     if (id.x >= (uint) _ChunkSize || id.y >= (uint) _ChunkSize || id.z >= (uint) _ChunkSize)
         return;
 
@@ -109,7 +84,6 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
     float3 cornerPositions[8];
     int cubeIndex = 0;
 
-    // 1. 현재 큐브의 8개 꼭짓점(Corner) 데이터 수집
     for (int i = 0; i < 8; i++)
     {
         int3 gridPos = id + cornerOffsets[i];
@@ -118,16 +92,12 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
         CaveVoxel voxel = _VoxelBuffer[voxelIdx];
         cubeDensities[i] = voxel.density;
         cubeOreTypes[i] = voxel.oreType;
-
         cornerPositions[i] = gridPos * _VoxelSize;
 
         if (cubeDensities[i] < _IsoLevel)
-        {
             cubeIndex |= (1 << i);
-        }
     }
 
-    // 2. EdgeTable을 조회하여 교차하는 모서리 파악
     int edgeFlag = _EdgeTable[cubeIndex];
     if (edgeFlag == 0 || edgeFlag == 255)
         return;
@@ -135,7 +105,6 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
     float3 edgeVertices[12];
     float3 edgeNormals[12];
 
-    // 3. 표면과 교차하는 모서리에 정점(Vertex)과 노멀(Normal) 생성
     for (int e = 0; e < 12; e++)
     {
         if ((edgeFlag & (1 << e)) != 0)
@@ -144,7 +113,6 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
             int v2 = edgeConnections[e][1];
 
             edgeVertices[e] = VertexInterp(_IsoLevel, cornerPositions[v1], cornerPositions[v2], cubeDensities[v1], cubeDensities[v2]);
-
             int3 gridPos1 = id + cornerOffsets[v1];
             int3 gridPos2 = id + cornerOffsets[v2];
 
@@ -154,12 +122,9 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
             float diff = cubeDensities[v2] - cubeDensities[v1];
             float mu = 0.5;
             if (abs(diff) > 0.00001)
-            {
                 mu = saturate((_IsoLevel - cubeDensities[v1]) / diff);
-            }
             edgeNormals[e] = normalize(lerp(norm1, norm2, mu));
 
-            // 광석(Ore) 추출
             if (cubeOreTypes[v1] > 0 || cubeOreTypes[v2] > 0)
             {
                 CaveOreData oreData;
@@ -173,7 +138,6 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
         }
     }
 
-    // 4. 삼각형 구성 및 Append 버퍼 기록
     for (int t = 0; t < 16; t += 3)
     {
         int triIndex0 = _TriangleTable[cubeIndex * 16 + t];
@@ -183,36 +147,24 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
         int triIndex1 = _TriangleTable[cubeIndex * 16 + t + 1];
         int triIndex2 = _TriangleTable[cubeIndex * 16 + t + 2];
 
-        // 유효하지 않은 인덱스 방어
-        if (triIndex0 < 0 || triIndex0 > 11 ||
-            triIndex1 < 0 || triIndex1 > 11 ||
-            triIndex2 < 0 || triIndex2 > 11)
-        {
+        if (triIndex0 < 0 || triIndex0 > 11 || triIndex1 < 0 || triIndex1 > 11 || triIndex2 < 0 || triIndex2 > 11)
             continue;
-        }
 
         CaveVertex v0, v1, v2;
-
         v0.position = edgeVertices[triIndex0];
         v0.normal = edgeNormals[triIndex0];
         v0.uv = float2(0, 0);
-
         v1.position = edgeVertices[triIndex1];
         v1.normal = edgeNormals[triIndex1];
         v1.uv = float2(0, 0);
-
         v2.position = edgeVertices[triIndex2];
         v2.normal = edgeNormals[triIndex2];
         v2.uv = float2(0, 0);
 
         CaveTriangle tri;
         tri.v0 = v0;
-        
-        // [🔥 문제 해결] 정점 순서(Winding Order) 교체
-        // v1과 v2의 순서를 뒤집어 메쉬의 앞면(Front face)이 동굴 안쪽을 향하도록 강제합니다.
-        tri.v1 = v2;
+        tri.v1 = v2; // [문제 해결] 윈딩 오더(정점 순서)를 뒤집어 안쪽에서 보이도록 수정
         tri.v2 = v1;
-
         _TriangleBuffer.Append(tri);
     }
 }
