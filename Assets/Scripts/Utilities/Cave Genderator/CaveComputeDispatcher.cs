@@ -32,6 +32,10 @@ namespace CaveSystem
         private ComputeBuffer triCountBuffer;
         private ComputeBuffer oreCountBuffer;
 
+        // [🔥 추가: 마칭 큐브 룩업 테이블 버퍼]
+        private ComputeBuffer mcEdgeTableBuffer;
+        private ComputeBuffer mcTriangleTableBuffer;
+
         // 메모리 재할당 체크용 변수
         private int currentPointsPerAxis = 0;
 
@@ -43,6 +47,7 @@ namespace CaveSystem
         private void Awake()
         {
             InitializeKernels();
+            SetupMarchingCubesTables(); // [🔥 추가] 테이블 버퍼 초기화
             UpdateBiomeBuffer(); // 초기화 시 바이옴 버퍼를 무조건 1회 셋업합니다.
         }
 
@@ -63,6 +68,16 @@ namespace CaveSystem
             kernelGenerateDensity = densityShader.FindKernel("GenerateDensity");
             kernelSimulateErosion = densityShader.FindKernel("SimulateErosion");
             kernelGenerateMesh = marchingCubesShader.FindKernel("GenerateMesh");
+        }
+
+        // [🔥 추가] MarchingCubesTables 데이터를 GPU 버퍼로 로드
+        private void SetupMarchingCubesTables()
+        {
+            mcEdgeTableBuffer = new ComputeBuffer(256, sizeof(int));
+            mcEdgeTableBuffer.SetData(MarchingCubesTables.EdgeTable);
+
+            mcTriangleTableBuffer = new ComputeBuffer(4096, sizeof(int));
+            mcTriangleTableBuffer.SetData(MarchingCubesTables.TriangleTable);
         }
 
         /// <summary>
@@ -207,6 +222,10 @@ namespace CaveSystem
             marchingCubesShader.SetBuffer(kernelGenerateMesh, "_TriangleBuffer", triangleBuffer);
             marchingCubesShader.SetBuffer(kernelGenerateMesh, "_OreBuffer", oreBuffer);
 
+            // [🔥 추가: 룩업 테이블 버퍼 셰이더 주입]
+            marchingCubesShader.SetBuffer(kernelGenerateMesh, "_EdgeTable", mcEdgeTableBuffer);
+            marchingCubesShader.SetBuffer(kernelGenerateMesh, "_TriangleTable", mcTriangleTableBuffer);
+
             marchingCubesShader.SetVector("_ChunkBasePosition", chunkBasePos);
             marchingCubesShader.SetInt("_ChunkSize", chunkSize);
             marchingCubesShader.SetInt("_PointsPerAxis", pointsPerAxis);
@@ -268,6 +287,10 @@ namespace CaveSystem
             ReleaseGraphBuffers();
             ReleaseTempBuffers();
             if (biomeBuffer != null) { biomeBuffer.Release(); biomeBuffer = null; }
+
+            // [🔥 추가: 룩업 테이블 버퍼 해제]
+            if (mcEdgeTableBuffer != null) { mcEdgeTableBuffer.Release(); mcEdgeTableBuffer = null; }
+            if (mcTriangleTableBuffer != null) { mcTriangleTableBuffer.Release(); mcTriangleTableBuffer = null; }
         }
     }
 }

@@ -51,7 +51,7 @@ public class LobbyUIManager : NetworkBehaviour
     [SerializeField] private TextMeshProUGUI partyStatusSummaryText;
 
     // --- [NGO 2.0 동기화 변수] ---
-    private NetworkVariable<int> syncedWorldSeed = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // [🔥 픽스 반영] 자체 syncedWorldSeed 변수는 삭제하고 TerrainSyncNetworkManager의 시드를 직접 참조합니다.
     private NetworkVariable<int> readyCount = new NetworkVariable<int>(0);
     private NetworkVariable<int> totalExpectedCount = new NetworkVariable<int>(0);
 
@@ -61,7 +61,7 @@ public class LobbyUIManager : NetworkBehaviour
     private float timeoutTimer = 0f;
     private const float START_TIMEOUT = 60f;
 
-    // [중요] 우리 게임만의 고유한 검색 키값
+    // [복구] 우리 게임만의 고유한 검색 키값
     private const string GAME_IDENTIFIER_KEY = "GameID";
     private const string GAME_IDENTIFIER_VALUE = "TDA";
 
@@ -87,7 +87,7 @@ public class LobbyUIManager : NetworkBehaviour
         if (inviteFriendButton) inviteFriendButton.onClick.AddListener(InviteFriends);
         if (leaveLobbyButton) leaveLobbyButton.onClick.AddListener(LeaveLobby);
 
-        // NGO 전역 연결 끊김 감지
+        // [복구] NGO 전역 연결 끊김 감지
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientDisconnectCallback += GlobalDisconnectHandler;
@@ -118,7 +118,24 @@ public class LobbyUIManager : NetworkBehaviour
     {
         Log($"🌐 [OnNetworkSpawn] 네트워크 오브젝트 스폰 완료! IsServer: {IsServer}, IsClient: {IsClient}, LocalID: {NetworkManager.Singleton.LocalClientId}");
 
-        syncedWorldSeed.OnValueChanged += OnWorldSeedChanged;
+        // [🔥 핵심 픽스] 자체 변수 대신 TerrainSyncNetworkManager의 변수 구독
+        if (CaveSystem.Multiplayer.TerrainSyncNetworkManager.Instance != null)
+        {
+            CaveSystem.Multiplayer.TerrainSyncNetworkManager.Instance.SyncedWorldSeed.OnValueChanged += OnWorldSeedChanged;
+
+            // 방어 코드: 로비 UI 스폰 전에 이미 발급된 시드가 있다면 즉시 굽기 시작
+            int currentSeed = CaveSystem.Multiplayer.TerrainSyncNetworkManager.Instance.SyncedWorldSeed.Value;
+            if (currentSeed != 0)
+            {
+                Log($"[동기화] 스폰 시점에 이미 시드({currentSeed})가 발급되어 있습니다. 즉시 베이킹을 시작합니다.");
+                OnWorldSeedChanged(0, currentSeed);
+            }
+        }
+        else
+        {
+            LogError("TerrainSyncNetworkManager를 찾을 수 없습니다! 지형 동기화가 불가능합니다.");
+        }
+
         readyCount.OnValueChanged += (oldVal, newVal) => UpdatePartyStatusUI();
         totalExpectedCount.OnValueChanged += (oldVal, newVal) => UpdatePartyStatusUI();
 
@@ -127,12 +144,8 @@ public class LobbyUIManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientJoined;
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientLeft;
 
-            Log("👑 내가 호스트(서버)입니다. 월드 시드 발급을 시도합니다.");
-            int newSeed = Random.Range(100000, 999999);
-            syncedWorldSeed.Value = newSeed;
+            Log("👑 내가 호스트(서버)입니다. 접속 및 준비 릴레이 관리를 시작합니다.");
             totalExpectedCount.Value = NetworkManager.Singleton.ConnectedClientsIds.Count;
-
-            OnWorldSeedChanged(0, newSeed);
         }
 
         if (CaveManager.Instance != null)
@@ -153,7 +166,11 @@ public class LobbyUIManager : NetworkBehaviour
     {
         LogWarning("💥 [OnNetworkDespawn] 네트워크 오브젝트가 씬에서 디스폰(제거)되었습니다.");
 
-        syncedWorldSeed.OnValueChanged -= OnWorldSeedChanged;
+        if (CaveSystem.Multiplayer.TerrainSyncNetworkManager.Instance != null)
+        {
+            CaveSystem.Multiplayer.TerrainSyncNetworkManager.Instance.SyncedWorldSeed.OnValueChanged -= OnWorldSeedChanged;
+        }
+
         if (IsServer && NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientJoined;
@@ -219,6 +236,7 @@ public class LobbyUIManager : NetworkBehaviour
         if (roomListContent == null) return;
         foreach (Transform child in roomListContent) Destroy(child.gameObject);
 
+        // [복구] 고유 식별자 키값 적용
         var lobbies = await SteamMatchmaking.LobbyList
                     .WithKeyValue(GAME_IDENTIFIER_KEY, GAME_IDENTIFIER_VALUE)
                     .WithMaxResults(100)
@@ -410,7 +428,10 @@ public class LobbyUIManager : NetworkBehaviour
 
     private void Update()
     {
-        if (IsServer && syncedWorldSeed.Value != 0 && readyCount.Value < totalExpectedCount.Value)
+        // [🔥 핵심 픽스] 자체 syncedWorldSeed 변수 대신 TerrainSyncNetworkManager 확인
+        if (IsServer && CaveSystem.Multiplayer.TerrainSyncNetworkManager.Instance != null &&
+            CaveSystem.Multiplayer.TerrainSyncNetworkManager.Instance.SyncedWorldSeed.Value != 0 &&
+            readyCount.Value < totalExpectedCount.Value)
         {
             timeoutTimer += Time.deltaTime;
             if (timeoutTimer > START_TIMEOUT)
@@ -423,7 +444,7 @@ public class LobbyUIManager : NetworkBehaviour
         }
     }
 
-    // [🔥 핵심 수정] 세이브 슬롯의 데이터를 읽어서 NGO 씬 로더로 씬 전환 수행
+    // [복구] 세이브 슬롯의 데이터를 읽어서 NGO 씬 로더로 씬 전환 수행
     private void OnStartGameClicked()
     {
         if (!NetworkManager.Singleton.IsHost) return;

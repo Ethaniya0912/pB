@@ -9,13 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c8c940ed00be894c9bbb9de6196def0, type: 3}
-  m_Name: Idle State
-  m_EditorClassIdentifier: 
+  m_Script: {fileID: 11500000, guid: 42c0af2a224fa384999443b4da394a85, type: 3}
+  m_Name: Call For Help State
+  m_EditorClassIdentifier: Assembly-CSharp::CallForHelpState
   pursueTargetState: {fileID: 11400000, guid: 3f70b7edde10d0644bf942de81b7c65f, type: 2}
-  detectionLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  detectionRadius: 15
-  minimumDetectionAngle: -50
-  maximumDetectionAngle: 50

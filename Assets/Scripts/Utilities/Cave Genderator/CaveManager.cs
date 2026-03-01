@@ -1,11 +1,12 @@
-using UnityEngine;
-using UnityEngine.Rendering;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.SceneManagement;
-using Unity.Netcode;
+using Unity.AI.Navigation;
 using Unity.Collections;
+using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 
 namespace CaveSystem
 {
@@ -39,6 +40,9 @@ namespace CaveSystem
         public CaveNodeGraphBuilder graphBuilder;
         public CaveMeshJobManager meshJobManager;
 
+        [Header("Nav Mesh")]
+        public NavMeshSurface navMeshSurface;
+
         public event Action<float, string> OnPregenProgressUpdated;
 
         private void Awake()
@@ -58,6 +62,7 @@ namespace CaveSystem
         private void OnEnable()
         {
             SceneManager.sceneLoaded += OnSceneLoaded;
+            StartCoroutine(UpdateNavMeshRoutine());
         }
 
         private void OnDisable()
@@ -251,8 +256,34 @@ namespace CaveSystem
 
             yield return new WaitUntil(() => chunkManager.IsInitialGenerationComplete());
 
+            // [🔥 추가: 지형이 다 만들어진 직후 NavMesh를 실시간으로 굽기!]
+            if (navMeshSurface != null)
+            {
+                Debug.Log("NavMesh를 런타임에 굽습니다...");
+                //navMeshSurface.BuildNavMesh();
+            }
+
             currentState = GlobalSystemState.Ready;
             Log("<color=cyan>✔️ 시스템 준비 완료. 동굴 탐험을 시작합니다.</color>");
+        }
+
+
+        private IEnumerator UpdateNavMeshRoutine()
+        {
+            while (true)
+            {
+                // 3초마다 갱신을 시도합니다 (너무 자주 구우면 프레임이 떨어집니다)
+                yield return new WaitForSeconds(3.0f);
+
+                // 현재 지형 생성 작업이 모두 끝났고, 한가할 때만 길찾기 메쉬를 다시 굽습니다.
+                // [에러 수정] chunkManager.generationQueue 가 protected 레벨이어서 발생하는 에러를 해결하기 위해,
+                // 이미 public으로 구현되어 있는 IsInitialGenerationComplete() 함수를 호출하여 큐가 비어있는지 안전하게 확인합니다.
+                if (navMeshSurface != null && chunkManager != null && chunkManager.IsInitialGenerationComplete() && currentState == GlobalSystemState.Ready)
+                {
+                    // Unity AI Navigation 버전에 따라 BuildNavMeshAsync() 가 있다면 그것을 쓰는 것이 훨씬 좋습니다.
+                    navMeshSurface.BuildNavMesh();
+                }
+            }
         }
 
         #endregion
@@ -352,21 +383,19 @@ namespace CaveSystem
 
                         int oreCount = oCountReq.GetData<int>()[0];
                         oreCountBuf.Release();
-
+                        // 부분 수정 : 광물 데이터가 없더라도 메쉬 데이터는 유효할 수 있으므로, oreCount가 0인 경우에도 메쉬 처리 루틴을 계속 진행합니다.
                         if (oreCount > 0)
                         {
                             AsyncGPUReadback.Request(oreBuffer, (oDataReq) => {
-                                // [🔥 State 고아화 방어 5] 광물 데이터 Readback 중 파기 시
                                 if (context.State == ChunkState.Aborted)
                                 {
                                     vertices.Dispose();
                                     computeDispatcher.IsBusy = false;
                                     return;
                                 }
-
                                 if (oDataReq.hasError)
                                 {
-                                    UnityEngine.Debug.LogError("[CaveManager] Ore Data Readback Error");
+                                    UnityEngine.Debug.LogError("[CaveManager] 치명적 오류: 광물 메타데이터 비동기 리드백 실패.");
                                     vertices.Dispose();
                                     computeDispatcher.IsBusy = false;
                                     return;
@@ -376,6 +405,14 @@ namespace CaveSystem
                                 ores.CopyFrom(oDataReq.GetData<CaveOreData>().GetSubArray(0, oreCount));
 
                                 meshJobManager.ProcessMeshJob(context, vertices, ores, (ctx, finalOres) => {
+                                    // [🔥 핵심 수정: 시스템 릴레이 연결]
+                                    // 물리 베이킹이 끝난 후, 이 데이터를 생태계와 멀티 스포너 매니저에 넘겨줍니다.
+                                    if (CaveEcosystemManager.Instance != null)
+                                        CaveEcosystemManager.Instance.ProcessEcosystem(finalOres);
+
+                                    if (CaveSystem.Multiplayer.CaveSpawnerManager.Instance != null)
+                                        CaveSystem.Multiplayer.CaveSpawnerManager.Instance.RegisterSpawnerData(ctx.ChunkPos, finalOres);
+
                                     if (finalOres.IsCreated) finalOres.Dispose();
                                     ctx.State = ChunkState.Completed;
                                 });
@@ -389,7 +426,7 @@ namespace CaveSystem
                                 if (finalOres.IsCreated) finalOres.Dispose();
                                 ctx.State = ChunkState.Completed;
                             });
-                            computeDispatcher.IsBusy = false;
+                            computeDispatcher.IsBusy = false; // 락 해제
                         }
                     });
                 });

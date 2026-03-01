@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af6a8194bec3c2d44b30c4aca50f76d1, type: 3}
+  m_Name: Combat Stance State
+  m_EditorClassIdentifier: Assembly-CSharp::CombatStanceState
+  attackState: {fileID: 11400000, guid: 103250962adeae24994c7eac527c130f, type: 2}
+  pursueTargetState: {fileID: 11400000, guid: 3f70b7edde10d0644bf942de81b7c65f, type: 2}
+  fleeState: {fileID: 11400000, guid: d2d6d83b165080b4daea8ebc088f20be, type: 2}
+  retreatState: {fileID: 11400000, guid: dc29f4e2ff6bde844adde0a47afb5940, type: 2}
+  attackRange: 2.5
+  fleeHealthThreshold: 20
+  retreatStaminaThreshold: 10

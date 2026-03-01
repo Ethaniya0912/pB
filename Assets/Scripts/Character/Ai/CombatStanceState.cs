@@ -1,5 +1,4 @@
 using UnityEngine;
-using static Unity.Netcode.Components.AttachableBehaviour;
 
 [CreateAssetMenu(menuName = "AI/States/Combat Stance")]
 public class CombatStanceState : AIState
@@ -18,10 +17,16 @@ public class CombatStanceState : AIState
     public override AIState Tick(AICharacterManager aiCharacter)
     {
         if (aiCharacter.aiCharacterCombatManager.currentTarget == null)
-            return SwitchState(aiCharacter, pursueTargetState); // 수정됨: SwitchState 사용
+        {
+            aiCharacter.aiCharacterCombatManager.DebugLog("타겟을 잃어버림 -> Pursue 상태로 전환");
+            return SwitchState(aiCharacter, pursueTargetState);
+        }
 
         if (aiCharacter.characterNetworkManager.currentHealth.Value <= fleeHealthThreshold)
-            return SwitchState(aiCharacter, fleeState); // 수정됨: SwitchState 사용
+        {
+            aiCharacter.aiCharacterCombatManager.DebugLog("체력 부족! -> Flee 상태로 전환");
+            return SwitchState(aiCharacter, fleeState);
+        }
 
         aiCharacter.aiCharacterCombatManager.HandleDefensiveActions();
 
@@ -33,12 +38,18 @@ public class CombatStanceState : AIState
         }
 
         if (aiCharacter.characterNetworkManager.currentStamina.Value <= retreatStaminaThreshold)
-            return SwitchState(aiCharacter, retreatState); // 수정됨: SwitchState 사용
+        {
+            aiCharacter.aiCharacterCombatManager.DebugLog("스테미나 부족 -> Retreat 상태로 전환");
+            return SwitchState(aiCharacter, retreatState);
+        }
 
         float distanceFromTarget = Vector3.Distance(aiCharacter.transform.position, aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
 
         if (distanceFromTarget > attackRange)
-            return SwitchState(aiCharacter, pursueTargetState); // 수정됨: SwitchState 사용
+        {
+            aiCharacter.aiCharacterCombatManager.DebugLog($"타겟이 공격 범위를 벗어남 (거리: {distanceFromTarget:F1}) -> Pursue 상태로 전환");
+            return SwitchState(aiCharacter, pursueTargetState);
+        }
 
         aiCharacter.aiCharacterCombatManager.HandleStrafingAroundTarget();
 
@@ -48,17 +59,19 @@ public class CombatStanceState : AIState
             {
                 if (aiCharacter.aiCharacterCombatManager.IsAllyAttackingTarget())
                 {
+                    aiCharacter.aiCharacterCombatManager.DebugLog("아군이 공격 중이므로 대기합니다.");
                     aiCharacter.aiCharacterCombatManager.nextAttackTime = Time.time + Random.Range(1f, 2f);
                     return this;
                 }
-                return SwitchState(aiCharacter, attackState); // 수정됨: SwitchState 사용
+
+                aiCharacter.aiCharacterCombatManager.DebugLog("공격 쿨타임 완료 -> Attack 상태로 전환");
+                return SwitchState(aiCharacter, attackState);
             }
         }
 
         return this;
     }
 
-    // 수정됨: 맴돌기 움직임을 멈추고 백지화
     protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
         base.ResetStateFlags(aiCharacterManager);

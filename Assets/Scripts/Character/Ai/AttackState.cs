@@ -26,10 +26,10 @@ public class AttackState : AIState
     public override AIState Tick(AICharacterManager aiCharacter)
     {
         if (aiCharacter.isPerformingAction)
-            return SwitchState(aiCharacter, combatStanceState); // 수정됨: SwitchState 사용
+            return SwitchState(aiCharacter, combatStanceState);
 
         if (aiCharacter.aiCharacterCombatManager.currentTarget == null)
-            return SwitchState(aiCharacter, combatStanceState); // 수정됨: SwitchState 사용
+            return SwitchState(aiCharacter, combatStanceState);
 
         Vector3 direction = aiCharacter.aiCharacterCombatManager.currentTarget.transform.position - aiCharacter.transform.position;
         direction.y = 0;
@@ -41,6 +41,8 @@ public class AttackState : AIState
 
         if (chosenAttack != null)
         {
+            aiCharacter.aiCharacterCombatManager.DebugLog($"⚔️ 공격 실행: {chosenAttack.attackAnimation}");
+
             aiCharacter.aiCharacterCombatManager.nextAttackTime = Time.time + chosenAttack.attackCooldown;
             if (chosenAttack.isChargeAttack) aiCharacter.characterNetworkManager.isChargingAttack.Value = true;
 
@@ -50,8 +52,12 @@ public class AttackState : AIState
                 true, true, false, false
             );
         }
+        else
+        {
+            aiCharacter.aiCharacterCombatManager.DebugLog("⚠️ 사용 가능한 공격을 찾지 못했습니다.");
+        }
 
-        return SwitchState(aiCharacter, combatStanceState); // 수정됨: SwitchState 사용
+        return SwitchState(aiCharacter, combatStanceState);
     }
 
     private AIAttackAction SelectAttack(AICharacterManager aiCharacter)

@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 445cb2aed46e16c44912e8a0276c189a, type: 3}
+  m_Name: Pursue Target State
+  m_EditorClassIdentifier: Assembly-CSharp::PursueTargetState
+  combatStanceState: {fileID: 11400000, guid: ea02bb1a676545b41b6572252f07da84, type: 2}
+  patrolState: {fileID: 11400000, guid: 303f2d107df127641aa8a5cbd568a3b6, type: 2}
+  attackRange: 2.5

@@ -8289,6 +8289,93 @@ MonoBehaviour:
   showGizmos: 1
   currentSeed: 0
   lastFoundIssues: []
+--- !u!114 &1464201072
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1204125428
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &1464201073
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0c5827a942f56944b27bd1be70d3e53, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.Multiplayer.CaveSpawnerManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  treasureChestPrefab: {fileID: 6756834489801360530, guid: 26ad566c09e2044419a37863d966d4d8,
+    type: 3}
+  spiderLairPrefab: {fileID: 5986444319868078990, guid: c8d95662d6278d0409556bcdf459d103,
+    type: 3}
+  bossArenaTriggerPrefab: {fileID: 7438628722437134626, guid: 560c00a15d96ec34f88e042e339c02bf,
+    type: 3}
+  regularMobPrefabs:
+  - {fileID: 4233442530097016134, guid: 8cbb9a76a8d75794b8deca5be1d2fa6d, type: 3}
+  - {fileID: 4233442530097016134, guid: a36c53c1440aa674ab5db00a8257dfcb, type: 3}
+  rareOrePrefab: {fileID: 6756834489801360530, guid: d5c1686fe668b5244833efb9f429f3c8,
+    type: 3}
+  maxPlayerSpawnPoints: 10
+  corridorMobSpawnProbability: 0.0162
+  bossRoomMobSpawnProbability: 0.188
+  rareOreSpawnProbability: 0.005
+  showGizmos: 1
+  showDebugLogs: 1
+--- !u!114 &1464201074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshSurface
+  m_SerializedVersion: 0
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 9
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_MinRegionArea: 2
+  m_NavMeshData: {fileID: 0}
+  m_BuildHeightMesh: 0
 --- !u!224 &1466137898 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3286728277505491436, guid: b4c5370b3c09bce4a996898584135628,
@@ -9418,6 +9505,11 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 8286174861153668228, guid: 3318d12126834414399665f3559c9c97,
         type: 3}
+    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: navMeshSurface
+      value: 
+      objectReference: {fileID: 1464201074}
     - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: voxelSize
@@ -9431,6 +9523,18 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1464201071}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201072}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201073}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201074}
   m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1 &1693359577
 GameObject:

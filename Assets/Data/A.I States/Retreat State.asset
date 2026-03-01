@@ -9,13 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c8c940ed00be894c9bbb9de6196def0, type: 3}
-  m_Name: Idle State
-  m_EditorClassIdentifier: 
+  m_Script: {fileID: 11500000, guid: abb44b48f6c2d7d42bae58b2d24dd7f3, type: 3}
+  m_Name: Retreat State
+  m_EditorClassIdentifier: Assembly-CSharp::RetreatState
+  combatStanceState: {fileID: 11400000, guid: ea02bb1a676545b41b6572252f07da84, type: 2}
   pursueTargetState: {fileID: 11400000, guid: 3f70b7edde10d0644bf942de81b7c65f, type: 2}
-  detectionLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  detectionRadius: 15
-  minimumDetectionAngle: -50
-  maximumDetectionAngle: 50
+  safeDistance: 5
+  recoveredStaminaThreshold: 50

@@ -215,9 +215,9 @@ namespace CaveSystem
             }
         }
 
+        // 부분 수정
         private void ProcessGenerationQueue()
         {
-            // [🔥 Race Condition 조치] 디스패처가 바쁘면(Readback 대기 중이면) 이번 프레임은 스킵합니다.
             if (CaveManager.Instance != null && CaveManager.Instance.computeDispatcher.IsBusy)
                 return;
 
@@ -225,7 +225,7 @@ namespace CaveSystem
             {
                 ChunkRequestContext context = generationQueue.Dequeue();
 
-                if (!activeChunks.ContainsKey(context.ChunkPos)) return;
+                if (!activeChunks.ContainsKey(context.ChunkPos) || context.State == ChunkState.Aborted) return;
 
                 GameObject chunkObj = GetFromPool();
                 chunkObj.transform.position = new Vector3(context.ChunkPos.x, context.ChunkPos.y, context.ChunkPos.z) * (ChunkSize * VoxelSize);
@@ -233,11 +233,35 @@ namespace CaveSystem
                 chunkObj.SetActive(true);
 
                 MeshFilter mf = chunkObj.GetComponent<MeshFilter>();
+                MeshCollider mc = chunkObj.GetComponent<MeshCollider>();
                 if (mf != null) mf.sharedMesh = null;
 
                 context.ChunkObject = chunkObj;
-                context.State = ChunkState.Generating;
 
+                // [🔥 핵심 수정: 캐시 매니저 연동]
+                // 로비(Headless)에서 구워둔 데이터가 존재한다면 GPU 디스패치를 생략하고 즉시 적용합니다.
+                if (TerrainCacheManager.Instance != null &&
+                    TerrainCacheManager.Instance.ConsumeCache(context.ChunkPos, out Mesh cachedMesh, out Unity.Collections.NativeArray<CaveOreData> cachedOres))
+                {
+                    if (mf != null) mf.sharedMesh = cachedMesh;
+                    if (mc != null) mc.sharedMesh = cachedMesh;
+
+                    // 캐시에서 가져온 특이점 데이터를 생태계와 스포너에 등록
+                    if (CaveEcosystemManager.Instance != null)
+                        CaveEcosystemManager.Instance.ProcessEcosystem(cachedOres);
+
+                    if (CaveSystem.Multiplayer.CaveSpawnerManager.Instance != null)
+                        CaveSystem.Multiplayer.CaveSpawnerManager.Instance.RegisterSpawnerData(context.ChunkPos, cachedOres);
+
+                    // 사용이 끝난 언매니지드 배열 수동 해제
+                    if (cachedOres.IsCreated) cachedOres.Dispose();
+
+                    context.State = ChunkState.Completed;
+                    return; // 캐시를 썼으므로 GPU 파견 생략
+                }
+
+                // 캐시에 없다면 기존처럼 GPU에 굽기 지시
+                context.State = ChunkState.Generating;
                 if (CaveManager.Instance != null)
                 {
                     CaveManager.Instance.computeDispatcher.DispatchChunk(
