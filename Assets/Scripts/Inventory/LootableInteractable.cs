@@ -15,6 +15,9 @@ public class LootableInteractable : InteractableObject
     private WorldInventoryManager worldInventory;
     private BagVisualController visualController;
 
+    // [수정] 상자 닫기(Close) 시점에 카메라를 원복시키기 위해 상호작용한 플레이어를 기억해두는 변수 추가
+    private PlayerManager interactingPlayer;
+
     protected virtual void Awake()
     {
         worldInventory = GetComponent<WorldInventoryManager>();
@@ -32,17 +35,25 @@ public class LootableInteractable : InteractableObject
         PlayerManager player = character as PlayerManager;
         if (player == null || !player.IsOwner) return;
 
+        // [수정] 카메라 원복 로직을 위해 현재 상호작용 중인 플레이어 할당
+        interactingPlayer = player;
+
         Debug.Log($"<color=cyan>[Looting] 상자 열기 시도: {gameObject.name}</color>");
 
         // 1. 상태 등록 (이 로직이 있어야 플레이어가 이동할 때 인벤토리와 함께 닫힙니다.)
         OpenLootContainer(player);
 
         // 2. 카메라 시점 전환
-        if (PlayerCamera.Instance != null)
+        // [수정] player.playerCamera 에러 (CS0117) 해결: 플레이어가 가진 playerCamera 변수 참조
+        if (player.playerCamera != null)
+        // if (player.playerCamera != null)
         {
             // 인벤토리 카메라를 활성화합니다. 
             // TD : 남규할일 - PlayerCamera에서 cameraPivot 위치로 카메라를 이동시키는 로직이 연동되어야 합니다.
-            // PlayerCamera.Instance.ToggleInventoryCamera(true);
+
+            // [수정] 여기도 Instance를 지우고 player.playerCamera로 변경해야 나중에 주석 풀 때 에러가 안 납니다.
+            // player.playerCamera.ToggleInventoryCamera(true);
+            // player.playerCamera.ToggleInventoryCamera(true);
         }
 
         // 3. 비주얼 처리 (상자 투명화 및 내부 그리드 표시)
@@ -82,9 +93,16 @@ public class LootableInteractable : InteractableObject
         Debug.Log($"<color=orange>[Looting] 상자 닫기 시퀀스 실행: {gameObject.name}</color>");
 
         // 1. 카메라 복구
-        if (PlayerCamera.Instance != null)
+        // [수정] player.playerCamera 에러 해결: 캐싱해둔 interactingPlayer를 경유하여 카메라 참조
+        if (interactingPlayer != null && interactingPlayer.playerCamera != null)
+        // if (player.playerCamera != null)
+        {
             // TD : 남규할일 - 밑에꺼 복구
-            // PlayerCamera.Instance.ToggleInventoryCamera(false);
+
+            // [수정] 여기도 Instance를 지우고 interactingPlayer.playerCamera로 변경
+            // interactingPlayer.playerCamera.ToggleInventoryCamera(false);
+            // player.playerCamera.ToggleInventoryCamera(false);
+        }
 
         // 2. 비주얼 복구
         if (visualController != null)

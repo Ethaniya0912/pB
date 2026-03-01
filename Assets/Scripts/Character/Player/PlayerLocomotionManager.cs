@@ -119,11 +119,11 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         if (!player.canMove) return;
 
         // [수정] 카메라 인스턴스가 있는지 안전 점검 후 방향 계산
-        if (PlayerCamera.Instance == null) return;
+        if (player.playerCamera == null) return;
 
         // 움직임은 카메라 방향과 인풋에 따라 결정됨.
-        moveDirection = PlayerCamera.Instance.transform.forward * verticalMovement;
-        moveDirection = moveDirection + PlayerCamera.Instance.transform.right * horizontalMovement;
+        moveDirection = player.playerCamera.transform.forward * verticalMovement;
+        moveDirection = moveDirection + player.playerCamera.transform.right * horizontalMovement;
         moveDirection.Normalize();
         moveDirection.y = 0;
 
@@ -141,7 +141,7 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
     {
         if (player.playerNetworkManager.isDead.Value) return;
         if (!player.canRotate) return;
-        if (PlayerCamera.Instance == null) return;
+        if (player.playerCamera == null) return;
 
         if (player.playerNetworkManager.isLockedOn.Value)
         {
@@ -149,8 +149,8 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
             if (player.playerNetworkManager.isSprinting.Value || player.playerLocomotionManager.isRolling)
             {
                 Vector3 targetDirection = Vector3.zero;
-                targetDirection = PlayerCamera.Instance.cameraObject.transform.forward * verticalMovement;
-                targetDirection += PlayerCamera.Instance.cameraObject.transform.right * horizontalMovement;
+                targetDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
+                targetDirection += player.playerCamera.cameraObject.transform.right * horizontalMovement;
                 targetDirection.Normalize();
                 targetDirection.y = 0;
 
@@ -179,8 +179,8 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         else
         {
             targetRotationDirection = Vector3.zero;
-            targetRotationDirection = PlayerCamera.Instance.cameraObject.transform.forward * verticalMovement;
-            targetRotationDirection = targetRotationDirection + PlayerCamera.Instance.cameraObject.transform.right * horizontalMovement;
+            targetRotationDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
+            targetRotationDirection = targetRotationDirection + player.playerCamera.cameraObject.transform.right * horizontalMovement;
             targetRotationDirection.Normalize();
             targetRotationDirection.y = 0;
 
@@ -200,13 +200,13 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
     {
         if (player.isPerformingAction) return;
         if (player.playerNetworkManager.currentStamina.Value <= 0) return;
-        if (PlayerCamera.Instance == null) return;
+        if (player.playerCamera == null) return;
 
         // 움직이던 도중 dodge 실행 시 roll 실행
         if (moveAmount > 0)
         {
-            rollDirection = PlayerCamera.Instance.cameraObject.transform.forward * verticalMovement;
-            rollDirection += PlayerCamera.Instance.cameraObject.transform.right * horizontalMovement;
+            rollDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
+            rollDirection += player.playerCamera.cameraObject.transform.right * horizontalMovement;
 
             // y 값 없이 좌우로만.
             rollDirection.y = 0;

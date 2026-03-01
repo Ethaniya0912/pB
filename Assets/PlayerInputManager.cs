@@ -270,7 +270,7 @@ public class PlayerInputManager : MonoBehaviour
                 if (lockOnCoroutine != null)
                     StopCoroutine(lockOnCoroutine);
 
-                lockOnCoroutine = StartCoroutine(PlayerCamera.Instance.WaitThenFindNewTarget());
+                lockOnCoroutine = StartCoroutine(player.playerCamera.WaitThenFindNewTarget());
 
             }
 
@@ -278,7 +278,7 @@ public class PlayerInputManager : MonoBehaviour
             {
                 Debug.Log($"{lockOn_Input}, lockOn_Input && player.playerNetworkManager.isLockedOn.Value");
                 lockOn_Input = false;
-                PlayerCamera.Instance.ClearLockOnTargets();
+                player.playerCamera.ClearLockOnTargets();
                 player.playerNetworkManager.isLockedOn.Value = false;
                 // 이미 락온? (언락)
                 return;
@@ -292,11 +292,11 @@ public class PlayerInputManager : MonoBehaviour
 
                 // 레인지 무기 사용중이라면 락온 안함.
 
-                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+                player.playerCamera.HandleLocatingLockOnTargets();
 
-                if (PlayerCamera.Instance.nearestLockOnTarget != null)
+                if (player.playerCamera.nearestLockOnTarget != null)
                 {
-                    player.playerCombatManager.SetTarget(PlayerCamera.Instance.nearestLockOnTarget);
+                    player.playerCombatManager.SetTarget(player.playerCamera.nearestLockOnTarget);
                     // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
                     player.playerNetworkManager.isLockedOn.Value = true;
                 }
@@ -313,11 +313,11 @@ public class PlayerInputManager : MonoBehaviour
                 // 이미 락온 됫다면 실행.
                 if (player.playerNetworkManager.isLockedOn.Value)
                 {
-                    PlayerCamera.Instance.HandleLocatingLockOnTargets();
+                    player.playerCamera.HandleLocatingLockOnTargets();
 
-                    if (PlayerCamera.Instance.leftLockOnTarget != null)
+                    if (player.playerCamera.leftLockOnTarget != null)
                     {
-                        player.playerCombatManager.SetTarget(PlayerCamera.Instance.leftLockOnTarget);
+                        player.playerCombatManager.SetTarget(player.playerCamera.leftLockOnTarget);
                     }
                 }
             }
@@ -330,11 +330,11 @@ public class PlayerInputManager : MonoBehaviour
                 // 이미 락온 됫다면 실행.
                 if (player.playerNetworkManager.isLockedOn.Value)
                 {
-                    PlayerCamera.Instance.HandleLocatingLockOnTargets();
+                    player.playerCamera.HandleLocatingLockOnTargets();
 
-                    if (PlayerCamera.Instance.rightLockOnTarget != null)
+                    if (player.playerCamera.rightLockOnTarget != null)
                     {
-                        player.playerCombatManager.SetTarget(PlayerCamera.Instance.rightLockOnTarget);
+                        player.playerCombatManager.SetTarget(player.playerCamera.rightLockOnTarget);
                     }
                 }
             }

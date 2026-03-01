@@ -6,7 +6,9 @@ using UnityEngine.UIElements;
 
 public class PlayerCamera : MonoBehaviour
 {
-    public static PlayerCamera Instance { get; private set; }
+    // [수정사항] 멀티플레이어 환경(NGO 2.0) 충돌 방지를 위해 PlayerCamera의 싱글턴(Instance) 속성을 삭제 및 주석 처리합니다.
+    // 로컬 카메라의 접근은 WorldCameraManager.Instance를 통해 안전하게 참조가 관리됩니다.
+    // public static PlayerCamera Instance { get; private set; }
 
     [Header("References")]
     public Camera cameraObject;
@@ -66,7 +68,8 @@ public class PlayerCamera : MonoBehaviour
 
     private void Awake()
     {
-        // 싱글턴
+        // [수정사항] 싱글턴 오용으로 인한 멀티플레이어 환경 버그를 차단하기 위해 Awake 내 할당 로직을 제거(주석 처리)합니다.
+        /*
         if (Instance == null)
         {
             Instance = this;
@@ -75,6 +78,7 @@ public class PlayerCamera : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        */
 
         if (cameraObject != null)
         {
@@ -128,7 +132,8 @@ public class PlayerCamera : MonoBehaviour
         }
 
         // 셰이크 처리
-
+        // [수정사항 - 코멘트 추가] 향후 셰이크와 콜리전 로직이 프레임 내에서 덮어쓰기 경쟁을 하는 것을 완전히 방지하려면,
+        // cameraObjectPosition (콜리전 위치)를 다루는 Transform 뎁스와, Shake 전용 Transform 뎁스를 하이어라키에서 물리적으로 분리하는 것이 좋습니다.
         if (shakeDuration > 0)
         {
             cameraObject.transform.localPosition = cameraObjectPosition + (UnityEngine.Random.insideUnitSphere * shakeIntensity);
@@ -145,7 +150,7 @@ public class PlayerCamera : MonoBehaviour
 
     private void HandleFollowTarget()
     {
-        if(isContexualMode && currentFocusTarget != null)
+        if (isContexualMode && currentFocusTarget != null)
         {
             // [상황별 포커싱] 타겟의 회전값을 반영한 오프셋 좌표로 이동
             Vector3 desiredPosition = currentFocusTarget.position + (currentFocusTarget.rotation * currentOffset);
@@ -160,13 +165,13 @@ public class PlayerCamera : MonoBehaviour
                 ref cameraVelocity,
                 cameraSmoothSpeed * Time.deltaTime
                 );
-            transform.position = targetCameraPosition; 
+            transform.position = targetCameraPosition;
         }
     }
 
     private void HandleRotation()
     {
-        if(isContexualMode && currentFocusTarget != null)
+        if (isContexualMode && currentFocusTarget != null)
         {
             // [상황별 포커싱] 타겟 오브젝트를 위에서 아래로 바라보도록
             // 현재 카메라 위치에서 타겟오브젝트를 향하는 벡터
@@ -232,7 +237,7 @@ public class PlayerCamera : MonoBehaviour
             targetRotation = Quaternion.Euler(cameraRotation);
             cameraPivotTransform.localRotation = targetRotation;
         }
-           
+
     }
 
     private void HandleCollision()
@@ -245,10 +250,10 @@ public class PlayerCamera : MonoBehaviour
 
         // 우리가 원하는 방향에 오브젝트가 있는지 체크한다.
         if (Physics.SphereCast(
-            cameraPivotTransform.position, 
-            cameraCollisionRadius, 
-            direction, 
-            out hit, 
+            cameraPivotTransform.position,
+            cameraCollisionRadius,
+            direction,
+            out hit,
             Mathf.Abs(targetCameraZPosition),
             collideWithLayers))
         {
@@ -257,7 +262,7 @@ public class PlayerCamera : MonoBehaviour
             // 그 이후 타겟 Z 포지션으로 따라다니도록 값을 같게 해준다.
             targetCameraZPosition = -(distanceFromHitObject - cameraCollisionRadius);
         }
-            
+
         // 만약 타켓 포지션이 콜리션 범위보다 좁다면, 쿨리션 범위만큼 뺀다(뒤로 물러나게 함)
         if (Mathf.Abs(targetCameraZPosition) < cameraCollisionRadius)
         {
@@ -277,8 +282,8 @@ public class PlayerCamera : MonoBehaviour
 
         // TD : 레이어 마스크 사용
         Collider[] colliders = Physics.OverlapSphere(
-            player.transform.position, 
-            lockOnRadius, 
+            player.transform.position,
+            lockOnRadius,
             WorldUtilityManager.Instance.GetCharacterLayers());
 
         for (int i = 0; i < colliders.Length; i++)
@@ -294,15 +299,15 @@ public class PlayerCamera : MonoBehaviour
 
                 // 타겟이 죽은 상태면 포문 계속 진행.
                 if (lockOnTarget.characterNetworkManager.isDead.Value)
-                    continue; 
-                
+                    continue;
+
                 // 타겟을 자신으로 잡앗을 시, 무시하고 다음 타겟 진행.
                 if (lockOnTarget.transform.root == player.transform.root)
                     continue;
 
-/*                // 타겟이 사거리 바깥일 시, 다음 타겟 진행.
-                if (distanceFromTarget > maximumLockOnDistance)
-                    continue;*/
+                /* // 타겟이 사거리 바깥일 시, 다음 타겟 진행.
+                                if (distanceFromTarget > maximumLockOnDistance)
+                                    continue;*/
 
                 // 타겟이 FOV 바깥에 있거나 환경에 의해 블럭된다면, 다음 포텐셜 타겟으로.
                 if (viewableAngle > minimumViewableAngle && viewableAngle < maximumViewableAngle)
@@ -311,8 +316,8 @@ public class PlayerCamera : MonoBehaviour
 
                     // TD : 환경 레이어 전용 레이어마스크 추가.
                     if (Physics.Linecast(
-                        player.playerCombatManager.lockOnTransform.position, 
-                        lockOnTarget.characterCombatManager.lockOnTransform.position, 
+                        player.playerCombatManager.lockOnTransform.position,
+                        lockOnTarget.characterCombatManager.lockOnTransform.position,
                         out hit,
                         WorldUtilityManager.Instance.GetEnviroLayers()))
                     {
@@ -334,7 +339,7 @@ public class PlayerCamera : MonoBehaviour
             if (availableTarget[k] != null)
             {
                 float distanceFromTarget = Vector3.Distance(player.transform.position, availableTarget[k].transform.position);
-                
+
                 if (distanceFromTarget < shortestDistance)
                 {
                     shortestDistance = distanceFromTarget;
@@ -373,6 +378,21 @@ public class PlayerCamera : MonoBehaviour
                 player.playerNetworkManager.isLockedOn.Value = false;
             }
         }
+    }
+
+    // [수정사항] 라우터(PlayerManager)로부터 수신한 방향(Enum) 데이터를 바탕으로 도메인 레벨에서 물리적인 타겟을 전환합니다.
+    // 기존에는 탐색(HandleLocatingLockOnTargets)만 하고 전환하는 '실행 함수'가 없었습니다.
+    public void SwitchLockOnTarget(LockOnDirection direction)
+    {
+        if (direction == LockOnDirection.Left && leftLockOnTarget != null)
+        {
+            player.playerCombatManager.SetTarget(leftLockOnTarget);
+        }
+        else if (direction == LockOnDirection.Right && rightLockOnTarget != null)
+        {
+            player.playerCombatManager.SetTarget(rightLockOnTarget);
+        }
+        // 타겟이 없는 경우(null) 무시함으로써 자연스러운 게임 플레이 흐름을 유지합니다.
     }
 
     public void SetLockCameraHeight()
@@ -434,15 +454,15 @@ public class PlayerCamera : MonoBehaviour
             {
                 if (player.playerCombatManager.currentTarget != null)
                 {
-                    cameraPivotTransform.transform.localPosition = 
+                    cameraPivotTransform.transform.localPosition =
                         Vector3.SmoothDamp(cameraPivotTransform.transform.localPosition, newLockedCameraHeight, ref velocity, setCameraHeightSpeed);
-                    cameraPivotTransform.transform.localRotation = 
-                        Quaternion.Slerp(cameraPivotTransform.transform.localRotation, Quaternion.Euler(0,0,0), lockOnTargetFollowSpeed);
+                    cameraPivotTransform.transform.localRotation =
+                        Quaternion.Slerp(cameraPivotTransform.transform.localRotation, Quaternion.Euler(0, 0, 0), lockOnTargetFollowSpeed);
                 }
                 else
                 {
                     // 타겟이 없는데 잡혓다면, 원래 언락지점으로 회귀
-                    cameraPivotTransform.transform.localPosition = 
+                    cameraPivotTransform.transform.localPosition =
                         Vector3.SmoothDamp(cameraPivotTransform.transform.localPosition, newUnlockedCameraHeight, ref velocity, setCameraHeightSpeed);
                 }
             }
@@ -473,15 +493,16 @@ public class PlayerCamera : MonoBehaviour
     /// 외부 시스템에서 특정 오브젝트를 주시하도록 명령할 때 호출됩니다.
     /// </summary>
 
-    internal void SetContextualFocus(Transform target, float fov, float speed, Vector3 offset)
+    // [수정사항] 매개변수를 프리셋 구조체로 통합 적용
+    internal void SetContextualFocus(Transform target, CameraStancePreset preset)
     {
         currentFocusTarget = target;
 
-        targetFOV = fov;
+        targetFOV = preset.fov;
 
-        currentLerpSpeed = speed;
+        currentLerpSpeed = preset.lerpSpeed;
 
-        currentOffset = offset;
+        currentOffset = preset.customOffset;
 
         isContexualMode = true;
     }
@@ -493,6 +514,10 @@ public class PlayerCamera : MonoBehaviour
         currentFocusTarget = null;
 
         targetFOV = defaultFOV;
+
+        // [수정사항] 시점 스냅(튀는 현상) 방지 로직 추가
+        leftAndRightLookAngle = transform.eulerAngles.y;
+        upAndDownLookAngle = transform.eulerAngles.x;
 
         // 다음 프레임부터 HandleFollowTarget이 다시 플레이어를 쫓음.
     }

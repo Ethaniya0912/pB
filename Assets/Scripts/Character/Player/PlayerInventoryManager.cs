@@ -289,9 +289,9 @@ public class PlayerInventoryManager : CharacterInventoryManager
         isInventoryOpen = true;
         isInteractingWithBag = true;
 
-        if (PlayerCamera.Instance != null)
+        if (player.playerCamera != null)
             // TD : 남규할일 - 인벤토리 카메라 피벗 적용
-            //PlayerCamera.Instance.ToggleInventoryCamera(true);
+            //player.playerCamera.ToggleInventoryCamera(true);
 
             player.playerNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
             NetworkManager.Singleton.LocalClientId, "Put_Bag_Down", true);
@@ -316,9 +316,9 @@ public class PlayerInventoryManager : CharacterInventoryManager
         player.playerNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
             NetworkManager.Singleton.LocalClientId, "Pick_Up_Bag", true);
 
-        if (PlayerCamera.Instance != null)
+        if (player.playerCamera != null)
             // TD : 남규할일 - 인벤토리 카메라 피벗 적용
-            //PlayerCamera.Instance.ToggleInventoryCamera(false);
+            //player.playerCamera.ToggleInventoryCamera(false);
 
         if (bagVisualController != null)
             bagVisualController.SetBagToSpine();

@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class WorldGameStateManager : MonoBehaviour
 {
-    public static WorldGameStateManager Instance {  get; private set; }
+    public static WorldGameStateManager Instance { get; private set; }
 
     [Header("State Info")]
     public GameState currentState = GameState.Normal;
@@ -13,6 +13,8 @@ public class WorldGameStateManager : MonoBehaviour
     public delegate void StateChanged(GameState newState);
     public event StateChanged OnStatechanged;
 
+    // [수정] WorldCameraManager에 정의된 통합 구조체(CameraStancePreset)를 사용하기 위해 기존 구조체는 주석 처리합니다.
+    /*
     // 상황별 카메라 설정 데이터 구조체
     [System.Serializable]
     public struct CameraPreset
@@ -21,12 +23,14 @@ public class WorldGameStateManager : MonoBehaviour
         public float fov;           // 화각
         public float lerpSpeed;     // 전이속도
     }
+    */
 
     [Header("Camera Presets")]
-    public CameraPreset inventoryPreset = new CameraPreset { offset = new Vector3(0f, 1.5f, -0.5f), fov = 40f, lerpSpeed = 5f };
-    public CameraPreset tablePreset = new CameraPreset { offset = new Vector3(0f, 3.0f, -0.2f), fov = 30f, lerpSpeed = 4f };
-    public CameraPreset cookingPreset = new CameraPreset { offset = new Vector3(0f, 2.0f, -0.8f), fov = 45f, lerpSpeed = 5f };
-    public CameraPreset lockOnPreset = new CameraPreset { offset = new Vector3(0.5f, 1.8f, -4f), fov = 55f, lerpSpeed = 7f };
+    // [수정] 기존 CameraPreset을 CameraStancePreset으로 교체하고, 내부 변수명도 customOffset으로 맞췄습니다.
+    public CameraStancePreset inventoryPreset = new CameraStancePreset { customOffset = new Vector3(0f, 1.5f, -0.5f), fov = 40f, lerpSpeed = 5f };
+    public CameraStancePreset tablePreset = new CameraStancePreset { customOffset = new Vector3(0f, 3.0f, -0.2f), fov = 30f, lerpSpeed = 4f };
+    public CameraStancePreset cookingPreset = new CameraStancePreset { customOffset = new Vector3(0f, 2.0f, -0.8f), fov = 45f, lerpSpeed = 5f };
+    public CameraStancePreset lockOnPreset = new CameraStancePreset { customOffset = new Vector3(0.5f, 1.8f, -4f), fov = 55f, lerpSpeed = 7f };
 
     void Awake()
     {
@@ -59,7 +63,10 @@ public class WorldGameStateManager : MonoBehaviour
         if (WorldCameraManager.Instance != null)
         {
             // 이벤트 포커싱은 기본 위에서 내려다보는 오프셋(예: 0, 2.5, -1)을 임시로 사용
-            WorldCameraManager.Instance.StartFocus(target, zoomFov, 5f, new Vector3(0, 2.5f, -1f));
+            // [수정] 4개의 파라미터를 던지던 것을 즉석에서 CameraStancePreset 구조체로 묶어서 전달하도록 수정 (CS1501 에러 해결)
+            CameraStancePreset eventPreset = new CameraStancePreset { fov = zoomFov, lerpSpeed = 5f, customOffset = new Vector3(0, 2.5f, -1f) };
+            WorldCameraManager.Instance.StartFocus(target, eventPreset);
+            // WorldCameraManager.Instance.StartFocus(target, zoomFov, 5f, new Vector3(0, 2.5f, -1f));
         }
 
         yield return new WaitForSeconds(duration);
@@ -83,10 +90,14 @@ public class WorldGameStateManager : MonoBehaviour
         switch (newState)
         {
             case GameState.LockOn:
-                WorldCameraManager.Instance.StartFocus(target,lockOnPreset.fov,lockOnPreset.lerpSpeed,lockOnPreset.offset);
+                // [수정] 4개의 파라미터를 개별로 보내지 않고 lockOnPreset 구조체 자체를 파라미터로 전송 (CS1501 에러 해결)
+                WorldCameraManager.Instance.StartFocus(target, lockOnPreset);
+                // WorldCameraManager.Instance.StartFocus(target,lockOnPreset.fov,lockOnPreset.lerpSpeed,lockOnPreset.offset);
                 break;
             case GameState.Inventory:
-                WorldCameraManager.Instance.StartFocus(target, inventoryPreset.fov, inventoryPreset.lerpSpeed, inventoryPreset.offset);
+                // [수정] 4개의 파라미터를 개별로 보내지 않고 inventoryPreset 구조체 자체를 파라미터로 전송 (CS1501 에러 해결)
+                WorldCameraManager.Instance.StartFocus(target, inventoryPreset);
+                // WorldCameraManager.Instance.StartFocus(target, inventoryPreset.fov, inventoryPreset.lerpSpeed, inventoryPreset.offset);
                 break;
             case GameState.Table:
                 break;

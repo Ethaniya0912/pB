@@ -7866,21 +7866,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WorldGameStateManager
   currentState: 0
   inventoryPreset:
-    offset: {x: 0, y: 1.5, z: -0.5}
     fov: 40
     lerpSpeed: 5
+    customOffset: {x: 0, y: 1.5, z: -0.5}
   tablePreset:
-    offset: {x: 0, y: 3, z: -0.2}
     fov: 30
     lerpSpeed: 4
+    customOffset: {x: 0, y: 3, z: -0.2}
   cookingPreset:
-    offset: {x: 0, y: 2, z: -0.8}
     fov: 45
     lerpSpeed: 5
+    customOffset: {x: 0, y: 2, z: -0.8}
   lockOnPreset:
-    offset: {x: 0.5, y: 1.8, z: -4}
     fov: 55
     lerpSpeed: 7
+    customOffset: {x: 0.5, y: 1.8, z: -4}
 --- !u!4 &1392100957
 Transform:
   m_ObjectHideFlags: 0
@@ -9380,7 +9380,7 @@ PrefabInstance:
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: mainPathWidth
-      value: 6
+      value: 7
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -9395,7 +9395,12 @@ PrefabInstance:
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: sidePathWidth
-      value: 4
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: targetRoomCount
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}

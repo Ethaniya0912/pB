@@ -12,14 +12,17 @@ public class PlayerManager : CharacterManager
     [SerializeField] bool respawnCharacter = false;
     [SerializeField] bool switchRightWeapon = false;
 
-    [HideInInspector]public PlayerAnimationManager playerAnimationManager;
-    [HideInInspector]public PlayerLocomotionManager playerLocomotionManager;
-    [HideInInspector]public PlayerNetworkManager playerNetworkManager;
-    [HideInInspector]public PlayerStatsManager playerStatsManager;
-    [HideInInspector]public PlayerInventoryManager playerInventoryManager;
-    [HideInInspector]public PlayerEquipmentManager playerEquipmentManager;
-    [HideInInspector]public PlayerCombatManager playerCombatManager;
-    [HideInInspector]public PlayerInteractionManager playerInteractionManager;
+    [HideInInspector] public PlayerAnimationManager playerAnimationManager;
+    [HideInInspector] public PlayerLocomotionManager playerLocomotionManager;
+    [HideInInspector] public PlayerNetworkManager playerNetworkManager;
+    [HideInInspector] public PlayerStatsManager playerStatsManager;
+    [HideInInspector] public PlayerInventoryManager playerInventoryManager;
+    [HideInInspector] public PlayerEquipmentManager playerEquipmentManager;
+    [HideInInspector] public PlayerCombatManager playerCombatManager;
+    [HideInInspector] public PlayerInteractionManager playerInteractionManager;
+
+    // [수정사항] PlayerCamera 싱글턴 삭제 방침에 따라 참조용 변수 추가
+    [HideInInspector] public PlayerCamera playerCamera;
 
     protected override void Awake()
     {
@@ -49,7 +52,7 @@ public class PlayerManager : CharacterManager
         playerLocomotionManager.HandleAllMovement();
 
         // 스태미나 리젠 함수 업데이트
-        playerStatsManager.RegenerateStamina();;
+        playerStatsManager.RegenerateStamina(); ;
     }
 
     protected override void LateUpdate()
@@ -59,7 +62,12 @@ public class PlayerManager : CharacterManager
 
         base.LateUpdate();
 
-        PlayerCamera.Instance.HandleAllCameraActions();
+        // [수정사항] player.playerCamera 싱글턴 사용을 지양하고 캐싱된 참조(playerCamera) 사용
+        // 기존 코드: player.playerCamera.HandleAllCameraActions();
+        if (playerCamera != null)
+        {
+            playerCamera.HandleAllCameraActions();
+        }
     }
 
     public override void OnNetworkSpawn()
@@ -70,7 +78,16 @@ public class PlayerManager : CharacterManager
         // 클라이언트에 의해 소유된 플레이어 오브젝트일 시
         if (IsOwner)
         {
-            PlayerCamera.Instance.player = this;
+            // [수정사항] 현재 씬의 PlayerCamera를 찾아 캐싱 (싱글턴 대체)
+            playerCamera = FindObjectOfType<PlayerCamera>();
+
+            // [수정사항] 싱글턴(Instance) 참조를 변수 참조(playerCamera)로 변경
+            // 기존 코드: player.playerCamera.player = this;
+            if (playerCamera != null)
+            {
+                playerCamera.player = this;
+            }
+
             PlayerInputManager.Instance.player = this;
             WorldSaveGameManager.Instance.player = this;
 
@@ -111,10 +128,12 @@ public class PlayerManager : CharacterManager
         }
 
         // 플레이어 스폰 시 Player Camera에 InventoryPivot 설정
-        if (IsOwner && PlayerCamera.Instance != null)
+        // [수정사항] player.playerCamera 널 체크를 playerCamera로 변경
+        // 기존 코드: if (IsOwner && player.playerCamera != null)
+        if (IsOwner && playerCamera != null)
         {
             // TD : 남규할일 - 인벤토리 피벗 관련 코드 추가 필요.
-            // PlayerCamera.Instance.SetInventoryPivot(playerInventoryManager.inventoryCameraPivot);
+            // player.playerCamera.SetInventoryPivot(playerInventoryManager.inventoryCameraPivot);
         }
 
     }
@@ -168,11 +187,11 @@ public class PlayerManager : CharacterManager
 
         // 만약 우리가 서버라면, 호스트이며, 다른 유저를 싱크할 필요가 없음(나중에 접속할일x)
         // 도중에 참가한 유저일때만 싱크할 필요성이 있음.
-        if(!IsServer && IsOwner)
+        if (!IsServer && IsOwner)
         {
-            foreach(var player in WorldGameSessionManager.Instance.players)
+            foreach (var player in WorldGameSessionManager.Instance.players)
             {
-                if(player != this)
+                if (player != this)
                 {
                     player.LoadOtherPlayerCharacterWhenJoiningServer();
                 }
@@ -234,15 +253,15 @@ public class PlayerManager : CharacterManager
 
         playerNetworkManager.vitality.Value = currentCharacterSaveData.vitality;
         playerNetworkManager.endurance.Value = currentCharacterSaveData.endurance;
-        
+
         // 관련 코드는 세이빙/로드가 추가되면 관련된 곳으로 옮길 것.
         playerNetworkManager.maxHealth.Value =
             playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);
-        playerNetworkManager.maxStamina.Value = 
+        playerNetworkManager.maxStamina.Value =
             playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
         PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(playerNetworkManager.maxStamina.Value);
         playerNetworkManager.currentHealth.Value =
-            playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value); 
+            playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);
         playerNetworkManager.currentStamina.Value =
             playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
     }
@@ -267,7 +286,7 @@ public class PlayerManager : CharacterManager
     {
         if (movementInput.sqrMagnitude > 0)
         {
-            if (WorldGameStateManager.Instance.currentState == GameState.Inventory || 
+            if (WorldGameStateManager.Instance.currentState == GameState.Inventory ||
                 WorldGameStateManager.Instance.currentState == GameState.Table)
             {
                 WorldGameStateManager.Instance.SetGamePlaySituation(GameState.Normal);
@@ -283,9 +302,15 @@ public class PlayerManager : CharacterManager
 
     internal void OnCameraInputReceived(Vector2 cameraInput)
     {
-        if (PlayerCamera.Instance != null)
+        // [수정사항] player.playerCamera 싱글턴 사용을 playerCamera 참조로 변경
+        // 기존 코드:
+        // if (player.playerCamera != null)
+        // {
+        //     player.playerCamera.OnCameraInputReceived(cameraInput.x, cameraInput.y);
+        // }
+        if (playerCamera != null)
         {
-            PlayerCamera.Instance.OnCameraInputReceived(cameraInput.x, cameraInput.y);
+            playerCamera.OnCameraInputReceived(cameraInput.x, cameraInput.y);
         }
     }
 
@@ -296,6 +321,10 @@ public class PlayerManager : CharacterManager
 
     internal void OnRBInputReceived()
     {
+        // [수정사항 코멘트] 
+        // 기존 작성하신 코드가 이미 '실행 확정 시점의 정책 주입' 아키텍처를 완벽히 준수하고 있습니다!
+        // 가드 로직을 통과한 순간에만 SetCharacterActionHand(true)를 주입하고 있습니다.
+
         // 1순위 : 상호작용 (물건 소지 시 '공격' 보다 '놓기' 우선)
         if (playerInteractionManager.currentlyHeldObject != null)
         {
@@ -315,12 +344,36 @@ public class PlayerManager : CharacterManager
 
     internal void OnRTInputReceived()
     {
+        // [수정사항 코멘트] 이 함수 역시 구조가 이미 완벽합니다.
         if (WorldGameStateManager.Instance.IsCombatAllowed())
         {
             playerNetworkManager.SetCharacterActionHand(true); // RT_input 들어오면 항상 참.
             playerCombatManager.OnRTInputReceived();
         }
     }
+/*
+    // [수정사항] 대칭되는 완벽한 구성을 위해 왼손 액션(LB, LT) 라우팅 함수를 추가했습니다.
+    internal void OnLBInputReceived()
+    {
+        if (WorldGameStateManager.Instance.IsCombatAllowed())
+        {
+            // 왼손 동작이므로 false 주입
+            playerNetworkManager.SetCharacterActionHand(false);
+            playerCombatManager.OnLBInputReceived();
+        }
+    }
+
+    // [수정사항] 대칭되는 완벽한 구성을 위해 왼손 액션(LB, LT) 라우팅 함수를 추가했습니다.
+    internal void OnLTInputReceived()
+    {
+        if (WorldGameStateManager.Instance.IsCombatAllowed())
+        {
+            // 왼손 동작이므로 false 주입
+            playerNetworkManager.SetCharacterActionHand(false);
+            playerCombatManager.OnLTInputReceived();
+        }
+    }
+*/
     internal void OnInteractionInputReceived()
     {
         if (WorldGameStateManager.Instance.IsInteractionAllowed())
@@ -332,7 +385,7 @@ public class PlayerManager : CharacterManager
             //if (playerInteractionManager.손에 아이템을 든 상태에서 가방도 열어 넣으려는 상태())
             //{
             //    WorldGameStateManager.Instance.SetGamePlaySituation(GameState.Inventory, playerInteractionManager.currentlyHeldObject.transform);
-            //}           
+            //}            
         }
     }
 
@@ -343,6 +396,19 @@ public class PlayerManager : CharacterManager
 
     internal void OnLockOnSwitchTargetInputReceived(LockOnDirection direction)
     {
+        // [수정사항] 단일 콜백 통합 방식 적용 (보고서 반영)
+        // 락온 상태가 아닐 경우 연산 원천 봉쇄 (중앙 정책 검문)
+        if (!playerNetworkManager.isLockedOn.Value)
+            return;
+
+        // 상황 검증이 끝났으므로, 물리적 탐색과 실행을 담당하는 카메라 계층으로 데이터(의도) 배분
+        if (playerCamera != null)
+        {
+            playerCamera.SwitchLockOnTarget(direction);
+        }
+
+        // 기존 코드: 컴뱃 매니저로 전달하던 부분은 원본 보존 규칙에 따라 남겨두었습니다.
+        // (타겟 탐색 및 스위칭 로직이 카메라로 완전 이관되었다면 이 줄은 추후 삭제하셔도 무방합니다)
         playerCombatManager.OnLockOnSwitchTargetInputReceived(direction);
     }
 

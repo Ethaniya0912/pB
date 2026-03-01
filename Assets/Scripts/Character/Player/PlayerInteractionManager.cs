@@ -247,9 +247,9 @@ namespace SG
                 {
                     dropDirection = Camera.main.transform.forward;
                 }
-                else if (PlayerCamera.Instance != null)
+                else if (player.playerCamera != null)
                 {
-                    dropDirection = PlayerCamera.Instance.transform.forward;
+                    dropDirection = player.playerCamera.transform.forward;
                 }
 
                 currentlyHeldObject.RequestDropServerRpc(dropDirection);

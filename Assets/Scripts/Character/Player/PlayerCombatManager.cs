@@ -55,14 +55,14 @@ public class PlayerCombatManager : CharacterCombatManager
             if (lockOnCoroutine != null)
                 StopCoroutine(lockOnCoroutine);
 
-            lockOnCoroutine = StartCoroutine(PlayerCamera.Instance.WaitThenFindNewTarget());
+            lockOnCoroutine = StartCoroutine(player.playerCamera.WaitThenFindNewTarget());
 
         }
 
         if (player.playerNetworkManager.isLockedOn.Value)
         {
             Debug.Log($"player.playerNetworkManager.isLockedOn.Value");
-            PlayerCamera.Instance.ClearLockOnTargets();
+            player.playerCamera.ClearLockOnTargets();
             player.playerNetworkManager.isLockedOn.Value = false;
             // 이미 락온? (언락)
             return;
@@ -75,11 +75,11 @@ public class PlayerCombatManager : CharacterCombatManager
 
             // 레인지 무기 사용중이라면 락온 안함.
 
-            PlayerCamera.Instance.HandleLocatingLockOnTargets();
+            player.playerCamera.HandleLocatingLockOnTargets();
 
-            if (PlayerCamera.Instance.nearestLockOnTarget != null)
+            if (player.playerCamera.nearestLockOnTarget != null)
             {
-                SetTarget(PlayerCamera.Instance.nearestLockOnTarget);
+                SetTarget(player.playerCamera.nearestLockOnTarget);
                 // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
                 player.playerNetworkManager.isLockedOn.Value = true;
             }
@@ -94,11 +94,11 @@ public class PlayerCombatManager : CharacterCombatManager
             // 이미 락온 됫다면 실행.
             if (player.playerNetworkManager.isLockedOn.Value)
             {
-                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+                player.playerCamera.HandleLocatingLockOnTargets();
 
-                if (PlayerCamera.Instance.leftLockOnTarget != null)
+                if (player.playerCamera.leftLockOnTarget != null)
                 {
-                    SetTarget(PlayerCamera.Instance.leftLockOnTarget);
+                    SetTarget(player.playerCamera.leftLockOnTarget);
                 }
             }
         }
@@ -108,11 +108,11 @@ public class PlayerCombatManager : CharacterCombatManager
             // 이미 락온 됫다면 실행.
             if (player.playerNetworkManager.isLockedOn.Value)
             {
-                PlayerCamera.Instance.HandleLocatingLockOnTargets();
+                player.playerCamera.HandleLocatingLockOnTargets();
 
-                if (PlayerCamera.Instance.rightLockOnTarget != null)
+                if (player.playerCamera.rightLockOnTarget != null)
                 {
-                    SetTarget(PlayerCamera.Instance.rightLockOnTarget);
+                    SetTarget(player.playerCamera.rightLockOnTarget);
                 }
             }
         }
@@ -164,7 +164,7 @@ public class PlayerCombatManager : CharacterCombatManager
         // 로컬플레이어가 하고 잇다면
         if (player.IsOwner)
         {
-            PlayerCamera.Instance.SetLockCameraHeight();
+            player.playerCamera.SetLockCameraHeight();
         }
     }
 
