@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
   m_Name: Scanline
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::FullScreenPassRendererFeature_OldGUID
-  m_Active: 0
+  m_Active: 1
   injectionPoint: 600
   fetchColorBuffer: 1
   requirements: 4
@@ -32,7 +32,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
   m_Name: DepthBlur
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.FullScreenPassRendererFeature
-  m_Active: 0
+  m_Active: 1
   injectionPoint: 600
   fetchColorBuffer: 1
   requirements: 0
@@ -40,6 +40,25 @@ MonoBehaviour:
   passIndex: 0
   bindDepthStencilAttachment: 0
   m_Version: 1
+--- !u!114 &-6089959655314562848
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8826dbbd2f20a84180629a9ae196e22, type: 3}
+  m_Name: ScreenSpaceGlobalIlluminationURP
+  m_EditorClassIdentifier: SSGIURP::ScreenSpaceGlobalIlluminationURP
+  m_Active: 1
+  m_Shader: {fileID: 4800000, guid: 052b080a79c052c4993acc96081d70b1, type: 3}
+  m_RenderingDebugger: 1
+  m_ReflectionProbes: 1
+  m_HighQualityUpscaling: 0
+  m_OverrideAmbientLighting: 1
+  m_BackfaceLighting: 0
 --- !u!114 &-5046333555471819030
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -52,7 +71,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a0858edfadabd648967a0c8dd0ed29f, type: 3}
   m_Name: FroxelAtmosphereFeature
   m_EditorClassIdentifier: Assembly-CSharp::FroxelAtmosphereFeature
-  m_Active: 0
+  m_Active: 1
   froxelCompute: {fileID: 7200000, guid: 2c914d76d0786ce42b4b9d2638c5cb07, type: 3}
   compositionMaterial: {fileID: 2100000, guid: 1d9101e69af8391449ec584a7152b027, type: 2}
   gridSize: {x: 160, y: 90, z: 64}
@@ -69,7 +88,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
   m_Name: EnemyApplyStencil
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
-  m_Active: 0
+  m_Active: 1
   settings:
     passTag: EnemyApplyStencil
     Event: 300
@@ -160,7 +179,8 @@ MonoBehaviour:
   - {fileID: 2840850373090364933}
   - {fileID: -7046500563337276279}
   - {fileID: -5046333555471819030}
-  m_RendererFeatureMap: d7b7ea5f3e902085adc0de57c6d2eee53c7b2ca48f13ad0358c00be725d5972b2a13a45b0033b6e2054e16e45cba6c278914b15412cd359eeadef72f5ed2f7b9
+  - {fileID: -6089959655314562848}
+  m_RendererFeatureMap: d7b7ea5f3e902085adc0de57c6d2eee53c7b2ca48f13ad0358c00be725d5972b2a13a45b0033b6e2054e16e45cba6c278914b15412cd359eeadef72f5ed2f7b9e0e083a0f51d7cab
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -201,7 +221,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
   m_Name: PlayerApplyStencil
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
-  m_Active: 0
+  m_Active: 1
   settings:
     passTag: PlayerApplyStencil
     Event: 300
@@ -258,7 +278,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
   m_Name: EnemyApplyStencilLUT
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
-  m_Active: 0
+  m_Active: 1
   settings:
     passTag: EnemyApplyStencilLUT
     Event: 450
@@ -300,7 +320,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
   m_Name: PlayerApplyStencilLUT
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
-  m_Active: 0
+  m_Active: 1
   settings:
     passTag: PlayerApplyStencilLUT
     Event: 450

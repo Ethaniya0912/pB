@@ -13,6 +13,7 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ENABLE_MOTION_BLUR
+  - _USE_MOTION_MAP
   m_InvalidKeywords:
   - _DEBUG_VIEW_DEPTH_RAW
   m_LightmapFlags: 4
@@ -44,9 +45,9 @@ Material:
     m_Ints: []
     m_Floats:
     - _BlackPreservation: 1
-    - _BlurDownsample: 8
-    - _BlurStrength: 1
-    - _BlurType: 0
+    - _BlurDownsample: 7.7
+    - _BlurStrength: 0.85
+    - _BlurType: 2
     - _DEBUG_VIEW: 1
     - _DebugMode: 0
     - _DistRange: 11
@@ -58,8 +59,8 @@ Material:
     - _GlobalMadness: 0
     - _LUTSize: 32
     - _LogIntensity: 2.8
-    - _MotionSensitivity: 150
-    - _UseMotionMap: 0
+    - _MotionSensitivity: 245
+    - _UseMotionMap: 1
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

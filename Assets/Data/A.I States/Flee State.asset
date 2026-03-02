@@ -13,4 +13,6 @@ MonoBehaviour:
   m_Name: Flee State
   m_EditorClassIdentifier: Assembly-CSharp::FleeState
   patrolState: {fileID: 11400000, guid: 303f2d107df127641aa8a5cbd568a3b6, type: 2}
+  combatStanceState: {fileID: 11400000, guid: ea02bb1a676545b41b6572252f07da84, type: 2}
   safeDistance: 20
+  corneredDistance: 8

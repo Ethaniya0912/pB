@@ -143,14 +143,32 @@ public class AICharacterCombatManager : CharacterCombatManager
     {
         if (currentTarget == null) return;
 
-        if (aiIntelligenceLevel >= 7) CalculateFlankingDirection();
-        else
+        // [🔥 핵심 변경] 주변에 같은 타겟을 노리는 동료가 있는지 검사하여 1:1 상황인지 판별
+        bool isOneOnOne = !HasAlliesTargetingSame();
+
+        if (isOneOnOne)
         {
+            // 1:1 대적 상황: 지능과 상관없이 1:1 전투의 긴장감을 위해 무작위 Strafe(게걸음) 실행
             if (Time.time > nextStrafeChangeTime)
             {
                 strafeDirection = Random.value > 0.5f ? 1 : -1;
                 nextStrafeChangeTime = Time.time + Random.Range(2f, strafeDirectionChangeTime);
-                DebugLog($"포위 방향 변경: {(strafeDirection == 1 ? "우측" : "좌측")} 맴돌기");
+                DebugLog($"[1:1 대치] 지능 수치 무관: {(strafeDirection == 1 ? "우측" : "좌측")}으로 맴돌기(Strafe) 수행 중");
+            }
+        }
+        else if (aiIntelligenceLevel >= 7)
+        {
+            // 다대일 상황 & 고지능(7 이상): 아군과 겹치지 않도록 영리한 포위망 구축
+            CalculateFlankingDirection();
+        }
+        else
+        {
+            // 다대일 상황 & 저지능: 겹치든 말든 무작위 방향으로 맴돌기
+            if (Time.time > nextStrafeChangeTime)
+            {
+                strafeDirection = Random.value > 0.5f ? 1 : -1;
+                nextStrafeChangeTime = Time.time + Random.Range(2f, strafeDirectionChangeTime);
+                DebugLog($"[다대일/저지능] 포위망 계산 없이 무작위로 {(strafeDirection == 1 ? "우측" : "좌측")} 맴돌기 수행 중");
             }
         }
 
@@ -158,15 +176,44 @@ public class AICharacterCombatManager : CharacterCombatManager
         targetDirection.y = 0;
         targetDirection.Normalize();
 
+        // 횡이동(Strafe) 방향 벡터 도출
         Vector3 crossDirection = Vector3.Cross(targetDirection, Vector3.up).normalized;
         Vector3 strafeVector = crossDirection * strafeDirection;
 
+        // NavMesh를 향한 목적지 갱신
         Vector3 targetDestination = transform.position + (strafeVector * strafeSpeed);
         aiCharacter.navMeshAgent.SetDestination(targetDestination);
 
+        // 애니메이터에 블렌드 트리 파라미터 전달 (좌/우 게걸음 모션)
         aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(strafeDirection * 0.5f, 0, false);
+
+        // 이동 중에도 시선은 항상 플레이어(타겟)를 고정
         Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
+    }
+
+    /// <summary>
+    /// 반경 15m 내에 현재 플레이어를 공격 중인 다른 아군 몬스터가 있는지 확인합니다.
+    /// </summary>
+    public bool HasAlliesTargetingSame()
+    {
+        if (currentTarget == null) return false;
+
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 15f, WorldUtilityManager.Instance.GetCharacterLayers());
+
+        foreach (var collider in colliders)
+        {
+            AICharacterManager ally = collider.GetComponent<AICharacterManager>();
+            // 내가 아닌 다른 아군 몬스터 발견 시
+            if (ally != null && ally != aiCharacter && ally.characterGroup == aiCharacter.characterGroup)
+            {
+                if (ally.aiCharacterCombatManager.currentTarget == currentTarget)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void CalculateFlankingDirection()
@@ -203,7 +250,7 @@ public class AICharacterCombatManager : CharacterCombatManager
             strafeDirection = dot > 0 ? -1 : 1;
 
             if (oldDirection != strafeDirection)
-                DebugLog("전술적 행동: 아군과 겹치지 않게 포위망을 폅니다.");
+                DebugLog("전술적 행동: 아군과 겹치지 않게 포위망 방향을 반대로 폅니다.");
         }
         else
         {

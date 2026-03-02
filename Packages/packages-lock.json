@@ -1,5 +1,13 @@
 {
   "dependencies": {
+    "com.jiaozi158.unityssgiurp": {
+      "version": "file:../Assets/Package Install/UnitySSGIURP-main",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.render-pipelines.universal": "14.0.11"
+      }
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.9",
       "depth": 0,
