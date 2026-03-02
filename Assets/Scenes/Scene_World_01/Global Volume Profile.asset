@@ -24,7 +24,7 @@ MonoBehaviour:
     m_Value: 0.1
   quality:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: 2
   fullResolutionSS:
     m_OverrideState: 1
     m_Value: 1
@@ -33,10 +33,10 @@ MonoBehaviour:
     m_Value: 0.5
   sampleCount:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 4
   maxRaySteps:
     m_OverrideState: 1
-    m_Value: 24
+    m_Value: 64
   denoiseSS:
     m_OverrideState: 1
     m_Value: 1
@@ -53,7 +53,7 @@ MonoBehaviour:
     m_OverrideState: 1
     m_Value: 1
   rayMiss:
-    m_OverrideState: 1
+    m_OverrideState: 0
     m_Value: 3
   indirectDiffuseLightingMultiplier:
     m_OverrideState: 1
@@ -80,25 +80,25 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 1
   threshold:
-    m_OverrideState: 0
-    m_Value: 0.9
+    m_OverrideState: 1
+    m_Value: 0.41
   intensity:
-    m_OverrideState: 0
-    m_Value: 0
+    m_OverrideState: 1
+    m_Value: 1
   scatter:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0.7
   clamp:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 65472
   tint:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: {r: 1, g: 1, b: 1, a: 1}
   highQualityFiltering:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   filter:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   downscale:
     m_OverrideState: 0

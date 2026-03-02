@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b00045f12942b46c698459096c89274e, type: 3}
   m_Name: Scanline
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::FullScreenPassRendererFeature_OldGUID
-  m_Active: 1
+  m_Active: 0
   injectionPoint: 600
   fetchColorBuffer: 1
   requirements: 4
@@ -56,9 +56,9 @@ MonoBehaviour:
   m_Shader: {fileID: 4800000, guid: 052b080a79c052c4993acc96081d70b1, type: 3}
   m_RenderingDebugger: 1
   m_ReflectionProbes: 1
-  m_HighQualityUpscaling: 0
+  m_HighQualityUpscaling: 1
   m_OverrideAmbientLighting: 1
-  m_BackfaceLighting: 0
+  m_BackfaceLighting: 1
 --- !u!114 &-5046333555471819030
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -118,32 +118,6 @@ MonoBehaviour:
       restoreCamera: 1
       offset: {x: 0, y: 0, z: 0, w: 0}
       cameraFieldOfView: 60
---- !u!114 &-1878332245247344467
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f62c9c65cf3354c93be831c8bc075510, type: 3}
-  m_Name: SSAO
-  m_EditorClassIdentifier: 
-  m_Active: 0
-  m_Settings:
-    AOMethod: 0
-    Downsample: 0
-    AfterOpaque: 0
-    Source: 1
-    NormalSamples: 1
-    Intensity: 0.5
-    DirectLightingStrength: 0.25
-    Radius: 0.25
-    Samples: 0
-    BlurQuality: 0
-    Falloff: 100
-    SampleCount: -1
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -172,7 +146,6 @@ MonoBehaviour:
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
   - {fileID: -8853918269838805033}
-  - {fileID: -1878332245247344467}
   - {fileID: 264889460740356924}
   - {fileID: 3141213623881023576}
   - {fileID: -2110443298746002646}
@@ -180,7 +153,7 @@ MonoBehaviour:
   - {fileID: -7046500563337276279}
   - {fileID: -5046333555471819030}
   - {fileID: -6089959655314562848}
-  m_RendererFeatureMap: d7b7ea5f3e902085adc0de57c6d2eee53c7b2ca48f13ad0358c00be725d5972b2a13a45b0033b6e2054e16e45cba6c278914b15412cd359eeadef72f5ed2f7b9e0e083a0f51d7cab
+  m_RendererFeatureMap: d7b7ea5f3e9020853c7b2ca48f13ad0358c00be725d5972b2a13a45b0033b6e2054e16e45cba6c278914b15412cd359eeadef72f5ed2f7b9e0e083a0f51d7cab
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
