@@ -28,6 +28,9 @@ namespace CaveSystem
         public GlobalSystemState currentState;
         public bool isHeadlessPregenMode = false;
 
+        // NavMesh 동적 갱신을 요청하는 플래그
+        [HideInInspector] public bool requestNavMeshUpdate = false;
+
         [Header("Configuration")]
         public CaveBiomeSettings biomeSettings;
         public GameObject playerPrefab;
@@ -256,32 +259,59 @@ namespace CaveSystem
 
             yield return new WaitUntil(() => chunkManager.IsInitialGenerationComplete());
 
-            // [🔥 추가: 지형이 다 만들어진 직후 NavMesh를 실시간으로 굽기!]
-            if (navMeshSurface != null)
-            {
-                Debug.Log("NavMesh를 런타임에 굽습니다...");
-                //navMeshSurface.BuildNavMesh();
-            }
-
             currentState = GlobalSystemState.Ready;
             Log("<color=cyan>✔️ 시스템 준비 완료. 동굴 탐험을 시작합니다.</color>");
+
+            // 시스템이 준비되면 최초 1회 NavMesh 갱신을 강제 요청합니다.
+            requestNavMeshUpdate = true;
         }
 
-
+        // [🔥 핵심 수정: NavMesh 에러 완벽 차단 로직]
         private IEnumerator UpdateNavMeshRoutine()
         {
             while (true)
             {
-                // 3초마다 갱신을 시도합니다 (너무 자주 구우면 프레임이 떨어집니다)
-                yield return new WaitForSeconds(3.0f);
+                yield return new WaitForSeconds(2.0f);
 
-                // 현재 지형 생성 작업이 모두 끝났고, 한가할 때만 길찾기 메쉬를 다시 굽습니다.
-                // [에러 수정] chunkManager.generationQueue 가 protected 레벨이어서 발생하는 에러를 해결하기 위해,
-                // 이미 public으로 구현되어 있는 IsInitialGenerationComplete() 함수를 호출하여 큐가 비어있는지 안전하게 확인합니다.
-                if (navMeshSurface != null && chunkManager != null && chunkManager.IsInitialGenerationComplete() && currentState == GlobalSystemState.Ready)
+                if (requestNavMeshUpdate && navMeshSurface != null && currentState == GlobalSystemState.Ready)
                 {
-                    // Unity AI Navigation 버전에 따라 BuildNavMeshAsync() 가 있다면 그것을 쓰는 것이 훨씬 좋습니다.
+                    requestNavMeshUpdate = false;
+                    Log("새로운 청크 지형 감지됨. 안전한 NavMesh 런타임 갱신을 수행합니다...");
+
+                    // 1. 공사(NavMesh 갱신) 전 맵에 존재하는 모든 에이전트(몹)의 활동을 일시 정지하여 에러를 막습니다.
+                    UnityEngine.AI.NavMeshAgent[] allAgents = FindObjectsByType<UnityEngine.AI.NavMeshAgent>(FindObjectsSortMode.None);
+                    foreach (var agent in allAgents)
+                    {
+                        if (agent != null && agent.gameObject.activeInHierarchy)
+                        {
+                            agent.enabled = false;
+                        }
+                    }
+
+                    // 2. NavMesh 새롭게 굽기 (이 과정에서 기존 길이 지워지고 새로 덮어씌워집니다)
                     navMeshSurface.BuildNavMesh();
+
+                    // 한 프레임 대기하여 엔진이 NavMesh 갱신을 완료할 시간을 줍니다.
+                    yield return null;
+
+                    // 3. 에이전트 재가동 및 바닥 스냅(Snap)
+                    // 허공에 떠있거나 살짝 파묻혀 에러를 내던 에이전트들을 새로운 바닥에 찰싹 붙여줍니다.
+                    foreach (var agent in allAgents)
+                    {
+                        if (agent != null && agent.gameObject.activeInHierarchy)
+                        {
+                            UnityEngine.AI.NavMeshHit hit;
+                            // 반경 5m 내의 가장 가까운 유효 NavMesh 바닥을 찾습니다.
+                            if (UnityEngine.AI.NavMesh.SamplePosition(agent.transform.position, out hit, 5.0f, UnityEngine.AI.NavMesh.AllAreas))
+                            {
+                                agent.transform.position = hit.position;
+                            }
+                            // 안전하게 확보된 길 위에서 에이전트를 다시 켭니다.
+                            agent.enabled = true;
+                        }
+                    }
+
+                    Log("✔️ NavMesh 갱신 및 몬스터 재배치 완료.");
                 }
             }
         }
@@ -295,7 +325,6 @@ namespace CaveSystem
         /// </summary>
         public void HandleGpuResult(ChunkRequestContext context, ComputeBuffer triBuffer, ComputeBuffer oreBuffer)
         {
-            // [🔥 State 고아화 방어 1] 비동기 요청 직전 이미 파기된 청크라면 안전하게 종료
             if (context.State == ChunkState.Aborted)
             {
                 computeDispatcher.IsBusy = false;
@@ -306,7 +335,6 @@ namespace CaveSystem
             ComputeBuffer.CopyCount(triBuffer, countBuffer, 0);
 
             AsyncGPUReadback.Request(countBuffer, (countRequest) => {
-                // [🔥 State 고아화 방어 2] 첫 번째 Readback 중 청크 파기 시
                 if (context.State == ChunkState.Aborted)
                 {
                     countBuffer.Release();
@@ -316,7 +344,6 @@ namespace CaveSystem
 
                 if (countRequest.hasError)
                 {
-                    UnityEngine.Debug.LogError("[CaveManager] Count Readback Error");
                     countBuffer.Release();
                     computeDispatcher.IsBusy = false;
                     return;
@@ -325,7 +352,6 @@ namespace CaveSystem
                 int triangleCount = countRequest.GetData<int>()[0];
                 countBuffer.Release();
 
-                // 삼각형이 하나도 없으면 빈 청크이므로 조기 종료
                 if (triangleCount <= 0)
                 {
                     context.State = ChunkState.Completed;
@@ -334,7 +360,6 @@ namespace CaveSystem
                 }
 
                 AsyncGPUReadback.Request(triBuffer, (dataRequest) => {
-                    // [🔥 State 고아화 방어 3] 정점 Readback 중 청크 파기 시
                     if (context.State == ChunkState.Aborted)
                     {
                         computeDispatcher.IsBusy = false;
@@ -343,7 +368,6 @@ namespace CaveSystem
 
                     if (dataRequest.hasError)
                     {
-                        UnityEngine.Debug.LogError("[CaveManager] Mesh Data Readback Error");
                         computeDispatcher.IsBusy = false;
                         return;
                     }
@@ -363,18 +387,16 @@ namespace CaveSystem
                     ComputeBuffer.CopyCount(oreBuffer, oreCountBuf, 0);
 
                     AsyncGPUReadback.Request(oreCountBuf, (oCountReq) => {
-                        // [🔥 State 고아화 방어 4] 광물 카운트 Readback 중 파기 시 (메모리 해제 필수)
                         if (context.State == ChunkState.Aborted)
                         {
                             oreCountBuf.Release();
-                            vertices.Dispose(); // 언매니지드 누수 방지
+                            vertices.Dispose();
                             computeDispatcher.IsBusy = false;
                             return;
                         }
 
                         if (oCountReq.hasError)
                         {
-                            UnityEngine.Debug.LogError("[CaveManager] Ore Count Readback Error");
                             oreCountBuf.Release();
                             vertices.Dispose();
                             computeDispatcher.IsBusy = false;
@@ -383,7 +405,7 @@ namespace CaveSystem
 
                         int oreCount = oCountReq.GetData<int>()[0];
                         oreCountBuf.Release();
-                        // 부분 수정 : 광물 데이터가 없더라도 메쉬 데이터는 유효할 수 있으므로, oreCount가 0인 경우에도 메쉬 처리 루틴을 계속 진행합니다.
+
                         if (oreCount > 0)
                         {
                             AsyncGPUReadback.Request(oreBuffer, (oDataReq) => {
@@ -395,7 +417,6 @@ namespace CaveSystem
                                 }
                                 if (oDataReq.hasError)
                                 {
-                                    UnityEngine.Debug.LogError("[CaveManager] 치명적 오류: 광물 메타데이터 비동기 리드백 실패.");
                                     vertices.Dispose();
                                     computeDispatcher.IsBusy = false;
                                     return;
@@ -405,8 +426,6 @@ namespace CaveSystem
                                 ores.CopyFrom(oDataReq.GetData<CaveOreData>().GetSubArray(0, oreCount));
 
                                 meshJobManager.ProcessMeshJob(context, vertices, ores, (ctx, finalOres) => {
-                                    // [🔥 핵심 수정: 시스템 릴레이 연결]
-                                    // 물리 베이킹이 끝난 후, 이 데이터를 생태계와 멀티 스포너 매니저에 넘겨줍니다.
                                     if (CaveEcosystemManager.Instance != null)
                                         CaveEcosystemManager.Instance.ProcessEcosystem(finalOres);
 
@@ -415,6 +434,8 @@ namespace CaveSystem
 
                                     if (finalOres.IsCreated) finalOres.Dispose();
                                     ctx.State = ChunkState.Completed;
+
+                                    requestNavMeshUpdate = true;
                                 });
                                 computeDispatcher.IsBusy = false;
                             });
@@ -425,8 +446,9 @@ namespace CaveSystem
                             meshJobManager.ProcessMeshJob(context, vertices, emptyOres, (ctx, finalOres) => {
                                 if (finalOres.IsCreated) finalOres.Dispose();
                                 ctx.State = ChunkState.Completed;
+                                requestNavMeshUpdate = true;
                             });
-                            computeDispatcher.IsBusy = false; // 락 해제
+                            computeDispatcher.IsBusy = false;
                         }
                     });
                 });

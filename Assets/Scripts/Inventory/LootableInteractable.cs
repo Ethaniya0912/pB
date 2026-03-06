@@ -1,6 +1,7 @@
 using SG;
 using UnityEngine;
 using Unity.Netcode;
+using TDA.Character.Player; // PlayerManager 참조를 위해 추가
 
 /// <summary>
 /// 월드 상자나 시체 등 루팅 가능한 객체와의 상호작용을 관리합니다.

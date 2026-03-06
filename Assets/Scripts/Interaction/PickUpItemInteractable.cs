@@ -1,8 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using SG;
 using Unity.Netcode;
 using UnityEngine;
+using TDA.Character;
+using TDA.Character.Player;
 
 /// <summary>
 /// 월드 상에 존재하는 모든 획득 가능한 아이템 객체를 관리합니다.

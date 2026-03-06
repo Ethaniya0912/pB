@@ -1,4 +1,5 @@
 using UnityEngine;
+using TDA.Character.Player;
 
 /// <summary>
 /// 3D 공간의 아이템 드래그 앤 드롭 및 가방 클릭/벗기기를 처리합니다. (Dev B 최종 보완본)

@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using TDA.Character.AI;
 using UnityEngine;
+using UnityEngine.TextCore.Text;
 
 public class AIState : ScriptableObject
 {
@@ -26,10 +28,11 @@ public class AIState : ScriptableObject
     // 스테이트 플래그를 리셋해서 스테이트로 복귀 시 다시 백지 상태가 되게 해줌
     protected virtual void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
-        // 기본적으로 네비메시 에이전트의 경로를 초기화하여 이전 상태의 이동 명령이 남지 않도록 함
-        if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.enabled)
+        // [근본 원인 해결] NavMeshAgent가 활성화되어 있고 바닥에 안착했을 때만 경로 초기화
+        if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.isActiveAndEnabled && aiCharacterManager.navMeshAgent.isOnNavMesh)
         {
             aiCharacterManager.navMeshAgent.ResetPath();
         }
+
     }
 }

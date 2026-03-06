@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -79,7 +79,7 @@ public class TakeDamageEffect : InstantCharacterEffect
             finalDamageDealt = 1;
         }
 
-        
+
         Debug.Log("Final Damage Given: " + finalDamageDealt);
         character.characterNetworkManager.currentHealth.Value -= finalDamageDealt;
     }
@@ -107,38 +107,47 @@ public class TakeDamageEffect : InstantCharacterEffect
         // TD : 포이즈가 부셔졌는지 계싼
         poiseIsBroken = true;
 
+        // [에러 수정] 문자열 기반이 아닌 해시 기반(int) 로컬 변수 사용
+        int damageAnimationHash = 0;
+
         // 공격자의 앵글을 계산
         if (angleHitFrom >= 145 && angleHitFrom <= 180)
         {
             // 정면 애니메이션 플레이
-            damageAnimation = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.forward_Medium_Damage);
+            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.forward_Medium_Damage_Hashes);
         }
         else if (angleHitFrom <= -145 && angleHitFrom >= -180)
         {
             // 정면 애니메이션 플레이
-            damageAnimation = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.forward_Medium_Damage);
+            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.forward_Medium_Damage_Hashes);
         }
         else if (angleHitFrom >= -45 && angleHitFrom <= 45)
         {
             // 후면 애니메이션 플레이
-            damageAnimation = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.backward_Medium_Damage);
+            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.backward_Medium_Damage_Hashes);
         }
         else if (angleHitFrom >= -144 && angleHitFrom <= -45)
         {
             // 좌측 애니메이션 플레이
-            damageAnimation = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.left_Medium_Damage);
+            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.left_Medium_Damage_Hashes);
         }
         else if (angleHitFrom >= 45 && angleHitFrom <= 144)
         {
             // 우측 애니메이션 플레이
-            damageAnimation = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.right_Medium_Damage);
+            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.right_Medium_Damage_Hashes);
         }
 
-        if (poiseIsBroken)
+        // 수동 애니메이션 선택 시 예외 처리
+        if (manuallySelectDamageAnimation)
         {
-            character.characterAnimationManager.lastAnimationPlayed = damageAnimation;
-            character.characterAnimationManager.PlayTargetAnimation(damageAnimation, true);
+            damageAnimationHash = Animator.StringToHash(damageAnimation);
+        }
+
+        if (poiseIsBroken && damageAnimationHash != 0)
+        {
+            // [에러 수정] 바뀐 변수명(lastAnimationPlayedHash)과 데이터 타입(int) 반영
+            character.characterAnimationManager.lastAnimationPlayedHash = damageAnimationHash;
+            character.characterAnimationManager.PlayTargetAnimation(damageAnimationHash, true);
         }
     }
-
 }

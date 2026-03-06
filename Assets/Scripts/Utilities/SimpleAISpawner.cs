@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using TDA.Character.AI;
 
 /// <summary>
 /// AI 스포너 (단일 책임: 제공받은 위치 데이터를 바탕으로 적군을 스폰하고 파라미터를 세팅하는 역할만 수행)

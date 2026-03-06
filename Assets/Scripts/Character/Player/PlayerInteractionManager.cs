@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 using System;
+using TDA.Character.Player; // PlayerManager 참조를 위해 추가
 
 namespace SG
 {

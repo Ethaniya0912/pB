@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using Unity.Netcode;
 using SG;
 using System;
+using TDA.Character.Player;
 
 #if UNITY_EDITOR
 using UnityEditor;

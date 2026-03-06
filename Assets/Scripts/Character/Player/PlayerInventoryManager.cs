@@ -3,6 +3,7 @@ using Unity.Netcode;
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using TDA.Character.Player;
 
 /// <summary>
 /// 플레이어 전용 인벤토리 매니저입니다. (Dev B 최종 보완본)
@@ -189,7 +190,7 @@ public class PlayerInventoryManager : CharacterInventoryManager
         // 2. 가방을 버리는 애니메이션 재생 요청 (서버 RPC)
         // 캐릭터가 가방을 던지는 동작인 "Throw_Item" 애니메이션을 실행합니다.
         player.playerNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
-            NetworkManager.Singleton.LocalClientId, "Throw_Item", true);
+            NetworkManager.Singleton.LocalClientId, Animator.StringToHash("Throw_Item"), true);
 
         // 3. 애니메이션 동작 대기 (요구사항: 1초 후 스폰)
         Debug.Log("[Inventory] 버리는 애니메이션 재생 중... 1초 대기 후 월드 스폰");
@@ -294,11 +295,11 @@ public class PlayerInventoryManager : CharacterInventoryManager
             //player.playerCamera.ToggleInventoryCamera(true);
 
             player.playerNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
-            NetworkManager.Singleton.LocalClientId, "Put_Bag_Down", true);
+            NetworkManager.Singleton.LocalClientId, Animator.StringToHash("Put_Bag_Down"), true);
 
         if (bagVisualController != null)
         {
-            if (bagStayPivot == null) Debug.LogError("BagStayPivot이 할당되지 않았습니다!");
+            if (bagStayPivot == null) Debug.LogError(Animator.StringToHash("BagStayPivot이 할당되지 않았습니다!"));
             bagVisualController.SetBagToWorldPivot(bagStayPivot, true);
         }
 
@@ -314,7 +315,7 @@ public class PlayerInventoryManager : CharacterInventoryManager
         isInteractingWithBag = true;
 
         player.playerNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
-            NetworkManager.Singleton.LocalClientId, "Pick_Up_Bag", true);
+            NetworkManager.Singleton.LocalClientId, Animator.StringToHash("Pick_Up_Bag"), true);
 
         if (player.playerCamera != null)
             // TD : 남규할일 - 인벤토리 카메라 피벗 적용

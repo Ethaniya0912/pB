@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d10ba277f1e21f74b95cb906479d8dcf, type: 3}
+  m_Name: ParamsSO_LightAttack_02
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Animation.AnimationEventParamsSO
+  targetClip: {fileID: -203655887218126122, guid: bc3eeab940b1d4c4a9db338d19dcebc2,
+    type: 3}
+  eventPoints:
+  - triggerTime: 0.3
+    eventType: 0
+  - triggerTime: 0.7
+    eventType: 1
+  warpStartTime: 0.1
+  warpEndTime: 0.4

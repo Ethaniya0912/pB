@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
+using TDA.Character; // [에러 수정] AttackType을 인식하기 위해 네임스페이스 추가
+using TDA.Character.AI;
 
 [System.Serializable]
 public class AIAttackAction
 {
     public string attackAnimation;
-    public AttackType attackType;
+    public AttackType attackType; // TDA.Character.AttackType 으로 정상 인식됨
     public float minimumDistance = 0f;
     public float maximumDistance = 2.5f;
     public float weight = 10f;
@@ -46,9 +48,10 @@ public class AttackState : AIState
             aiCharacter.aiCharacterCombatManager.nextAttackTime = Time.time + chosenAttack.attackCooldown;
             if (chosenAttack.isChargeAttack) aiCharacter.characterNetworkManager.isChargingAttack.Value = true;
 
+            // [에러 수정] PlayTargetAttackActionAnimation이 이제 문자열(string) 대신 해시(int)를 받으므로 변환 적용
             aiCharacter.characterAnimationManager.PlayTargetAttackActionAnimation(
                 chosenAttack.attackType,
-                chosenAttack.attackAnimation,
+                Animator.StringToHash(chosenAttack.attackAnimation),
                 true, true, false, false
             );
         }

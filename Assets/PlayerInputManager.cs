@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TDA.Character.Player; // PlayerManager 참조를 위해 추가
 
 /// <summary>
 /// [Layer 1: Input Layer]

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using TDA.World; // WorldCameraManager 참조를 위해 추가
 
 public class WorldGameStateManager : MonoBehaviour
 {

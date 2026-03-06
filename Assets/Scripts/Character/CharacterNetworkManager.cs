@@ -1,267 +1,305 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using SG;
 using Unity.Netcode;
 using UnityEngine;
 
-public class CharacterNetworkManager : NetworkBehaviour
+namespace TDA.Character
 {
-    CharacterManager character;
-    CharacterIKController characterIKController;
-
-    [Header("Status")]
-    public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
-    [Header("Position")]
-    public NetworkVariable<Vector3> networkPosition = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<Quaternion> networkRotation = new NetworkVariable<Quaternion>(Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public Vector3 networkPositionVelocity;
-    public float networkPositionSmoothTime = 0.1f;
-    public float networkRotationSmoothTime = 0.1f;
-
-    [Header("Animator")]
-    public NetworkVariable<float> animatorHorizontalMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<float> animatorVerticalMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<float> animatorMoveAmountMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
-    [Header("Target")]
-    public NetworkVariable<ulong> currentTargetNetworkObjectID = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
-    [Header("Flags")]
-    public NetworkVariable<bool> isLockedOn = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<bool> isSprinting = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<bool> isJumping = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<bool> isChargingAttack = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
-    [Header("Stats")]
-    public NetworkVariable<int> endurance = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<int> vitality = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
-    [Header("Madness")]
-    public NetworkVariable<float> currentMadness = new NetworkVariable<float>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<float> maxMadness = new NetworkVariable<float>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
-    [Header("Resources")]
-    public NetworkVariable<float> currentStamina = new NetworkVariable<float>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<int> maxStamina = new NetworkVariable<int>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<int> currentHealth = new NetworkVariable<int>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-    public NetworkVariable<int> maxHealth = new NetworkVariable<int>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
-    [Header("IK Sync")] // 잡고 있는 물체의 NetworkObjectId를 동기화 (Vector3 동기화보다 효율적)
-    public NetworkVariable<ulong> currentRightHandGrabbedObjectID = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
-
-    protected virtual void Awake()
+    /// <summary>
+    /// [L2 Router] 캐릭터의 전역 네트워크 상태를 동기화하는 백본(Backbone) 라우터 계층입니다.
+    /// [P3] 모션 워핑을 위한 메타데이터 전파 RPC(가상 메서드)가 새롭게 포함되어 있으며,
+    /// 게임 내 핵심 변수(체력, 위치, 플래그, 장비)를 서버 권위 혹은 오너 권위 하에 동기화합니다.
+    /// </summary>
+    public class CharacterNetworkManager : NetworkBehaviour
     {
-        character = GetComponent<CharacterManager>();
-        characterIKController = GetComponent<CharacterIKController>();
-    }
+        #region [References] 매니저 참조 및 이벤트
+        protected CharacterManager character;
+        protected CharacterIKController characterIKController;
 
-    public void CheckHP(int oldHealth, int newHealth)
-    {
-        // [수정] 스폰 시점이나 일시적 오류로 체력이 0이 되었을 때, 이미 죽은 상태(!isDead.Value)가 아닐 때만 사망 로직 실행
-        if (currentHealth.Value <= 0 && !isDead.Value)
+        // [이벤트 스위치 보드] 상태 변화를 UI나 다른 로컬 매니저들에게 알리기 위한 공용 델리게이트
+        public event Action OnCharacterStateChanged;
+        #endregion
+
+        #region [Network Variables] 기본 상태 및 물리 동기화
+        [Header("Status")]
+        public NetworkVariable<bool> isDead = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        [Header("Position & Rotation")]
+        public NetworkVariable<Vector3> networkPosition = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<Quaternion> networkRotation = new NetworkVariable<Quaternion>(Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        // 지연 시간(Latency) 보간을 위한 SmoothDamp 설정
+        public Vector3 networkPositionVelocity;
+        public float networkPositionSmoothTime = 0.1f;
+        public float networkRotationSmoothTime = 0.1f;
+        #endregion
+
+        #region [Network Variables] 애니메이터 및 전투 플래그 동기화
+        [Header("Animator Blend Tree")]
+        public NetworkVariable<float> animatorHorizontalMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<float> animatorVerticalMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<float> animatorMoveAmountMovement = new NetworkVariable<float>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        [Header("Target (Metadata)")]
+        // 내가 노리고 있는 상대의 고유 NetworkObjectId를 전파하여 시선 처리를 돕습니다.
+        public NetworkVariable<ulong> currentTargetNetworkObjectID = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        [Header("Combat Flags")]
+        public NetworkVariable<bool> isLockedOn = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<bool> isSprinting = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<bool> isJumping = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<bool> isChargingAttack = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        #endregion
+
+        #region [Network Variables] 자원 및 스탯 동기화 (Stats & Resources)
+        [Header("Stats (Level & Attributes)")]
+        public NetworkVariable<int> endurance = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> vitality = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        [Header("Madness (Horror System)")]
+        public NetworkVariable<float> currentMadness = new NetworkVariable<float>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<float> maxMadness = new NetworkVariable<float>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        [Header("Resources (HP & Stamina)")]
+        public NetworkVariable<float> currentStamina = new NetworkVariable<float>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> maxStamina = new NetworkVariable<int>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> currentHealth = new NetworkVariable<int>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public NetworkVariable<int> maxHealth = new NetworkVariable<int>(100, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        #endregion
+
+        #region [Network Variables] IK 및 상호작용 동기화
+        [Header("IK Sync (Server Authority)")]
+        // [최적화] 잡고 있는 물체의 Vector3를 계속 동기화하지 않고, 물체의 NetworkObjectId만 알려
+        // 클라이언트 각자가 로컬에서 손 위치를 역운동학(IK)으로 연결하도록 설계하여 패킷을 절약합니다.
+        public NetworkVariable<ulong> currentRightHandGrabbedObjectID = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        #endregion
+
+        #region [Lifecycle] 초기화
+        protected virtual void Awake()
         {
-            StartCoroutine(character.ProcessDeathEvent());
+            character = GetComponent<CharacterManager>();
+            characterIKController = GetComponent<CharacterIKController>();
+        }
+        #endregion
+
+        #region [P3] 모션 워핑 동기화 베이스 인터페이스 (Warping Portal)
+        // =========================================================================================
+        // [P3] 이 가상(Virtual) RPC 메서드들은 PlayerNetworkManager에서 오버라이드되어 
+        // 클라이언트 사이드 예측(Client-side Prediction)을 구동하는 '메타데이터 고속도로' 역할을 합니다.
+        // =========================================================================================
+
+        /// <summary>
+        /// [P3] 클라이언트가 모션 워핑(에임 어시스트) 타겟 메타데이터를 서버에 알리는 관문입니다.
+        /// </summary>
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public virtual void NotifyWarpAttackServerRpc(ulong targetId, int boneIndex)
+        {
+            if (IsServer)
+            {
+                NotifyWarpAttackClientRpc(targetId, boneIndex);
+            }
         }
 
-        // 오버힐링 방지
-        if (character.IsOwner)
+        /// <summary>
+        /// [P3] 서버가 수신된 워핑 메타데이터를 세션 내 모든 유저에게 전파하는 관문입니다.
+        /// 자식 클래스(PlayerNetworkManager)에서 오버라이드하여 핑 지연을 무시하는 로컬 예측 보간을 수행합니다.
+        /// </summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        public virtual void NotifyWarpAttackClientRpc(ulong targetId, int boneIndex)
         {
-            if (currentHealth.Value > maxHealth.Value)
+            // 베이스 클래스는 다형성(Polymorphism)을 위한 서명만 유지하며 아무 동작도 하지 않습니다.
+        }
+        #endregion
+
+        #region [Logic] 상태 구독 및 이벤트 전파 (Health & Target Management)
+        public void CheckHP(int oldHealth, int newHealth)
+        {
+            // 체력이 0 이하가 되면 로컬에서 사망 이벤트를 발동시킵니다.
+            if (currentHealth.Value <= 0 && !isDead.Value)
+            {
+                StartCoroutine(character.ProcessDeathEvent());
+            }
+
+            // 오버힐링(최대 체력 초과) 방지 가드 로직
+            if (character.IsOwner && currentHealth.Value > maxHealth.Value)
             {
                 currentHealth.Value = maxHealth.Value;
             }
-        }
-    }
 
-    public void OnLockOnTargetIDChange(ulong oldId, ulong newId)
-    {
-        if (!IsOwner)
-        {
-            character.characterCombatManager.currentTarget = NetworkManager.Singleton.SpawnManager.SpawnedObjects[newId].gameObject.GetComponent<CharacterManager>();
-        }
-    }
-
-    public void OnIsLockedOnChange(bool old, bool isLockedOn)
-    {
-        if (!isLockedOn)
-        {
-            character.characterCombatManager.currentTarget = null;
-        }
-    }
-
-    public void OnIsChargingAttackChanged(bool oldStatus, bool newStatus)
-    {
-        character.animator.SetBool("isChargingAttack", isChargingAttack.Value);
-    }
-
-    // RPC는 클라이언트로 부터 불러지는 함수이며, 서버를 부르는 함수임.
-    [ServerRpc]
-    public void NotifyTheServerOfActionAnimationServerRpc(ulong clientID, string animationID, bool applyRootMotion)
-    {
-        // 수신자가 호스트나 서버라면, 클라이언트 RPC를 활성화
-        if (IsServer)
-        {
-            PlayActionAnimationFromAllClientsClientRpc(clientID, animationID, applyRootMotion);
-        }
-    }
-
-    [ClientRpc]
-    // 서버로만 불러와질 수 있으며, 존재하는 모든 클라이언트에 전송
-    public void PlayActionAnimationFromAllClientsClientRpc(ulong clientID, string animationID, bool applyRootMotion)
-    {
-        // 해당 함수가 이를 보낸 캐릭터에게 실행되지 않도록 체크(두번실행방지)
-        if (clientID != NetworkManager.Singleton.LocalClientId)
-        {
-            PerformActionAnimationFromServer(animationID, applyRootMotion);
-        }
-    }
-
-    private void PerformActionAnimationFromServer(string animationID, bool applyRootMotion)
-    {
-        character.applyRootMotion = applyRootMotion;
-        character.animator.CrossFade(animationID, 0.2f);
-    }
-
-    // 공격 애니메이션
-    [ServerRpc]
-    public void NotifyTheServerOfAttackActionAnimationServerRpc(ulong clientID, string animationID, bool applyRootMotion)
-    {
-        // 수신자가 호스트나 서버라면, 클라이언트 RPC를 활성화
-        if (IsServer)
-        {
-            PlayAttackActionAnimationFromAllClientsClientRpc(clientID, animationID, applyRootMotion);
-        }
-    }
-
-    [ClientRpc]
-    // 서버로만 불러와질 수 있으며, 존재하는 모든 클라이언트에 전송
-    public void PlayAttackActionAnimationFromAllClientsClientRpc(ulong clientID, string animationID, bool applyRootMotion)
-    {
-        // 해당 함수가 이를 보낸 캐릭터에게 실행되지 않도록 체크(두번실행방지)
-        if (clientID != NetworkManager.Singleton.LocalClientId)
-        {
-            PerformAttackActionAnimationFromServer(animationID, applyRootMotion);
-        }
-    }
-
-    private void PerformAttackActionAnimationFromServer(string animationID, bool applyRootMotion)
-    {
-        character.applyRootMotion = applyRootMotion;
-        character.animator.CrossFade(animationID, 0.2f);
-    }
-
-    // 데미지
-    [ServerRpc(RequireOwnership = false)]
-    public void NotifyTheServerOfCharacterDamageServerRpc(
-        ulong damageCharacterID,
-        ulong characterCausingDamageID,
-        float physicalDamage,
-        float elementalDamage,
-        float poiseDamage,
-        float angleHitFrom,
-        float contactPointX,
-        float contactPointY,
-        float contactPointZ
-        )
-    {
-        if (IsServer)
-        {
-            NotifyTheServerOfCharacterDamageClientRpc(damageCharacterID, characterCausingDamageID, physicalDamage, elementalDamage, poiseDamage, angleHitFrom, contactPointX, contactPointY, contactPointZ);
-        }
-    }
-
-    [ClientRpc]
-    public void NotifyTheServerOfCharacterDamageClientRpc(
-        ulong damageCharacterID,
-        ulong characterCausingDamageID,
-        float physicalDamage,
-        float elementalDamage,
-        float poiseDamage,
-        float angleHitFrom,
-        float contactPointX,
-        float contactPointY,
-        float contactPointZ)
-    {
-        ProcessCharacterDamageFromServer(damageCharacterID, characterCausingDamageID, physicalDamage, elementalDamage, poiseDamage, angleHitFrom, contactPointX, contactPointY, contactPointZ);
-    }
-
-    public void ProcessCharacterDamageFromServer(
-        ulong damageCharacterID,
-        ulong characterCausingDamageID,
-        float physicalDamage,
-        float elementalDamage,
-        float poiseDamage,
-        float angleHitFrom,
-        float contactPointX,
-        float contactPointY,
-        float contactPointZ)
-    {
-        CharacterManager damagedCharacter = NetworkManager.Singleton.SpawnManager.SpawnedObjects[damageCharacterID].gameObject.GetComponent<CharacterManager>();
-        CharacterManager characterCausingDamage = NetworkManager.Singleton.SpawnManager.SpawnedObjects[characterCausingDamageID].gameObject.GetComponent<CharacterManager>();
-
-        TakeDamageEffect damageEffect = Instantiate(WorldCharacterEffectsManager.Instance.takeDamageEffect);
-
-        damageEffect.physicalDamage = physicalDamage;
-        damageEffect.elementDamage = elementalDamage;
-        damageEffect.poiseDamage = poiseDamage;
-        damageEffect.angleHitFrom = angleHitFrom;
-        damageEffect.contactPoint = new Vector3(contactPointX, contactPointY, contactPointZ);
-        damageEffect.characterCausingDamage = characterCausingDamage;
-
-        damagedCharacter.characterEffectsManager.ProcessInstantEffects(damageEffect);
-    }
-
-    // IK 타겟 동기화 설정
-    public override void OnNetworkSpawn()
-    {
-        base.OnNetworkSpawn();
-
-        // 값이 변경될 때마다(누군가 물건을 잡거나 놓을 때) 호출
-        currentRightHandGrabbedObjectID.OnValueChanged += OnGrabbedObjectChanged;
-    }
-
-    public override void OnNetworkDespawn()
-    {
-        currentRightHandGrabbedObjectID.OnValueChanged -= OnGrabbedObjectChanged;
-        base.OnNetworkDespawn();
-    }
-
-    // 값이 바뀌면 클라이언트에서 IK 타겟을 찾아 연결
-    private void OnGrabbedObjectChanged(ulong oldID, ulong newID)
-    {
-        // 0이면 놓은 것
-        if (newID == 0)
-        {
-            characterIKController.SetHandIKTarget(null);
-            return;
+            // 상태 변화를 UI등에 알립니다.
+            OnCharacterStateChanged?.Invoke();
         }
 
-        // NetworkObjectId로 실제 게임 오브젝트 찾기
-        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(newID, out NetworkObject netObj))
+        public void OnLockOnTargetIDChange(ulong oldId, ulong newId)
         {
-            InteractableItem grabbable = netObj.GetComponent<InteractableItem>();
-            if (grabbable != null)
+            if (!IsOwner)
             {
-                // 해당 물체의 GripPoint를 IK 타겟으로 설정
-                characterIKController.SetHandIKTarget(grabbable.gripPoint);
+                // 타 유저(프록시 객체)가 타겟을 바꿨을 때, 나도 동일한 대상을 바라보도록 로컬 참조를 연결해 줍니다.
+                if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(newId, out NetworkObject netObj))
+                {
+                    character.characterCombatManager.currentTarget = netObj.GetComponent<CharacterManager>();
+                }
             }
         }
-    }
 
-    // [ServerRpc] 클라이언트가 물건을 잡았다고 서버에 알림
-    [ServerRpc]
-    public void NotifyServerOfGrabActionServerRpc(ulong objectID)
-    {
-        if (!IsServer) return;
-        currentRightHandGrabbedObjectID.Value = objectID;
-    }
+        public void OnIsLockedOnChange(bool old, bool isLockedOn)
+        {
+            if (!isLockedOn)
+            {
+                character.characterCombatManager.currentTarget = null;
+            }
+            OnCharacterStateChanged?.Invoke();
+        }
 
-    // [ServerRpc] 놓았다고 알림
-    [ServerRpc]
-    public void NotifyServerOfReleaseActionServerRpc()
-    {
-        if (!IsServer) return;
-        currentRightHandGrabbedObjectID.Value = 0;
+        public void OnIsChargingAttackChanged(bool oldStatus, bool newStatus)
+        {
+            character.animator.SetBool("isChargingAttack", isChargingAttack.Value);
+        }
+        #endregion
+
+        #region [RPC] 애니메이션 강제 동기화 (Animation Synchronization)
+        // 일반 행동(Action) 애니메이션
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void NotifyTheServerOfActionAnimationServerRpc(ulong clientID, int animationHash, bool applyRootMotion)
+        {
+            if (IsServer) PlayActionAnimationFromAllClientsClientRpc(clientID, animationHash, applyRootMotion);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void PlayActionAnimationFromAllClientsClientRpc(ulong clientID, int animationHash, bool applyRootMotion)
+        {
+            // 이 명령을 보낸 본인(Owner)은 이미 선제적으로 애니메이션을 틀었으므로 중복 재생을 방지합니다.
+            if (clientID != NetworkManager.Singleton.LocalClientId)
+            {
+                PerformActionAnimationFromServer(animationHash, applyRootMotion);
+            }
+        }
+
+        private void PerformActionAnimationFromServer(int animationHash, bool applyRootMotion)
+        {
+            character.applyRootMotion = applyRootMotion;
+            character.animator.CrossFade(animationHash, 0.2f);
+        }
+
+        // 공격 전용 애니메이션 (피격 판정 등의 선행 분기가 필요할 수 있어 분리됨)
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void NotifyTheServerOfAttackActionAnimationServerRpc(ulong clientID, int animationHash, bool applyRootMotion)
+        {
+            if (IsServer) PlayAttackActionAnimationFromAllClientsClientRpc(clientID, animationHash, applyRootMotion);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void PlayAttackActionAnimationFromAllClientsClientRpc(ulong clientID, int animationHash, bool applyRootMotion)
+        {
+            if (clientID != NetworkManager.Singleton.LocalClientId)
+            {
+                PerformAttackActionAnimationFromServer(animationHash, applyRootMotion);
+            }
+        }
+
+        private void PerformAttackActionAnimationFromServer(int animationHash, bool applyRootMotion)
+        {
+            character.applyRootMotion = applyRootMotion;
+            character.animator.CrossFade(animationHash, 0.2f);
+        }
+        #endregion
+
+        #region [RPC] 전투 및 데미지 동기화 (Combat & Damage Synchronization)
+        // --- 데미지 처리 ---
+
+        // [에러/경고 해결 CS0618] 최신 NGO(Unity 6) 규약에 맞춰 ServerRpc 속성 변경
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void NotifyTheServerOfCharacterDamageServerRpc(ulong damageCharacterID, ulong characterCausingDamageID, float physicalDamage, float elementalDamage, float poiseDamage, float angleHitFrom, float contactPointX, float contactPointY, float contactPointZ)
+        {
+            if (IsServer)
+            {
+                NotifyTheServerOfCharacterDamageClientRpc(damageCharacterID, characterCausingDamageID, physicalDamage, elementalDamage, poiseDamage, angleHitFrom, contactPointX, contactPointY, contactPointZ);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void NotifyTheServerOfCharacterDamageClientRpc(ulong damageCharacterID, ulong characterCausingDamageID, float physicalDamage, float elementalDamage, float poiseDamage, float angleHitFrom, float contactPointX, float contactPointY, float contactPointZ)
+        {
+            ProcessCharacterDamageFromServer(damageCharacterID, characterCausingDamageID, physicalDamage, elementalDamage, poiseDamage, angleHitFrom, contactPointX, contactPointY, contactPointZ);
+        }
+
+        /// <summary>
+        /// 수신된 데미지 데이터를 바탕으로 타격 방향, 깎이는 수치 등을 캡슐화한 뒤,
+        /// 시각 연출을 총괄하는 CharacterEffectsManager에 다형성 이펙트를 위임 호출합니다.
+        /// </summary>
+        public void ProcessCharacterDamageFromServer(ulong damageCharacterID, ulong characterCausingDamageID, float physicalDamage, float elementalDamage, float poiseDamage, float angleHitFrom, float contactPointX, float contactPointY, float contactPointZ)
+        {
+            if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(damageCharacterID, out NetworkObject damagedObj) &&
+                NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(characterCausingDamageID, out NetworkObject causerObj))
+            {
+                CharacterManager damagedCharacter = damagedObj.GetComponent<CharacterManager>();
+                CharacterManager characterCausingDamage = causerObj.GetComponent<CharacterManager>();
+
+                TakeDamageEffect damageEffect = Instantiate(WorldCharacterEffectsManager.Instance.takeDamageEffect);
+                damageEffect.physicalDamage = physicalDamage;
+                damageEffect.elementDamage = elementalDamage;
+                damageEffect.poiseDamage = poiseDamage;
+                damageEffect.angleHitFrom = angleHitFrom;
+                damageEffect.contactPoint = new Vector3(contactPointX, contactPointY, contactPointZ);
+                damageEffect.characterCausingDamage = characterCausingDamage;
+
+                damagedCharacter.characterEffectsManager.ProcessInstantEffects(damageEffect);
+            }
+        }
+        #endregion
+
+        #region [RPC] IK 및 상호작용 동기화 (IK Synchronization)
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            // 물체(ID)를 잡거나 놓을 때 클라이언트 단의 IK 관절을 업데이트하는 이벤트 구독
+            currentRightHandGrabbedObjectID.OnValueChanged += OnGrabbedObjectChanged;
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            currentRightHandGrabbedObjectID.OnValueChanged -= OnGrabbedObjectChanged;
+            base.OnNetworkDespawn();
+        }
+
+        /// <summary>
+        /// 네트워크 변수로 ID가 전파되면, 각 클라이언트가 로컬 환경에서 해당 물체를 찾아 자신의 손(IK)을 부착합니다.
+        /// </summary>
+        private void OnGrabbedObjectChanged(ulong oldID, ulong newID)
+        {
+            // 0이면 물건을 놓았다는 의미입니다.
+            if (newID == 0)
+            {
+                characterIKController?.SetHandIKTarget(null);
+                return;
+            }
+
+            // ID로 스폰된 오브젝트를 탐색하여 손을 뻗을 피벗(GripPoint)을 찾습니다.
+            if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(newID, out NetworkObject netObj))
+            {
+                InteractableItem grabbable = netObj.GetComponent<InteractableItem>();
+                if (grabbable != null)
+                {
+                    characterIKController?.SetHandIKTarget(grabbable.gripPoint);
+                }
+            }
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void NotifyServerOfGrabActionServerRpc(ulong objectID)
+        {
+            if (!IsServer) return;
+            currentRightHandGrabbedObjectID.Value = objectID; // 서버에서 상태 갱신
+        }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void NotifyServerOfReleaseActionServerRpc()
+        {
+            if (!IsServer) return;
+            currentRightHandGrabbedObjectID.Value = 0;
+        }
+        #endregion
     }
 }

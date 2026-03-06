@@ -13,7 +13,7 @@
 
 using UnityEngine;
 using Unity.Netcode;
-using SG;
+using TDA.Character; // CharacterNetworkManager 참조를 위해 추가
 
 [RequireComponent(typeof(CharacterNetworkManager))] // 네트워크 데이터 계층 직접 참조
 public class MadnessController : NetworkBehaviour

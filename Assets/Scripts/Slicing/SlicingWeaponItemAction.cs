@@ -1,5 +1,6 @@
-﻿using UnityEngine;
-using SG;
+using UnityEngine;
+using TDA.Items.WeaponItemActions;
+using TDA.Character.Player;
 
 [CreateAssetMenu(menuName = "Character Actions/Weapon Actions/Slicing Action")]
 public class SlicingWeaponItemAction : WeaponItemAction
@@ -20,7 +21,7 @@ public class SlicingWeaponItemAction : WeaponItemAction
         // 3. 애니메이션 실행
         // 애니메이션 이벤트에서 Collider를 켜는 방식은 기존 시스템을 따름
         // 수정: CharacterAnimationManager에 정의된 올바른 메서드 PlayTargetAnimation 사용
-        playerPerformingAction.characterAnimationManager.PlayTargetAnimation(sliceAnimation, true);
+        playerPerformingAction.characterAnimationManager.PlayTargetAnimation(Animator.StringToHash(sliceAnimation), true);
 
         // *참고: 실제 Slicing 판정은 애니메이션 도중 켜지는 SlicingDamageCollider에서 발생합니다.
     }

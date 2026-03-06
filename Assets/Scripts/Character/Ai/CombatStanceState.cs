@@ -1,4 +1,6 @@
+using TDA.Character.AI;
 using UnityEngine;
+using UnityEngine.TextCore.Text;
 
 [CreateAssetMenu(menuName = "AI/States/Combat Stance")]
 public class CombatStanceState : AIState
@@ -75,6 +77,11 @@ public class CombatStanceState : AIState
     protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
         base.ResetStateFlags(aiCharacterManager);
-        aiCharacterManager.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
+
+        // CombatStanceState 내부에서 추가로 ResetPath를 호출하는 곳이 있다면 동일하게 감싸줍니다.
+        if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.isActiveAndEnabled && aiCharacterManager.navMeshAgent.isOnNavMesh)
+        {
+            // aiCharacter.navMeshAgent.ResetPath();
+        }
     }
 }

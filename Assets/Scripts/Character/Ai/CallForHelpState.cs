@@ -1,4 +1,5 @@
 using UnityEngine;
+using TDA.Character.AI;
 
 [CreateAssetMenu(menuName = "AI/States/Call For Help")]
 public class CallForHelpState : AIState

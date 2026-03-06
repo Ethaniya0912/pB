@@ -1088,7 +1088,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1036026086
+  GlobalObjectIdHash: 2936990586
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1346,7 +1346,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ecf2a1e35592aab41bf65a4b019193cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lastAnimationPlayed: 
+  lastAnimationPlayedHash: 0
   hit_Forward_Medium_01: Hit_Forward_Medium_01
   hit_Forward_Medium_02: Hit_Forward_Medium_02
   hit_Backward_Medium_01: Hit_Backward_Medium_01
@@ -1355,10 +1355,10 @@ MonoBehaviour:
   hit_Left_Medium_02: Hit_Left_Medium_02
   hit_Right_Medium_01: Hit_Right_Medium_01
   hit_Right_Medium_02: Hit_Right_Medium_02
-  forward_Medium_Damage: []
-  backward_Medium_Damage: []
-  left_Medium_Damage: []
-  right_Medium_Damage: []
+  forward_Medium_Damage_Hashes: 
+  backward_Medium_Damage_Hashes: 
+  left_Medium_Damage_Hashes: 
+  right_Medium_Damage_Hashes: 
 --- !u!114 &7890223221855082097
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1371,6 +1371,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa7b97b9965e0694dbfb383a7ed23433, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  soundMappings: []
+  globalMinInterval: 0.05
 --- !u!114 &9130006063949914706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1384,6 +1386,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bloodSplatterVFX: {fileID: 0}
+  effectMappings: []
+  activeTimedEffects: []
+  activeStaticEffects: []
 --- !u!114 &9091498491289709151
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1482,12 +1487,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   lastAttackAnimationPerformed: 
-  currentTarget: {fileID: 0}
+  lastAttackAnimationPerformedHash: 0
   currentAttackType: 0
+  currentTarget: {fileID: 0}
   lockOnTransform: {fileID: 3314931906609332942}
-  showDebugLogs: 1
+  isAttacking:
+    m_InternalValue: 0
+  canCombo:
+    m_InternalValue: 0
+  showDebugLogs: 0
+  showFOVScanLogs: 0
   aiIntelligenceLevel: 5
   combatLevel: 5
+  isPatternChainingPossible: 0
   wanderRadius: 10
   wanderIntervalMin: 3
   wanderIntervalMax: 7

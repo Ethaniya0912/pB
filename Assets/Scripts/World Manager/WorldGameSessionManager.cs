@@ -1,7 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using TDA.Character.Player; // PlayerManager 참조를 위해 추가
 
 public class WorldGameSessionManager : MonoBehaviour
 {

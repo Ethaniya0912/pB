@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemIcon: {fileID: 0}
   itemName: Unarmed
-  itemID: 0
+  itemID: 5
   itemModel: {fileID: 0}
   itemSizeWidth: 1
   itemSizeHeight: 1
@@ -33,5 +33,6 @@ MonoBehaviour:
   charge_Attack_02_Modifier: 2.7
   baseStaminaCost: 20
   lightAttackStaminaCostMultiplier: 0.9
+  heavyAttackStaminaCostMultiplier: 1
   oh_RB_Action: {fileID: 0}
   oh_RT_Action: {fileID: 0}

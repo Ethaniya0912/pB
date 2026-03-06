@@ -67,6 +67,22 @@ namespace CaveSystem.Multiplayer
         // 플레이어 스폰 포인트 누적 카운트
         private int currentPlayerSpawnCount = 0;
 
+        // =========================================================================================
+        // [추가] 몹 이름 부여 시스템 (Name Pool & Counter)
+        // =========================================================================================
+        private static readonly string[] MobNamePool = new string[]
+        {
+            // 1. 타락한 기사와 전사
+            "Malphas", "Mordred", "Vargas", "Belial", "Ulric", "Godrick", "Ormuz", "Aldrich", "Cassian", "Gregor",
+            // 2. 이교도와 마법사
+            "Guldan", "Meridia", "Zarak", "Salazar", "Mortimer", "Belladonna", "Enoch", "Malak", "Jered", "Tenebris",
+            // 3. 부랑자와 암살자
+            "Ratbone", "Curse", "Slash", "Crow", "Viper", "Scar", "Fenrir", "Nyx", "Jolt", "Deadeye"
+        };
+
+        // 몹 이름별 스폰 횟수를 추적하여 번호를 부여하기 위한 딕셔너리
+        private Dictionary<string, int> mobNameCounters = new Dictionary<string, int>();
+
         private void Awake()
         {
             if (Instance == null) Instance = this;
@@ -92,12 +108,36 @@ namespace CaveSystem.Multiplayer
             chunkSpawnerDataMap.Clear();
             editorAllSpawners.Clear();
             currentPlayerSpawnCount = 0;
+
+            // 이름 카운터도 초기화하여 새 맵에서는 다시 1번부터 시작하도록 합니다.
+            mobNameCounters.Clear();
+
             Log("🔄 기존 스포너 데이터 캐시가 모두 초기화되었습니다.");
         }
 
         private void Log(string msg)
         {
             if (showDebugLogs) Debug.Log($"<color=#E67E22>[CaveSpawnerManager]</color> {msg}");
+        }
+
+        /// <summary>
+        /// [추가] 이름 풀에서 랜덤하게 이름을 선택하고 중복 시 번호를 부여합니다.
+        /// </summary>
+        private string GetRandomMobName()
+        {
+            string chosenName = MobNamePool[Random.Range(0, MobNamePool.Length)];
+
+            if (!mobNameCounters.ContainsKey(chosenName))
+            {
+                mobNameCounters[chosenName] = 1;
+            }
+            else
+            {
+                mobNameCounters[chosenName]++;
+            }
+
+            // 형식: Mob_이름_숫자 (예: Mob_Malphas_1)
+            return $"Mob_{chosenName}_{mobNameCounters[chosenName]}";
         }
 
         /// <summary>
@@ -316,6 +356,9 @@ namespace CaveSystem.Multiplayer
                         {
                             GameObject selectedMob = regularMobPrefabs[Random.Range(0, regularMobPrefabs.Length)];
                             spawnedObj = Instantiate(selectedMob, data.position, Quaternion.identity);
+
+                            // [수정] 몹 오브젝트에 랜덤 생성된 이름 부여
+                            spawnedObj.name = GetRandomMobName();
                         }
                         break;
                     case 1: // 스폰 구역 (플레이어 시작점)
@@ -333,6 +376,10 @@ namespace CaveSystem.Multiplayer
                             {
                                 GameObject selectedMob = regularMobPrefabs[Random.Range(0, regularMobPrefabs.Length)];
                                 GameObject mobObj = Instantiate(selectedMob, mobPos, Quaternion.identity);
+
+                                // [수정] 보스방 곁다리 몹에도 이름 부여
+                                mobObj.name = GetRandomMobName();
+
                                 NetworkObject mobNetObj = mobObj.GetComponent<NetworkObject>();
                                 if (mobNetObj != null && !mobNetObj.IsSpawned) mobNetObj.Spawn();
                             }

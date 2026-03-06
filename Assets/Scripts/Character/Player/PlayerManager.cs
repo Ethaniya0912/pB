@@ -1,440 +1,439 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using SG;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class PlayerManager : CharacterManager
+namespace TDA.Character.Player
 {
-    [Header("DEBUG MENU")]
-    [SerializeField] bool respawnCharacter = false;
-    [SerializeField] bool switchRightWeapon = false;
-
-    [HideInInspector] public PlayerAnimationManager playerAnimationManager;
-    [HideInInspector] public PlayerLocomotionManager playerLocomotionManager;
-    [HideInInspector] public PlayerNetworkManager playerNetworkManager;
-    [HideInInspector] public PlayerStatsManager playerStatsManager;
-    [HideInInspector] public PlayerInventoryManager playerInventoryManager;
-    [HideInInspector] public PlayerEquipmentManager playerEquipmentManager;
-    [HideInInspector] public PlayerCombatManager playerCombatManager;
-    [HideInInspector] public PlayerInteractionManager playerInteractionManager;
-
-    // [수정사항] PlayerCamera 싱글턴 삭제 방침에 따라 참조용 변수 추가
-    [HideInInspector] public PlayerCamera playerCamera;
-
-    protected override void Awake()
+    /// <summary>
+    /// [L2 Router] 플레이어 캐릭터의 최종 의사결정권자 및 중앙 관제탑 (Gatekeeper).
+    /// 
+    /// [아키텍처 설계 철학]
+    /// 1. 중앙 검문소: Input(L1)에서 넘어온 맹목적인 신호를 WorldGameState(정책)와 대조하여 필터링합니다.
+    /// 2. 선제적 갱신(Pre-emptive Sync): 실행이 확정된 명령을 하위 도메인(L3)으로 배분하기 직전에, 
+    ///    네트워크 변수를 먼저 갱신하여 멀티플레이 환경에서의 지연(Latency)을 시각적으로 최소화합니다.
+    /// 3. 의존성 통제: 모든 도메인 매니저는 이 클래스 아래에 묶이며, 도메인끼리의 수평적 직접 호출을 금지합니다.
+    /// </summary>
+    public class PlayerManager : CharacterManager
     {
-        base.Awake();
+        #region [Variables] 디버그 및 도메인 의존성 (Dependencies)
 
-        // 캐릭터매니저 위에 오버라이드하여 플레이어특정 기능들 추가.
+        [Header("DEBUG MENU")]
+        [SerializeField] bool respawnCharacter = false;
+        [SerializeField] bool switchRightWeapon = false;
 
-        playerAnimationManager = GetComponent<PlayerAnimationManager>();
-        playerLocomotionManager = GetComponent<PlayerLocomotionManager>();
-        playerNetworkManager = GetComponent<PlayerNetworkManager>();
-        playerStatsManager = GetComponent<PlayerStatsManager>();
-        playerInventoryManager = GetComponent<PlayerInventoryManager>();
-        playerEquipmentManager = GetComponent<PlayerEquipmentManager>();
-        playerCombatManager = GetComponent<PlayerCombatManager>();
-        playerInteractionManager = GetComponent<PlayerInteractionManager>();
-    }
+        [Header("Domain Dependencies (L3 - Muscle)")]
+        [HideInInspector] public PlayerAnimationManager playerAnimationManager;
+        [HideInInspector] public PlayerLocomotionManager playerLocomotionManager;
+        [HideInInspector] public PlayerNetworkManager playerNetworkManager;
+        [HideInInspector] public PlayerStatsManager playerStatsManager;
+        [HideInInspector] public PlayerInventoryManager playerInventoryManager;
+        [HideInInspector] public PlayerEquipmentManager playerEquipmentManager;
+        [HideInInspector] public PlayerCombatManager playerCombatManager;
+        [HideInInspector] public PlayerInteractionManager playerInteractionManager;
 
-    protected override void Update()
-    {
-        base.Update();
+        [Header("Event & Camera Dependencies (L4 - View)")]
+        // [P2] 싱글턴 삭제 방침에 따라 씬 내 로컬 카메라의 참조를 런타임에 동적으로 주입받아 캐싱합니다.
+        [HideInInspector] public PlayerCamera playerCamera;
 
-        // Owner일때만 조종할 수 있도록 해줌.
-        if (!IsOwner)
-            return;
+        #endregion
 
-        // Handle Movement
-        playerLocomotionManager.HandleAllMovement();
+        #region [Lifecycle] 초기화 및 프레임 업데이트
 
-        // 스태미나 리젠 함수 업데이트
-        playerStatsManager.RegenerateStamina(); ;
-    }
-
-    protected override void LateUpdate()
-    {
-        // 플레이어가 오너일때만 해당, 아닐 시 리턴.
-        if (!IsOwner) return;
-
-        base.LateUpdate();
-
-        // [수정사항] player.playerCamera 싱글턴 사용을 지양하고 캐싱된 참조(playerCamera) 사용
-        // 기존 코드: player.playerCamera.HandleAllCameraActions();
-        if (playerCamera != null)
+        protected override void Awake()
         {
-            playerCamera.HandleAllCameraActions();
+            base.Awake();
+
+            // 부모인 CharacterManager 위에 플레이어 특화 기능(도메인 매니저)들을 캐싱합니다.
+            playerAnimationManager = GetComponent<PlayerAnimationManager>();
+            playerLocomotionManager = GetComponent<PlayerLocomotionManager>();
+            playerNetworkManager = GetComponent<PlayerNetworkManager>();
+            playerStatsManager = GetComponent<PlayerStatsManager>();
+            playerInventoryManager = GetComponent<PlayerInventoryManager>();
+            playerEquipmentManager = GetComponent<PlayerEquipmentManager>();
+            playerCombatManager = GetComponent<PlayerCombatManager>();
+            playerInteractionManager = GetComponent<PlayerInteractionManager>();
         }
-    }
 
-    public override void OnNetworkSpawn()
-    {
-        base.OnNetworkSpawn();
-        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
-
-        // 클라이언트에 의해 소유된 플레이어 오브젝트일 시
-        if (IsOwner)
+        protected override void Update()
         {
-            // [수정사항] 현재 씬의 PlayerCamera를 찾아 캐싱 (싱글턴 대체)
-            playerCamera = FindObjectOfType<PlayerCamera>();
+            base.Update();
 
-            // [수정사항] 싱글턴(Instance) 참조를 변수 참조(playerCamera)로 변경
-            // 기존 코드: player.playerCamera.player = this;
+            // 로컬 플레이어(Owner)일 때만 시스템 통제권을 갖습니다. 타 유저(클론)의 로직 실행을 방지합니다.
+            if (!IsOwner) return;
+
+            // 상시 실행 도메인 로직 업데이트
+            playerLocomotionManager.HandleAllMovement();
+            playerStatsManager.RegenerateStamina();
+        }
+
+        protected override void LateUpdate()
+        {
+            // 플레이어가 오너일때만 해당, 아닐 시 리턴.
+            if (!IsOwner) return;
+
+            base.LateUpdate();
+
+            // 🔥 [삭제] 이 부분 삭제! PlayerCamera가 자신의 LateUpdate에서 스스로 연산합니다.
+            // if (playerCamera != null) { playerCamera.HandleAllCameraActions(); }
+        }
+
+        #endregion
+
+        #region [Network Lifecycle] NGO 스폰 및 초기화 세팅
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
+
+            if (IsOwner)
+            {
+                InitializeLocalPlayerSetup();
+            }
+
+            // 게임 도중 접속 시, 서버가 아니라면 기존 캐릭터 데이터를 로드하여 내 상태를 동기화합니다.
+            if (IsOwner && !IsServer)
+            {
+                LoadGameDataFromCurrentCharacterData(ref WorldSaveGameManager.Instance.currentCharacterData);
+            }
+
+            // 모든 네트워크 이벤트 구독을 명시적으로 실행합니다.
+            SubscribeNetworkEvents();
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            base.OnNetworkDespawn();
+
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnectedCallback;
+
+            // 파괴 시점 메모리 릭(Memory Leak) 방지를 위해 구독을 일괄 해제합니다.
+            UnsubscribeNetworkEvents();
+        }
+
+        /// <summary>
+        /// 로컬 플레이어(IsOwner)가 접속했을 때 최초 1회 세팅해야 하는 UI 및 카메라 참조를 초기화합니다.
+        /// </summary>
+        private void InitializeLocalPlayerSetup()
+        {
+            // [P2] 씬에서 내 로컬 카메라를 찾아 주입 (싱글턴 충돌 방지)
+            playerCamera = FindObjectOfType<PlayerCamera>();
             if (playerCamera != null)
             {
                 playerCamera.player = this;
+                // 추후 필요 시: playerCamera.SetInventoryPivot(playerInventoryManager.inventoryCameraPivot);
             }
 
             PlayerInputManager.Instance.player = this;
             WorldSaveGameManager.Instance.player = this;
-
-            // 바이탈리티나 엔듀런스가 변화시 맥스헬스/스태미나 정해주기.
-            playerNetworkManager.vitality.OnValueChanged +=
-                playerNetworkManager.SetNewMaxHealthValue;
-            playerNetworkManager.endurance.OnValueChanged +=
-                playerNetworkManager.SetNewMaxStaminaValue;
-
-            // 현재 체력이나 스태미나 변화시 UI 스탯바에 변화를 줌.
-            playerNetworkManager.currentHealth.OnValueChanged +=
-                PlayerUIManager.Instance.playerUIHUDManager.SetNewHealthValue;
-            playerNetworkManager.currentStamina.OnValueChanged +=
-                PlayerUIManager.Instance.playerUIHUDManager.SetNewStaminaValue;
-            playerNetworkManager.currentStamina.OnValueChanged +=
-                playerStatsManager.ResetStaminaRegenTimer;
-
         }
 
-        // 락온 (오너가 아니여도 작동해야함)
-        playerNetworkManager.isLockedOn.OnValueChanged += playerNetworkManager.OnIsLockedOnChange;
-
-        // 스탯
-        playerNetworkManager.currentHealth.OnValueChanged += playerNetworkManager.CheckHP;
-
-        // 장비
-        playerNetworkManager.currentRightHandWeaponID.OnValueChanged += playerNetworkManager.OnCurrentRightHandWeaponIDChange;
-        playerNetworkManager.currentLeftHandWeaponID.OnValueChanged += playerNetworkManager.OnCurrentLeftHandWeaponIDChange;
-        playerNetworkManager.currentWeaponBeingUsed.OnValueChanged += playerNetworkManager.OnCurrentWeaponBeingUsedIDChange;
-
-        // 플래그
-        playerNetworkManager.isChargingAttack.OnValueChanged += playerNetworkManager.OnIsChargingAttackChanged;
-
-        // 접속시 우리가 캐릭터의 오너지만 서버가 아닐 경우 캐릭터 데이터를 새로 인스턴스한 캐릭터로 리로드
-        if (IsOwner && !IsServer)
+        private void OnClientConnectedCallback(ulong clientID)
         {
-            LoadGameDataFromCurrentCharacterData(ref WorldSaveGameManager.Instance.currentCharacterData);
-        }
+            // 현 게임 세션에 활동하는 플레이어 리스트에 자신을 등록합니다.
+            WorldGameSessionManager.Instance.AddPlayerToActivePlayerList(this);
 
-        // 플레이어 스폰 시 Player Camera에 InventoryPivot 설정
-        // [수정사항] player.playerCamera 널 체크를 playerCamera로 변경
-        // 기존 코드: if (IsOwner && player.playerCamera != null)
-        if (IsOwner && playerCamera != null)
-        {
-            // TD : 남규할일 - 인벤토리 피벗 관련 코드 추가 필요.
-            // player.playerCamera.SetInventoryPivot(playerInventoryManager.inventoryCameraPivot);
-        }
-
-    }
-
-    public override void OnNetworkDespawn()
-    {
-        base.OnNetworkDespawn();
-
-        NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnectedCallback;
-
-        // 클라이언트에 의해 소유된 플레이어 오브젝트일 시
-        if (IsOwner)
-        {
-            // 바이탈리티나 엔듀런스가 변화시 맥스헬스/스태미나 정해주기.
-            playerNetworkManager.vitality.OnValueChanged -=
-                playerNetworkManager.SetNewMaxHealthValue;
-            playerNetworkManager.endurance.OnValueChanged -=
-                playerNetworkManager.SetNewMaxStaminaValue;
-
-            // 현재 체력이나 스태미나 변화시 UI 스탯바에 변화를 줌.
-            playerNetworkManager.currentHealth.OnValueChanged -=
-                PlayerUIManager.Instance.playerUIHUDManager.SetNewHealthValue;
-            playerNetworkManager.currentStamina.OnValueChanged -=
-                PlayerUIManager.Instance.playerUIHUDManager.SetNewStaminaValue;
-            playerNetworkManager.currentStamina.OnValueChanged -=
-                playerStatsManager.ResetStaminaRegenTimer;
-
-        }
-
-        // 락온 (오너가 아니여도 작동해야함)
-        playerNetworkManager.isLockedOn.OnValueChanged -= playerNetworkManager.OnIsLockedOnChange;
-
-        // 스탯
-        playerNetworkManager.currentHealth.OnValueChanged -= playerNetworkManager.CheckHP;
-
-        // 장비
-        playerNetworkManager.currentRightHandWeaponID.OnValueChanged -= playerNetworkManager.OnCurrentRightHandWeaponIDChange;
-        playerNetworkManager.currentLeftHandWeaponID.OnValueChanged -= playerNetworkManager.OnCurrentLeftHandWeaponIDChange;
-        playerNetworkManager.currentWeaponBeingUsed.OnValueChanged -= playerNetworkManager.OnCurrentWeaponBeingUsedIDChange;
-
-        // 플래그
-        playerNetworkManager.isChargingAttack.OnValueChanged -= playerNetworkManager.OnIsChargingAttackChanged;
-
-    }
-
-    private void OnClientConnectedCallback(ulong clientID)
-    {
-        // 유저가 접속하면 이벤트에 붙일 것, OnNetworkSpawn에.
-        // 현 게임세션에 활동하는 플레이어 리스트를 키핑함.
-        WorldGameSessionManager.Instance.AddPlayerToActivePlayerList(this);
-
-        // 만약 우리가 서버라면, 호스트이며, 다른 유저를 싱크할 필요가 없음(나중에 접속할일x)
-        // 도중에 참가한 유저일때만 싱크할 필요성이 있음.
-        if (!IsServer && IsOwner)
-        {
-            foreach (var player in WorldGameSessionManager.Instance.players)
+            // 도중에 참가한 유저일 경우, 이미 접속해 있던 기존 유저들의 외형/무기 상태를 내 화면에 동기화합니다.
+            if (!IsServer && IsOwner)
             {
-                if (player != this)
+                foreach (var player in WorldGameSessionManager.Instance.players)
                 {
-                    player.LoadOtherPlayerCharacterWhenJoiningServer();
+                    if (player != this)
+                    {
+                        player.LoadOtherPlayerCharacterWhenJoiningServer();
+                    }
                 }
             }
         }
-    }
 
-    public override IEnumerator ProcessDeathEvent(bool manuallySelectDeathAnimation = false)
-    {
-        if (IsOwner)
+        #endregion
+
+        #region [Network Events] 스위치 보드 (상태 변화 구독/해제 관리)
+
+        /// <summary>
+        /// 흩어져 있던 NetworkVariable OnValueChanged 구독 로직을 하나로 모아 가독성을 높인 스위치 보드입니다.
+        /// </summary>
+        private void SubscribeNetworkEvents()
         {
-            PlayerUIManager.Instance.playerUIPopUpManager.SendYouDiedPopUp();
-        }
-        return base.ProcessDeathEvent(manuallySelectDeathAnimation);
-
-        // 유저들이 살아 있는지 체크하고, 모두 사망 시 캐릭터 리스폰.
-    }
-
-    public override void ReviveCharacter()
-    {
-        base.ReviveCharacter();
-
-        if (IsOwner)
-        {
-            playerNetworkManager.isDead.Value = false;
-            playerNetworkManager.currentHealth.Value = playerNetworkManager.maxHealth.Value;
-            playerNetworkManager.currentStamina.Value = playerNetworkManager.maxStamina.Value;
-            // 포커스 포인츠도 복수
-
-            // 부활 이펙트
-            playerAnimationManager.PlayTargetAnimation("Empty", false);
-        }
-    }
-
-    public void SaveGameDataToCurrentCharacterData(ref CharacterSaveData currentCharacterSaveData)
-    {
-        currentCharacterSaveData.sceneIndex = SceneManager.GetActiveScene().buildIndex;
-        currentCharacterSaveData.characterName = playerNetworkManager.characterName.Value.ToString();
-        currentCharacterSaveData.yPosition = transform.position.y;
-        currentCharacterSaveData.xPosition = transform.position.x;
-        currentCharacterSaveData.zPosition = transform.position.z;
-
-        currentCharacterSaveData.currentHealth = playerNetworkManager.currentHealth.Value;
-        currentCharacterSaveData.currentStamina = playerNetworkManager.currentStamina.Value;
-
-        currentCharacterSaveData.vitality = playerNetworkManager.vitality.Value;
-        currentCharacterSaveData.endurance = playerNetworkManager.endurance.Value;
-    }
-
-    public void LoadGameDataFromCurrentCharacterData(ref CharacterSaveData currentCharacterSaveData)
-    {
-        playerNetworkManager.characterName.Value = currentCharacterSaveData.characterName;
-        Vector3 myPosition = new Vector3(
-            currentCharacterSaveData.xPosition,
-            currentCharacterSaveData.yPosition,
-            currentCharacterSaveData.zPosition
-            );
-        transform.position = myPosition;
-
-        playerNetworkManager.vitality.Value = currentCharacterSaveData.vitality;
-        playerNetworkManager.endurance.Value = currentCharacterSaveData.endurance;
-
-        // 관련 코드는 세이빙/로드가 추가되면 관련된 곳으로 옮길 것.
-        playerNetworkManager.maxHealth.Value =
-            playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);
-        playerNetworkManager.maxStamina.Value =
-            playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
-        PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(playerNetworkManager.maxStamina.Value);
-        playerNetworkManager.currentHealth.Value =
-            playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);
-        playerNetworkManager.currentStamina.Value =
-            playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
-    }
-
-    public void LoadOtherPlayerCharacterWhenJoiningServer()
-    {
-        // 무기 싱크(나중에 아머나 캐릭터커마라면 수염등이 있음)
-        playerNetworkManager.OnCurrentRightHandWeaponIDChange(0, playerNetworkManager.currentRightHandWeaponID.Value);
-        playerNetworkManager.OnCurrentLeftHandWeaponIDChange(0, playerNetworkManager.currentLeftHandWeaponID.Value);
-
-        // 아머 싱크
-
-        // 락온 타겟 싱크
-        if (playerNetworkManager.isLockedOn.Value)
-        {
-            playerNetworkManager.OnLockOnTargetIDChange(0, playerNetworkManager.currentTargetNetworkObjectID.Value);
-        }
-    }
-
-    #region Routing & Gating & Auto-Transition Logic
-    public void OnMovementInputReceived(Vector2 movementInput)
-    {
-        if (movementInput.sqrMagnitude > 0)
-        {
-            if (WorldGameStateManager.Instance.currentState == GameState.Inventory ||
-                WorldGameStateManager.Instance.currentState == GameState.Table)
+            // [로컬 오너 전용] 내 화면의 UI와 직결된 이벤트만 구독합니다.
+            if (IsOwner)
             {
-                WorldGameStateManager.Instance.SetGamePlaySituation(GameState.Normal);
+                playerNetworkManager.vitality.OnValueChanged += playerNetworkManager.SetNewMaxHealthValue;
+                playerNetworkManager.endurance.OnValueChanged += playerNetworkManager.SetNewMaxStaminaValue;
+
+                playerNetworkManager.currentHealth.OnValueChanged += PlayerUIManager.Instance.playerUIHUDManager.SetNewHealthValue;
+                playerNetworkManager.currentStamina.OnValueChanged += PlayerUIManager.Instance.playerUIHUDManager.SetNewStaminaValue;
+                playerNetworkManager.currentStamina.OnValueChanged += playerStatsManager.ResetStaminaRegenTimer;
+            }
+
+            // [글로벌 공통] 모든 클라이언트가 알아야 하는 시각적 상태(무기 변경, 락온 등)를 구독합니다.
+            playerNetworkManager.isLockedOn.OnValueChanged += playerNetworkManager.OnIsLockedOnChange;
+            playerNetworkManager.currentHealth.OnValueChanged += playerNetworkManager.CheckHP;
+            playerNetworkManager.currentRightHandWeaponID.OnValueChanged += playerNetworkManager.OnCurrentRightHandWeaponIDChange;
+            playerNetworkManager.currentLeftHandWeaponID.OnValueChanged += playerNetworkManager.OnCurrentLeftHandWeaponIDChange;
+            playerNetworkManager.currentWeaponBeingUsed.OnValueChanged += playerNetworkManager.OnCurrentWeaponBeingUsedIDChange;
+            playerNetworkManager.isChargingAttack.OnValueChanged += playerNetworkManager.OnIsChargingAttackChanged;
+        }
+
+        private void UnsubscribeNetworkEvents()
+        {
+            if (IsOwner)
+            {
+                playerNetworkManager.vitality.OnValueChanged -= playerNetworkManager.SetNewMaxHealthValue;
+                playerNetworkManager.endurance.OnValueChanged -= playerNetworkManager.SetNewMaxStaminaValue;
+
+                if (PlayerUIManager.Instance != null && PlayerUIManager.Instance.playerUIHUDManager != null)
+                {
+                    playerNetworkManager.currentHealth.OnValueChanged -= PlayerUIManager.Instance.playerUIHUDManager.SetNewHealthValue;
+                    playerNetworkManager.currentStamina.OnValueChanged -= PlayerUIManager.Instance.playerUIHUDManager.SetNewStaminaValue;
+                }
+                playerNetworkManager.currentStamina.OnValueChanged -= playerStatsManager.ResetStaminaRegenTimer;
+            }
+
+            playerNetworkManager.isLockedOn.OnValueChanged -= playerNetworkManager.OnIsLockedOnChange;
+            playerNetworkManager.currentHealth.OnValueChanged -= playerNetworkManager.CheckHP;
+            playerNetworkManager.currentRightHandWeaponID.OnValueChanged -= playerNetworkManager.OnCurrentRightHandWeaponIDChange;
+            playerNetworkManager.currentLeftHandWeaponID.OnValueChanged -= playerNetworkManager.OnCurrentLeftHandWeaponIDChange;
+            playerNetworkManager.currentWeaponBeingUsed.OnValueChanged -= playerNetworkManager.OnCurrentWeaponBeingUsedIDChange;
+            playerNetworkManager.isChargingAttack.OnValueChanged -= playerNetworkManager.OnIsChargingAttackChanged;
+        }
+
+        #endregion
+
+        #region [Input Routing] 전투 및 상호작용 (Combat & Interaction Gating)
+
+        internal void OnRBInputReceived()
+        {
+            // [검문 1순위] 상호작용 (물건을 들고 있을 땐 전투(공격)를 차단하고 놓기 우선 수행)
+            if (playerInteractionManager.currentlyHeldObject != null)
+            {
+                playerNetworkManager.SetCharacterActionHand(true);
+                playerInteractionManager.OnRBInputReceived();
+                return; // 도메인 배분 완료 후 즉시 종료
+            }
+
+            // [검문 2순위] 시스템 상태 검사 (스태미나 부족 시 허공 칼질 차단)
+            if (playerNetworkManager.currentStamina.Value <= 0)
+            {
+#if UNITY_EDITOR
+                Debug.Log("<color=red>[Gatekeeper]</color> RB_Input Blocked: Insufficient Stamina (스태미나 부족)");
+#endif
+                return;
+            }
+
+            // [검문 3순위] 게임 전역 정책 검사 (인벤토리를 보고 있거나, 컷신 중인지?)
+            if (WorldGameStateManager.Instance.IsCombatAllowed())
+            {
+                // 👉 [선제적 갱신(Pre-emptive Sync)]
+                // 공격 연산에 들어가기 직전, 현재 공격에 사용할 무기 ID를 네트워크에 먼저 공표하여 데스싱크를 방어합니다.
+                if (playerInventoryManager.currentRightHandWeapon != null)
+                {
+                    playerNetworkManager.currentWeaponBeingUsed.Value = playerInventoryManager.currentRightHandWeapon.itemID;
+                }
+
+                playerNetworkManager.SetCharacterActionHand(true);
+
+                // 모든 검문과 갱신이 끝났으므로, 전투 도메인에게 실제 액션 집행을 하달합니다.
+                playerCombatManager.OnRBInputReceived();
             }
         }
 
-        // 정책 확인 후 도메인으로 전달.
-        if (WorldGameStateManager.Instance.IsMovementAllowed())
+        internal void OnRTInputReceived()
         {
-            playerLocomotionManager.OnMovementInputReceived(movementInput);
-        }
-    }
+            if (playerNetworkManager.currentStamina.Value <= 0)
+            {
+#if UNITY_EDITOR
+                Debug.Log("<color=red>[Gatekeeper]</color> RT_Input Blocked: Insufficient Stamina (강공격 취소)");
+#endif
+                return;
+            }
 
-    internal void OnCameraInputReceived(Vector2 cameraInput)
-    {
-        // [수정사항] player.playerCamera 싱글턴 사용을 playerCamera 참조로 변경
-        // 기존 코드:
-        // if (player.playerCamera != null)
-        // {
-        //     player.playerCamera.OnCameraInputReceived(cameraInput.x, cameraInput.y);
-        // }
-        if (playerCamera != null)
-        {
-            playerCamera.OnCameraInputReceived(cameraInput.x, cameraInput.y);
-        }
-    }
+            if (WorldGameStateManager.Instance.IsCombatAllowed())
+            {
+                if (playerInventoryManager.currentRightHandWeapon != null)
+                {
+                    playerNetworkManager.currentWeaponBeingUsed.Value = playerInventoryManager.currentRightHandWeapon.itemID;
+                }
 
-    internal void OnDodgeInputReceived()
-    {
-        playerLocomotionManager.OnDodgeInputReceived();
-    }
-
-    internal void OnRBInputReceived()
-    {
-        // [수정사항 코멘트] 
-        // 기존 작성하신 코드가 이미 '실행 확정 시점의 정책 주입' 아키텍처를 완벽히 준수하고 있습니다!
-        // 가드 로직을 통과한 순간에만 SetCharacterActionHand(true)를 주입하고 있습니다.
-
-        // 1순위 : 상호작용 (물건 소지 시 '공격' 보다 '놓기' 우선)
-        if (playerInteractionManager.currentlyHeldObject != null)
-        {
-            playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
-            playerInteractionManager.OnRBInputReceived();
-            return;
+                playerNetworkManager.SetCharacterActionHand(true);
+                playerCombatManager.OnRTInputReceived();
+            }
         }
 
-        // 2순위 : 전투
-
-        if (WorldGameStateManager.Instance.IsCombatAllowed())
+        internal void OnSwitchWeaponInputReceived(SwithchWeaponSide value)
         {
-            playerNetworkManager.SetCharacterActionHand(true); // RB_input 들어오면 항상 참.
-            playerCombatManager.OnRBInputReceived();
-        }
-    }
-
-    internal void OnRTInputReceived()
-    {
-        // [수정사항 코멘트] 이 함수 역시 구조가 이미 완벽합니다.
-        if (WorldGameStateManager.Instance.IsCombatAllowed())
-        {
-            playerNetworkManager.SetCharacterActionHand(true); // RT_input 들어오면 항상 참.
-            playerCombatManager.OnRTInputReceived();
-        }
-    }
-/*
-    // [수정사항] 대칭되는 완벽한 구성을 위해 왼손 액션(LB, LT) 라우팅 함수를 추가했습니다.
-    internal void OnLBInputReceived()
-    {
-        if (WorldGameStateManager.Instance.IsCombatAllowed())
-        {
-            // 왼손 동작이므로 false 주입
-            playerNetworkManager.SetCharacterActionHand(false);
-            playerCombatManager.OnLBInputReceived();
-        }
-    }
-
-    // [수정사항] 대칭되는 완벽한 구성을 위해 왼손 액션(LB, LT) 라우팅 함수를 추가했습니다.
-    internal void OnLTInputReceived()
-    {
-        if (WorldGameStateManager.Instance.IsCombatAllowed())
-        {
-            // 왼손 동작이므로 false 주입
-            playerNetworkManager.SetCharacterActionHand(false);
-            playerCombatManager.OnLTInputReceived();
-        }
-    }
-*/
-    internal void OnInteractionInputReceived()
-    {
-        if (WorldGameStateManager.Instance.IsInteractionAllowed())
-        {
-            playerInteractionManager.OnInteractionInputReceived();
-
-            // [자동 전이] 상호작용 결과로 물건을 들게 되었다면 Inventory 상태(포커스)로 전환
-            // TD : 남규가 아래 코드를 활용하여 가방 인터액션 - 인벤토리 상태등으로 만들거나 하는 등 하면 됨.
-            //if (playerInteractionManager.손에 아이템을 든 상태에서 가방도 열어 넣으려는 상태())
-            //{
-            //    WorldGameStateManager.Instance.SetGamePlaySituation(GameState.Inventory, playerInteractionManager.currentlyHeldObject.transform);
-            //}            
-        }
-    }
-
-    internal void OnLockOnInputReceived()
-    {
-        playerCombatManager.OnLockOnInputReceived();
-    }
-
-    internal void OnLockOnSwitchTargetInputReceived(LockOnDirection direction)
-    {
-        // [수정사항] 단일 콜백 통합 방식 적용 (보고서 반영)
-        // 락온 상태가 아닐 경우 연산 원천 봉쇄 (중앙 정책 검문)
-        if (!playerNetworkManager.isLockedOn.Value)
-            return;
-
-        // 상황 검증이 끝났으므로, 물리적 탐색과 실행을 담당하는 카메라 계층으로 데이터(의도) 배분
-        if (playerCamera != null)
-        {
-            playerCamera.SwitchLockOnTarget(direction);
+            switch (value)
+            {
+                case SwithchWeaponSide.Left:
+                    playerEquipmentManager.SwitchLeftWeapon();
+                    break;
+                case SwithchWeaponSide.Right:
+                    playerEquipmentManager.SwitchRightWeapon();
+                    break;
+            }
         }
 
-        // 기존 코드: 컴뱃 매니저로 전달하던 부분은 원본 보존 규칙에 따라 남겨두었습니다.
-        // (타겟 탐색 및 스위칭 로직이 카메라로 완전 이관되었다면 이 줄은 추후 삭제하셔도 무방합니다)
-        playerCombatManager.OnLockOnSwitchTargetInputReceived(direction);
-    }
-
-    internal void OnSwitchWeaponInputReceived(SwithchWeaponSide value)
-    {
-        switch (value)
+        internal void OnInteractionInputReceived()
         {
-            case SwithchWeaponSide.Left:
-                playerEquipmentManager.SwitchLeftWeapon();
-                break;
-            case SwithchWeaponSide.Right:
-                playerEquipmentManager.SwitchRightWeapon();
-                break;
-            default:
-                break;
+            if (WorldGameStateManager.Instance.IsInteractionAllowed())
+            {
+                playerInteractionManager.OnInteractionInputReceived();
+
+                // [자동 전이 로직 확장부] 상호작용 결과로 물건을 들게 되었다면 Inventory 상태(포커스)로 전환 연동
+                // if (playerInteractionManager.isHoldingObject) ...
+            }
         }
-    }
 
-    internal void OnInventoryInputReceived()
-    {
-        playerInventoryManager.OnInventoryInputReceived();
-    }
+        internal void OnAltInputReceived(bool isPressed)
+        {
+            playerInteractionManager.OnAltInputReceived(isPressed);
+        }
 
-    internal void OnAltInputReceived(bool isPressed)
-    {
-        playerInteractionManager.OnAltInputReceived(isPressed);
+        internal void OnInventoryInputReceived()
+        {
+            playerInventoryManager.OnInventoryInputReceived();
+        }
+
+        #endregion
+
+        #region [Input Routing] 이동, 카메라 및 타겟팅 (Locomotion & Vision)
+
+        public void OnMovementInputReceived(Vector2 movementInput)
+        {
+            if (movementInput.sqrMagnitude > 0)
+            {
+                // [지능형 뷰 전이] 인벤토리를 보거나 테이블에 앉아있다가 이동 키를 누르면 자동으로 창을 닫고 Normal 상태로 복귀
+                if (WorldGameStateManager.Instance.currentState == GameState.Inventory ||
+                    WorldGameStateManager.Instance.currentState == GameState.Table)
+                {
+                    WorldGameStateManager.Instance.SetGamePlaySituation(GameState.Normal);
+                }
+            }
+
+            // 정책 레이어 승인 후 이동 도메인으로 전달
+            if (WorldGameStateManager.Instance.IsMovementAllowed())
+            {
+                playerLocomotionManager.OnMovementInputReceived(movementInput);
+            }
+        }
+
+        internal void OnDodgeInputReceived()
+        {
+            playerLocomotionManager.OnDodgeInputReceived();
+        }
+
+        internal void OnCameraInputReceived(Vector2 cameraInput)
+        {
+            if (playerCamera != null)
+            {
+                playerCamera.OnCameraInputReceived(cameraInput.x, cameraInput.y);
+            }
+        }
+
+        internal void OnLockOnInputReceived()
+        {
+            playerCombatManager.OnLockOnInputReceived();
+        }
+
+        internal void OnLockOnSwitchTargetInputReceived(LockOnDirection direction)
+        {
+            // [정책 검문] 락온 상태가 아닐 경우 불필요한 탐색 연산을 원천 봉쇄합니다.
+            if (!playerNetworkManager.isLockedOn.Value) return;
+
+            // 1. 시각적 전환 명령은 카메라로 배분 (부드러운 시선 이동)
+            if (playerCamera != null)
+            {
+                playerCamera.SwitchLockOnTarget(direction);
+            }
+
+            // 2. 물리적/논리적 타겟 전환 명령은 전투 도메인으로 배분 (데이터 변경)
+            playerCombatManager.OnLockOnSwitchTargetInputReceived(direction);
+        }
+
+        #endregion
+
+        #region [State Management] 생명주기 및 저장/불러오기 (Death & Persistence)
+
+        public override IEnumerator ProcessDeathEvent(bool manuallySelectDeathAnimation = false)
+        {
+            if (IsOwner && PlayerUIManager.Instance != null)
+            {
+                PlayerUIManager.Instance.playerUIPopUpManager.SendYouDiedPopUp();
+            }
+            return base.ProcessDeathEvent(manuallySelectDeathAnimation);
+        }
+
+        public override void ReviveCharacter()
+        {
+            base.ReviveCharacter();
+
+            if (IsOwner)
+            {
+                playerNetworkManager.isDead.Value = false;
+                playerNetworkManager.currentHealth.Value = playerNetworkManager.maxHealth.Value;
+                playerNetworkManager.currentStamina.Value = playerNetworkManager.maxStamina.Value;
+
+                // 부활 시 기본 자세(Empty)로 즉시 전환
+                playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Empty"), false);
+            }
+        }
+
+        public void SaveGameDataToCurrentCharacterData(ref CharacterSaveData currentCharacterSaveData)
+        {
+            currentCharacterSaveData.sceneIndex = SceneManager.GetActiveScene().buildIndex;
+            currentCharacterSaveData.characterName = playerNetworkManager.characterName.Value.ToString();
+
+            currentCharacterSaveData.xPosition = transform.position.x;
+            currentCharacterSaveData.yPosition = transform.position.y;
+            currentCharacterSaveData.zPosition = transform.position.z;
+
+            currentCharacterSaveData.currentHealth = playerNetworkManager.currentHealth.Value;
+            currentCharacterSaveData.currentStamina = playerNetworkManager.currentStamina.Value;
+
+            currentCharacterSaveData.vitality = playerNetworkManager.vitality.Value;
+            currentCharacterSaveData.endurance = playerNetworkManager.endurance.Value;
+        }
+
+        public void LoadGameDataFromCurrentCharacterData(ref CharacterSaveData currentCharacterSaveData)
+        {
+            playerNetworkManager.characterName.Value = currentCharacterSaveData.characterName;
+
+            Vector3 myPosition = new Vector3(
+                currentCharacterSaveData.xPosition,
+                currentCharacterSaveData.yPosition,
+                currentCharacterSaveData.zPosition
+            );
+            transform.position = myPosition;
+
+            playerNetworkManager.vitality.Value = currentCharacterSaveData.vitality;
+            playerNetworkManager.endurance.Value = currentCharacterSaveData.endurance;
+
+            playerNetworkManager.maxHealth.Value = playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);
+            playerNetworkManager.maxStamina.Value = playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
+
+            if (PlayerUIManager.Instance != null)
+                PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(playerNetworkManager.maxStamina.Value);
+
+            playerNetworkManager.currentHealth.Value = playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);
+            playerNetworkManager.currentStamina.Value = playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
+        }
+
+        public void LoadOtherPlayerCharacterWhenJoiningServer()
+        {
+            // 후발 접속자를 위해 기존 유저들의 무기 및 아머 동기화 강제 실행
+            playerNetworkManager.OnCurrentRightHandWeaponIDChange(0, playerNetworkManager.currentRightHandWeaponID.Value);
+            playerNetworkManager.OnCurrentLeftHandWeaponIDChange(0, playerNetworkManager.currentLeftHandWeaponID.Value);
+
+            // 락온 타겟 강제 동기화
+            if (playerNetworkManager.isLockedOn.Value)
+            {
+                playerNetworkManager.OnLockOnTargetIDChange(0, playerNetworkManager.currentTargetNetworkObjectID.Value);
+            }
+        }
+
+        #endregion
     }
-    #endregion
 }

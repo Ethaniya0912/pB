@@ -1,9 +1,9 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using SG;
+using TDA.Character;
 using Unity.Netcode;
 using UnityEngine;
-
 public class CharacterManager : NetworkBehaviour
 {
     [HideInInspector] public CharacterController characterController;
@@ -98,7 +98,7 @@ public class CharacterManager : NetworkBehaviour
          
              if (!manuallySelectDeathAnimation)
              {
-                 characterAnimationManager.PlayTargetAnimation("Dead_01", true);
+                 characterAnimationManager.PlayTargetAnimation(Animator.StringToHash("Dead_01"), true);
          
              }
          }

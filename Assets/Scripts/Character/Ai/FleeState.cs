@@ -1,3 +1,6 @@
+using TDA.Character;
+using TDA.Character.AI;
+using TDA.Character.Player;
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "AI/States/Flee")]
@@ -71,27 +74,32 @@ public class FleeState : AIState
             }
         }
 
-        aiCharacter.navMeshAgent.SetDestination(fleePosition);
-
-        // ---------------------------------------------------------
-        // [🔥 핵심 추가: 막다른 길(Cornered) 판별 로직]
-        // ---------------------------------------------------------
-        if (!aiCharacter.navMeshAgent.pathPending)
+        // [근본 원인 해결] 에이전트가 안전하게 바닥(NavMesh)에 있을 때만 이동 및 경로 검사 수행
+        if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
         {
-            // 경로가 끊겨있거나(PathPartial) 아예 유효하지 않은(PathInvalid) 경우 = 벽에 막혔음
-            if (aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathPartial ||
-                aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid)
-            {
-                // 막힌 경로의 최종 도착 예정지와 플레이어(타겟) 간의 거리를 잽니다.
-                float distFromEndToTarget = Vector3.Distance(aiCharacter.navMeshAgent.pathEndPosition, aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
+            aiCharacter.navMeshAgent.SetDestination(fleePosition);
 
-                // 최대로 도망가봐야 플레이어와 가까운 상태(막다른 길)라면, 도망을 포기하고 반격합니다.
-                if (distFromEndToTarget < corneredDistance)
+            // ---------------------------------------------------------
+            // [🔥 핵심 추가: 막다른 길(Cornered) 판별 로직]
+            // 에이전트가 정상 작동 중일 때만 path 상태를 물어보아야 안전합니다.
+            // ---------------------------------------------------------
+            if (!aiCharacter.navMeshAgent.pathPending)
+            {
+                // 경로가 끊겨있거나(PathPartial) 아예 유효하지 않은(PathInvalid) 경우 = 벽에 막혔음
+                if (aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathPartial ||
+                    aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid)
                 {
-                    aiCharacter.aiCharacterCombatManager.DebugLog($"🚨 막다른 길에 몰렸습니다! (예상 도착지 여유 공간: {distFromEndToTarget:F1}m) 쥐가 고양이를 뭅니다.");
-                    if (combatStanceState != null)
+                    // 막힌 경로의 최종 도착 예정지와 플레이어(타겟) 간의 거리를 잽니다.
+                    float distFromEndToTarget = Vector3.Distance(aiCharacter.navMeshAgent.pathEndPosition, aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
+
+                    // 최대로 도망가봐야 플레이어와 가까운 상태(막다른 길)라면, 도망을 포기하고 반격합니다.
+                    if (distFromEndToTarget < corneredDistance)
                     {
-                        return SwitchState(aiCharacter, combatStanceState);
+                        aiCharacter.aiCharacterCombatManager.DebugLog($"🚨 막다른 길에 몰렸습니다! (예상 도착지 여유 공간: {distFromEndToTarget:F1}m) 쥐가 고양이를 뭅니다.");
+                        if (combatStanceState != null)
+                        {
+                            return SwitchState(aiCharacter, combatStanceState);
+                        }
                     }
                 }
             }
@@ -115,7 +123,14 @@ public class FleeState : AIState
     protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
         base.ResetStateFlags(aiCharacterManager);
-        // 다른 상태로 넘어갈 때 뛰던 애니메이션 초기화
+
+        // 1. 다른 상태로 넘어갈 때 뛰던 애니메이션 초기화 (NavMesh 상태와 무관하게 항상 실행)
         aiCharacterManager.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
+
+        // 2. [오류 수정 완료] 플래그 초기화 시 경로를 끊을 때 에러가 나지 않도록 안전망 추가
+        if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.isActiveAndEnabled && aiCharacterManager.navMeshAgent.isOnNavMesh)
+        {
+            aiCharacterManager.navMeshAgent.ResetPath();
+        }
     }
 }

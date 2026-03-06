@@ -1,4 +1,5 @@
 using UnityEngine;
+using TDA.Character.AI;
 
 [CreateAssetMenu(menuName = "AI/States/Patrol")]
 public class PatrolState : AIState

@@ -1,8 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-
+using TDA.Items.WeaponItemActions; // WeaponItemAction 참조를 위해 추가
 public class WorldActionManager : MonoBehaviour
 {
     public static WorldActionManager Instance { get; private set; }

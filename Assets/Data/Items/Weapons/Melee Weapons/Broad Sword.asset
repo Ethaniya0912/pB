@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemIcon: {fileID: 21300000, guid: 3237fa51789f60743b035741a39243b0, type: 3}
   itemName: Broad Sword
-  itemID: 1
+  itemID: 6
   itemModel: {fileID: 0}
   itemSizeWidth: 1
   itemSizeHeight: 1
@@ -33,5 +33,6 @@ MonoBehaviour:
   charge_Attack_02_Modifier: 2.7
   baseStaminaCost: 20
   lightAttackStaminaCostMultiplier: 0.9
+  heavyAttackStaminaCostMultiplier: 1
   oh_RB_Action: {fileID: 0}
   oh_RT_Action: {fileID: 0}

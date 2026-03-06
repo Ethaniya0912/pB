@@ -1,4 +1,5 @@
 using UnityEngine;
+using TDA.Character.AI;
 
 /// <summary>
 /// 대기 상태 (Idle State)
