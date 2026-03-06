@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Animation.CharacterAnimationSetSO
   baseController: {fileID: 9100000, guid: 0971db20e01c05c4195b1a00e7a2cb88, type: 2}
   animationMappings:
-  - logicalStateName: Light Attack 01
+  - logicalStateName: Main_Light_Attack_01
     paramsSO: {fileID: 11400000, guid: 3cb0683f68107964e9a1d3cb67e73140, type: 2}
-  - logicalStateName: Light Attack 02
+  - logicalStateName: Main_Light_Attack_02
     paramsSO: {fileID: 11400000, guid: 3220e67651b9dc542b1bc4a0104b1959, type: 2}
-  - logicalStateName: Heavy Attack 02
+  - logicalStateName: Main_Heavy_Attack_01
     paramsSO: {fileID: 11400000, guid: 706ff667ba572f84492d8b4ea946340d, type: 2}

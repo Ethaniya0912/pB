@@ -16,6 +16,10 @@ namespace TDA.Character
         [Tooltip("중복 재생 방지를 위해 마지막으로 재생된 애니메이션의 해시값을 캐싱합니다.")]
         public int lastAnimationPlayedHash;
 
+        [Header("Locomotion Damping (Task 8)")]
+        [Tooltip("기본 이동 시 블렌드 트리 파라미터가 목표치에 도달하는 댐핑 시간입니다. (값이 클수록 묵직하고 유기적인 가감속)")]
+        [SerializeField] protected float locomotionDampTime = 0.1f;
+
         // 인스펙터 편집 편의성을 위해 문자열로 열어두지만, 런타임에서는 해시로 변환하여 사용합니다.
         [Header("Damage Animations (Inspector String Setup)")]
         [SerializeField] string hit_Forward_Medium_01 = "Hit_Forward_Medium_01";
@@ -54,9 +58,6 @@ namespace TDA.Character
             right_Medium_Damage_Hashes.Add(Animator.StringToHash(hit_Right_Medium_02));
         }
 
-        /// <summary>
-        /// 제공된 해시 리스트에서 무작위 애니메이션을 반환합니다. (중복 방지 로직 포함)
-        /// </summary>
         public int GetRandomAnimationFromList(List<int> animationHashList)
         {
             List<int> finalList = new List<int>();
@@ -105,8 +106,9 @@ namespace TDA.Character
                 snappedVertical = 2;
             }
 
-            character.animator.SetFloat("Horizontal", snappedHorizontal, 0.1f, Time.deltaTime);
-            character.animator.SetFloat("Vertical", snappedVertical, 0.1f, Time.deltaTime);
+            // [수정] 하드코딩된 0.1f 대신 외부에서 조절 가능한 locomotionDampTime 적용
+            character.animator.SetFloat("Horizontal", snappedHorizontal, locomotionDampTime, Time.deltaTime);
+            character.animator.SetFloat("Vertical", snappedVertical, locomotionDampTime, Time.deltaTime);
         }
 
         public virtual void PlayTargetAnimation(
@@ -134,7 +136,7 @@ namespace TDA.Character
         }
 
         public virtual void PlayTargetAttackActionAnimation(
-            global::AttackType attackType, // [컴파일 에러 해결] global:: 네임스페이스 명시
+            global::AttackType attackType,
             int targetAnimHash,
             bool isPerformingAction,
             bool applyRootMotion = true,
