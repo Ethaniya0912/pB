@@ -1,46 +1,58 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using TDA.Character.Player; // CharacterManager 참조를 위해 추가
-using Unity.Netcode; // NetworkBehaviour 기능을 위해 추가
+using TDA.Character.Player;
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// [오류 정정] 이전에 작성해 주셨던 '공중 부양 방지 및 점프 제자리 널뛰기 방지' 물리 연산을
-/// 단 한 줄도 빼놓지 않고 100% 완전 복원했습니다.
+/// [P2 - Locomotion Domain] 플레이어의 물리적 이동 및 회전을 제어하는 최상위 매니저입니다.
+/// 
+/// [드림코어(Dreamcore) & 리미널 스페이스 아키텍처 설계 철학]
+/// 1. 사실적 존재감 (Physical Presence): 
+///    - 드림코어 스타일의 기괴한 현실감을 극대화하기 위해 발의 접지력(Root Motion)을 적극 활용합니다.
+///    - 스케이팅 현상을 배제하여 플레이어가 공간의 '무게감'을 느끼도록 설계되었습니다.
+/// 
+/// 2. 하이브리드 제어 (Task 1-10 확장): 
+///    - Locomotion: useRootMotionForLocomotion 옵션을 통해 애니메이션 기반 이동을 선택할 수 있습니다.
+///    - Action: 공격, 회피 등은 항상 루트 모션을 사용하여 물리적 개연성을 확보합니다.
+/// 
+/// 3. Procedural Turn & Movement Guard:
+///    - 루트 모션이 활성화된 상태에서는 스크립트의 간섭을 완전히 차단하여 물리 연산 중첩을 방지합니다.
 /// </summary>
 public class PlayerLocomotionManager : CharacterLocomotionManager
 {
-    PlayerManager player;
+    private PlayerManager player;
 
-    // 인풋매니저에서 가져와 적용할 값.
+    [Header("Input Values (Synced)")]
     [HideInInspector] public float verticalMovement;
     [HideInInspector] public float horizontalMovement;
     [HideInInspector] public float moveAmount;
 
-    [Header("Movement Setting")]
-    // 움직임은 카메라 방향과 인풋에 따를거임.
+    [Header("Locomotion Mode Settings")]
+    [Tooltip("드림코어 특유의 사실성을 위해 걷기/뛰기에도 루트 모션을 적용할지 여부입니다. (true 권장)")]
+    [SerializeField] private bool useRootMotionForLocomotion = true;
+
+    [Header("Movement Settings (Fallback)")]
+    [Tooltip("루트 모션을 사용하지 않을 때 적용되는 스크립트 기반 속도입니다.")]
     private Vector3 moveDirection;
     private Vector3 targetRotationDirection;
-    [SerializeField] float walkingSpeed = 2;
-    [SerializeField] float runningSpeed = 5;
-    [SerializeField] float rotationSpeed = 15;
+    [SerializeField] float walkingSpeed = 2.2f;
+    [SerializeField] float runningSpeed = 5.5f;
+    [SerializeField] float rotationSpeed = 15f;
     [SerializeField] int dodgeStaminaCost = 10;
 
-    [Header("Dodge")]
+    [Header("Dodge & Roll")]
     private Vector3 rollDirection;
 
-    // =========================================================================================
-    // 중력 및 공중(점프) 관성 시스템 보존
-    // =========================================================================================
-    [Header("Gravity & Airborne")]
-    [SerializeField] private float gravity = -20f; // 기본 수직 중력 가속도
-    [SerializeField] private float groundedGravity = -5f; // 경사로에서 허공에 뜨지 않도록 바닥에 밀착시키는 힘
-    [SerializeField] private float jumpForwardSpeed = 4f; // 점프/낙하 중 수평으로 이동하는 속도
-    [SerializeField] private float inAirControl = 2f; // 공중에서 방향을 틀 수 있는 조향 제어력(Lerp 속도)
+    [Header("Gravity & Airborne System (Task 4, 7)")]
+    [SerializeField] private float gravity = -20f;
+    [SerializeField] private float groundedGravity = -5f;
+    [SerializeField] private float jumpForwardSpeed = 4f;
+    [SerializeField] private float inAirControl = 2f;
 
-    private Vector3 yVelocity; // 상하(Y축) 중력 속도 저장용
-    private Vector3 inAirDirection; // 공중에서의 수평 이동 방향(관성) 저장용
+    private Vector3 yVelocity;       // 수직 중력 가속도
+    private Vector3 inAirDirection; // 공중 수평 관성
 
     protected override void Awake()
     {
@@ -52,187 +64,163 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
     {
         base.Update();
 
-        // 본인(Owner)일 경우에만 인풋 값을 네트워크 변수에 동기화합니다.
         if (player.IsOwner)
         {
+            // [네트워크 동기화] 현재 입력값을 네트워크 변수에 기록합니다.
             player.characterNetworkManager.animatorVerticalMovement.Value = verticalMovement;
             player.characterNetworkManager.animatorHorizontalMovement.Value = horizontalMovement;
             player.characterNetworkManager.animatorMoveAmountMovement.Value = moveAmount;
+
+            // [루트 모션 동적 스위칭] 
+            // 현재 상태와 설정값에 따라 애니메이터의 루트 모션 적용 여부를 실시간으로 결정합니다.
+            player.animator.applyRootMotion = DetermineApplyRootMotion();
         }
         else
         {
-            // 타인(Remote Player)일 경우 네트워크에서 받은 값을 로컬 변수에 적용합니다.
             verticalMovement = player.characterNetworkManager.animatorVerticalMovement.Value;
             horizontalMovement = player.characterNetworkManager.animatorHorizontalMovement.Value;
             moveAmount = player.characterNetworkManager.animatorMoveAmountMovement.Value;
 
-            // 타인의 애니메이션 파라미터를 업데이트합니다. 
-            // 타인은 HandleAllMovement를 타지 않으므로 여기서 직접 애니메이터를 갱신해야 합니다.
-            // 락온 안되었을 시, move amount 전달.
-            if (!player.playerNetworkManager.isLockedOn.Value || player.playerNetworkManager.isSprinting.Value)
-            {
-                player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, player.playerNetworkManager.isSprinting.Value);
-            }
-            else
-            {
-                // 락온 되었을 시, 수평/수직값 전달.
-                player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, player.playerNetworkManager.isSprinting.Value);
-            }
+            UpdateRemotePlayerAnimations();
         }
     }
 
+    /// <summary>
+    /// 현재 캐릭터의 상태를 분석하여 루트 모션 적용 여부를 반환합니다.
+    /// </summary>
+    private bool DetermineApplyRootMotion()
+    {
+        // 1. 공격, 구르기, 피격 등 특수 액션 중에는 무조건 루트 모션 사용 (물리적 개연성)
+        if (player.isPerformingAction) return true;
+
+        // 2. 이동 중일 때: 사용자가 설정한 로코모션 모드에 따릅니다.
+        if (moveAmount > 0) return useRootMotionForLocomotion;
+
+        // 3. 정지 상태(Idle): 루트 모션을 꺼서 애니메이션의 미세한 노이즈로 인한 위치 이탈을 방지합니다.
+        return false;
+    }
+
+    /// <summary>
+    /// 물리 업데이트 루틴. PlayerManager의 FixedUpdate 또는 Update에서 호출됩니다.
+    /// </summary>
     public void HandleAllMovement()
     {
-        // 본인이 아닌 경우(타인)는 직접 이동/회전 로직을 계산하지 않습니다.
-        // 타인의 움직임은 NetworkTransform 컴포넌트를 통해 자동으로 동기화됩니다.
         if (!player.IsOwner) return;
 
-        // 중력 및 공중(점프) 물리 연산을 가장 먼저 처리합니다.
+        // 중력 연산은 루트 모션 여부와 상관없이 항상 CharacterController가 제어해야 합니다.
         HandleAirborneAndGravity();
 
-        // 땅위 움직임
+        // 지상 이동 처리 (루트 모션 가드 포함)
         HandleGroundedMovement();
 
-        // 회전 움직임
+        // 회전 처리 (루트 모션 가드 포함)
         HandleRotation();
     }
 
     // =========================================================================================
-    // 중력, 바닥 밀착, 점프 시 관성 처리 메서드
+    // [입력 수신 핸들러] PlayerManager에서 호출됨
     // =========================================================================================
-    private void HandleAirborneAndGravity()
-    {
-        // CharacterController 자체의 바닥 감지 기능 활용
-        bool isGrounded = player.characterController.isGrounded;
 
-        if (isGrounded)
-        {
-            // 1. 공중 부양 방지 (Grounding)
-            // 경사로나 계단을 내려갈 때 공중에 뜨지 않도록 강한 힘으로 바닥에 밀착시킵니다.
-            if (yVelocity.y < 0)
-            {
-                yVelocity.y = groundedGravity;
-            }
-            inAirDirection = Vector3.zero; // 바닥에 닿으면 공중 관성 리셋
-        }
-        else
-        {
-            // 2. 점프 제자리 널뛰기 방지 (Airborne Momentum)
-            // 허공에 떴을 때 이전 이동 방향(관성)이 없다면 현재 입력 방향으로 초기 관성을 부여합니다.
-            if (inAirDirection == Vector3.zero && moveAmount > 0)
-            {
-                float speed = moveAmount > 0.5f ? runningSpeed : walkingSpeed;
-                inAirDirection = moveDirection * speed; // 점프 직전의 속도와 방향을 캡처
-            }
-
-            // 공중 조향(Steering): 공중에서도 플레이어가 입력하는 방향으로 궤적을 살짝 바꿀 수 있게 합니다.
-            Vector3 targetAirDir = Vector3.zero;
-            if (player.playerCamera != null)
-            {
-                targetAirDir = player.playerCamera.transform.forward * verticalMovement;
-                targetAirDir += player.playerCamera.transform.right * horizontalMovement;
-                targetAirDir.y = 0;
-                targetAirDir.Normalize();
-            }
-
-            // 자연스러운 포물선을 위해 현재 관성과 목표 방향을 부드럽게 섞어줍니다 (Lerp).
-            inAirDirection = Vector3.Lerp(inAirDirection, targetAirDir * jumpForwardSpeed, Time.deltaTime * inAirControl);
-
-            // 산출된 수평 이동력을 적용 (앞으로 점프하는 궤적 생성)
-            player.characterController.Move(inAirDirection * Time.deltaTime);
-        }
-
-        // 3. 수직 중력 적용 (추락 가속도)
-        yVelocity.y += gravity * Time.deltaTime;
-        player.characterController.Move(yVelocity * Time.deltaTime);
-    }
-
-    public void AttemptToPerformJump()
-    {
-        if (player.isPerformingAction) return;
-        if (player.playerNetworkManager.currentStamina.Value <= 0) return;
-        if (!player.characterController.isGrounded) return;
-
-        // 점프 애니메이션 호출 
-        player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Jump_Start"), false);
-
-        // 위로 튀어오르는 수직 물리력 적용
-        float jumpHeight = 1.5f;
-        yVelocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-
-        // 점프 시 앞으로 나아가기 위한 초기 관성 캡처 (뛰어가며 점프)
-        if (moveAmount > 0 && player.playerCamera != null)
-        {
-            Vector3 jumpDir = player.playerCamera.transform.forward * verticalMovement;
-            jumpDir += player.playerCamera.transform.right * horizontalMovement;
-            jumpDir.y = 0;
-            jumpDir.Normalize();
-
-            float speed = moveAmount > 0.5f ? runningSpeed : walkingSpeed;
-            inAirDirection = jumpDir * speed;
-        }
-    }
-
+    /// <summary>
+    /// PlayerInputManager로부터 받은 이동 입력을 처리합니다. (Task 8 댐핑 및 스냅핑 포함)
+    /// </summary>
     public void OnMovementInputReceived(Vector2 movementInput)
     {
         if (!player.IsOwner) return;
 
-        // 실제 이동 물리연산 및 애니메이터 파라미터 업데이트
         verticalMovement = movementInput.y;
         horizontalMovement = movementInput.x;
 
-        // 숫자의 절대값을 반환 (음수 없이 양수로만 반환시키기)
+        // 입력을 절대값 기반으로 변환하여 MoveAmount 산출 (0, 0.5, 1 스냅핑)
         moveAmount = Mathf.Clamp01(Mathf.Abs(verticalMovement) + Mathf.Abs(horizontalMovement));
 
-        // 값을 clamp 해줘서 0, 0.5, 1로 고정되게 함.
-        if (moveAmount <= 0.5 && moveAmount > 0)
+        if (moveAmount <= 0.5f && moveAmount > 0)
         {
-            // 걷고있다는 인디케이터
-            moveAmount = 0.5f;
+            moveAmount = 0.5f; // 걷기 구간
         }
-        else if (moveAmount > 0.5 && moveAmount <= 1)
+        else if (moveAmount > 0.5f)
         {
-            // 달리기 인디케이터
-            moveAmount = 1;
+            moveAmount = 1.0f; // 달리기 구간
         }
 
-        if (player == null) return;
+        // 애니메이터 파라미터 업데이트 (Task 8: Damping 적용)
+        bool isSprinting = player.playerNetworkManager.isSprinting.Value;
+        bool isLockedOn = player.playerNetworkManager.isLockedOn.Value;
 
-        // 수평에 0만 전달하는 이유는 락온 하지 않을 시 앞으로만 가게 하려고 함.
-        if (!player.playerNetworkManager.isLockedOn.Value || player.playerNetworkManager.isSprinting.Value)
+        if (!isLockedOn || isSprinting)
         {
-            player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, player.playerNetworkManager.isSprinting.Value);
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, isSprinting);
         }
         else
         {
-            // 수평에 0 말고 다른 것도 전달, 락온 한 상태.
-            player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, player.playerNetworkManager.isSprinting.Value);
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
         }
+    }
+
+    /// <summary>
+    /// 회피/구르기 입력 수신 시 실행됩니다.
+    /// </summary>
+    internal void OnDodgeInputReceived()
+    {
+        if (!player.IsOwner) return;
+        AttemptToPerformDodge();
+    }
+
+    // =========================================================================================
+    // [물리 연산 로직]
+    // =========================================================================================
+
+    private void HandleAirborneAndGravity()
+    {
+        bool isGrounded = player.characterController.isGrounded;
+
+        if (isGrounded)
+        {
+            if (yVelocity.y < 0)
+            {
+                yVelocity.y = groundedGravity;
+            }
+            inAirDirection = Vector3.zero;
+        }
+        else
+        {
+            if (inAirDirection == Vector3.zero && moveAmount > 0)
+            {
+                float speed = moveAmount > 0.5f ? runningSpeed : walkingSpeed;
+                inAirDirection = moveDirection * speed;
+            }
+
+            Vector3 targetAirDir = Vector3.zero;
+            if (player.playerCamera != null)
+            {
+                targetAirDir = player.playerCamera.transform.forward * verticalMovement + player.playerCamera.transform.right * horizontalMovement;
+                targetAirDir.y = 0;
+                targetAirDir.Normalize();
+            }
+
+            inAirDirection = Vector3.Lerp(inAirDirection, targetAirDir * jumpForwardSpeed, Time.deltaTime * inAirControl);
+            player.characterController.Move(inAirDirection * Time.deltaTime);
+        }
+
+        yVelocity.y += gravity * Time.deltaTime;
+        player.characterController.Move(yVelocity * Time.deltaTime);
     }
 
     private void HandleGroundedMovement()
     {
         if (!player.canMove) return;
-
         if (player.playerCamera == null) return;
-
-        // 공중일 때는 지상 이동 연산 무시 (공중 이동은 HandleAirborneAndGravity에서 처리)
         if (!player.characterController.isGrounded) return;
 
-        // 움직임은 카메라 방향과 인풋에 따라 결정됨.
-        moveDirection = player.playerCamera.transform.forward * verticalMovement;
-        moveDirection = moveDirection + player.playerCamera.transform.right * horizontalMovement;
+        // [Task 10 - Root Motion Guard 확장] 
+        if (player.animator.applyRootMotion) return;
+
+        moveDirection = player.playerCamera.transform.forward * verticalMovement + player.playerCamera.transform.right * horizontalMovement;
         moveDirection.Normalize();
         moveDirection.y = 0;
 
-        if (moveAmount > 0.5f)
-        {
-            player.characterController.Move(moveDirection * runningSpeed * Time.deltaTime);
-        }
-        else if (moveAmount <= 0.5f)
-        {
-            player.characterController.Move(moveDirection * walkingSpeed * Time.deltaTime);
-        }
+        float currentSpeed = moveAmount > 0.5f ? runningSpeed : walkingSpeed;
+        player.characterController.Move(moveDirection * currentSpeed * Time.deltaTime);
     }
 
     private void HandleRotation()
@@ -241,56 +229,67 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         if (!player.canRotate) return;
         if (player.playerCamera == null) return;
 
+        if (player.animator.applyRootMotion) return;
+
         if (player.playerNetworkManager.isLockedOn.Value)
         {
-            // 스프린팅 하는 동안 타겟기준 좌우로 움직이지 않고 자유롭게 움직임.
-            if (player.playerNetworkManager.isSprinting.Value || player.playerLocomotionManager.isRolling)
-            {
-                Vector3 targetDirection = Vector3.zero;
-                targetDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
-                targetDirection += player.playerCamera.cameraObject.transform.right * horizontalMovement;
-                targetDirection.Normalize();
-                targetDirection.y = 0;
-
-                if (targetDirection == Vector3.zero)
-                    targetDirection = transform.forward;
-
-                Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
-                Quaternion finalRotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-                transform.rotation = finalRotation;
-            }
-            else
-            {
-                // strifing 중일 시.
-                if (player.playerCombatManager.currentTarget == null) return;
-
-                Vector3 targetDirection;
-                targetDirection = player.playerCombatManager.currentTarget.transform.position - transform.position;
-                targetDirection.y = 0;
-                targetDirection.Normalize();
-
-                Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
-                Quaternion finalRotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-                transform.rotation = finalRotation;
-            }
+            HandleLockedOnRotation();
         }
         else
         {
+            HandleStandardRotation();
+        }
+    }
+
+    private void HandleStandardRotation()
+    {
+        if (moveAmount > 0)
+        {
             targetRotationDirection = Vector3.zero;
             targetRotationDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
-            targetRotationDirection = targetRotationDirection + player.playerCamera.cameraObject.transform.right * horizontalMovement;
+            targetRotationDirection += player.playerCamera.cameraObject.transform.right * horizontalMovement;
             targetRotationDirection.Normalize();
             targetRotationDirection.y = 0;
 
-            // 타겟 로테이션이 없으면, 지금 바라보는 방향으로 정함.
-            if (targetRotationDirection == Vector3.zero)
-            {
-                targetRotationDirection = transform.forward;
-            }
+            if (targetRotationDirection == Vector3.zero) targetRotationDirection = transform.forward;
 
             Quaternion newRotation = Quaternion.LookRotation(targetRotationDirection);
-            Quaternion targetRotation = Quaternion.Slerp(transform.rotation, newRotation, rotationSpeed * Time.deltaTime);
-            transform.rotation = targetRotation;
+            transform.rotation = Quaternion.Slerp(transform.rotation, newRotation, rotationSpeed * Time.deltaTime);
+        }
+    }
+
+    private void HandleLockedOnRotation()
+    {
+        if (player.playerNetworkManager.isSprinting.Value || isRolling)
+        {
+            HandleStandardRotation();
+            return;
+        }
+
+        if (player.playerCombatManager.currentTarget == null) return;
+
+        Vector3 targetDirection = player.playerCombatManager.currentTarget.transform.position - transform.position;
+        targetDirection.y = 0;
+        targetDirection.Normalize();
+
+        Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+    }
+
+    public void AttemptToPerformJump()
+    {
+        if (player.isPerformingAction) return;
+        if (player.playerNetworkManager.currentStamina.Value <= 0) return;
+        if (!player.characterController.isGrounded) return;
+
+        player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Jump_Start"), false, false);
+        yVelocity.y = Mathf.Sqrt(1.5f * -2f * gravity);
+
+        if (moveAmount > 0 && player.playerCamera != null)
+        {
+            Vector3 jumpDir = player.playerCamera.transform.forward * verticalMovement + player.playerCamera.transform.right * horizontalMovement;
+            jumpDir.y = 0;
+            inAirDirection = jumpDir.normalized * (moveAmount > 0.5f ? runningSpeed : walkingSpeed);
         }
     }
 
@@ -298,45 +297,38 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
     {
         if (player.isPerformingAction) return;
         if (player.playerNetworkManager.currentStamina.Value <= 0) return;
-        if (player.playerCamera == null) return;
 
-        // 움직이던 도중 dodge 실행 시 roll 실행
         if (moveAmount > 0)
         {
-            rollDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
-            rollDirection += player.playerCamera.cameraObject.transform.right * horizontalMovement;
-
-            // y 값 없이 좌우로만.
+            rollDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement + player.playerCamera.cameraObject.transform.right * horizontalMovement;
             rollDirection.y = 0;
             rollDirection.Normalize();
 
-            // roll의 로테이션을 가져오기(roll 하기 원하는 방향으로)
-            Quaternion playerRotation = Quaternion.LookRotation(rollDirection);
-            // 플레이어에게 해당 로테이션 적용해주기.
-            player.transform.rotation = playerRotation;
+            transform.rotation = Quaternion.LookRotation(rollDirection);
 
-            // 롤 애니메이션을 실행한다.
-            player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Roll_forward_01"), true);
-            player.playerLocomotionManager.isRolling = true;
-
-            // 스태미나 값을 제해준다. (서버 권한에 유의)
-            player.playerNetworkManager.currentStamina.Value -= dodgeStaminaCost;
+            player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Roll_forward_01"), true, true);
+            isRolling = true;
         }
-        // 정적일 경우 백스텝 실행
         else
         {
-            // 백스텝 애니메이션 실행
-            player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Back_Step_01"), true);
-            player.playerNetworkManager.currentStamina.Value -= dodgeStaminaCost;
+            player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Back_Step_01"), true, true);
         }
+
+        player.playerNetworkManager.currentStamina.Value -= dodgeStaminaCost;
     }
 
-    internal void OnDodgeInputReceived()
+    private void UpdateRemotePlayerAnimations()
     {
-        // TD : 미래에 UI가 활성화 시 실행되지 않게 해줌.
-        if (!player.IsOwner) return;
+        bool isSprinting = player.playerNetworkManager.isSprinting.Value;
+        bool isLockedOn = player.playerNetworkManager.isLockedOn.Value;
 
-        // 닷지를 퍼폼하기.
-        player.playerLocomotionManager.AttemptToPerformDodge();
+        if (!isLockedOn || isSprinting)
+        {
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, isSprinting);
+        }
+        else
+        {
+            player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
+        }
     }
 }
