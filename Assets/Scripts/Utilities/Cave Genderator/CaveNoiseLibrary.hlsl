@@ -22,6 +22,15 @@ float2 hash2D(float2 p)
     return frac(sin(p) * 43758.5453123);
 }
 
+// [추가됨] 3D 보로노이를 위한 3D 해시 함수
+float3 hash3D(float3 p)
+{
+    p = float3(dot(p, float3(127.1, 311.7, 74.7)),
+               dot(p, float3(269.5, 183.3, 246.1)),
+               dot(p, float3(113.5, 271.9, 124.6)));
+    return frac(sin(p) * 43758.5453123);
+}
+
 // ----------------------------------------------------
 // 2. 3D & 2D Simplex Noise (방향 아티팩트 감소 노이즈)
 // ----------------------------------------------------
@@ -112,6 +121,46 @@ void Voronoi2D(float2 x, out float f1, out float f2)
     }
     
     // 최종 거리값 반환
+    f1 = sqrt(f1);
+    f2 = sqrt(f2);
+}
+
+// ----------------------------------------------------
+// 5. 3D 셀룰러 보로노이 노이즈 (Voronoi 3D - 절벽 크랙용)
+// ----------------------------------------------------
+void Voronoi3D(float3 x, out float f1, out float f2)
+{
+    float3 n = floor(x);
+    float3 f = frac(x);
+
+    f1 = 8.0;
+    f2 = 8.0;
+
+    for (int k = -1; k <= 1; k++)
+    {
+        for (int j = -1; j <= 1; j++)
+        {
+            for (int i = -1; i <= 1; i++)
+            {
+                float3 g = float3(float(i), float(j), float(k));
+                float3 o = hash3D(n + g);
+                float3 r = g + o - f;
+                
+                float d = dot(r, r);
+
+                if (d < f1)
+                {
+                    f2 = f1;
+                    f1 = d;
+                }
+                else if (d < f2)
+                {
+                    f2 = d;
+                }
+            }
+        }
+    }
+    
     f1 = sqrt(f1);
     f2 = sqrt(f2);
 }

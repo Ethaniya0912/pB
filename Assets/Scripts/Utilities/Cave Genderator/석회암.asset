@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveBiomeData
   biomeName: "\uC11D\uD68C\uC554"
   noiseType: 0
-  noiseFrequency: 0.05
-  yCompression: 1
+  noiseFrequency: 0.175
+  yCompression: 0.23
   sminStrength: 2.5
-  terraceSteps: 0
+  terraceSteps: 10
   bumpAmplitude: 2
   bumpFrequency: 0.05
   terrainMaterial: {fileID: 0}

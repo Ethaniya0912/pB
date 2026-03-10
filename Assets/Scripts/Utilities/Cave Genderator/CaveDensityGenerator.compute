@@ -1,7 +1,8 @@
 // ===============================================================================
 // 파일: CaveDensityGenerator.compute
 // 역할: [Phase 4 & 리팩토링 1순위] 그래프 설계도 기반 3D SDF 밀도 생성 
-// 고도화: 인덱스 스큐(Skew) 버그 수정, 셰이더 모듈화(Include), 이중 SDF 블렌딩 도입, 침식 물리 통합
+// 고도화: 협곡 변형(Canyon Morphing) 및 경사도 기반(Floor Protection) 마스킹 추가
+// 최적화: 협곡 천장의 무한 팽창 방지 (Ceiling Limit 적용)
 // ===============================================================================
 #pragma kernel GenerateDensity
 #pragma kernel SimulateErosion
@@ -23,14 +24,12 @@ int _NodeCount;
 StructuredBuffer<EdgeData> _EdgeBuffer;
 int _EdgeCount;
 
-// 다중 지대(Biome) 파라미터 버퍼
 StructuredBuffer<BiomeParamData> _BiomeBuffer;
 int _BiomeCount;
 float _MacroBiomeScale;
 
 float3 _ChunkBasePosition;
 int _ChunkSize;
-// [🔥 핵심 수정 1] 오버랩 패딩 배열 크기 변수 (ChunkSize + Padding)
 int _PointsPerAxis;
 float _VoxelSize;
 
@@ -39,7 +38,6 @@ float _CeilAltitude;
 float _FloorBlendRadius;
 float _CeilBlendRadius;
 
-// 바닥 요철 제어 파라미터
 float _FloorBumpFrequency;
 float _FloorBumpAmplitude;
 
@@ -51,87 +49,52 @@ float _LedgeStepHeight;
 float _SpiralFrequency;
 float _SpiralAmplitude;
 
-float _TimeY; // 동적 효과를 위한 시간 변수
+float _TimeY;
+int _DebugStage;
 
-int _DebugStage; // 0: Skeleton, 1: Dual SDF, 2: Full Capped
-
-// ===============================================================================
-// 유틸리티 함수
-// ===============================================================================
-
-// [🔥 핵심 수정 2: 인덱스 스큐(Skew) 버그 해결]
-// 패딩된 크기인 _PointsPerAxis를 곱하도록 수정하여 대각선 찌그러짐을 원천 차단합니다.
 int GetVoxelIndex(int x, int y, int z)
 {
     return x + y * _PointsPerAxis + z * _PointsPerAxis * _PointsPerAxis;
 }
 
 // ===============================================================================
-// 커널 1: 지형 생성 및 이중 SDF 블렌딩 (GenerateDensity)
+// [신규] 뼈대 생성 및 협곡 변형 평가 함수
+// canyonWeight에 따라 둥근 터널과 열린 협곡 사이를 자연스럽게 변형(Morph)시킵니다.
 // ===============================================================================
-[numthreads(8, 8, 8)]
-void GenerateDensity(uint3 id : SV_DispatchThreadID)
+float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out int closestRoomType)
 {
-    // [OOB 방어벽] 패딩된 영역(_PointsPerAxis)을 벗어난 여분 스레드는 즉시 처단
-    if (id.x >= (uint) _PointsPerAxis || id.y >= (uint) _PointsPerAxis || id.z >= (uint) _PointsPerAxis)
-        return;
-    
-    int index = GetVoxelIndex(id.x, id.y, id.z);
-    float3 worldPos = _ChunkBasePosition + (id * _VoxelSize);
-    
-    // 데이터 누락 시 안전 장치
-    if (_NodeCount == 0 || _BiomeCount == 0)
-    {
-        _VoxelBuffer[index].density = 100.0;
-        _VoxelBuffer[index].oreType = 0;
-        return;
-    }
-
-    // ----------------------------------------------------
-    // 1. 마크로 바이옴 맵 스플래팅 (Macro Biome Splatting)
-    // ----------------------------------------------------
-    float macroNoise = snoise2D(worldPos.xz / max(_MacroBiomeScale, 1.0));
-    float normalizedNoise = macroNoise * 0.5 + 0.5;
-    
-    float scaledMap = normalizedNoise * max((float) (_BiomeCount - 1), 0.0);
-    int bIdxA = clamp((int) floor(scaledMap), 0, _BiomeCount - 1);
-    int bIdxB = clamp(bIdxA + 1, 0, _BiomeCount - 1);
-    float blendWeight = smoothstep(0.0, 1.0, frac(scaledMap));
-
-    BiomeParamData pA = _BiomeBuffer[bIdxA];
-    BiomeParamData pB = _BiomeBuffer[bIdxB];
-
-    // ----------------------------------------------------
-    // 2. Branchless 파라미터 선형 보간 (Warp Divergence 억제)
-    // ----------------------------------------------------
-    BiomeParamData curP;
-    curP.noiseFrequency = lerp(pA.noiseFrequency, pB.noiseFrequency, blendWeight);
-    curP.yCompression = lerp(pA.yCompression, pB.yCompression, blendWeight);
-    curP.sminStrength = lerp(pA.sminStrength, pB.sminStrength, blendWeight);
-    curP.terraceSteps = lerp(pA.terraceSteps, pB.terraceSteps, blendWeight);
-    curP.bumpAmplitude = lerp(pA.bumpAmplitude, pB.bumpAmplitude, blendWeight);
-    curP.bumpFrequency = lerp(pA.bumpFrequency, pB.bumpFrequency, blendWeight);
-    
-    int typeA = pA.noiseType;
-    int typeB = pB.noiseType;
-
-    // ----------------------------------------------------
-    // 3. 노드/엣지 기반 뼈대(Skeleton) 구축 및 AABB 최적화
-    // ----------------------------------------------------
     float baseSDF = 100.0;
-    int closestRoomType = 0;
+    closestRoomType = 0;
     float minNodeDist = 100000.0;
+
+    // [최적화 적용] 유저가 느끼기에 충분히 높은 협곡의 천장 제한 높이 설정
+    // 일반적인 캐릭터 키(약 2m)를 고려했을 때, 바닥에서 15~20m 정도 솟아있으면 충분히 웅장합니다.
+    // _CeilAltitude를 활용하거나 고정값을 사용할 수 있습니다. 여기서는 노드의 중심을 기준으로 상한선을 둡니다.
+    float maxCanyonHeight = 25.0;
 
     for (int i = 0; i < _NodeCount; i++)
     {
         NodeData node = _NodeBuffer[i];
         
-        // AABB 조기 탈출: 노드 반경 + 융합 여유폭을 벗어나면 무거운 연산 스킵
-        float3 distToCenter = abs(worldPos - node.position);
+        float3 distToCenter = abs(p - node.position);
         if (max(distToCenter.x, max(distToCenter.y, distToCenter.z)) > node.radius + curP.sminStrength + 10.0)
             continue;
 
-        float d = length(worldPos - node.position) - node.radius;
+        float dNormal = length(p - node.position) - node.radius;
+        
+        // --- 협곡 노드 변형 (최적화 포함) ---
+        float3 canyonPt = node.position;
+        if (p.y > node.position.y)
+        {
+            // 무한히 올라가는 대신 maxCanyonHeight에서 상승을 멈춤(Ceiling 닫힘)
+            canyonPt.y = min(p.y, node.position.y + maxCanyonHeight);
+        }
+        float dCanyon = length(p - canyonPt) - node.radius;
+        float flatBottom = (node.position.y - node.radius * 0.7) - p.y;
+        dCanyon = smax(dCanyon, flatBottom, 1.5);
+        // -----------------------------------
+
+        float d = lerp(dNormal, dCanyon, canyonWeight);
         baseSDF = smin(baseSDF, d, curP.sminStrength);
         
         if (d < minNodeDist)
@@ -146,14 +109,89 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         EdgeData edge = _EdgeBuffer[j];
         
         float3 mid = (edge.startPos + edge.endPos) * 0.5;
-        float3 distToMid = abs(worldPos - mid);
+        float3 distToMid = abs(p - mid);
         float halfLen = length(edge.endPos - edge.startPos) * 0.5;
         if (max(distToMid.x, max(distToMid.y, distToMid.z)) > (halfLen + edge.width + curP.sminStrength + 10.0))
             continue;
 
-        float d = sdCapsule(worldPos, edge.startPos, edge.endPos, edge.width);
+        float dNormal = sdCapsule(p, edge.startPos, edge.endPos, edge.width);
+        
+        // --- 협곡 통로 변형 (최적화 포함) ---
+        float3 pa = p - edge.startPos, ba = edge.endPos - edge.startPos;
+        float h = saturate(dot(pa, ba) / max(dot(ba, ba), 0.000001));
+        float3 closestPt = edge.startPos + ba * h;
+
+        float3 canyonEdgePt = closestPt;
+        if (p.y > closestPt.y)
+        {
+            // 통로 역시 무한 확장을 막고 일정 높이에서 천장을 덮습니다.
+            canyonEdgePt.y = min(p.y, closestPt.y + maxCanyonHeight);
+        }
+        float dCanyonEdge = length(p - canyonEdgePt) - edge.width;
+        float flatBottomEdge = (closestPt.y - edge.width * 0.7) - p.y;
+        dCanyonEdge = smax(dCanyonEdge, flatBottomEdge, 1.5);
+        // -----------------------------------
+        
+        float d = lerp(dNormal, dCanyonEdge, canyonWeight);
         baseSDF = smin(baseSDF, d, curP.sminStrength);
     }
+    
+    return baseSDF;
+}
+
+// ===============================================================================
+// 커널 1: 지형 생성 및 이중 SDF 블렌딩 (GenerateDensity)
+// ===============================================================================
+[numthreads(8, 8, 8)]
+void GenerateDensity(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint) _PointsPerAxis || id.y >= (uint) _PointsPerAxis || id.z >= (uint) _PointsPerAxis)
+        return;
+    
+    int index = GetVoxelIndex(id.x, id.y, id.z);
+    float3 worldPos = _ChunkBasePosition + (id * _VoxelSize);
+    
+    if (_NodeCount == 0 || _BiomeCount == 0)
+    {
+        _VoxelBuffer[index].density = 100.0;
+        _VoxelBuffer[index].oreType = 0;
+        return;
+    }
+
+    // 1. 마크로 바이옴 맵 스플래팅
+    float macroNoise = snoise2D(worldPos.xz / max(_MacroBiomeScale, 1.0));
+    float normalizedNoise = macroNoise * 0.5 + 0.5;
+    
+    float scaledMap = normalizedNoise * max((float) (_BiomeCount - 1), 0.0);
+    int bIdxA = clamp((int) floor(scaledMap), 0, _BiomeCount - 1);
+    int bIdxB = clamp(bIdxA + 1, 0, _BiomeCount - 1);
+    float blendWeight = smoothstep(0.0, 1.0, frac(scaledMap));
+
+    BiomeParamData pA = _BiomeBuffer[bIdxA];
+    BiomeParamData pB = _BiomeBuffer[bIdxB];
+
+    // 2. 파라미터 보간
+    BiomeParamData curP;
+    curP.noiseFrequency = lerp(pA.noiseFrequency, pB.noiseFrequency, blendWeight);
+    curP.yCompression = lerp(pA.yCompression, pB.yCompression, blendWeight);
+    curP.sminStrength = lerp(pA.sminStrength, pB.sminStrength, blendWeight);
+    curP.terraceSteps = lerp(pA.terraceSteps, pB.terraceSteps, blendWeight);
+    curP.bumpAmplitude = lerp(pA.bumpAmplitude, pB.bumpAmplitude, blendWeight);
+    curP.bumpFrequency = lerp(pA.bumpFrequency, pB.bumpFrequency, blendWeight);
+    
+    int typeA = pA.noiseType;
+    int typeB = pB.noiseType;
+
+    // [핵심] 현재 위치가 Case 5(협곡 스타일)일 확률 계산
+    float canyonWeight = 0.0;
+    if (typeA == 5)
+        canyonWeight += (1.0 - blendWeight);
+    if (typeB == 5)
+        canyonWeight += blendWeight;
+
+    // 3. 뼈대 생성 (협곡 변형 적용)
+    int closestRoomType = 0;
+    float baseSDF = EvaluateSkeleton(worldPos, curP, canyonWeight, closestRoomType);
 
     if (_DebugStage == 0)
     {
@@ -164,11 +202,16 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         return;
     }
 
-    // ----------------------------------------------------
-    // 4. 이중 SDF 블렌딩 (Dual SDF Execution)
-    // ----------------------------------------------------
-    float densityA = ApplyBiomeDetail(typeA, worldPos, baseSDF, curP);
-    float densityB = ApplyBiomeDetail(typeB, worldPos, baseSDF, curP);
+    // 3.5. 바닥 보호를 위한 기울기(Normal Y) 추정
+    // Y축 위/아래로 살짝 샘플링하여 지형이 평지인지 수직 절벽인지 파악합니다.
+    int tempRoom;
+    float baseUp = EvaluateSkeleton(worldPos + float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
+    float baseDn = EvaluateSkeleton(worldPos - float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
+    float normalY = (baseUp - baseDn) * 0.5;
+
+    // 4. 이중 SDF 블렌딩 (바닥 보호 마스킹 전달)
+    float densityA = ApplyBiomeDetail(typeA, worldPos, baseSDF, normalY, curP);
+    float densityB = ApplyBiomeDetail(typeB, worldPos, baseSDF, normalY, curP);
     float finalDensity = lerp(densityA, densityB, blendWeight);
 
     if (_DebugStage == 1)
@@ -180,9 +223,7 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         return;
     }
 
-    // ----------------------------------------------------
-    // 5. 플레이어블 바닥(2.5D Capping) 및 싱크홀
-    // ----------------------------------------------------
+    // 5. 플레이어블 바닥(Global Floor) 캡핑
     float floorBump = snoise2D(worldPos.xz * max(curP.bumpFrequency, 0.001)) * curP.bumpAmplitude;
     float floorPlaneSDF = (_FloorAltitude + floorBump) - worldPos.y;
     float ceilPlaneSDF = worldPos.y - _CeilAltitude;
@@ -190,7 +231,6 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     finalDensity = smax(finalDensity, floorPlaneSDF, max(_FloorBlendRadius, 0.1));
     finalDensity = smax(finalDensity, ceilPlaneSDF, max(_CeilBlendRadius, 0.1));
 
-    // 싱크홀 연산 (hash2D 활용으로 컴파일 에러 해결)
     if (_SinkholeProb > 0.01 && hash2D(_ChunkBasePosition.xz).x < _SinkholeProb)
     {
         float sinkholeRadius = lerp(_SinkholeMinRadius, _SinkholeMaxRadius, hash2D(_ChunkBasePosition.zx).y);
@@ -209,21 +249,16 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
             closestRoomType = 4;
     }
 
-    // ----------------------------------------------------
-    // 6. 무결성 방벽(NaN Guard) 및 메타데이터 각인(Imprinting)
-    // ----------------------------------------------------
     if (isnan(finalDensity) || isinf(finalDensity))
         finalDensity = 100.0;
     _VoxelBuffer[index].density = finalDensity;
 
-    // hash2D()를 사용하여 1D 변환 (컴파일 에러 완전 방어)
     int isOre = (finalDensity < 0.0 && hash2D(worldPos.xz * 10.0).x > 0.98) ? 1 : 0;
     _VoxelBuffer[index].oreType = (closestRoomType << 16) | isOre;
 }
 
 // ===============================================================================
 // 커널 2: 물리 시뮬레이션 (SimulateErosion)
-// 역할: 입자 기반 수력 침식 시뮬레이션을 통해 지형 표면 마모 및 퇴적 처리
 // ===============================================================================
 [numthreads(64, 1, 1)]
 void SimulateErosion(uint3 id : SV_DispatchThreadID)
@@ -231,7 +266,6 @@ void SimulateErosion(uint3 id : SV_DispatchThreadID)
     float2 seed = float2((float) id.x, _TimeY);
     float3 pos = float3(hash2D(seed).x * (float) _ChunkSize, (float) _ChunkSize - 1.0, hash2D(seed.yx).y * (float) _ChunkSize);
     
-    // 시뮬레이션 파라미터
     float inertia = 0.1;
     float sedimentCapacityFactor = 4.0;
     float minSedimentCapacity = 0.01;
@@ -245,15 +279,12 @@ void SimulateErosion(uint3 id : SV_DispatchThreadID)
     float speed = 1.0;
     float water = 1.0;
 
-    // 최대 30단계 입자 이동 시뮬레이션
     for (int step = 0; step < 30; step++)
     {
         uint3 ipos = uint3(pos);
-        // 패딩된 영역 OOB 체크 방어벽
         if (ipos.x >= (uint) _PointsPerAxis - 1 || ipos.y >= (uint) _PointsPerAxis - 1 || ipos.z >= (uint) _PointsPerAxis - 1 || any(ipos < 1))
             break;
 
-        // 중앙 차분법을 이용한 로컬 그래디언트(경사) 계산
         int idxXp = GetVoxelIndex(ipos.x + 1, ipos.y, ipos.z);
         int idxXn = GetVoxelIndex(ipos.x - 1, ipos.y, ipos.z);
         int idxYp = GetVoxelIndex(ipos.x, ipos.y + 1, ipos.z);
@@ -266,36 +297,31 @@ void SimulateErosion(uint3 id : SV_DispatchThreadID)
         float gradZ = _VoxelBuffer[idxZp].density - _VoxelBuffer[idxZn].density;
         float3 grad = float3(gradX, gradY, gradZ);
 
-        // 이동 방향 계산 (관성 적용)
         dir = (dir * inertia) - (grad * (1.0 - inertia));
         
-        // 0으로 나누기(NaN) 방지용 노멀라이즈 보호
         float lenDir = length(dir);
         if (lenDir > 0.0001)
             dir /= lenDir;
         
-        dir = normalize(dir + float3(0, -0.05, 0)); // 약간의 하향 중력 추가
+        dir = normalize(dir + float3(0, -0.05, 0));
 
         float3 nextPos = pos + dir;
         if (any(nextPos < 0.5) || any(nextPos >= (float) _ChunkSize - 0.5))
             break;
 
-        // 침식/퇴적 연산
-        float densityDiff = gradY; // 높이 변화량 근사치
+        float densityDiff = gradY;
         float sedimentCapacity = max(-densityDiff * speed * water * sedimentCapacityFactor, minSedimentCapacity);
 
         int curIdx = GetVoxelIndex(ipos.x, ipos.y, ipos.z);
 
         if (sediment > sedimentCapacity || densityDiff > 0)
         {
-            // 퇴적: 물이 느려지거나 고이면 흙을 내려놓음
             float depositAmount = (sediment - sedimentCapacity) * depositSpeed;
             _VoxelBuffer[curIdx].density += depositAmount;
             sediment -= depositAmount;
         }
         else
         {
-            // 침식: 물이 빠르면 지형을 깎음
             float erodeAmount = min((sedimentCapacity - sediment) * erodeSpeed, -densityDiff);
             _VoxelBuffer[curIdx].density -= erodeAmount;
             sediment += erodeAmount;

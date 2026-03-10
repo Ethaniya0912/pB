@@ -13,6 +13,7 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords:
+  - _ENABLESAFEPOM_ON
   - _REFLECTIONTOGGLE_ON
   - _SPECULARTOGGLE_ON
   m_LightmapFlags: 4
@@ -55,7 +56,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtNormal:
-        m_Texture: {fileID: 2800000, guid: 2a60a2582c03c984fb51fabdd0bcc022, type: 3}
+        m_Texture: {fileID: 2800000, guid: c96e66eb0a3a59c4ca94cadc83002369, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
@@ -83,7 +84,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossNormal:
-        m_Texture: {fileID: 2800000, guid: 058085510e211ba48af71f9278e15206, type: 3}
+        m_Texture: {fileID: 2800000, guid: 1c272a8208841d44c9a5e75523302687, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
@@ -95,15 +96,15 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RockAlbedo:
-        m_Texture: {fileID: 2800000, guid: 317ced2db37151044a89350850da608a, type: 3}
+        m_Texture: {fileID: 2800000, guid: e0975bca595ba6e4e895ef32d84320e5, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RockMask:
-        m_Texture: {fileID: 2800000, guid: 57669f7ec1f23344c99a8d2ea3d3e0e7, type: 3}
+        m_Texture: {fileID: 2800000, guid: 628377c9da453f842a25fdd6bc2fa582, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _RockNormal:
-        m_Texture: {fileID: 2800000, guid: fae6385479cb9e84395480627a599861, type: 3}
+        m_Texture: {fileID: 2800000, guid: 345889a4c3c2e8f44bfe2b73bfcd0fa0, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SpecGlossMap:
@@ -140,6 +141,7 @@ Material:
     - _DstBlendAlpha: 0
     - _Dummy: 0
     - _EnablePomFading: 0
+    - _EnableSafePom: 1
     - _EnvironmentReflections: 1
     - _GlobalMadness: 0.5
     - _GlobalRampGamma: 0.19
@@ -154,8 +156,9 @@ Material:
     - _OcclusionScale: 1
     - _OcclusionStrength: 1
     - _Parallax: 0.005
-    - _PomFadeEnd: 0
-    - _PomFadeStart: 0
+    - _PointLightFalloff: 0.547
+    - _PomFadeEnd: 0.5
+    - _PomFadeStart: 0.2
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ReflectionToggle: 1

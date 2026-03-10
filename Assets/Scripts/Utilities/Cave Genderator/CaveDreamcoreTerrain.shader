@@ -20,7 +20,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         [NoScaleOffset][Normal] _MossNormal ("Moss Normal", 2D) = "bump" {}
         [NoScaleOffset] _MossMask ("Moss MOHR Mask", 2D) = "white" {}
 
-        // [수정] 기존 DreamcorePBR과 동일한 파라미터 노출 (Occlusion Scale 제한 해제)
         [Header(Dreamcore PBR Controls)]
         _MetallicScale ("Metallic Scale", Range(0,1)) = 1.0
         _OcclusionScale ("Occlusion Scale", Float) = 1.0
@@ -39,6 +38,12 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         [Toggle] _EnablePomFading ("Enable POM Fading (Opt 4)", Float) = 1.0
         _PomFadeStart ("POM Fade Start (m)", Float) = 15.0
         _PomFadeEnd ("POM Fade End (m)", Float) = 25.0
+        // C# 코드 지우고 아래 한 줄 추가
+        [Toggle] _EnableSafePom ("Enable Safe POM Mode", Float) = 1.0
+
+        // [추가됨] 포인트 라이트 감쇄를 조절할 수 있는 슬라이더 노출
+        [Header(Custom Lighting Controls)]
+        _PointLightFalloff ("Point Light Attenuation Falloff", Range(0.1, 1.0)) = 0.5
     }
 
     SubShader
@@ -46,7 +51,9 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry" }
         LOD 300
 
-        // DepthOnly 패스 (Opt 3 호환용)
+        // =========================================================
+        // PASS 1: DepthOnly 패스
+        // =========================================================
         Pass
         {
             Name "DepthOnly"
@@ -72,8 +79,77 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             half4 DepthOnlyFragment(Varyings input) : SV_Target { return 0; }
             ENDHLSL
         }
+
+        // =========================================================
+        // PASS 2: DepthNormals 패스 (SSGI 작동을 위한 필수 패스 추가)
+        // =========================================================
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode"="DepthNormals" }
+            ZWrite On
+            Cull Back
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma vertex vert
+            #pragma fragment frag
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float _Tiling;
+                float _HeightScale;
+                float _NormalScale;
+                float _EnablePomFading;
+                float _PomFadeStart;
+                float _PomFadeEnd;
+                float _EnableSafePom;
+            CBUFFER_END
+
+            #include "CaveTriplanarSplat.hlsl"
+
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; };
+            struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; float3 normalWS : TEXCOORD1; };
+
+            Varyings vert(Attributes input)
+            {
+                Varyings output;
+                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
+                output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+                return output;
+            }
+
+            half4 frag(Varyings input) : SV_Target
+            {
+                float3 albedo = 0; float3 normal = 0; float4 mohr = 0; 
+                float3 posWS = input.positionWS;
+                float3 normWS = normalize(input.normalWS);
+                float3 viewDirWS = normalize(GetCameraPositionWS() - posWS);
+
+                // l-value const 에러를 막기 위한 지역 변수화
+                float p_Tiling = _Tiling;
+                float p_HeightScale = _HeightScale;
+                float p_NormalScale = _NormalScale;
+                float p_EnablePom = _EnablePomFading;
+                float p_PomStart = _PomFadeStart;
+                float p_PomEnd = _PomFadeEnd;
+
+                GetCaveSurfaceData(
+                    posWS, normWS, viewDirWS, 
+                    p_Tiling, p_HeightScale, p_NormalScale, 
+                    p_EnablePom, p_PomStart, p_PomEnd, 
+                    albedo, normal, mohr
+                );
+
+                return half4(normalize(normal), 0.0);
+            }
+            ENDHLSL
+        }
         
-        // ShadowCaster 패스
+        // =========================================================
+        // PASS 3: ShadowCaster 패스
+        // =========================================================
         Pass
         {
             Name "ShadowCaster"
@@ -109,7 +185,9 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             ENDHLSL
         }
 
-        // 메인 렌더 패스 (Dreamcore PBR 완벽 이식)
+        // =========================================================
+        // PASS 4: UniversalForward 패스 (메인 렌더링)
+        // =========================================================
         Pass
         {
             Name "UniversalForward"
@@ -128,7 +206,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            // [🔥 핵심 수정] Properties 블록 밖에서 전역(Global) 변수로 선언해야 매니저의 방송을 정상적으로 수신합니다.
             TEXTURE2D(_GlobalRampTex); SAMPLER(sampler_GlobalRampTex);
             float _GlobalMadness;
             float _GlobalRampGamma;
@@ -149,9 +226,10 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float _EnablePomFading;
                 float _PomFadeStart;
                 float _PomFadeEnd;
+                float _PointLightFalloff; // [추가됨] 감쇄 제어 변수
+                float _EnableSafePom;
             CBUFFER_END
 
-            // Triplanar 샘플링 함수 포함
             #include "CaveTriplanarSplat.hlsl"
 
             struct Attributes
@@ -167,7 +245,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float3 normalWS : TEXCOORD1;
             };
 
-            // [모듈 1] Geometry Specular AA (기존 코드 이식)
             float GetGeometricRoughness(float3 worldNormal, float aaSize)
             {
                 if (aaSize <= 0.0) return 0.0;
@@ -176,7 +253,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 return aaSize * (length(normalDDX) + length(normalDDY));
             }
 
-            // [모듈 2] 알파 블렌딩 램프 해석기 (기존 코드 이식)
             float3 ApplyDreamcoreRampWithAlpha(float3 normal, float3 lightDir, float shadowAtten, float distAtten, float3 lightColor, float3 albedo)
             {
                 float NdotL = saturate(dot(normal, lightDir));
@@ -188,7 +264,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float quantizedLookup = (_GlobalSteps > 0.1) ? floor(acceleratedInfluence * _GlobalSteps) / _GlobalSteps : acceleratedInfluence;
                 
                 float2 rampUV = float2(quantizedLookup, _GlobalMadness);
-                // RampTex에서 빛의 컬러를 결정
                 float4 rampSample = SAMPLE_TEXTURE2D_LOD(_GlobalRampTex, sampler_GlobalRampTex, rampUV, 0);
                 
                 return lerp(NdotL * distAtten * shadowAtten * lightColor, rampSample.rgb * lightColor, rampSample.a);
@@ -207,20 +282,29 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
 
             half4 frag(Varyings input) : SV_Target
             {
-                float3 viewDirWS = normalize(GetCameraPositionWS() - input.positionWS);
+                float3 posWS = input.positionWS;
+                float3 normWS = normalize(input.normalWS);
+                float3 viewDirWS = normalize(GetCameraPositionWS() - posWS);
                 
-                float3 sampledAlbedo, worldNormal;
-                float4 sampledMask;
+                float3 sampledAlbedo = 0; float3 worldNormal = 0; float4 sampledMask = 0;
                 
-                // 1. Triplanar 및 POM을 통한 표면 데이터 추출
+                // 지역 변수 선언 (에러 방지)
+                float p_Tiling = _Tiling;
+                float p_HeightScale = _HeightScale;
+                float p_NormalScale = _NormalScale;
+                float p_EnablePom = _EnablePomFading;
+                float p_PomStart = _PomFadeStart;
+                float p_PomEnd = _PomFadeEnd;
+
+                // 1. Triplanar 및 POM 데이터 추출
                 GetCaveSurfaceData(
-                    input.positionWS, normalize(input.normalWS), viewDirWS, 
-                    _Tiling, _HeightScale, _NormalScale,
-                    _EnablePomFading, _PomFadeStart, _PomFadeEnd,
+                    posWS, normWS, viewDirWS, 
+                    p_Tiling, p_HeightScale, p_NormalScale,
+                    p_EnablePom, p_PomStart, p_PomEnd,
                     sampledAlbedo, worldNormal, sampledMask
                 );
 
-                // 2. MOHR 데이터 처리 (DreamcorePBR과 완전히 동일)
+                // 2. MOHR 데이터 처리
                 float finalMetallic = saturate(sampledMask.r * _MetallicScale);
                 float baseRoughness = sampledMask.a;
                 float finalRoughness = saturate(baseRoughness * _RoughnessScale);
@@ -228,13 +312,16 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float heightShadow = saturate(sampledMask.b + 0.2);
                 float finalOcclusion = saturate(sampledMask.g * heightShadow * _OcclusionScale);
 
-                // 3. Roughness 및 Smoothness 결정
                 float geoRough = GetGeometricRoughness(worldNormal, _SpecularAASize);
                 float actualRoughness = max(finalRoughness, geoRough);
                 float smoothness = 1.0 - actualRoughness;
 
                 float3 resultColor = float3(0, 0, 0);
-                float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+                float4 shadowCoord = TransformWorldToShadowCoord(posWS);
+
+                // [추가됨] 런타임 환경의 칠흑 같은 암부를 방지하기 위한 기본 환경광(SH) 결합
+                half3 bakedGI = SampleSH(worldNormal);
+                resultColor += bakedGI * sampledAlbedo * finalOcclusion;
 
                 // --- [A] 직접광: 메인 라이트 ---
                 Light mainLight = GetMainLight(shadowCoord);
@@ -249,13 +336,18 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     resultColor += spec * lerp(0.04, sampledAlbedo, finalMetallic) * mainLight.color * (mainLight.shadowAttenuation * mainLight.distanceAttenuation);
                 }
 
-                // --- [B] 직접광: 추가 라이트 ---
+                // --- [B] 직접광: 추가 라이트 (포인트 라이트) ---
                 #if defined(_ADDITIONAL_LIGHTS)
                 uint pixelLightCount = GetAdditionalLightsCount();
                 for (uint i = 0u; i < pixelLightCount; ++i) 
                 {
-                    Light light = GetAdditionalLight(i, input.positionWS, shadowCoord);
-                    resultColor += sampledAlbedo * ApplyDreamcoreRampWithAlpha(worldNormal, light.direction, light.shadowAttenuation, light.distanceAttenuation, light.color, sampledAlbedo);
+                    Light light = GetAdditionalLight(i, posWS, shadowCoord);
+                    
+                    // [핵심] 포인트 라이트의 거리 감쇄(Falloff) 곡선 조작
+                    half customAtten = saturate(pow(light.distanceAttenuation, _PointLightFalloff));
+
+                    // 조작된 customAtten을 Ramp 해석기에 전달
+                    resultColor += sampledAlbedo * ApplyDreamcoreRampWithAlpha(worldNormal, light.direction, light.shadowAttenuation, customAtten, light.color, sampledAlbedo);
                     
                     if (_SpecularToggle > 0.5) 
                     {
@@ -263,7 +355,9 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                         float NdotH = saturate(dot(worldNormal, halfDir));
                         float specPower = exp2(10.0 * smoothness + 1.0);
                         float spec = pow(NdotH, specPower);
-                        resultColor += spec * lerp(0.04, sampledAlbedo, finalMetallic) * light.color * (light.distanceAttenuation * light.shadowAttenuation);
+                        
+                        // 하이라이트(Specular)에도 동일하게 customAtten 적용
+                        resultColor += spec * lerp(0.04, sampledAlbedo, finalMetallic) * light.color * (customAtten * light.shadowAttenuation);
                     }
                 }
                 #endif

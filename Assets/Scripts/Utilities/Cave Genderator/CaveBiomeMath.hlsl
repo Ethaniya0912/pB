@@ -14,7 +14,6 @@
 // 1. 매끄러운 공간 융합 연산 (Smooth Boolean Operations)
 // ----------------------------------------------------
 
-// 다항식 부드러운 최솟값 (방과 통로의 용접, 종유석의 융합용)
 float smin(float a, float b, float k)
 {
     if (k <= 0.0001)
@@ -23,7 +22,6 @@ float smin(float a, float b, float k)
     return lerp(b, a, h) - k * h * (1.0 - h);
 }
 
-// 다항식 부드러운 최댓값 (바닥 평탄화 퇴적, 싱크홀의 모래시계 절삭용)
 float smax(float a, float b, float k)
 {
     if (k <= 0.0001)
@@ -32,80 +30,162 @@ float smax(float a, float b, float k)
     return lerp(b, a, h) + k * h * (1.0 - h);
 }
 
-// 통로(Edge) 조각용 캡슐 거리 함수
+// 둥근 터널(Edge) 조각용 캡슐 거리 함수
 float sdCapsule(float3 p, float3 a, float3 b, float r)
 {
     float3 pa = p - a, ba = b - a;
-    float h = saturate(dot(pa, ba) / max(dot(ba, ba), 0.000001)); // 0으로 나누기 방지
+    float h = saturate(dot(pa, ba) / max(dot(ba, ba), 0.000001));
     return length(pa - ba * h) - r;
 }
+
+// [신규] 협곡 통로용 거리 함수 (천장이 열려있고 바닥이 평평한 U자형)
+float sdCanyon(float3 p, float3 a, float3 b, float r)
+{
+    float3 pa = p - a, ba = b - a;
+    float h = saturate(dot(pa, ba) / max(dot(ba, ba), 0.000001));
+    float3 closestPt = a + ba * h;
+
+    float3 canyonPt = closestPt;
+    // p가 중심점보다 높으면 높이 차이를 무시하여 천장을 위로 무한히 엽니다.
+    if (p.y > closestPt.y)
+        canyonPt.y = p.y;
+
+    float dist = length(p - canyonPt) - r;
+    
+    // 바닥 평탄화 (원의 최하단보다 약간 높은 위치에서 평평하게 깎아냄)
+    float flatBottom = (closestPt.y - r * 0.7) - p.y;
+    dist = smax(dist, flatBottom, 1.5);
+    
+    return dist;
+}
+
+// [신규] 방(Room) 협곡화 거리 함수
+float sdCanyonNode(float3 p, float3 center, float r)
+{
+    float3 canyonPt = center;
+    if (p.y > center.y)
+        canyonPt.y = p.y;
+    float dist = length(p - canyonPt) - r;
+    
+    float flatBottom = (center.y - r * 0.7) - p.y;
+    dist = smax(dist, flatBottom, 1.5);
+    return dist;
+}
+
 
 // ----------------------------------------------------
 // 2. 다중 지대(Biome) 형태 분기 라우터 (Dual SDF 적용 대상)
 // ----------------------------------------------------
-// 메인 커널에서 넘겨준 noiseType에 따라 완전히 다른 기하학을 반환합니다.
-float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, BiomeParamData p)
+// [수정됨] 매개변수에 normalY(바닥/벽면 기울기)가 추가되어, 유저가 걷는 바닥을 보호합니다.
+float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, float normalY, BiomeParamData p)
 {
     float detailSDF = baseSDF;
     
-    // Division by Zero 및 치명적 오류 차단을 위한 하드웨어 안전망
     float safeFreq = max(p.noiseFrequency, 0.001);
     float safeYComp = max(p.yCompression, 0.001);
     
     switch (noiseType)
     {
         case 0:
-            // [Case 0: 석회암 (Karst Limestone)]
-            // Y축을 압착/팽창하여 3D 노이즈를 늘어뜨리고 (종유석 형태 유도) 베이스에 덧바릅니다.
             float karstNoise = fBm(float3(pos.x, pos.y * safeYComp, pos.z) * safeFreq, 4, 2.0, 0.5);
             detailSDF += karstNoise * 5.0;
             break;
             
         case 1:
-            // [Case 1: 단층 압착 동굴 (Fault-line Compressed Cave)]
-            // Y축 좌표를 모듈로 연산하여 테라스(계단) 층리를 만들고 날카롭게 찢습니다.
             float safeTerrace = max(p.terraceSteps, 0.001);
             float terracedY = floor(pos.y * safeTerrace) / safeTerrace;
-            
-            // 공간을 뒤트는 강한 도메인 워핑(Domain Warping)
             float3 warpedPos = pos + float3(snoise(pos * safeFreq * 0.5), 0, snoise(pos * safeFreq * 0.5 + 10.0)) * 4.0;
             float3 strataPos = float3(warpedPos.x, terracedY, warpedPos.z);
-            
-            // 릿지드 멀티프랙탈(Ridged) 방식: 절댓값을 씌워 뾰족한 날을 파냅니다.
             float faultNoise = abs(fBm(strataPos * safeFreq, 3, 2.0, 0.5));
             detailSDF -= faultNoise * 3.0;
             break;
 
         case 2:
-            // [Case 2: 현무암 주상절리 (Columnar Basalt Jointing)]
-            // 2D 보로노이 셀 거리를 역산하여 유기성을 억제한 수직 육각 기둥 숲을 만듭니다.
             float f1, f2;
             Voronoi2D(pos.xz * safeFreq, f1, f2);
-            
-            // 셀의 중심점이 가장 볼록하게 튀어나오도록 1.0 - F1 적용
             float columnSDF = 1.0 - f1;
-            
-            // 해시를 이용한 각 기둥별 높낮이 양자화
             float heightOffset = hash2D(floor(pos.xz * safeFreq)) * 5.0;
-            
-            // 둥근 융합을 배제하고 수학적 max로 뼈대를 예리하게 파냅니다.
             detailSDF = max(detailSDF, -(columnSDF * 2.0 + heightOffset));
             break;
             
         case 3:
-            // [Case 3: 리미널 스페이스 - 무한 반복의 인공 수로]
-            // 모듈로(fmod) 공간 반복 연산을 통해 단 1개의 기둥 연산으로 무한의 숲을 구축합니다.
-            float spacing = 15.0; // 15m 간격으로 기둥 도열
+            float spacing = 15.0;
             float2 repeatXZ = fmod(abs(pos.xz) + spacing * 0.5, spacing) - spacing * 0.5;
-            
-            // 반경 2m짜리 무한 도열 실린더
             float cylinderSDF = length(repeatXZ) - 2.0;
-            
-            // 기둥 표면에 가로 줄눈(벽돌 패턴) 각인
             float brickPattern = abs(sin(pos.y * 10.0)) * 0.1;
-            
             detailSDF = max(detailSDF, -(cylinderSDF - brickPattern));
             break;
+            
+        case 4:
+        {
+            // [Case 4: 극사실적 암벽 (수직/블록 암반)]
+            // 벽면 마스크: normalY가 0에 가까울수록(수직 벽) 1.0, 바닥/천장일수록 0.0
+                float wallMask4 = smoothstep(0.8, 0.4, abs(normalY));
+
+                float layerHeight = max(1.0 / max(p.terraceSteps, 1.0), 0.5);
+                float warpedY = pos.y + snoise(pos * safeFreq * 0.1) * 2.0;
+                float terracedY = floor(warpedY / layerHeight) * layerHeight;
+
+                float3 warpedPos4 = pos + float3(snoise(pos * safeFreq * 0.5), 0, snoise(pos * safeFreq * 0.5 + 10.0)) * 2.0;
+                float3 strataPos = float3(warpedPos4.x, terracedY, warpedPos4.z);
+
+                float ridgedNoise1 = 1.0 - abs(snoise(strataPos * safeFreq * 0.8));
+                float ridgedNoise2 = 1.0 - abs(snoise(strataPos * safeFreq * 2.0)) * 0.5;
+                float ridgedBlock = (ridgedNoise1 + ridgedNoise2) * max(p.bumpAmplitude, 3.0);
+
+            // 평지(바닥)는 울퉁불퉁해지지 않도록 wallMask를 곱해 보호합니다.
+                float blockySDF = baseSDF - (ridgedBlock * wallMask4);
+
+                float3 crackFreq = float3(safeFreq * 2.0, safeFreq * 0.2, safeFreq * 2.0);
+                float vF1, vF2;
+                Voronoi3D(warpedPos4 * crackFreq, vF1, vF2);
+            
+                float crack = (vF2 - vF1) * 4.0;
+                float crackSDF = 1.0 - crack;
+
+            // 바닥에서는 크랙으로 잘려나가지 않도록 lerp로 복원합니다.
+                detailSDF = lerp(blockySDF, max(blockySDF, crackSDF), wallMask4);
+                detailSDF -= abs(snoise(pos * safeFreq * 6.0)) * 0.2 * wallMask4;
+                break;
+            }
+        
+        case 5:
+        {
+            // ==============================================================================
+            // [Case 5: 그랜드 캐니언 스타일 사암/퇴적암 (Stratified Sedimentary Rock)]
+            // ==============================================================================
+            
+            // 벽면 마스크: 유저가 걸어다닐 바닥(평지)이 깎여나가는 것을 막아줍니다.
+                float wallMask5 = smoothstep(0.8, 0.4, abs(normalY));
+
+                float safeTerrace5 = max(p.terraceSteps, 1.0);
+                float stepY = floor(pos.y * safeTerrace5) / safeTerrace5;
+            
+                float3 warpedPos5 = pos + float3(snoise(pos * safeFreq * 0.3), 0, snoise(pos * safeFreq * 0.3 + 12.0)) * 2.0;
+                float3 steppedPos5 = float3(warpedPos5.x, floor(warpedPos5.y * safeTerrace5) / safeTerrace5, warpedPos5.z);
+
+                float vF1_5, vF2_5;
+                Voronoi3D(steppedPos5 * safeFreq * 1.5, vF1_5, vF2_5);
+            
+            // 단구(블록) 절단면
+                float blockCut5 = 1.0 - (vF2_5 - vF1_5) * 4.0;
+            
+            // 바닥(wallMask=0)은 baseSDF를 유지, 벽면(wallMask=1)은 계단식 블록으로 잘라냄
+                float canyonSDF = lerp(baseSDF, max(baseSDF, blockCut5), wallMask5);
+
+            // 차별 침식 (가로로 긴 얇은 틈새)
+                float strataPhase = pos.y * safeFreq * 15.0;
+                float strataGroove = pow(abs(sin(strataPhase)), 8.0);
+                float erosionMask = max(0.0, snoise(float3(pos.x * safeFreq, stepY * 4.0, pos.z * safeFreq)));
+            
+            // 바닥에는 이 가로 틈새가 파이지 않도록 마스킹
+                float deepErosion = (1.0 - strataGroove) * erosionMask * max(p.bumpAmplitude, 2.0) * wallMask5;
+
+                detailSDF = canyonSDF + deepErosion;
+                detailSDF -= abs(snoise(pos * safeFreq * 12.0)) * 0.15 * wallMask5;
+            
+                break;
+            }
     }
     
     return detailSDF;
