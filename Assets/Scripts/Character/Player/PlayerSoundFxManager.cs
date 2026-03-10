@@ -18,11 +18,11 @@ namespace TDA.Character.Player
         {
             base.OnAnimationEventReceived(eventType);
 
-            if (eventType == global::AnimationEventType.Stamina_Exhausted)
+            if (eventType == global::AnimationEventType.PlaySFX_Stamina_Exhausted)
             {
                 HandleBreathingAudio(true);
             }
-            else if (eventType == global::AnimationEventType.Stamina_Recovered)
+            else if (eventType == global::AnimationEventType.PlaySFX_Stamina_Recovered)
             {
                 HandleBreathingAudio(false);
             }

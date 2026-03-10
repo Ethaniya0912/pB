@@ -42,13 +42,16 @@ namespace TDA.Character
         private void OnAnimatorMove()
         {
             // Root Motion 적용이 허용된 상태이고, 이동을 집행할 CharacterController가 존재할 때만 실행
-            if (player.applyRootMotion && player.characterController != null)
+            if (player.animator.applyRootMotion && player.characterController != null)
             {
                 // animator.deltaPosition: 이전 프레임과 현재 프레임 사이의 '애니메이션 자체 이동량'
                 Vector3 velocity = player.animator.deltaPosition;
 
+                // [🚨 치명적 버그 수정] 루트 모션이 캐릭터를 땅에 파묻거나 띄우는 것을 원천 차단!
+                // Y축(중력)은 오직 PlayerLocomotionManager만 제어해야 합니다.
+                velocity.y = 0f;
+
                 // CharacterController.Move를 통해 충돌체(콜라이더) 물리 연산을 고려하며 안전하게 이동시킵니다. 
-                // (이 방식을 사용해야 벽을 뚫거나 중력을 무시하는 버그가 발생하지 않습니다.)
                 player.characterController.Move(velocity);
 
                 // animator.deltaRotation: 애니메이션 자체의 회전 변화량을 현재 회전값에 누적(곱연산)하여 부드럽게 적용합니다.

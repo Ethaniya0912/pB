@@ -1088,7 +1088,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2936990586
+  GlobalObjectIdHash: 1036026086
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1347,6 +1347,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lastAnimationPlayedHash: 0
+  locomotionDampTime: 0.1
   hit_Forward_Medium_01: Hit_Forward_Medium_01
   hit_Forward_Medium_02: Hit_Forward_Medium_02
   hit_Backward_Medium_01: Hit_Backward_Medium_01

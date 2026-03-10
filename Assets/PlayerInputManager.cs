@@ -14,7 +14,7 @@ using TDA.Character.Player; // PlayerManager 참조를 위해 추가
 
 public class PlayerInputManager : MonoBehaviour
 {
-    public static PlayerInputManager Instance {  get; private set; }
+    public static PlayerInputManager Instance { get; private set; }
     public PlayerManager player;
     // 목표에 대한 단계를 생각하자.
     // 1. 조이스틱의 밸류를 읽을 수 있는 방법을 찾자.
@@ -22,7 +22,7 @@ public class PlayerInputManager : MonoBehaviour
 
     PlayerControls playerControls;
 
-    /*    [Header("Camera Movement Input")]
+    /* [Header("Camera Movement Input")]
         [SerializeField] Vector2 cameraInput;
         public float cameraVerticalInput;
         public float cameraHorizontalInput;
@@ -80,14 +80,14 @@ public class PlayerInputManager : MonoBehaviour
         SceneManager.activeSceneChanged += OnSceneChange;
 
         Instance.enabled = false;
-        if(playerControls != null)
+        if (playerControls != null)
         {
             playerControls.Disable();
         }
     }
 
     // arg0은 올드씬, arg1은 뉴씬
-    private void OnSceneChange(Scene oldScene,  Scene newScene)
+    private void OnSceneChange(Scene oldScene, Scene newScene)
     {
         Debug.Log(WorldSaveGameManager.Instance.GetWorldSceneIndex());
         // 만약 우리가 월드씬을 로딩한다면, 플레이어 컨트롤를 활성화합니다.
@@ -96,10 +96,10 @@ public class PlayerInputManager : MonoBehaviour
         {
             Instance.enabled = true;
 
-            if(playerControls != null)
+            if (playerControls != null)
             {
                 playerControls.Enable();
-            }   
+            }
         }
         // 그렇지 않을 경우 메인메뉴에 존재한다는 뜻이며, 플레이어 컨트롤을 비활성화함.
         // 캐릭터 크리에이션 중에 캐릭터가 움직이지 않게 하기 위함.
@@ -107,10 +107,10 @@ public class PlayerInputManager : MonoBehaviour
         {
             Instance.enabled = false;
 
-            if(playerControls != null)
+            if (playerControls != null)
             {
                 playerControls.Disable();
-            }   
+            }
         }
     }
 
@@ -221,7 +221,9 @@ public class PlayerInputManager : MonoBehaviour
         if (player == null)
             return;
 
-        // 수평에 0만 전달하는 이유는 락온 하지 않을 시 앞으로만 가게 하려고 함.
+        // [다크소울 컨트롤 삭제 요청 반영]
+        // 기존 코드: 수평에 0만 전달하는 이유는 락온 하지 않을 시 앞으로만 가게 하려고 함. (주석 처리로 보존)
+        /*
         if (!player.playerNetworkManager.isLockedOn.Value || player.playerNetworkManager.isSprinting.Value)
         {
             player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, player.playerNetworkManager.isSprinting.Value);
@@ -230,11 +232,13 @@ public class PlayerInputManager : MonoBehaviour
         {
             player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalInput, verticalInput, player.playerNetworkManager.isSprinting.Value);
         }
+        */
 
-        // 수평에 0 말고 다른 것도 전달, 락온 한 상태.
+        // 새로운 코드: 락온 여부와 상관없이 사용자의 입력(horizontal, vertical)을 즉각적으로 애니메이터에 100% 꽂아넣습니다.
+        player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalInput, verticalInput, player.playerNetworkManager.isSprinting.Value);
     }
 
-    /*    private void HandleAllInputs()
+    /* private void HandleAllInputs()
         {
             HandleMovementInput();
             HandleCameraMovementInput();

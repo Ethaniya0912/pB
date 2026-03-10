@@ -74,6 +74,9 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
             // [루트 모션 동적 스위칭] 
             // 현재 상태와 설정값에 따라 애니메이터의 루트 모션 적용 여부를 실시간으로 결정합니다.
             player.animator.applyRootMotion = DetermineApplyRootMotion();
+
+            // isLockedOn 파라미터 동기화
+            player.animator.SetBool("isLockedOn", player.playerNetworkManager.isLockedOn.Value);
         }
         else
         {
@@ -145,16 +148,9 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
 
         // 애니메이터 파라미터 업데이트 (Task 8: Damping 적용)
         bool isSprinting = player.playerNetworkManager.isSprinting.Value;
-        bool isLockedOn = player.playerNetworkManager.isLockedOn.Value;
 
-        if (!isLockedOn || isSprinting)
-        {
-            player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, isSprinting);
-        }
-        else
-        {
-            player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
-        }
+        // 변경: 락온 여부와 상관없이 언제나 자유롭게 8방향 걷기/뛰기가 가능하도록 RAW 입력값을 꽂습니다!
+        player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
     }
 
     /// <summary>
@@ -167,7 +163,7 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
     }
 
     // =========================================================================================
-    // [물리 연산 로직]
+    // [물리 연산 로직 & 파라미터 동기화]
     // =========================================================================================
 
     private void HandleAirborneAndGravity()
@@ -204,6 +200,13 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
 
         yVelocity.y += gravity * Time.deltaTime;
         player.characterController.Move(yVelocity * Time.deltaTime);
+
+        // [여기에 추가!] 땅에 닿아있는지, 그리고 얼마나 빠르게 떨어지는지 애니메이터에 쏴줍니다.
+        if (player.animator != null)
+        {
+            player.animator.SetBool("isGrounded", isGrounded);
+            player.animator.SetFloat("verticalVelocity", yVelocity.y);
+        }
     }
 
     private void HandleGroundedMovement()
@@ -320,15 +323,8 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
     private void UpdateRemotePlayerAnimations()
     {
         bool isSprinting = player.playerNetworkManager.isSprinting.Value;
-        bool isLockedOn = player.playerNetworkManager.isLockedOn.Value;
 
-        if (!isLockedOn || isSprinting)
-        {
-            player.playerAnimationManager.UpdateAnimatorMovementParameters(0, moveAmount, isSprinting);
-        }
-        else
-        {
-            player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
-        }
+        // [수정: 리모트 플레이어(다른 유저)의 애니메이션도 락온 제한 없이 완벽한 8방향으로 동기화합니다.]
+        player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
     }
 }

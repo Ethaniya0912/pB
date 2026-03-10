@@ -20,6 +20,14 @@ namespace TDA.Character
         [Tooltip("기본 이동 시 블렌드 트리 파라미터가 목표치에 도달하는 댐핑 시간입니다. (값이 클수록 묵직하고 유기적인 가감속)")]
         [SerializeField] protected float locomotionDampTime = 0.1f;
 
+        [Header("Debug - Current Animator Parameters")]
+        [Tooltip("현재 애니메이터로 쏴주고 있는 Horizontal (스냅 적용) 값입니다.")]
+        [SerializeField] private float debugHorizontalValue;
+        [Tooltip("현재 애니메이터로 쏴주고 있는 Vertical (스냅 적용) 값입니다.")]
+        [SerializeField] private float debugVerticalValue;
+        [Tooltip("현재 계산되어 애니메이터로 쏴주고 있는 moveAmount 값입니다.")]
+        [SerializeField] private float debugMoveAmountValue;
+
         // 인스펙터 편집 편의성을 위해 문자열로 열어두지만, 런타임에서는 해시로 변환하여 사용합니다.
         [Header("Damage Animations (Inspector String Setup)")]
         [SerializeField] string hit_Forward_Medium_01 = "Hit_Forward_Medium_01";
@@ -85,30 +93,40 @@ namespace TDA.Character
 
         public void UpdateAnimatorMovementParameters(float horizontalValue, float verticalValue, bool isSprinting)
         {
-            float snappedHorizontal = horizontalValue;
-            float snappedVertical = verticalValue;
+            float snappedHorizontal = 0f;
+            float snappedVertical = 0f;
 
-            // 속도를 항상 -1, -0.5, 0, 0.5, 1로 수평 움직임 고정 (Snapping)
+            // [안전성 강화] 부등호 범위를 단순화하여 조이스틱/키보드의 소수점 오차(-1.0001f 등)를 완벽히 캡처합니다.
             if (horizontalValue > 0 && horizontalValue <= 0.5f) { snappedHorizontal = 0.5f; }
-            else if (horizontalValue > 0.5f && horizontalValue <= 1) { snappedHorizontal = 1; }
+            else if (horizontalValue > 0.5f) { snappedHorizontal = 1f; }
             else if (horizontalValue < 0 && horizontalValue >= -0.5f) { snappedHorizontal = -0.5f; }
-            else if (horizontalValue > -0.5f && horizontalValue <= -1) { snappedHorizontal = -1; }
-            else { snappedHorizontal = 0; }
+            else if (horizontalValue < -0.5f) { snappedHorizontal = -1f; }
 
             if (verticalValue > 0 && verticalValue <= 0.5f) { snappedVertical = 0.5f; }
-            else if (verticalValue > 0.5f && verticalValue <= 1) { snappedVertical = 1; }
+            else if (verticalValue > 0.5f) { snappedVertical = 1f; }
             else if (verticalValue < 0 && verticalValue >= -0.5f) { snappedVertical = -0.5f; }
-            else if (verticalValue > -0.5f && verticalValue <= -1) { snappedVertical = -1; }
-            else { snappedVertical = 0; }
+            else if (verticalValue < -0.5f) { snappedVertical = -1f; }
+
+            // [신규 추가] moveAmount 계산: 입력의 절대값을 합쳐 0~1 사이로 정규화합니다.
+            float moveAmount = Mathf.Clamp01(Mathf.Abs(horizontalValue) + Mathf.Abs(verticalValue));
 
             if (isSprinting)
             {
                 snappedVertical = 2;
+                moveAmount = 2f; // 뛸 때는 moveAmount도 올려줍니다.
             }
 
-            // [수정] 하드코딩된 0.1f 대신 외부에서 조절 가능한 locomotionDampTime 적용
+            // 디버깅을 위해 인스펙터 노출용 변수에 현재 값 캐싱
+            debugHorizontalValue = snappedHorizontal;
+            debugVerticalValue = snappedVertical;
+            debugMoveAmountValue = moveAmount;
+
+            // 하드코딩된 0.1f 대신 외부에서 조절 가능한 locomotionDampTime 적용
             character.animator.SetFloat("Horizontal", snappedHorizontal, locomotionDampTime, Time.deltaTime);
             character.animator.SetFloat("Vertical", snappedVertical, locomotionDampTime, Time.deltaTime);
+
+            // 애니메이터 파라미터에 moveAmount 값을 쏴줍니다
+            character.animator.SetFloat("moveAmount", moveAmount, locomotionDampTime, Time.deltaTime);
         }
 
         public virtual void PlayTargetAnimation(

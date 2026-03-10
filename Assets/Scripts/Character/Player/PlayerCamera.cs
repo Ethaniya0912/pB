@@ -8,8 +8,8 @@ using TDA.World;
 namespace TDA.Character.Player
 {
     /// <summary>
-    /// [오류 정정] 기존에 있었던 타겟팅 탐색, 충돌(Collision) 라인캐스트 지형 가림 체크,
-    /// 그리고 타겟이 죽었을 때 새 타겟을 찾는 코루틴 등 모든 디테일 코드를 100% 보존했습니다.
+    /// [오류 정정 및 숄더뷰 고도화] 기존의 타겟팅 탐색, 충돌 라인캐스트, NGO 방어 구조를 완벽히 보존하며
+    /// 다크 판타지 특유의 답답하고 묵직한 숄더뷰 조작감(시야각 클램핑, 오토 센터링)을 추가로 구현했습니다.
     /// </summary>
     public class PlayerCamera : MonoBehaviour
     {
@@ -24,6 +24,24 @@ namespace TDA.Character.Player
         [SerializeField] private float upAndDownRotationSpeed = 220f;
         [SerializeField] private float minimumPivot = -30f;
         [SerializeField] private float maximumPivot = 60f;
+
+        // =========================================================================================
+        // [신규 추가] 숄더뷰 제한 및 오토 센터링 (명세서 적용)
+        // =========================================================================================
+        [Header("Shoulder View Restrictions (P2)")]
+        [Tooltip("카메라가 캐릭터 정면을 기준으로 좌우로 단독 회전할 수 있는 최대 한계각 (데드존). 사람의 자연스러운 시야각인 50~60도를 권장합니다.")]
+        [SerializeField][Range(10f, 90f)] private float maxViewAngle = 60f;
+
+        [Tooltip("캐릭터가 전진(이동)을 시작할 때, 카메라가 캐릭터의 등 뒤 정면으로 자동으로 부드럽게 돌아올지 여부입니다.")]
+        [SerializeField] private bool enableAutoCenterOnMove = true;
+
+        [Tooltip("자동 정렬 시 카메라가 등 뒤로 복귀하는 속도입니다. 값이 클수록 빠르게 정렬됩니다.")]
+        [SerializeField] private float autoCenterSpeed = 2.0f;
+
+        [Header("Debug & Gizmos")]
+        [Tooltip("씬 뷰에서 카메라의 허용 시야각 부채꼴을 시각적으로 렌더링할지 여부입니다.")]
+        [SerializeField] private bool showViewAngleGizmos = true;
+        // =========================================================================================
 
         [Header("Soft Magnetic Lock (P2)")]
         [SerializeField] private Vector2 deadzoneRadius = new Vector2(0.25f, 0.25f);
@@ -92,8 +110,13 @@ namespace TDA.Character.Player
             if (player == null) return;
 
             HandleFollowTarget();
+
+            // 1. 순수 입력 기반 숄더뷰 회전 (클램핑 포함)
             Quaternion baseRotation = HandleRotation();
+
+            // 2. 네트워크 락온 오버라이드 (자석 효과 우선)
             baseRotation = HandleMagneticSoftLock(baseRotation);
+
             HandleCollision();
             ApplyFinalTransform(baseRotation);
         }
@@ -117,12 +140,41 @@ namespace TDA.Character.Player
             }
         }
 
+        /// <summary>
+        /// [핵심 수정: 숄더뷰 마스터 로직]
+        /// 무한정 돌아가는 3인칭 자유 시점을 통제하고, 몸통 각도에 종속된 데드존 클램핑을 적용합니다.
+        /// </summary>
         private Quaternion HandleRotation()
         {
+            // 인벤토리 등 시스템 뷰일 때는 숄더뷰 락을 무시
             if (isContextualMode) return transform.rotation;
 
-            // 입력을 항상 누적합니다.
-            leftAndRightLookAngle += (cameraHorizontalInput * leftAndRightRotationSpeed * mouseSensitivity) * Time.deltaTime;
+            // [로직 1] 마우스 입력을 임시 변수에 누적하여 가상의 타겟 각도(Yaw) 산출
+            float targetYaw = leftAndRightLookAngle + (cameraHorizontalInput * leftAndRightRotationSpeed * mouseSensitivity) * Time.deltaTime;
+
+            // [로직 2] 오일러 각도 정규화 및 차이 계산 (Mathf.DeltaAngle 필수)
+            float playerBodyYaw = player.transform.eulerAngles.y;
+            float angleDifference = Mathf.DeltaAngle(playerBodyYaw, targetYaw); // -180 ~ 180도 사이로 안전하게 정규화
+
+            // [로직 3] 시야각 클램핑 (Deadzone 락) - 숄더뷰의 답답함과 묵직함 연출
+            // 이로 인해 마우스를 60도 이상 돌려도 카메라는 멈추고, 캐릭터의 몸(Transform)이 같이 돌아야만 뒤를 볼 수 있습니다.
+            angleDifference = Mathf.Clamp(angleDifference, -maxViewAngle, maxViewAngle);
+
+            // [로직 4] 오토 센터링 (Auto-Centering) 개입
+            // 캐릭터가 앞으로 걸어가는데 시야가 삐딱할 경우, 서서히 등 뒤 정면으로 앵글을 회복시킵니다.
+            if (enableAutoCenterOnMove && player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f)
+            {
+                // 유저가 마우스 조작을 멈췄을 때만 개입하여 조작감을 방해하지 않음
+                if (Mathf.Abs(cameraHorizontalInput) < 0.01f)
+                {
+                    angleDifference = Mathf.Lerp(angleDifference, 0f, autoCenterSpeed * Time.deltaTime);
+                }
+            }
+
+            // [로직 5] 클램핑과 보간이 끝난 최종 각도를 캐릭터의 정면 각도에 결합하여 적용
+            leftAndRightLookAngle = playerBodyYaw + angleDifference;
+
+            // 상하(Pitch) 회전은 기존 로직 유지 (안전하게 Clamp 적용)
             upAndDownLookAngle -= (cameraVerticalInput * upAndDownRotationSpeed * mouseSensitivity) * Time.deltaTime;
             upAndDownLookAngle = Mathf.Clamp(upAndDownLookAngle, minimumPivot, maximumPivot);
 
@@ -369,6 +421,32 @@ namespace TDA.Character.Player
         public void SetBodycamWeight(float weight)
         {
             bodycamWeight = Mathf.Clamp01(weight);
+        }
+
+        // =========================================================================================
+        // [디버깅] 숄더뷰 데드존(시야각) 시각화 기즈모
+        // =========================================================================================
+        private void OnDrawGizmos()
+        {
+            if (!showViewAngleGizmos || player == null) return;
+
+            Gizmos.color = new Color(0.2f, 0.6f, 1.0f, 0.3f); // 반투명한 파란색
+            Vector3 pivotPosition = cameraPivotTransform != null ? cameraPivotTransform.position : transform.position;
+
+            // 캐릭터의 정면 벡터
+            Vector3 forward = player.transform.forward;
+
+            // 좌우 한계선 벡터 계산
+            Vector3 leftBoundary = Quaternion.Euler(0, -maxViewAngle, 0) * forward;
+            Vector3 rightBoundary = Quaternion.Euler(0, maxViewAngle, 0) * forward;
+
+            // 기즈모 그리기 (정면 가이드선)
+            Gizmos.DrawRay(pivotPosition, forward * 5f);
+
+            // 한계선은 빨간색으로 강조 표시하여 데드존을 시각화합니다.
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(pivotPosition, leftBoundary * 5f);
+            Gizmos.DrawRay(pivotPosition, rightBoundary * 5f);
         }
     }
 }
