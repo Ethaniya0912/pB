@@ -153,10 +153,10 @@ Material:
     - _Metallic: 0
     - _MetallicScale: 0
     - _NormalScale: 1
-    - _OcclusionScale: 1
+    - _OcclusionScale: 0.7
     - _OcclusionStrength: 1
     - _Parallax: 0.005
-    - _PointLightFalloff: 0.547
+    - _PointLightFalloff: 0.5
     - _PomFadeEnd: 0.5
     - _PomFadeStart: 0.2
     - _QueueOffset: 0
