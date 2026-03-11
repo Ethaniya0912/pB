@@ -3,7 +3,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
     Properties
     {
         [Header(Debug Tools)]
-        [KeywordEnum(None, Normals, Shadows, Occlusion, IndirectGI)] _DebugView ("Debug View", Float) = 0
+        [KeywordEnum(None, Normals, Shadows, Occlusion, IndirectGI, Roughness, Specular)] _DebugView ("Debug View", Float) = 0
 
         [Header(Triplanar Biome Textures)]
         _Tiling ("Triplanar Tiling", Float) = 0.2
@@ -31,18 +31,23 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         [NoScaleOffset][Normal] _MossNormal ("Moss Normal", 2D) = "bump" {}
         [NoScaleOffset] _MossMask ("Moss MOHR Mask", 2D) = "white" {}
 
-        [Header(Dreamcore PBR Controls)]
+        [Header(Dreamcore PBR and Bodycam Settings)]
         _MetallicScale ("Metallic Scale", Range(0,1)) = 1.0
         _OcclusionScale ("Occlusion Scale", Range(0,1)) = 1.0
+        
+        [Space(5)]
+        [Header(Specular Breakup and HDR)]
         _SpecularToggle ("Enable Specular", Float) = 1.0
+        
+        // [2단계를 위해 남겨둠] 현재는 비활성화 상태입니다.
+        _RoughnessContrast ("Roughness Contrast (Breakup)", Range(0.1, 3.0)) = 1.5
+        _SpecularHDROverdrive ("Specular HDR Overdrive", Range(1.0, 20.0)) = 5.0
+        
         _ReflectionToggle ("Enable Reflection", Float) = 1.0
         
         [Header(Lighting and Soft Shading)]
         _RampTex ("Lighting Ramp (Optional)", 2D) = "white" {}
-        
-        [Header(Custom Cave Point Light Falloff)]
-        _CaveLightFalloff ("Linear Falloff (Distance)", Range(0.001, 1.0)) = 0.05
-        _CaveLightQuad ("Quadratic Falloff", Range(0.0001, 0.1)) = 0.005
+        _WrapDiffuse ("Light Wrap (Midtone)", Range(0.0, 0.5)) = 0.2
     }
 
     SubShader
@@ -81,8 +86,8 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             #pragma multi_compile _ DIRLIGHTMAP_COMBINED
             #pragma multi_compile_fog
 
-            // 디버그 뷰 매크로
-            #pragma multi_compile _DEBUGVIEW_NONE _DEBUGVIEW_NORMALS _DEBUGVIEW_SHADOWS _DEBUGVIEW_OCCLUSION _DEBUGVIEW_INDIRECTGI
+            // 디버그 뷰 매크로 (Roughness, Specular 포함)
+            #pragma multi_compile _DEBUGVIEW_NONE _DEBUGVIEW_NORMALS _DEBUGVIEW_SHADOWS _DEBUGVIEW_OCCLUSION _DEBUGVIEW_INDIRECTGI _DEBUGVIEW_ROUGHNESS _DEBUGVIEW_SPECULAR
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -100,8 +105,11 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             float _OcclusionScale;
             float _SpecularToggle;
             float _ReflectionToggle;
-            float _CaveLightFalloff;
-            float _CaveLightQuad;
+            
+            // 새로운 바디캠 라이팅 프로퍼티
+            float _RoughnessContrast;
+            float _SpecularHDROverdrive;
+            float _WrapDiffuse;
 
             TEXTURE2D(_RampTex);
             SAMPLER(sampler_RampTex);
@@ -124,29 +132,38 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             };
 
             // =================================================================================
-            // [수정 완료] 퀀터사이즈(끊김) 공식을 버리고 부드러운 소프트 쉐이딩 함수로 교체
-            // 램프 텍스처를 할당하지 않으면 기본 소프트 쉐이딩(Lambert)으로 작동합니다.
+            // [1단계: 소프트 쉐이딩 도입] 넓은 중간톤(Midtone) 확보를 위한 Wrapped Soft Shading
             // =================================================================================
             half3 CalculateSoftDiffuse(float NdotL, float shadowAtten, float distanceAtten, half3 lightColor) 
             {
-                // 부드러운 빛의 확산(Lambert)
-                float diffuse = saturate(NdotL);
+                // Wrap Diffuse 적용: 빛이 90도에서 칼같이 끊기지 않고 바위 곡면을 부드럽게 타고 넘어가게 만듭니다.
+                // _WrapDiffuse 슬라이더(0.0 ~ 0.5)로 조절 가능합니다.
+                float wrappedNdotL = saturate((NdotL + _WrapDiffuse) / (1.0 + _WrapDiffuse));
+                
                 float finalAtten = shadowAtten * distanceAtten;
+                half3 rampColor = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(wrappedNdotL, 0.5)).rgb;
                 
-                // 램프 이미지가 비어있을 경우("white") 1.0을 반환하므로 결과에 영향이 없습니다.
-                half3 rampColor = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(diffuse, 0.5)).rgb;
-                
-                // 부드러운 쉐이딩 계산 반환
-                return lightColor * (diffuse * finalAtten) * rampColor;
+                return lightColor * (wrappedNdotL * finalAtten) * rampColor;
             }
 
+            // =================================================================================
+            // [1단계: 기본 스페큘러 유지] HDR 브레이크업은 다음 단계를 위해 주석 처리됨
+            // =================================================================================
             half3 CalculateSpecular(float3 lightDir, float3 viewDirWS, float3 worldNormal, float smoothness, float3 albedo, float metallic, float3 lightColor, float distanceAtten, float shadowAtten, float NdotL)
             {
                 float3 halfDir = normalize(lightDir + viewDirWS);
                 float NdotH = saturate(dot(worldNormal, halfDir));
+                
                 float specPower = exp2(10.0 * smoothness + 1.0);
                 float spec = pow(NdotH, specPower);
                 
+                /* [2단계를 위해 임시 비활성화]
+                float microShadow = saturate(NdotL * 4.0); 
+                float3 hdrSpecular = spec * _SpecularHDROverdrive;
+                return hdrSpecular * lerp(0.04, albedo, metallic) * lightColor * distanceAtten * shadowAtten * microShadow;
+                */
+
+                // 기본 스페큘러 반환 (현실적인 역제곱 감쇠 유지)
                 return spec * lerp(0.04, albedo, metallic) * lightColor * distanceAtten * shadowAtten * saturate(NdotL);
             }
 
@@ -179,7 +196,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float3 triNormal = worldNormal;
                 float4 MOHR = float4(0,1,0,1); 
                 
-                // 트라이플래너 데이터 수신 (각 텍스처 개별 노멀맵 및 속성 병합)
                 GetCaveSurfaceData(
                     input.positionWS, worldNormal, viewDirWS,
                     _Tiling, _HeightScale, _NormalScale,
@@ -187,7 +203,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     sampledAlbedo, triNormal, MOHR
                 );
                 
-                // 병합된 정교한 노멀을 라이팅 기준 노멀로 오버라이드 (개별 노멀맵 완벽 작동)
                 worldNormal = normalize(triNormal);
 
                 InputData inputData = (InputData)0;
@@ -202,10 +217,16 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
 
                 float finalMetallic = MOHR.r * _MetallicScale;
                 float finalOcclusion = lerp(1.0, MOHR.g, _OcclusionScale);
-                float actualRoughness = MOHR.a;
+                
+                // =================================================================================
+                // [1단계: 원본 러프니스 유지] 다음 단계에서 브레이크업 적용을 위해 준비
+                // =================================================================================
+                float baseRoughness = MOHR.a;
+                // float actualRoughness = saturate((baseRoughness - 0.5) * _RoughnessContrast + 0.5); // [2단계 예정]
+                float actualRoughness = baseRoughness;
                 float smoothness = 1.0 - actualRoughness;
 
-                // [디버깅] 노멀 확인 뷰
+                // [디버깅] 노멀 뷰
                 #if _DEBUGVIEW_NORMALS
                     return half4(worldNormal * 0.5 + 0.5, 1.0);
                 #endif
@@ -214,16 +235,21 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 #if _DEBUGVIEW_OCCLUSION
                     return half4(finalOcclusion.xxx, 1.0);
                 #endif
+                
+                // [디버깅] 러프니스 뷰 (마스크 맵이 어떻게 적용되는지 확인)
+                #if _DEBUGVIEW_ROUGHNESS
+                    return half4(actualRoughness.xxx, 1.0);
+                #endif
 
                 sampledAlbedo *= finalOcclusion;
                 float3 resultColor = float3(0,0,0);
+                
+                // 스페큘러 합산 변수 (디버깅용)
+                float3 totalSpecular = float3(0,0,0);
 
-                // 라이트맵 및 섀도우마스크 샘플링
                 half4 shadowMask = half4(1, 1, 1, 1);
                 #if defined(SHADOWS_SHADOWMASK) && defined(LIGHTMAP_ON)
                     shadowMask = SAMPLE_SHADOWMASK(input.lightmapUV);
-                #elif defined(SHADOWS_SHADOWMASK)
-                    shadowMask = unity_ProbesOcclusion;
                 #endif
 
                 #if defined(LIGHTMAP_ON)
@@ -246,7 +272,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 Light mainLight = GetMainLight(input.shadowCoord, input.positionWS, shadowMask);
                 float mainNdotL = dot(worldNormal, mainLight.direction);
                 
-                // [디버깅] 메인 그림자 뷰
+                // [디버깅] 섀도우 뷰
                 #if _DEBUGVIEW_SHADOWS
                     return half4(mainLight.shadowAttenuation.xxx, 1.0);
                 #endif
@@ -256,11 +282,13 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
 
                 if (_SpecularToggle > 0.5) 
                 {
-                    resultColor += CalculateSpecular(mainLight.direction, viewDirWS, worldNormal, smoothness, sampledAlbedo, finalMetallic, mainLight.color, mainLight.distanceAttenuation, mainLight.shadowAttenuation, mainNdotL);
+                    float3 spec = CalculateSpecular(mainLight.direction, viewDirWS, worldNormal, smoothness, sampledAlbedo, finalMetallic, mainLight.color, mainLight.distanceAttenuation, mainLight.shadowAttenuation, mainNdotL);
+                    resultColor += spec;
+                    totalSpecular += spec;
                 }
 
                 // ---------------------------------------------------------------------------------
-                // 추가 라이트 (포인트/스팟)
+                // 추가 라이트 (포인트/스팟) - 부드러운 반경 감쇠 적용
                 // ---------------------------------------------------------------------------------
                 #if defined(_ADDITIONAL_LIGHTS) || defined(_FORWARD_PLUS)
                 uint pixelLightCount = GetAdditionalLightsCount();
@@ -273,21 +301,31 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     float distance = length(lightVec);
                     float isLocalLight = _AdditionalLightsPosition[lightIndex].w;
                     
-                    float customDistAtten = 1.0 / (1.0 + (_CaveLightFalloff * distance) + (_CaveLightQuad * (distance * distance)));
+                    // [1단계: 소프트 쉐이딩 확산] 역제곱을 억제하고 Range(반경) 기반의 넓은 둥근 감쇠 사용
+                    float normalizedDist = saturate(distance / max(0.001, light.distanceAttenuation > 0 ? sqrt(1.0 / light.distanceAttenuation) : 10.0));
+                    float customDistAtten = smoothstep(1.0, 0.0, normalizedDist);
                     
                     float softEdgeFade = saturate(light.distanceAttenuation * 20.0);
                     float finalDistAtten = lerp(light.distanceAttenuation, customDistAtten * softEdgeFade, isLocalLight);
                     
                     float NdotL = dot(worldNormal, light.direction);
 
+                    // 수정된 소프트 디퓨즈 연산 호출
                     float3 directLightDiffuse = CalculateSoftDiffuse(NdotL, light.shadowAttenuation, finalDistAtten, light.color);
                     resultColor += sampledAlbedo * directLightDiffuse;
                     
                     if (_SpecularToggle > 0.5) 
                     {
-                        resultColor += CalculateSpecular(light.direction, viewDirWS, worldNormal, smoothness, sampledAlbedo, finalMetallic, light.color, finalDistAtten, light.shadowAttenuation, NdotL);
+                        float3 spec = CalculateSpecular(light.direction, viewDirWS, worldNormal, smoothness, sampledAlbedo, finalMetallic, light.color, finalDistAtten, light.shadowAttenuation, NdotL);
+                        resultColor += spec;
+                        totalSpecular += spec;
                     }
                 LIGHT_LOOP_END
+                #endif
+
+                // [디버깅] 스페큘러 뷰 (순수 반사광만 렌더링하여 확인)
+                #if _DEBUGVIEW_SPECULAR
+                    return half4(totalSpecular, 1.0);
                 #endif
 
                 float3 reflectionColor = float3(0, 0, 0);
@@ -329,7 +367,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
-            // [수정 완료] URP 엔진의 전달 규격과 맞추기 위해 정밀도를 float4로 상향 (버퍼 밀림 및 그림자 증발 방지)
             float4 _LightDirection;
             float4 _LightPosition;
 

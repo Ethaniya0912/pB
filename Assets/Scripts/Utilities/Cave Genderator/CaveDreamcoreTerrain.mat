@@ -164,7 +164,7 @@ Material:
     - _Metallic: 0
     - _MetallicScale: 0
     - _NormalScale: 1
-    - _OcclusionScale: 0.677
+    - _OcclusionScale: 0.405
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PointLightFalloff: 9.23
@@ -174,10 +174,12 @@ Material:
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ReflectionToggle: 1
+    - _RoughnessContrast: 1.27
     - _RoughnessScale: 0.41
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularAASize: 2
+    - _SpecularHDROverdrive: 1
     - _SpecularHighlights: 1
     - _SpecularToggle: 1
     - _SrcBlend: 1
@@ -185,6 +187,7 @@ Material:
     - _Surface: 0
     - _Tiling: 1
     - _WorkflowMode: 1
+    - _WrapDiffuse: 0.221
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
