@@ -48,6 +48,9 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         [Header(Lighting and Soft Shading)]
         _RampTex ("Lighting Ramp (Optional)", 2D) = "white" {}
         _WrapDiffuse ("Light Wrap (Midtone)", Range(0.0, 0.5)) = 0.2
+        
+        [Header(Custom Cave Point Light Falloff)]
+        _CaveLightFalloff ("Soft Falloff Power", Range(0.001, 1.0)) = 0.05
     }
 
     SubShader
@@ -110,6 +113,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             float _RoughnessContrast;
             float _SpecularHDROverdrive;
             float _WrapDiffuse;
+            float _CaveLightFalloff;
 
             TEXTURE2D(_RampTex);
             SAMPLER(sampler_RampTex);
@@ -222,7 +226,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 // [1단계: 원본 러프니스 유지] 다음 단계에서 브레이크업 적용을 위해 준비
                 // =================================================================================
                 float baseRoughness = MOHR.a;
-                // float actualRoughness = saturate((baseRoughness - 0.5) * _RoughnessContrast + 0.5); // [2단계 예정]
                 float actualRoughness = baseRoughness;
                 float smoothness = 1.0 - actualRoughness;
 
@@ -236,7 +239,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     return half4(finalOcclusion.xxx, 1.0);
                 #endif
                 
-                // [디버깅] 러프니스 뷰 (마스크 맵이 어떻게 적용되는지 확인)
+                // [디버깅] 러프니스 뷰
                 #if _DEBUGVIEW_ROUGHNESS
                     return half4(actualRoughness.xxx, 1.0);
                 #endif
@@ -288,7 +291,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 }
 
                 // ---------------------------------------------------------------------------------
-                // 추가 라이트 (포인트/스팟) - 부드러운 반경 감쇠 적용
+                // 추가 라이트 (포인트/스팟) - Forward+ 호환 완벽 적용 및 소프트 확산
                 // ---------------------------------------------------------------------------------
                 #if defined(_ADDITIONAL_LIGHTS) || defined(_FORWARD_PLUS)
                 uint pixelLightCount = GetAdditionalLightsCount();
@@ -296,21 +299,14 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 LIGHT_LOOP_BEGIN(pixelLightCount)
                     Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
                     
-                    float3 lightPos = _AdditionalLightsPosition[lightIndex].xyz;
-                    float3 lightVec = lightPos - input.positionWS;
-                    float distance = length(lightVec);
-                    float isLocalLight = _AdditionalLightsPosition[lightIndex].w;
-                    
-                    // [1단계: 소프트 쉐이딩 확산] 역제곱을 억제하고 Range(반경) 기반의 넓은 둥근 감쇠 사용
-                    float normalizedDist = saturate(distance / max(0.001, light.distanceAttenuation > 0 ? sqrt(1.0 / light.distanceAttenuation) : 10.0));
-                    float customDistAtten = smoothstep(1.0, 0.0, normalizedDist);
-                    
-                    float softEdgeFade = saturate(light.distanceAttenuation * 20.0);
-                    float finalDistAtten = lerp(light.distanceAttenuation, customDistAtten * softEdgeFade, isLocalLight);
+                    // [수정 핵심] Forward+에서 0을 뱉던 버퍼 배열 의존성을 제거하고 URP 물리 감쇠를 재구성
+                    // _CaveLightFalloff 슬라이더값을 Power 값으로 리맵핑하여 넓은 빛 확산을 만들어냅니다.
+                    float falloffPower = max(0.1, _CaveLightFalloff * 10.0);
+                    float finalDistAtten = pow(saturate(light.distanceAttenuation), falloffPower);
                     
                     float NdotL = dot(worldNormal, light.direction);
 
-                    // 수정된 소프트 디퓨즈 연산 호출
+                    // 소프트 디퓨즈 연산 호출
                     float3 directLightDiffuse = CalculateSoftDiffuse(NdotL, light.shadowAttenuation, finalDistAtten, light.color);
                     resultColor += sampledAlbedo * directLightDiffuse;
                     
@@ -323,7 +319,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 LIGHT_LOOP_END
                 #endif
 
-                // [디버깅] 스페큘러 뷰 (순수 반사광만 렌더링하여 확인)
+                // [디버깅] 스페큘러 뷰
                 #if _DEBUGVIEW_SPECULAR
                     return half4(totalSpecular, 1.0);
                 #endif
