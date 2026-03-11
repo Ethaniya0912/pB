@@ -11,8 +11,10 @@ Material:
   m_Shader: {fileID: 4800000, guid: c30a66d1e2c823a4e83f5e82fa1602c0, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _DEBUGVIEW_NONE
   m_InvalidKeywords:
+  - _ENABLECUSTOMPOINTLIGHT_ON
   - _ENABLESAFEPOM_ON
   - _REFLECTIONTOGGLE_ON
   - _SPECULARTOGGLE_ON
@@ -95,6 +97,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _RampTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _RockAlbedo:
         m_Texture: {fileID: 2800000, guid: e0975bca595ba6e4e895ef32d84320e5, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -131,15 +137,20 @@ Material:
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
     - _BumpScale: 1
+    - _CaveLightFalloff: 0.339
+    - _CaveLightQuad: 0.0633
+    - _CaveSunPenetration: 0
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _Cull: 2
     - _Cutoff: 0.5
+    - _DebugView: 0
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _Dummy: 0
+    - _EnableCustomPointLight: 1
     - _EnablePomFading: 0
     - _EnableSafePom: 1
     - _EnvironmentReflections: 1
@@ -153,16 +164,17 @@ Material:
     - _Metallic: 0
     - _MetallicScale: 0
     - _NormalScale: 1
-    - _OcclusionScale: 0.7
+    - _OcclusionScale: 0.677
     - _OcclusionStrength: 1
     - _Parallax: 0.005
-    - _PointLightFalloff: 0.5
+    - _PointLightFalloff: 9.23
+    - _PointLightWrap: 0.308
     - _PomFadeEnd: 0.5
     - _PomFadeStart: 0.2
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ReflectionToggle: 1
-    - _RoughnessScale: 0
+    - _RoughnessScale: 0.41
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularAASize: 2
@@ -176,6 +188,7 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
+    - _BaseAmbient: {r: 1, g: 1, b: 1, a: 1}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}

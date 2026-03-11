@@ -45,10 +45,10 @@ MonoBehaviour:
     m_Value: 1
   denoiseIntensitySS:
     m_OverrideState: 1
-    m_Value: 0.95
+    m_Value: 0.848
   denoiserRadiusSS:
     m_OverrideState: 1
-    m_Value: 0.6
+    m_Value: 0.761
   secondDenoiserPassSS:
     m_OverrideState: 1
     m_Value: 1

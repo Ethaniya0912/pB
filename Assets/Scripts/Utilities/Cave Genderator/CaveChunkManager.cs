@@ -276,9 +276,33 @@ namespace CaveSystem
 
         private GameObject GetFromPool()
         {
-            if (chunkPool.Count > 0) return chunkPool.Dequeue();
+            // 1. 풀에 이미 만들어진 청크가 있다면 꺼내서 사용
+            if (chunkPool.Count > 0)
+            {
+                GameObject obj = chunkPool.Dequeue();
 
+                // [안전장치] 풀에서 꺼낸 객체도 렌더러 그림자 설정 강제 활성화 보장
+                MeshRenderer existingRenderer = obj.GetComponent<MeshRenderer>();
+                if (existingRenderer != null)
+                {
+                    existingRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    existingRenderer.receiveShadows = true;
+                }
+
+                return obj;
+            }
+
+            // 2. 풀이 비어있다면 프리팹으로부터 새로 생성
             GameObject newObj = Instantiate(ChunkPrefab, transform);
+
+            // [추가] 런타임에 새로 생성된 지형의 그림자 속성을 명시적으로 강제 활성화
+            MeshRenderer newRenderer = newObj.GetComponent<MeshRenderer>();
+            if (newRenderer != null)
+            {
+                newRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                newRenderer.receiveShadows = true;
+            }
+
             return newObj;
         }
 

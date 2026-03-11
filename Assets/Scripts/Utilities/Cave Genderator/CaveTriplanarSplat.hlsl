@@ -1,9 +1,9 @@
 #ifndef CAVE_TRIPLANAR_SPLAT_INCLUDED
 #define CAVE_TRIPLANAR_SPLAT_INCLUDED
 
-// ==========================================================
-// 1. 텍스처 및 샘플러 선언 (Albedo, Normal, MOHR Mask)
-// ==========================================================
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
 TEXTURE2D(_DirtAlbedo);     SAMPLER(sampler_DirtAlbedo);
 TEXTURE2D(_RockAlbedo);     SAMPLER(sampler_RockAlbedo);
 TEXTURE2D(_MossAlbedo);     SAMPLER(sampler_MossAlbedo);
@@ -12,17 +12,11 @@ TEXTURE2D(_DirtNormal);     SAMPLER(sampler_DirtNormal);
 TEXTURE2D(_RockNormal);     SAMPLER(sampler_RockNormal);
 TEXTURE2D(_MossNormal);     SAMPLER(sampler_MossNormal);
 
-// Mask (MOHR: R=Metallic, G=Occlusion, B=Height, A=Roughness)
 TEXTURE2D(_DirtMask);       SAMPLER(sampler_DirtMask);
 TEXTURE2D(_RockMask);       SAMPLER(sampler_RockMask);
 TEXTURE2D(_MossMask);       SAMPLER(sampler_MossMask);
 
-// ==========================================================
-// 2. Triplanar 수학 및 샘플링 헬퍼 함수
-// ==========================================================
-
-// RNM (Reoriented Normal Mapping) 블렌딩 공식
-// (l-value const 에러를 막기 위해 전달받은 파라미터를 직접 조작하지 않고 새 변수에 할당합니다)
+// RNM Blend
 float3 RNMBlend(float3 n1, float3 n2)
 {
     float3 rn1 = n1 + float3(0, 0, 1);
@@ -45,7 +39,6 @@ float4 colZ = SAMPLE_TEXTURE2D(tex, samp, uvZ);
 z;
 }
 
-// 루프 내부에서 밉맵 계산 에러(핑크색)를 막기 위한 명시적 LOD 샘플러
 float4 SampleTriplanarLOD(TEXTURE2D_PARAM( tex, samp),
 float3 worldPos, float3 blendWeights, float tiling, float lod)
 {
@@ -61,7 +54,6 @@ float4 colZ = SAMPLE_TEXTURE2D_LOD(tex, samp, uvZ, lod);
 z;
 }
 
-// 단순 덧셈(UDN)이 아닌 해석적 법선(worldNormal) 기반 RNM 회전 적용
 float3 SampleTriplanarNormalRNM(TEXTURE2D_PARAM( tex, samp),
 float3 worldPos, float3 worldNormal, float3 blendWeights, float tiling, float normalScale)
 {
@@ -95,32 +87,31 @@ float3 finalZ = float3(blendZ.x, blendZ.y, blendZ.z);
     return normalize(finalX * blendWeights.x + finalY * blendWeights.y + finalZ * blendWeights.z);
 }
 
-// ==========================================================
-// 3. 메인 데이터 추출 함수 (POM 및 MOHR 블렌딩)
-// ==========================================================
+// [🔥 핵심 동기화] 정확히 13개의 파라미터를 받는 규격으로 확정합니다.
+// 전역 변수 충돌(undeclared identifier)을 막기 위해 모든 옵션을 매개변수로 받습니다.
 void GetCaveSurfaceData(
     float3 worldPos, float3 worldNormal, float3 viewDirWS,
     float tiling, float heightScale, float normalScale,
-    float enablePomFading, float pomFadeStart, float pomFadeEnd,
+    float enableSafePom, float enablePomFading, float pomFadeStart, float pomFadeEnd,
     out float3 outAlbedo, out float3 outNormal, out float4 outMOHR)
 {
-    float3 blendWeights = abs(worldNormal);
+    float3 safeNormal = length(worldNormal) < 0.001 ? float3(0.01, 1.0, 0.01) : normalize(worldNormal);
+    
+    float3 blendWeights = abs(safeNormal);
     blendWeights = pow(blendWeights, 4.0);
-    blendWeights /= dot(blendWeights, (float3) 1.0);
+    float sumWeights = dot(blendWeights, (float3) 1.0);
+    blendWeights = sumWeights < 0.0001 ? float3(0, 1, 0) : (blendWeights / sumWeights);
 
     float3 samplePos = worldPos;
 
-    // ==========================================================
-    // [최적화 Opt 4: 거리 기반 POM 페이딩]
-    // ==========================================================
     float minSteps = 8.0;
     float maxSteps = 32.0;
-    float NdotV = saturate(dot(worldNormal, viewDirWS));
+    float NdotV = saturate(dot(safeNormal, viewDirWS));
     float numSteps = lerp(maxSteps, minSteps, NdotV);
 
     if (enablePomFading > 0.5)
     {
-        float distToCam = length(GetCameraPositionWS() - worldPos);
+        float distToCam = length(_WorldSpaceCameraPos.xyz - worldPos);
         float fadeFactor = 1.0 - saturate((distToCam - pomFadeStart) / max(0.001, (pomFadeEnd - pomFadeStart)));
         numSteps *= fadeFactor;
     }
@@ -132,12 +123,11 @@ void GetCaveSurfaceData(
         float layerDepth = 1.0 / numSteps;
         float currentLayerDepth = 0.0;
         
-        float3 viewDirOffset = -viewDirWS * (heightScale * 0.1) / max(0.1, NdotV);
+        float3 viewDirOffset = -viewDirWS * heightScale / max(0.3, NdotV);
         
-        // _EnableSafePom은 메인 셰이더의 CBUFFER에서 전달받아 사용합니다.
-        if (_EnableSafePom > 0.5)
+        if (enableSafePom > 0.5)
         {
-            float maxSafeOffset = 0.015; // 모서리를 뚫지 않을 물리적 안전 한계선
+            float maxSafeOffset = heightScale * 1.5;
             if (length(viewDirOffset) > maxSafeOffset)
                 viewDirOffset = normalize(viewDirOffset) * maxSafeOffset;
         }
@@ -145,7 +135,6 @@ void GetCaveSurfaceData(
         float3 deltaPos = viewDirOffset / numSteps;
         float3 currentPos = worldPos;
         
-        // 루프 내/외부의 높이맵 샘플링을 모두 LOD 전용 함수로 교체하여 밉맵 에러 원천 차단
         float heightFromTexture = SampleTriplanarLOD(_RockMask, sampler_RockMask, currentPos, blendWeights, tiling, 0.0).b;
         float prevHeight = heightFromTexture;
 
@@ -156,19 +145,13 @@ void GetCaveSurfaceData(
             {
                 currentPos += deltaPos;
                 heightFromTexture = SampleTriplanarLOD(_RockMask, sampler_RockMask, currentPos, blendWeights, tiling, 0.0).b;
-                
-                if (_EnableSafePom > 0.5 && abs(heightFromTexture - prevHeight) > 0.3)
-                {
-                    currentPos -= deltaPos;
-                    heightFromTexture = prevHeight;
-                    break;
-                }
-
                 prevHeight = heightFromTexture;
                 currentLayerDepth += layerDepth;
             }
             else
+            {
                 break;
+            }
         }
 
         float3 prevPos = currentPos - deltaPos;
@@ -178,24 +161,20 @@ void GetCaveSurfaceData(
         
         samplePos = lerp(currentPos, prevPos, weight);
     }
-    // ==========================================================
 
-    // 2. 텍스처 샘플링 (루프 밖이므로 기존 샘플러 사용 가능)
     float4 dirtAlbedo = SampleTriplanar(_DirtAlbedo, sampler_DirtAlbedo, samplePos, blendWeights, tiling);
     float4 rockAlbedo = SampleTriplanar(_RockAlbedo, sampler_RockAlbedo, samplePos, blendWeights, tiling);
     float4 mossAlbedo = SampleTriplanar(_MossAlbedo, sampler_MossAlbedo, samplePos, blendWeights, tiling);
 
-    // 해석적 법선(worldNormal)이 결합된 RNM 노멀 텍스처 샘플링
-    float3 dirtNormal = SampleTriplanarNormalRNM(_DirtNormal, sampler_DirtNormal, samplePos, worldNormal, blendWeights, tiling, normalScale);
-    float3 rockNormal = SampleTriplanarNormalRNM(_RockNormal, sampler_RockNormal, samplePos, worldNormal, blendWeights, tiling, normalScale);
-    float3 mossNormal = SampleTriplanarNormalRNM(_MossNormal, sampler_MossNormal, samplePos, worldNormal, blendWeights, tiling, normalScale);
+    float3 dirtNormal = SampleTriplanarNormalRNM(_DirtNormal, sampler_DirtNormal, samplePos, safeNormal, blendWeights, tiling, normalScale);
+    float3 rockNormal = SampleTriplanarNormalRNM(_RockNormal, sampler_RockNormal, samplePos, safeNormal, blendWeights, tiling, normalScale);
+    float3 mossNormal = SampleTriplanarNormalRNM(_MossNormal, sampler_MossNormal, samplePos, safeNormal, blendWeights, tiling, normalScale);
 
     float4 dirtMOHR = SampleTriplanar(_DirtMask, sampler_DirtMask, samplePos, blendWeights, tiling);
     float4 rockMOHR = SampleTriplanar(_RockMask, sampler_RockMask, samplePos, blendWeights, tiling);
     float4 mossMOHR = SampleTriplanar(_MossMask, sampler_MossMask, samplePos, blendWeights, tiling);
 
-    // 3. 지리적 조건 (Slope & Height) 기반 재질 블렌딩
-    float slope = worldNormal.y;
+    float slope = safeNormal.y;
     float mossWeight = saturate(smoothstep(0.5, 0.9, slope) + (mossMOHR.b * 0.3));
     float dirtWeight = saturate(smoothstep(0.5, 0.9, -slope) + (dirtMOHR.b * 0.3));
     float rockWeight = saturate(1.0 - (dirtWeight + mossWeight));
@@ -205,10 +184,8 @@ void GetCaveSurfaceData(
     mossWeight /= totalWeight;
     rockWeight /= totalWeight;
 
-    // 4. 최종 출력 데이터 합성
     outAlbedo = (dirtAlbedo.rgb * dirtWeight) + (rockAlbedo.rgb * rockWeight) + (mossAlbedo.rgb * mossWeight);
     outNormal = normalize((dirtNormal * dirtWeight) + (rockNormal * rockWeight) + (mossNormal * mossWeight));
     outMOHR = (dirtMOHR * dirtWeight) + (rockMOHR * rockWeight) + (mossMOHR * mossWeight);
 }
-
 #endif

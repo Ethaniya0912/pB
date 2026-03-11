@@ -1,7 +1,7 @@
 // ===============================================================================
 // 파일: CaveMarchingCubes.compute
 // 역할: 3D Voxel 밀도장을 바탕으로 이산적인 3D 메쉬를 추출하는 마칭 큐브 커널
-// 수정: 삼각형 정점 순서(Winding Order)를 뒤집어 동굴 내부에서 벽이 보이도록 수정
+// 수정: 삼각형 정점 순서(Winding Order) 유지 및 "노멀 방향 역전 버그" 수정 완료
 // ===============================================================================
 #pragma kernel GenerateMesh
 
@@ -56,6 +56,7 @@ float3 VertexInterp(float isoLevel, float3 p1, float3 p2, float valp1, float val
     return lerp(p1, p2, mu);
 }
 
+// [🔥 핵심 수술 부위: 직접광 찰흙 현상 해결]
 float3 CalculateGradientNormal(int x, int y, int z)
 {
     int maxIdx = _PointsPerAxis - 1;
@@ -70,7 +71,18 @@ float3 CalculateGradientNormal(int x, int y, int z)
     float dy = _VoxelBuffer[GetVoxelIndex(x, py, z)].density - _VoxelBuffer[GetVoxelIndex(x, ny, z)].density;
     float dz = _VoxelBuffer[GetVoxelIndex(x, y, pz)].density - _VoxelBuffer[GetVoxelIndex(x, y, nz)].density;
 
-    return normalize(float3(-dx, -dy, -dz));
+    // 1. 역방향 문제 해결: 기존에 있던 마이너스(-) 부호를 완전히 제거했습니다.
+    // 이제 바위 표면의 노멀 벡터가 땅속이 아닌 '플레이어가 있는 동굴 안쪽'을 똑바로 바라봅니다!
+    float3 grad = float3(dx, dy, dz);
+    
+    // 2. 평면 텍스처 찢어짐(NaN) 방어: 밀도차가 0이 될 때의 수학적 오류를 방지합니다.
+    float sqLen = dot(grad, grad);
+    if (sqLen < 1e-8f)
+    {
+        return float3(0, 1, 0);
+    }
+
+    return grad / sqrt(sqLen);
 }
 
 [numthreads(8, 8, 8)]
@@ -123,6 +135,7 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
             float mu = 0.5;
             if (abs(diff) > 0.00001)
                 mu = saturate((_IsoLevel - cubeDensities[v1]) / diff);
+            
             edgeNormals[e] = normalize(lerp(norm1, norm2, mu));
 
             if (cubeOreTypes[v1] > 0 || cubeOreTypes[v2] > 0)
@@ -154,16 +167,18 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
         v0.position = edgeVertices[triIndex0];
         v0.normal = edgeNormals[triIndex0];
         v0.uv = float2(0, 0);
+        
         v1.position = edgeVertices[triIndex1];
         v1.normal = edgeNormals[triIndex1];
         v1.uv = float2(0, 0);
+        
         v2.position = edgeVertices[triIndex2];
         v2.normal = edgeNormals[triIndex2];
         v2.uv = float2(0, 0);
 
         CaveTriangle tri;
         tri.v0 = v0;
-        tri.v1 = v2; // [문제 해결] 윈딩 오더(정점 순서)를 뒤집어 안쪽에서 보이도록 수정
+        tri.v1 = v2; // 윈딩 오더(정점 순서) 유지
         tri.v2 = v1;
         _TriangleBuffer.Append(tri);
     }

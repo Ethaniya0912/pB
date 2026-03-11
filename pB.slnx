@@ -1,6 +1,8 @@
 ﻿<Solution>
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="SSGIURP.Editor.csproj" />
   <Project Path="Campfire.csproj" />
+  <Project Path="SSGIURP.csproj" />
   <Project Path="Abiogenesis3d.Shared.csproj" />
 </Solution>
