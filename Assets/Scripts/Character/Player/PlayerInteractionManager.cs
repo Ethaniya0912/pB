@@ -4,6 +4,7 @@ using UnityEngine;
 using Unity.Netcode;
 using System;
 using TDA.Character.Player;
+using TDA.Core.Events; // [신규 추가] ActionID 및 Funnel 아키텍처 연동을 위한 네임스페이스
 
 namespace SG
 {
@@ -106,12 +107,19 @@ namespace SG
                     return;
                 }
 
+                // [신규 아키텍처: Funnel 패턴] 아이템 잡기 애니메이션 위임
+                // 직접 애니메이터를 찌르지 않고 L4 Funnel에 ActionID를 전달하여 무결성을 보장합니다.
+                player.playerAnimationManager.PlayTargetActionFunnel((int)ActionID.Item_Grab, true, true);
+
                 // IK 로직 시작 (손을 물체로 뻗고, 닿으면 상호작용 실행)
                 if (grabIKCoroutine != null) StopCoroutine(grabIKCoroutine);
                 grabIKCoroutine = StartCoroutine(HandleGrabIKProcess(grabbable));
             }
             else
             {
+                // [신규 아키텍처: Funnel 패턴] 일반 상호작용 애니메이션 위임
+                player.playerAnimationManager.PlayTargetActionFunnel((int)ActionID.Item_Grab, true, true);
+
                 // 일반 상호작용 (문, 레버 등)
                 currentInteractableObject.Interact(player);
                 Debug.Log("[PlayerInteraction] 상호작용을 실행했습니다.");

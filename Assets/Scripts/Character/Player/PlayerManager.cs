@@ -3,6 +3,7 @@ using SG;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TDA.Core.Events;
 
 namespace TDA.Character.Player
 {
@@ -14,6 +15,7 @@ namespace TDA.Character.Player
     /// 2. 선제적 갱신(Pre-emptive Sync): 실행이 확정된 명령을 하위 도메인(L3)으로 배분하기 직전에, 
     ///    네트워크 변수를 먼저 갱신하여 멀티플레이 환경에서의 지연(Latency)을 시각적으로 최소화합니다.
     /// 3. 의존성 통제: 모든 도메인 매니저는 이 클래스 아래에 묶이며, 도메인끼리의 수평적 직접 호출을 금지합니다.
+    /// 4. 깔때기(Funnel) 라우팅: 액션 실행 권한은 오직 L4(AnimationManager)만 가지도록 L3를 거쳐 위임합니다.
     /// </summary>
     public class PlayerManager : CharacterManager
     {
@@ -34,7 +36,6 @@ namespace TDA.Character.Player
         [HideInInspector] public PlayerInteractionManager playerInteractionManager;
 
         [Header("Event & Camera Dependencies (L4 - View)")]
-        // [P2] 싱글턴 삭제 방침에 따라 씬 내 로컬 카메라의 참조를 런타임에 동적으로 주입받아 캐싱합니다.
         [HideInInspector] public PlayerCamera playerCamera;
 
         #endregion
@@ -74,9 +75,6 @@ namespace TDA.Character.Player
             if (!IsOwner) return;
 
             base.LateUpdate();
-
-            // 🔥 [삭제] 이 부분 삭제! PlayerCamera가 자신의 LateUpdate에서 스스로 연산합니다.
-            // if (playerCamera != null) { playerCamera.HandleAllCameraActions(); }
         }
 
         #endregion
@@ -224,6 +222,10 @@ namespace TDA.Character.Player
                 return;
             }
 
+            // [에러 해결] isDead -> playerNetworkManager.isDead.Value 로 올바르게 참조
+            // 현재 스턴 상태는 아직 미구현이거나 NetworkVariable로 통합되었을 수 있으므로 isPerformingAction으로 대체 검문합니다.
+            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
+
             // [검문 3순위] 게임 전역 정책 검사 (인벤토리를 보고 있거나, 컷신 중인지?)
             if (WorldGameStateManager.Instance.IsCombatAllowed())
             {
@@ -250,6 +252,9 @@ namespace TDA.Character.Player
 #endif
                 return;
             }
+
+            // [에러 해결] isDead 에러 수정
+            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
 
             if (WorldGameStateManager.Instance.IsCombatAllowed())
             {
@@ -322,6 +327,14 @@ namespace TDA.Character.Player
 
         internal void OnDodgeInputReceived()
         {
+            // 1. 구르기 검문 (Gating)
+            // [에러 해결] isDead 에러 수정
+            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
+
+            // 2. 자원 확인
+            if (playerNetworkManager.currentStamina.Value <= 0) return;
+
+            // 3. 도메인(L3)으로 판단 위임
             playerLocomotionManager.OnDodgeInputReceived();
         }
 
@@ -376,8 +389,8 @@ namespace TDA.Character.Player
                 playerNetworkManager.currentHealth.Value = playerNetworkManager.maxHealth.Value;
                 playerNetworkManager.currentStamina.Value = playerNetworkManager.maxStamina.Value;
 
-                // 부활 시 기본 자세(Empty)로 즉시 전환
-                playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Empty"), false);
+                // [최적화 적용] 부활 시 기본 자세(Empty)로 전이할 때도 Hash를 사용합니다. (GC 방지)
+                playerAnimationManager.PlayTargetAnimation(AnimatorParameterHash.ActionState, false);
             }
         }
 

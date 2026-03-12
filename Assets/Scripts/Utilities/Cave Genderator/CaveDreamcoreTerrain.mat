@@ -58,7 +58,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtNormal:
-        m_Texture: {fileID: 2800000, guid: c96e66eb0a3a59c4ca94cadc83002369, type: 3}
+        m_Texture: {fileID: 2800000, guid: 345889a4c3c2e8f44bfe2b73bfcd0fa0, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
@@ -86,7 +86,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossNormal:
-        m_Texture: {fileID: 2800000, guid: 1c272a8208841d44c9a5e75523302687, type: 3}
+        m_Texture: {fileID: 2800000, guid: 345889a4c3c2e8f44bfe2b73bfcd0fa0, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
@@ -137,7 +137,7 @@ Material:
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
     - _BumpScale: 1
-    - _CaveLightFalloff: 0.339
+    - _CaveLightFalloff: 0.001
     - _CaveLightQuad: 0.0633
     - _CaveSunPenetration: 0
     - _ClearCoatMask: 0
@@ -164,7 +164,7 @@ Material:
     - _Metallic: 0
     - _MetallicScale: 0
     - _NormalScale: 1
-    - _OcclusionScale: 0.405
+    - _OcclusionScale: 0.8
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PointLightFalloff: 9.23
@@ -187,7 +187,7 @@ Material:
     - _Surface: 0
     - _Tiling: 1
     - _WorkflowMode: 1
-    - _WrapDiffuse: 0.221
+    - _WrapDiffuse: 0.17
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:

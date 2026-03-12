@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using TDA.Character.Player;
 using System; // PlayerManager 참조를 위해 추가
+using TDA.Core.Events; // [신규 추가] ActionID 및 Funnel 아키텍처 연동을 위한 네임스페이스
 
 namespace TDA.Character.Player
 {
@@ -285,7 +286,9 @@ namespace TDA.Character.Player
         {
             if (!player.IsOwner) return;
 
-            player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Swap_Weapon_01"), false, false, true, true);
+            // [신규 아키텍처: Funnel 패턴] 무기 교체 애니메이션 위임
+            // 직접 "Swap_Weapon_01" 문자열을 사용하지 않고 ActionID.Weapon_Swap을 통해 Funnel을 탑니다.
+            player.playerAnimationManager.PlayTargetActionFunnel((int)ActionID.Weapon_Swap, false, false, true, true);
             player.playerInventoryManager.rightHandWeaponIndex += 1;
 
             if (player.playerInventoryManager.rightHandWeaponIndex < 0 || player.playerInventoryManager.rightHandWeaponIndex > 2)
@@ -336,7 +339,8 @@ namespace TDA.Character.Player
         {
             if (!player.IsOwner) return;
 
-            player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Swap_Weapon_01"), false, false, true, true);
+            // [신규 아키텍처: Funnel 패턴] 무기 교체 애니메이션 위임
+            player.playerAnimationManager.PlayTargetActionFunnel((int)ActionID.Weapon_Swap, false, false, true, true);
             player.playerInventoryManager.leftHandWeaponIndex += 1;
 
             if (player.playerInventoryManager.leftHandWeaponIndex < 0 || player.playerInventoryManager.leftHandWeaponIndex > 2)

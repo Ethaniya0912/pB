@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6dfa80d404be6414ebed68836cdcc836, type: 3}
+  m_Name: Player_Base_Set
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Animation.CharacterAnimationSetSO
+  baseController: {fileID: 9100000, guid: 0971db20e01c05c4195b1a00e7a2cb88, type: 2}
+  animationMappings:
+  - logicalStateName: Turn_Left_90
+    paramsSO: {fileID: 11400000, guid: 59271e111d18dc045953a57c5808b21a, type: 2}
+  - logicalStateName: Turn_Right_90
+    paramsSO: {fileID: 11400000, guid: 09c6c4f36e160df48bda496e458335fb, type: 2}
+  - logicalStateName: Turn_Left_180
+    paramsSO: {fileID: 11400000, guid: 602b8f659d788d04faf5297a6b3224a3, type: 2}
+  - logicalStateName: Turn_Right_180
+    paramsSO: {fileID: 11400000, guid: 6b2725dc660c93541be0e44cf2f91143, type: 2}
+  - logicalStateName: Slash_Attack_01
+    paramsSO: {fileID: 11400000, guid: 877d188958f1fb8418a526fb95ee2410, type: 2}
+  - logicalStateName: Roll_Forward
+    paramsSO: {fileID: 11400000, guid: dd883dbe4ba7c0e49aef700d0da8f676, type: 2}
+  - logicalStateName: Grab_Item
+    paramsSO: {fileID: 11400000, guid: e4f719ec3ce7ca6419c471e36adff8f1, type: 2}
+  - logicalStateName: Stagger_Medium
+    paramsSO: {fileID: 11400000, guid: 4f43d8694892ea24da8c9c761136a93e, type: 2}
+  - logicalStateName: Dead_01
+    paramsSO: {fileID: 11400000, guid: 34195188d61bf1e48bc69a165a267d40, type: 2}

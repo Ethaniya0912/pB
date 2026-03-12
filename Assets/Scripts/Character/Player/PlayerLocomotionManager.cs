@@ -1,58 +1,69 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TDA.Character;
 using TDA.Character.Player;
 using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
 /// [P2 - Locomotion Domain] 플레이어의 물리적 이동 및 회전을 제어하는 최상위 매니저입니다.
-/// 
-/// [드림코어(Dreamcore) & 리미널 스페이스 아키텍처 설계 철학]
-/// 1. 사실적 존재감 (Physical Presence): 
-///    - 드림코어 스타일의 기괴한 현실감을 극대화하기 위해 발의 접지력(Root Motion)을 적극 활용합니다.
-///    - 스케이팅 현상을 배제하여 플레이어가 공간의 '무게감'을 느끼도록 설계되었습니다.
-/// 
-/// 2. 하이브리드 제어 (Task 1-10 확장): 
-///    - Locomotion: useRootMotionForLocomotion 옵션을 통해 애니메이션 기반 이동을 선택할 수 있습니다.
-///    - Action: 공격, 회피 등은 항상 루트 모션을 사용하여 물리적 개연성을 확보합니다.
-/// 
-/// 3. Procedural Turn & Movement Guard:
-///    - 루트 모션이 활성화된 상태에서는 스크립트의 간섭을 완전히 차단하여 물리 연산 중첩을 방지합니다.
 /// </summary>
 public class PlayerLocomotionManager : CharacterLocomotionManager
 {
     private PlayerManager player;
 
-    [Header("Input Values (Synced)")]
-    [HideInInspector] public float verticalMovement;
-    [HideInInspector] public float horizontalMovement;
-    [HideInInspector] public float moveAmount;
+    // =========================================================================================
+    // [상속 중복 에러 해결] 
+    // 아래 변수들은 부모 클래스(CharacterLocomotionManager)에 이미 존재하는 변수들입니다.
+    // 자식에서 동일한 이름으로 재선언하면 유니티 직렬화 충돌(Serialization Error)이 발생하므로 제거(주석 처리)했습니다.
+    // 
+    // ※ 만약 접근 불가(Protection Level) 에러가 발생한다면, CharacterLocomotionManager.cs에서 
+    // 해당 변수들을 'private' 대신 'protected'나 'public'으로 수정해주세요!
+    // =========================================================================================
 
-    [Header("Locomotion Mode Settings")]
-    [Tooltip("드림코어 특유의 사실성을 위해 걷기/뛰기에도 루트 모션을 적용할지 여부입니다. (true 권장)")]
-    [SerializeField] private bool useRootMotionForLocomotion = true;
-
-    [Header("Movement Settings (Fallback)")]
-    [Tooltip("루트 모션을 사용하지 않을 때 적용되는 스크립트 기반 속도입니다.")]
+    /* --- 부모 클래스에 존재하는 변수들 (제거됨) ---
+    public float verticalMovement;
+    public float horizontalMovement;
+    public float moveAmount;
+    private bool useRootMotionForLocomotion;
     private Vector3 moveDirection;
-    private Vector3 targetRotationDirection;
-    [SerializeField] float walkingSpeed = 2.2f;
-    [SerializeField] float runningSpeed = 5.5f;
-    [SerializeField] float rotationSpeed = 15f;
-    [SerializeField] int dodgeStaminaCost = 10;
+    float walkingSpeed;
+    float runningSpeed;
+    float rotationSpeed;
+    int dodgeStaminaCost;
+    float gravity;
+    float groundedGravity;
+    float jumpForwardSpeed;
+    float inAirControl;
+    private Vector3 yVelocity;
+    private Vector3 inAirDirection;
+    public bool isRotationLockedByEvent;
+    --------------------------------------------- */
 
-    [Header("Dodge & Roll")]
+    // [신규] 애니메이션 시각적 보간 전용 변수 (부모에 없는 플레이어 전용 변수이므로 유지)
+    [HideInInspector] public float animVerticalMovement;
+    [HideInInspector] public float animHorizontalMovement;
+
+    [Header("Movement Settings (Player Specific)")]
+    private Vector3 targetRotationDirection;
     private Vector3 rollDirection;
 
-    [Header("Gravity & Airborne System (Task 4, 7)")]
-    [SerializeField] private float gravity = -20f;
-    [SerializeField] private float groundedGravity = -5f;
-    [SerializeField] private float jumpForwardSpeed = 4f;
-    [SerializeField] private float inAirControl = 2f;
+    [Header("Steering & Shoulder View Settings")]
+    [Tooltip("마우스 스티어링(몸 기울임) 시 민감도를 조절합니다. 값이 클수록 덜 기울어집니다. (권장: 30 ~ 70)")]
+    [SerializeField] private float steeringSensitivity = 50f;
 
-    private Vector3 yVelocity;       // 수직 중력 가속도
-    private Vector3 inAirDirection; // 공중 수평 관성
+    [Tooltip("S키(후진)를 누른 상태에서 마우스를 돌릴 때, 캐릭터가 좌우로 기울어지는 방향(Horizontal)을 반전시킬지 여부입니다.")]
+    [SerializeField] private bool invertSteeringOnBackward = true;
+
+    [Tooltip("숄더뷰 전용: S키(후진)를 눌러도 캐릭터가 뒤돌아보지 않고 항상 카메라 정면을 주시하며 뒷걸음질 치게 만듭니다. (턴 애니메이션 오작동 방지)")]
+    [SerializeField] private bool alwaysFaceCameraForward = true;
+
+    [Header("Environment & Obstacle Checks")]
+    [Tooltip("경사로/턱에서 isGrounded가 풀려 주춤거리는 것을 방지하기 위한 보정 거리입니다.")]
+    [SerializeField] private float groundCheckLeniency = 0.2f;
+    [Tooltip("벽 앞에서 제자리 뛰기를 방지하기 위한 전방 장애물 감지 거리입니다. (캐릭터 반지름 + 알파)")]
+    [SerializeField] private float obstacleCheckDistance = 0.5f;
 
     protected override void Awake()
     {
@@ -66,109 +77,165 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
 
         if (player.IsOwner)
         {
-            // [네트워크 동기화] 현재 입력값을 네트워크 변수에 기록합니다.
-            player.characterNetworkManager.animatorVerticalMovement.Value = verticalMovement;
-            player.characterNetworkManager.animatorHorizontalMovement.Value = horizontalMovement;
+            // 물리 입력이 아닌 "시각적으로 보정된 애니메이션 값"을 서버로 넘겨 다른 사람들도 자연스러운 걷기를 보게 합니다.
+            player.characterNetworkManager.animatorVerticalMovement.Value = animVerticalMovement;
+            player.characterNetworkManager.animatorHorizontalMovement.Value = animHorizontalMovement;
             player.characterNetworkManager.animatorMoveAmountMovement.Value = moveAmount;
 
-            // [루트 모션 동적 스위칭] 
-            // 현재 상태와 설정값에 따라 애니메이터의 루트 모션 적용 여부를 실시간으로 결정합니다.
             player.animator.applyRootMotion = DetermineApplyRootMotion();
-
-            // isLockedOn 파라미터 동기화
             player.animator.SetBool("isLockedOn", player.playerNetworkManager.isLockedOn.Value);
         }
         else
         {
-            verticalMovement = player.characterNetworkManager.animatorVerticalMovement.Value;
-            horizontalMovement = player.characterNetworkManager.animatorHorizontalMovement.Value;
+            animVerticalMovement = player.characterNetworkManager.animatorVerticalMovement.Value;
+            animHorizontalMovement = player.characterNetworkManager.animatorHorizontalMovement.Value;
             moveAmount = player.characterNetworkManager.animatorMoveAmountMovement.Value;
 
             UpdateRemotePlayerAnimations();
         }
     }
 
-    /// <summary>
-    /// 현재 캐릭터의 상태를 분석하여 루트 모션 적용 여부를 반환합니다.
-    /// </summary>
     private bool DetermineApplyRootMotion()
     {
-        // 1. 공격, 구르기, 피격 등 특수 액션 중에는 무조건 루트 모션 사용 (물리적 개연성)
         if (player.isPerformingAction) return true;
-
-        // 2. 이동 중일 때: 사용자가 설정한 로코모션 모드에 따릅니다.
+        // useRootMotionForLocomotion은 부모 클래스의 값을 가져와 사용합니다.
         if (moveAmount > 0) return useRootMotionForLocomotion;
-
-        // 3. 정지 상태(Idle): 루트 모션을 꺼서 애니메이션의 미세한 노이즈로 인한 위치 이탈을 방지합니다.
         return false;
     }
 
-    /// <summary>
-    /// 물리 업데이트 루틴. PlayerManager의 FixedUpdate 또는 Update에서 호출됩니다.
-    /// </summary>
     public void HandleAllMovement()
     {
         if (!player.IsOwner) return;
 
-        // 중력 연산은 루트 모션 여부와 상관없이 항상 CharacterController가 제어해야 합니다.
         HandleAirborneAndGravity();
-
-        // 지상 이동 처리 (루트 모션 가드 포함)
         HandleGroundedMovement();
-
-        // 회전 처리 (루트 모션 가드 포함)
         HandleRotation();
     }
 
-    // =========================================================================================
-    // [입력 수신 핸들러] PlayerManager에서 호출됨
-    // =========================================================================================
-
-    /// <summary>
-    /// PlayerInputManager로부터 받은 이동 입력을 처리합니다. (Task 8 댐핑 및 스냅핑 포함)
-    /// </summary>
     public void OnMovementInputReceived(Vector2 movementInput)
     {
         if (!player.IsOwner) return;
 
+        // 1. 물리적 방향을 결정하는 순수 입력값은 건드리지 않고 보존합니다. (나선형 버그 방지)
         verticalMovement = movementInput.y;
         horizontalMovement = movementInput.x;
 
-        // 입력을 절대값 기반으로 변환하여 MoveAmount 산출 (0, 0.5, 1 스냅핑)
         moveAmount = Mathf.Clamp01(Mathf.Abs(verticalMovement) + Mathf.Abs(horizontalMovement));
 
-        if (moveAmount <= 0.5f && moveAmount > 0)
+        if (moveAmount <= 0.5f && moveAmount > 0) { moveAmount = 0.5f; }
+        else if (moveAmount > 0.5f) { moveAmount = 1.0f; }
+
+        // =========================================================================================
+        // 🚨 [버그 수정 2] 벽 충돌 시 제자리 뛰기(Wall Running) 현상 방지
+        // =========================================================================================
+        Vector3 intendedDir = Vector3.zero;
+        if (player.playerCamera != null)
         {
-            moveAmount = 0.5f; // 걷기 구간
-        }
-        else if (moveAmount > 0.5f)
-        {
-            moveAmount = 1.0f; // 달리기 구간
+            // 플레이어가 가고자 하는 절대적인 방향(World Space)을 도출합니다.
+            intendedDir = player.playerCamera.cameraObject.transform.forward * verticalMovement
+                        + player.playerCamera.cameraObject.transform.right * horizontalMovement;
+            intendedDir.y = 0;
+            intendedDir.Normalize();
         }
 
-        // 애니메이터 파라미터 업데이트 (Task 8: Damping 적용)
+        if (moveAmount > 0 && intendedDir != Vector3.zero)
+        {
+            Vector3 origin = transform.position + Vector3.up * 1.0f; // 가슴 높이
+            Vector3 rightOffset = transform.right * 0.25f; // 어깨 너비 보정
+
+            // 정면, 좌측, 우측 세 줄기의 레이캐스트로 벽을 면밀히 감지합니다. (모서리까지 완벽히 캐치)
+            // 콜라이더가 자기 자신(Player)이 아닌 오브젝트와 부딪혔을 때만 장애물로 판단합니다.
+            bool hitCenter = Physics.Raycast(origin, intendedDir, out RaycastHit cHit, obstacleCheckDistance) && !cHit.collider.isTrigger && cHit.collider.transform.root != transform.root;
+            bool hitLeft = Physics.Raycast(origin - rightOffset, intendedDir, out RaycastHit lHit, obstacleCheckDistance) && !lHit.collider.isTrigger && lHit.collider.transform.root != transform.root;
+            bool hitRight = Physics.Raycast(origin + rightOffset, intendedDir, out RaycastHit rHit, obstacleCheckDistance) && !rHit.collider.isTrigger && rHit.collider.transform.root != transform.root;
+
+            if (hitCenter || hitLeft || hitRight)
+            {
+                // 코앞이 벽으로 막혀있다면 물리/애니메이션 이동 입력을 강제로 0(대기)으로 만듭니다.
+                moveAmount = 0f;
+                verticalMovement = 0f;
+                horizontalMovement = 0f;
+            }
+        }
+        // =========================================================================================
+
         bool isSprinting = player.playerNetworkManager.isSprinting.Value;
 
-        // 변경: 락온 여부와 상관없이 언제나 자유롭게 8방향 걷기/뛰기가 가능하도록 RAW 입력값을 꽂습니다!
-        player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
+        // =========================================================================================
+        // 🚨 [AAA급 마우스 스티어링 (Mouse Delta Leaning)] 덜덜거림(Jittering) 및 민감도 완벽 해결
+        // =========================================================================================
+        // A/D 키 입력이 없고(직진/후진 중) 락온이 아닐 때만 마우스 조작에 따라 몸을 기울입니다.
+        if (!player.playerNetworkManager.isLockedOn.Value && moveAmount > 0.1f && Mathf.Abs(horizontalMovement) < 0.1f)
+        {
+            // 데이터의 원천인 PlayerInputManager에서 직접 마우스 픽셀 델타를 가져옵니다.
+            float mouseDeltaX = PlayerInputManager.Instance.cameraInput.x;
+
+            float steeringValue = 0f;
+
+            // 마우스의 미세한 떨림(노이즈)은 무시하도록 데드존 적용 (픽셀 단위이므로 0.1f 이상으로 넉넉히 줌)
+            if (Mathf.Abs(mouseDeltaX) > 0.1f)
+            {
+                // 인스펙터에서 설정한 steeringSensitivity 값을 사용하여 스케일링합니다.
+                steeringValue = Mathf.Clamp(mouseDeltaX / steeringSensitivity, -1f, 1f);
+            }
+
+            // [요청 반영] S키(후진) 입력 시 스티어링 애니메이션의 좌/우 방향을 반전시킵니다.
+            if (invertSteeringOnBackward && verticalMovement < 0)
+            {
+                steeringValue = -steeringValue;
+            }
+
+            // 기존 animHorizontalMovement를 유지하면서 마우스 델타에 따라 부드럽게 섞어줍니다.
+            // [조작감 개선] 훅 넘어가는 답답함을 없애고 빠릿하게 복귀하도록 보간 속도를 3f -> 6f 로 상향했습니다.
+            animHorizontalMovement = Mathf.Lerp(animHorizontalMovement, steeringValue, 6f * Time.deltaTime);
+
+            // Lerp 강제 0 수렴 로직 (방지턱 제거 후 복귀를 더 깔끔하게 하기 위해 오차범위 좁힘)
+            if (steeringValue == 0f && Mathf.Abs(animHorizontalMovement) < 0.05f)
+            {
+                animHorizontalMovement = 0f;
+            }
+
+            animVerticalMovement = verticalMovement;
+        }
+        else
+        {
+            // 마우스를 이용한 스티어링이 아닐 때(수동 A,D 입력 등)는 순수 물리 입력값을 씁니다.
+            animHorizontalMovement = horizontalMovement;
+            animVerticalMovement = verticalMovement;
+        }
+        // =========================================================================================
+
+        // 최종적으로 시각 보정이 완료된 anim 변수들만 애니메이터로 보냅니다.
+        player.playerAnimationManager.UpdateAnimatorMovementParameters(animHorizontalMovement, animVerticalMovement, isSprinting);
     }
 
-    /// <summary>
-    /// 회피/구르기 입력 수신 시 실행됩니다.
-    /// </summary>
     internal void OnDodgeInputReceived()
     {
         if (!player.IsOwner) return;
         AttemptToPerformDodge();
     }
 
-    // =========================================================================================
-    // [물리 연산 로직 & 파라미터 동기화]
-    // =========================================================================================
-
     private void HandleAirborneAndGravity()
     {
         bool isGrounded = player.characterController.isGrounded;
+
+        // =========================================================================================
+        // 🚨 [버그 수정 1] 턱/경사로 스케이팅(주춤거림) 방지 - 하드웨어 Coyote Time
+        // =========================================================================================
+        if (!isGrounded)
+        {
+            // 발끝보다 살짝 위(0.1f)에서 아래로 레이캐스트를 쏴서 바닥이 지정된 Leniency(유예 거리) 내에 있다면
+            // 공중에 뜬 것이 아니라 지면의 굴곡을 타고 넘는 것으로 간주하여 강제로 접지(Grounded) 판정을 내립니다.
+            Vector3 origin = transform.position + Vector3.up * 0.1f;
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, groundCheckLeniency + 0.1f))
+            {
+                if (!hit.collider.isTrigger && hit.collider.transform.root != transform.root)
+                {
+                    isGrounded = true;
+                }
+            }
+        }
+        // =========================================================================================
 
         if (isGrounded)
         {
@@ -199,9 +266,11 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         }
 
         yVelocity.y += gravity * Time.deltaTime;
+
+        // [추락 한계 방어]
+        yVelocity.y = Mathf.Max(yVelocity.y, -50f);
         player.characterController.Move(yVelocity * Time.deltaTime);
 
-        // [여기에 추가!] 땅에 닿아있는지, 그리고 얼마나 빠르게 떨어지는지 애니메이터에 쏴줍니다.
         if (player.animator != null)
         {
             player.animator.SetBool("isGrounded", isGrounded);
@@ -215,9 +284,10 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         if (player.playerCamera == null) return;
         if (!player.characterController.isGrounded) return;
 
-        // [Task 10 - Root Motion Guard 확장] 
+        // 루트 모션 가드 (중첩 이동 방지)
         if (player.animator.applyRootMotion) return;
 
+        // 물리 이동은 보정되지 않은 '순수 입력값'만 사용하여 직진성을 완벽히 유지합니다.
         moveDirection = player.playerCamera.transform.forward * verticalMovement + player.playerCamera.transform.right * horizontalMovement;
         moveDirection.Normalize();
         moveDirection.y = 0;
@@ -226,12 +296,24 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         player.characterController.Move(moveDirection * currentSpeed * Time.deltaTime);
     }
 
+    /// <summary>
+    /// [핵심 수정: 동적 지연 회전 및 SO 플래그 연동]
+    /// </summary>
     private void HandleRotation()
     {
         if (player.playerNetworkManager.isDead.Value) return;
-        if (!player.canRotate) return;
-        if (player.playerCamera == null) return;
 
+        // 1. 구르기 중에는 강제 개입 불가
+        if (isRolling) return;
+
+        // 2. 액션 중(공격 등)일 때는 SO 데이터와 Enum 이벤트의 허가를 받아야 함
+        if (player.isPerformingAction)
+        {
+            if (!player.canRotate) return; // SO에서 회전을 금지했는가?
+            if (isRotationLockedByEvent) return; // Enum 이벤트로 일시 락이 걸렸는가?
+        }
+
+        if (player.playerCamera == null) return;
         if (player.animator.applyRootMotion) return;
 
         if (player.playerNetworkManager.isLockedOn.Value)
@@ -249,15 +331,37 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         if (moveAmount > 0)
         {
             targetRotationDirection = Vector3.zero;
-            targetRotationDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
-            targetRotationDirection += player.playerCamera.cameraObject.transform.right * horizontalMovement;
-            targetRotationDirection.Normalize();
+
+            // [버그 수정] S키 연타 시 몸이 180도 뒤집혀서 Turn 애니메이션이 오작동하는 현상 방지
+            if (alwaysFaceCameraForward)
+            {
+                // 숄더뷰 모드: 앞/뒤 어디로 걷든 몸은 무조건 카메라가 바라보는 정면을 유지합니다.
+                targetRotationDirection = player.playerCamera.cameraObject.transform.forward;
+            }
+            else
+            {
+                // 기존 모드: S키를 누르면 몸을 180도 돌려서 카메라를 바라봅니다.
+                targetRotationDirection = player.playerCamera.cameraObject.transform.forward * verticalMovement;
+                targetRotationDirection += player.playerCamera.cameraObject.transform.right * horizontalMovement;
+            }
+
             targetRotationDirection.y = 0;
+            targetRotationDirection.Normalize();
 
             if (targetRotationDirection == Vector3.zero) targetRotationDirection = transform.forward;
 
+            // [동적 지연 회전 (Dynamic Delayed Turn)]
+            float angleDiff = Vector3.Angle(transform.forward, targetRotationDirection);
+            float currentRotationSpeed = rotationSpeed;
+
+            // 고개를 45도 이상 돌리고 이동하려 할 때 회전 속도를 30%로 둔탁하게 깎아버립니다.
+            if (angleDiff > 45f && moveAmount > 0.1f)
+            {
+                currentRotationSpeed = rotationSpeed * 0.3f;
+            }
+
             Quaternion newRotation = Quaternion.LookRotation(targetRotationDirection);
-            transform.rotation = Quaternion.Slerp(transform.rotation, newRotation, rotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, newRotation, currentRotationSpeed * Time.deltaTime);
         }
     }
 
@@ -275,8 +379,11 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         targetDirection.y = 0;
         targetDirection.Normalize();
 
+        // 전투 상태(락온)에서는 적을 향해 민첩하게 조준해야 하므로 회전 속도를 증폭
+        float combatRotationSpeed = rotationSpeed * 1.5f;
+
         Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, combatRotationSpeed * Time.deltaTime);
     }
 
     public void AttemptToPerformJump()
@@ -309,6 +416,7 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
 
             transform.rotation = Quaternion.LookRotation(rollDirection);
 
+            // 구르기 애니메이션 실행 (기존 레거시 유지 또는 향후 Funnel 교체 가능)
             player.playerAnimationManager.PlayTargetAnimation(Animator.StringToHash("Roll_forward_01"), true, true);
             isRolling = true;
         }
@@ -323,8 +431,7 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
     private void UpdateRemotePlayerAnimations()
     {
         bool isSprinting = player.playerNetworkManager.isSprinting.Value;
-
-        // [수정: 리모트 플레이어(다른 유저)의 애니메이션도 락온 제한 없이 완벽한 8방향으로 동기화합니다.]
-        player.playerAnimationManager.UpdateAnimatorMovementParameters(horizontalMovement, verticalMovement, isSprinting);
+        // 다른 클라이언트들에게도 시각적으로 보정된(기울어진) 값을 넘겨줍니다.
+        player.playerAnimationManager.UpdateAnimatorMovementParameters(animHorizontalMovement, animVerticalMovement, isSprinting);
     }
 }

@@ -3508,7 +3508,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2507981295
+  GlobalObjectIdHash: 1034646365
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   DeferredDespawnTick: 0
   Ownership: 1
@@ -3603,11 +3603,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72d4807b713a631439465af382d1c6a9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gravityForce: -5.55
-  isRolling: 0
   verticalMovement: 0
   horizontalMovement: 0
   moveAmount: 0
+  useRootMotionForLocomotion: 1
   walkingSpeed: 2
   runningSpeed: 5
   rotationSpeed: 15
@@ -3616,6 +3615,21 @@ MonoBehaviour:
   groundedGravity: -5
   jumpForwardSpeed: 4
   inAirControl: 2
+  isRolling: 0
+  isRotationLockedByEvent: 0
+  verticalMovement: 0
+  horizontalMovement: 0
+  moveAmount: 0
+  useRootMotionForLocomotion: 1
+  walkingSpeed: 2
+  runningSpeed: 5
+  rotationSpeed: 15
+  dodgeStaminaCost: 10
+  gravity: -20
+  groundedGravity: -5
+  jumpForwardSpeed: 4
+  inAirControl: 2
+  isRotationLockedByEvent: 0
 --- !u!114 &5448602584735429050
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3808,7 +3822,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8e8557242954541ab543162b54f095, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  baseAnimationSet: {fileID: 0}
   lastAnimationPlayedHash: 0
+  locomotionDampTime: 0.1
+  debugHorizontalValue: 0
+  debugVerticalValue: 0
+  debugMoveAmountValue: 0
   hit_Forward_Medium_01: Hit_Forward_Medium_01
   hit_Forward_Medium_02: Hit_Forward_Medium_02
   hit_Backward_Medium_01: Hit_Backward_Medium_01
@@ -4177,13 +4196,27 @@ MonoBehaviour:
   headLookIK: {fileID: 4382169028075706472}
   rightHandTarget: {fileID: 7313160409995125090}
   headTarget: {fileID: 7281487274353988648}
-  handIKSmoothSpeed: 2
+  handIKDampTime: 0.1
+  lookIKDampTime: 0.15
   handRotationSmoothSpeed: 20
-  lookIKSmoothSpeed: 5
+  maxLookAngle: 80
   handRotationOffset: {x: -90, y: 60, z: 0}
   debugMode: 0
   debugHandWeight: 1
   debugLookWeight: 1
+  targetHandWeight: 0
+  targetLookWeight: 0
+  freeLookDistance: 15
+  turnStepAngle: 55
+  turnHysteresisOffset: 15
+  turnPivotAngle: 120
+  turnLeft90StateName: Turn_Left_90
+  turnRight90StateName: Turn_Right_90
+  turnLeft180StateName: Turn_Left_180
+  turnRight180StateName: Turn_Right_180
+  isTurningDebug: 0
+  currentTurnAngle: 0
+  rawAngleDifference: 0
 --- !u!114 &9202242292753928654
 MonoBehaviour:
   m_ObjectHideFlags: 0

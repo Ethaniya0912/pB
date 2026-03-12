@@ -20,6 +20,10 @@ namespace TDA.Character
         [Tooltip("부모 클래스의 character 변수와 별도로 플레이어 전용 기능에 접근하기 위해 캐싱된 참조입니다.")]
         private PlayerManager player;
 
+        [Header("Camera & Turn Compensation")]
+        [Tooltip("제자리 회전(Turn) 등 루트 모션으로 몸이 회전할 때, 카메라 시야를 얼마나 함께 돌릴지 보간하는 가중치입니다. (0 = 고정, 1 = 100% 따라감). 턴 직후의 애매한 시야각 루프 현상을 방지합니다.")]
+        [Range(0f, 1f)] public float cameraTurnCompensationWeight = 0.6f;
+
         protected override void Awake()
         {
             // 부모 클래스(CharacterAnimationManager)의 초기화 로직(character 캐싱 등)을 먼저 수행합니다.
@@ -55,8 +59,79 @@ namespace TDA.Character
                 player.characterController.Move(velocity);
 
                 // animator.deltaRotation: 애니메이션 자체의 회전 변화량을 현재 회전값에 누적(곱연산)하여 부드럽게 적용합니다.
-                player.transform.rotation *= player.animator.deltaRotation;
+                Quaternion deltaRotation = player.animator.deltaRotation;
+                player.transform.rotation *= deltaRotation;
+
+                // =========================================================================================
+                // 🚨 [턴 앵글 보정 완벽판] 회전 시 카메라 시야 동기화 및 중앙 정렬 (Auto-Centering)
+                // =========================================================================================
+                if (cameraTurnCompensationWeight > 0f && player.playerCamera != null)
+                {
+                    // 1. 애니메이션 자체의 루트 모션 회전량
+                    float deltaY = deltaRotation.eulerAngles.y;
+                    if (deltaY > 180f) deltaY -= 360f;
+
+                    // 2. [추가된 로직] 카메라를 캐릭터의 정면(등 뒤)으로 서서히 끌어당기는 자력(Force) 계산
+                    float centeringForce = 0f;
+                    if (player.playerCamera.cameraObject != null)
+                    {
+                        Vector3 camForward = player.playerCamera.cameraObject.transform.forward;
+                        camForward.y = 0;
+                        Vector3 bodyForward = player.transform.forward;
+                        bodyForward.y = 0;
+
+                        // 캐릭터 정면과 카메라가 바라보는 방향의 각도 차이 (-180 ~ 180)
+                        float angleToCenter = Vector3.SignedAngle(camForward, bodyForward, Vector3.up);
+
+                        // 각도 차이에 비례하여 정면으로 당기는 속도 (5f는 자력의 강도입니다. 필요시 조절)
+                        centeringForce = angleToCenter * 5f * Time.deltaTime;
+                    }
+
+                    // 3. 루트모션 회전량과 중앙 정렬 자력을 합산하여 카메라에 적용
+                    float finalCameraAdjust = (deltaY + centeringForce) * cameraTurnCompensationWeight;
+
+                    if (Mathf.Abs(finalCameraAdjust) > 0.001f)
+                    {
+                        player.playerCamera.AdjustCameraYaw(finalCameraAdjust);
+                    }
+                }
             }
+        }
+
+        // =========================================================================================
+        // [아날로그 스티어링 완벽 호환] 애니메이터 파라미터 업데이트 덮어쓰기 (Snapping 제거)
+        // =========================================================================================
+        /// <summary>
+        /// Base 클래스의 스냅핑(0, 0.5, 1.0 강제 고정) 로직이 마우스 스티어링의 부드러운 연속값을 
+        /// 강제로 끊어지게(방지턱 현상) 만드는 것을 해결하기 위해 함수를 새롭게 정의(new)합니다.
+        /// </summary>
+        public new void UpdateAnimatorMovementParameters(float horizontalValue, float verticalValue, bool isSprinting)
+        {
+            // 1. 수직 이동(전/후진)은 키보드 W/S 입력을 위해 기존의 스냅핑 로직을 유지합니다.
+            float snappedVertical = 0f;
+            if (verticalValue > 0 && verticalValue <= 0.5f) { snappedVertical = 0.5f; }
+            else if (verticalValue > 0.5f) { snappedVertical = 1f; }
+            else if (verticalValue < 0 && verticalValue >= -0.5f) { snappedVertical = -0.5f; }
+            else if (verticalValue < -0.5f) { snappedVertical = -1f; }
+
+            // 2. [핵심 버그 수정] 수평 이동(좌/우 스티어링)은 스냅핑을 완전히 제거하여
+            // -1.0 ~ 1.0 사이의 자연스러운 마우스 델타(연속값)를 그대로 살려냅니다!
+            float rawHorizontal = horizontalValue;
+
+            float moveAmount = Mathf.Clamp01(Mathf.Abs(rawHorizontal) + Mathf.Abs(verticalValue));
+
+            if (isSprinting)
+            {
+                snappedVertical = 2f;
+                moveAmount = 2f;
+            }
+
+            // 3. 파라미터 적용 (dampTime을 통해 애니메이터 내부적으로 부드럽게 보간됨)
+            player.animator.SetFloat("Horizontal", rawHorizontal, locomotionDampTime, Time.deltaTime);
+            player.animator.SetFloat("Vertical", snappedVertical, locomotionDampTime, Time.deltaTime);
+            player.animator.SetFloat("moveAmount", moveAmount, locomotionDampTime, Time.deltaTime);
+
+            player.animator.SetBool("isMoving", moveAmount > 0);
         }
 
         // =========================================================================================

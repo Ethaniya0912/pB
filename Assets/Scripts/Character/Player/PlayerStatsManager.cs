@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TDA.Character.Player; // PlayerManager 참조를 위해 추가
+using TDA.Character;
 public class PlayerStatsManager : CharacterStatsManager
 {
     PlayerManager player;

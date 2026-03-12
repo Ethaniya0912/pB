@@ -9,6 +9,7 @@ namespace TDA.Character
     /// [L3 Domain] 플레이어와 AI 캐릭터가 공유하는 전투 물리 및 타겟팅 뼈대 클래스입니다.
     /// [P4] 규약에 따라 IAnimationEventListener를 구현하여 이벤트 방송국으로부터 신호를 수신하고,
     /// 서버 권위형(Server Authority)으로 히트박스와 전투 상태를 통제합니다.
+    /// [Funnel 연동] 실제 공격 애니메이션 실행은 직접 하지 않고 L4(AnimationManager)로 위임합니다.
     /// </summary>
     public class CharacterCombatManager : NetworkBehaviour, IAnimationEventListener
     {
@@ -117,6 +118,26 @@ namespace TDA.Character
                     character.characterNetworkManager.currentTargetNetworkObjectID.Value = 0;
                 }
             }
+        }
+
+        // =========================================================================================
+        // [신규 아키텍처: Funnel 패턴] 공격 로직 위임 (WeaponItemActionSO와 연동)
+        // =========================================================================================
+        /// <summary>
+        /// [TO-BE 구조] WeaponItemActionSO에 정의된 ActionID를 매개변수로 받아,
+        /// 직접 애니메이터를 찌르지 않고 L4 깔때기(PlayTargetActionFunnel)로 실행을 완벽히 위임합니다.
+        /// </summary>
+        public virtual void PerformWeaponAction(ActionID actionID, global::AttackType attackType)
+        {
+            if (character.isPerformingAction) return;
+
+            // 상태 캐싱 (AI나 콤보 분기에서 사용)
+            currentAttackType = attackType;
+            lastAttackAnimationPerformedHash = (int)actionID;
+
+            // ⭕ 시각적 실행은 L4 애니메이션 매니저에게 '위임'합니다!
+            // 인자: (액션인덱스, isPerformingAction=true, applyRootMotion=true)
+            character.characterAnimationManager.PlayTargetActionFunnel((int)actionID, true, true);
         }
     }
 }

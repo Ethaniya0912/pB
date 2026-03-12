@@ -9,17 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d10ba277f1e21f74b95cb906479d8dcf, type: 3}
-  m_Name: ParamsSO_LightAttack_01
+  m_Script: {fileID: 11500000, guid: 6e872d2726a83c148b00341ee9d72924, type: 3}
+  m_Name: Turn_Left_180
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Animation.AnimationEventParamsSO
-  targetClip: {fileID: -203655887218126122, guid: 9fe0a21ee623c574c8ffad9d990058d1,
-    type: 3}
+  targetClip: {fileID: 0}
+  applyRootMotion: 1
+  isPerformingAction: 1
+  canRotate: 0
+  canMove: 0
   eventPoints:
-  - triggerTime: 0.161
-    eventType: 2
-  - triggerTime: 0.716
-    eventType: 0
-  - triggerTime: 0.902
-    eventType: 1
-  warpStartTime: 0.49
-  warpEndTime: 0.79
+  - triggerTime: 0.4
+    eventType: 304
+  warpStartTime: 0.1
+  warpEndTime: 0.4

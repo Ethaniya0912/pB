@@ -2,13 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Enums : MonoBehaviour
-{
-}
-
 // =========================================================================================
 // [P4 신규 추가] 애니메이션 이벤트 통합 규약 (Type-Safe Event System)
-// 기획 의도: 카테고리별로 300개의 여유 슬롯을 두어 향후 확장을 보장합니다.
+// 기획 의도: String 하드코딩으로 인한 버그를 막고, 카테고리별로 300개의 여유 슬롯을 두어 
+// 향후 사운드, 시각효과, 로직의 확장을 무한히 보장합니다.
 // =========================================================================================
 public enum AnimationEventType
 {
@@ -110,8 +107,6 @@ public enum AnimationEventType
     PlaySFX_Stamina_Exhausted = 393,     // 스태미나 완전 소진 시점 (UI/이펙트 트리거용 2차 신호)
     PlaySFX_UI_LockOn = 394,    // 락온 성공 시 특유의 레트로 사운드
 
-
-
     #endregion
 
     #region [600 ~ 899] 시각 효과 및 카메라 연출 (Visuals, Camera & VFX)
@@ -143,15 +138,14 @@ public enum AnimationEventType
 
     // --- 환경 상호작용 (Environment) ---
     VFX_Dust_Footstep = 690,    // 뛰거나 구를 때 발밑 먼지 파티클
-    VFX_Ground_Crater = 691,     // 대검으로 땅을 내리찍었을 때 데칼/파편 생성
+    VFX_Ground_Crater = 691,    // 대검으로 땅을 내리찍었을 때 데칼/파편 생성
 
     #endregion
 }
 
 // =========================================================================================
-// 기존 시스템 Enum 보존
+// [기존 시스템 Enum 보존 영역]
 // =========================================================================================
-
 public enum WorldSlots { WorldSlots_01 }
 
 public enum CharacterSlots
@@ -198,4 +192,62 @@ public enum GameState
 public enum EquipmentSlot
 {
     RightHand, LeftHand, Helmet, ChestArmor, Pants, Leggings, Backpack, Accessory
+}
+
+// =========================================================================================
+// [P0-02 / P1-08 전투 기획 고도화 반영 Enum 영역]
+// =========================================================================================
+
+public enum GuardDirection { None, Top, Bottom, Left, Right }
+
+public enum DefenseResult
+{
+    Hit,           // 방어 실패 (생몸에 맞음)
+    Blocked,       // 일반 방어 성공 (하지만 Poise 데미지는 들어옴)
+    Parried,       // 완벽한 타이밍 패링
+    Deflected,     // 상대의 강한 공격에 의해 방패가 튕겨져 나감 (처냄 당함)
+    GuardBroken    // 방패 내구도가 0이 되어 파손됨
+}
+
+public enum ShieldStance { FarGrip, CloseGrip }
+
+// =========================================================================================
+// [Funnel 아키텍처 연동] 액션 및 리액션 라우팅 인덱스 (ActionID)
+// 체계적으로 10단위 그룹핑하여 번호를 부여. (pC 단계의 8방향 확장을 대비함)
+// =========================================================================================
+public enum ActionID
+{
+    None = 0,
+
+    // --- 전투 및 기본 공격 (Combat) [1 ~ 19] ---
+    // (pC 단계 8방향 적용을 위해 1~8번 대역을 기본 베기로 예약. 현재는 좌/우만 사용)
+    Attack_Right_01 = 1,      // 우에서 좌로 베기
+    Attack_Left_01 = 2,       // 좌에서 우로 베기
+
+    // --- 특수기 및 방어 기술 (Special Combat) [20 ~ 29] ---
+    Shield_Bash = 21,         // 방패 밀치기 (포이즈 붕괴)
+    Parry_Counter = 22,       // 패링 성공 시 카운터 (또는 몬스터 전용 카운터)
+
+    // --- 회피 및 이동 액션 (Evasion & Locomotion) [30 ~ 49] ---
+    Roll_Forward = 30,
+    Back_Step = 31,
+    Jump = 32,
+
+    // --- 상호작용 및 시스템 (Interaction) [50 ~ 99] ---
+    Item_Grab = 50,
+    Weapon_Swap = 51,
+
+    // --- 피격 리액션 (Hit Reactions - onHit Trigger 연동) [100 ~ 199] ---
+    // (현재 3방향 피격 시스템 적용)
+    Stagger_Backward = 100,   // 정면에서 타격받아 뒤로 밀림
+    Stagger_Left = 101,       // 우측에서 타격받아 좌측으로 밀림
+    Stagger_Right = 102,      // 좌측에서 타격받아 우측으로 밀림
+
+    // (특수 피격 상태)
+    Deflected_Bounce = 110,   // 가드가 처냄(Deflect) 당해 방패가 뒤로 튕기는 모션
+    Guard_Break_Stun = 111,   // Poise가 0이 되어 그로기(Stun)에 빠진 무방비 상태
+
+    // --- 사망 및 처형 (Death & Execution) [200 ~ 299] ---
+    Dead_01 = 200,            // 기본 사망 래그돌 진입점
+    Dead_Execution = 201      // 특수 처형 컷신에 의해 사망
 }

@@ -121,6 +121,7 @@ namespace TDA.Character.Player
         [SerializeField] private float lockedCameraHeight = 2.0f;
 
         private float cameraHorizontalInput;
+        public float CameraHorizontalInput => cameraHorizontalInput; // [신규] 외부(Locomotion)에서 마우스 델타를 읽기 위한 프로퍼티
         private float cameraVerticalInput;
         private float leftAndRightLookAngle;
         private float upAndDownLookAngle;
@@ -628,6 +629,14 @@ namespace TDA.Character.Player
             bodycamWeight = Mathf.Clamp01(weight);
         }
 
+        /// <summary>
+        /// 외부(주로 AnimationManager의 루트 모션)에서 카메라의 좌우 앵글을 부드럽게 보정하기 위해 호출합니다.
+        /// </summary>
+        public void AdjustCameraYaw(float angleOffset)
+        {
+            leftAndRightLookAngle += angleOffset;
+        }
+
         // =========================================================================================
         // [디버깅] 숄더뷰 데드존(시야각) 시각화 기즈모
         // =========================================================================================
@@ -653,5 +662,7 @@ namespace TDA.Character.Player
             Gizmos.DrawRay(pivotPosition, leftBoundary * 5f);
             Gizmos.DrawRay(pivotPosition, rightBoundary * 5f);
         }
+
+
     }
 }

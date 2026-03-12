@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using TDA.Core.Events; // AnimatorParameterHash 참조
 
 namespace TDA.Character
 {
@@ -11,6 +12,10 @@ namespace TDA.Character
     public class CharacterAnimationManager : MonoBehaviour
     {
         protected CharacterManager character;
+
+        [Header("Animation Data (SO Funnel)")]
+        [Tooltip("캐릭터의 기본 애니메이션 세트 SO입니다. (무기 미장착 시 턴, 회피 등 공통 모션)")]
+        public Animation.CharacterAnimationSetSO baseAnimationSet;
 
         [Header("Animation State Tracking")]
         [Tooltip("중복 재생 방지를 위해 마지막으로 재생된 애니메이션의 해시값을 캐싱합니다.")]
@@ -66,6 +71,56 @@ namespace TDA.Character
             right_Medium_Damage_Hashes.Add(Animator.StringToHash(hit_Right_Medium_02));
         }
 
+        // =========================================================================================
+        // [핵심 추가] Funnel & Root Motion 통합 라우터 (Data-Driven Architecture)
+        // =========================================================================================
+        /// <summary>
+        /// 하드코딩된 파라미터 전달을 폐기하고, SO 데이터를 읽어 모든 플래그를 자동으로 셋팅하는 단일 깔때기(Funnel) 메서드입니다.
+        /// </summary>
+        /// <param name="logicalStateName">애니메이터의 상태 이름 (SO와 매핑됨)</param>
+        /// <param name="customAnimSet">특정 무기 등 커스텀 SO 세트 (Null일 경우 Base 세트 사용)</param>
+        public virtual void PlayTargetAction(string logicalStateName, Animation.CharacterAnimationSetSO customAnimSet = null)
+        {
+            Animation.CharacterAnimationSetSO targetSet = customAnimSet != null ? customAnimSet : baseAnimationSet;
+
+            if (targetSet == null)
+            {
+                Debug.LogWarning($"<color=yellow>[Animation Funnel]</color> 적용할 AnimationSetSO가 없습니다. Fallback 재생합니다. State: {logicalStateName}");
+                PlayTargetAnimation(Animator.StringToHash(logicalStateName), true, true, false, false);
+                return;
+            }
+
+            Animation.AnimationEventParamsSO actionParams = targetSet.GetParamsForState(logicalStateName);
+
+            if (actionParams == null)
+            {
+                Debug.LogWarning($"<color=yellow>[Animation Funnel]</color> '{logicalStateName}' 상태에 매핑된 SO 데이터를 찾을 수 없습니다. Fallback 재생합니다.");
+                PlayTargetAnimation(Animator.StringToHash(logicalStateName), true, true, false, false);
+                return;
+            }
+
+            // SO 데이터로 캐릭터의 물리 및 제어 상태 플래그 덮어쓰기 (Data-Driven)
+            character.isPerformingAction = actionParams.isPerformingAction;
+            character.canRotate = actionParams.canRotate;
+            character.canMove = actionParams.canMove;
+            character.animator.applyRootMotion = actionParams.applyRootMotion;
+
+            // 해시 변환 및 실제 재생
+            int targetHash = Animator.StringToHash(logicalStateName);
+            lastAnimationPlayedHash = targetHash;
+            character.animator.CrossFade(targetHash, 0.2f);
+
+            // 네트워크 동기화 (서버에 SO 플래그 동기화)
+            if (character.characterNetworkManager != null)
+            {
+                character.characterNetworkManager.NotifyTheServerOfActionAnimationServerRpc(
+                    NetworkManager.Singleton.LocalClientId,
+                    targetHash,
+                    actionParams.applyRootMotion);
+            }
+        }
+        // =========================================================================================
+
         public int GetRandomAnimationFromList(List<int> animationHashList)
         {
             List<int> finalList = new List<int>();
@@ -107,13 +162,13 @@ namespace TDA.Character
             else if (verticalValue < 0 && verticalValue >= -0.5f) { snappedVertical = -0.5f; }
             else if (verticalValue < -0.5f) { snappedVertical = -1f; }
 
-            // [신규 추가] moveAmount 계산: 입력의 절대값을 합쳐 0~1 사이로 정규화합니다.
+            // moveAmount 계산: 입력의 절대값을 합쳐 0~1 사이로 정규화합니다.
             float moveAmount = Mathf.Clamp01(Mathf.Abs(horizontalValue) + Mathf.Abs(verticalValue));
 
             if (isSprinting)
             {
                 snappedVertical = 2;
-                moveAmount = 2f; // 뛸 때는 moveAmount도 올려줍니다.
+                moveAmount = 2f;
             }
 
             // 디버깅을 위해 인스펙터 노출용 변수에 현재 값 캐싱
@@ -121,14 +176,60 @@ namespace TDA.Character
             debugVerticalValue = snappedVertical;
             debugMoveAmountValue = moveAmount;
 
-            // 하드코딩된 0.1f 대신 외부에서 조절 가능한 locomotionDampTime 적용
-            character.animator.SetFloat("Horizontal", snappedHorizontal, locomotionDampTime, Time.deltaTime);
-            character.animator.SetFloat("Vertical", snappedVertical, locomotionDampTime, Time.deltaTime);
+            // Hash를 사용하여 애니메이터 파라미터 갱신 (GC 제로)
+            character.animator.SetFloat(AnimatorParameterHash.Horizontal, snappedHorizontal, locomotionDampTime, Time.deltaTime);
+            character.animator.SetFloat(AnimatorParameterHash.Vertical, snappedVertical, locomotionDampTime, Time.deltaTime);
 
-            // 애니메이터 파라미터에 moveAmount 값을 쏴줍니다
-            character.animator.SetFloat("moveAmount", moveAmount, locomotionDampTime, Time.deltaTime);
+            // [수정 완료] Speed가 아닌, 기획된 애니메이터 파라미터인 moveAmount를 정확히 송출합니다.
+            character.animator.SetFloat(AnimatorParameterHash.moveAmount, moveAmount, locomotionDampTime, Time.deltaTime);
+            character.animator.SetBool(AnimatorParameterHash.isMoving, moveAmount > 0);
         }
 
+        // =========================================================================================
+        // [신규 아키텍처: Funnel 패턴] 능동적 액션 (onAction -> DoAttack 등으로 치환 가능)
+        // =========================================================================================
+        public virtual void PlayTargetActionFunnel(
+            int targetActionIndex,
+            bool isPerformAction = true,
+            bool applyRootMotion = true,
+            bool canRotate = false,
+            bool canMove = false)
+        {
+            character.isPerformingAction = isPerformAction;
+            character.animator.applyRootMotion = applyRootMotion;
+            character.canRotate = canRotate;
+            character.canMove = canMove;
+
+            // 디버깅의 핵심: 누가 언제 어떤 액션을 발생시켰는지 역추적 가능
+            Debug.Log($"<color=cyan>[Action Funnel]</color> Executing Action State: {targetActionIndex}");
+
+            character.animator.SetInteger(AnimatorParameterHash.ActionState, targetActionIndex);
+
+            // 전역 AnimatorParameterHash에 명시된 onAction (능동 액션) 트리거 사용
+            character.animator.SetTrigger(AnimatorParameterHash.onAction);
+        }
+
+        // =========================================================================================
+        // [신규 아키텍처: Funnel 패턴] 수동적 리액션 (onHit) - 절대적 인터럽트
+        // =========================================================================================
+        public virtual void PlayTargetHitReactionFunnel(int targetHitIndex)
+        {
+            character.isPerformingAction = true;
+            character.animator.applyRootMotion = true;
+            character.canRotate = false;
+            character.canMove = false;
+
+            Debug.Log($"<color=red>[Hit Funnel]</color> Executing Hit Reaction: {targetHitIndex}");
+
+            character.animator.SetInteger(AnimatorParameterHash.ActionState, targetHitIndex);
+
+            // 전역 AnimatorParameterHash에 명시된 onHit (피격) 트리거 사용
+            character.animator.SetTrigger(AnimatorParameterHash.onHit);
+        }
+
+        // =========================================================================================
+        // [레거시 호환용] 기존 스크립트(IK, Locomotion 등)에서 쓰던 CrossFade 방식 보존
+        // =========================================================================================
         public virtual void PlayTargetAnimation(
             int targetAnimHash,
             bool isPerformingAction,

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using SG;
 using Unity.Netcode;
 using UnityEngine;
+using TDA.Core.Events; // [P0-01 신규 추가] 애니메이터 파라미터 해시 통제용
 
 namespace TDA.Character
 {
@@ -76,11 +77,44 @@ namespace TDA.Character
         public NetworkVariable<ulong> currentRightHandGrabbedObjectID = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
         #endregion
 
-        #region [Lifecycle] 초기화
+        #region [Lifecycle] 초기화 및 업데이트
         protected virtual void Awake()
         {
             character = GetComponent<CharacterManager>();
             characterIKController = GetComponent<CharacterIKController>();
+        }
+
+        // =========================================================================================
+        // [P0-01 신규 추가] 위치 동기화 및 애니메이션(Strafe) 보간 로직 (Client-Side Prediction)
+        // =========================================================================================
+        protected virtual void Update()
+        {
+            if (!IsSpawned) return;
+
+            if (IsOwner)
+            {
+                // [내 캐릭터]
+                // L3 도메인(LocomotionManager)에 의해 계산된 진짜 물리 위치를 매 프레임 서버로 전송 (Zero-latency)
+                networkPosition.Value = transform.position;
+                networkRotation.Value = transform.rotation;
+            }
+            else
+            {
+                // [타 캐릭터]
+                // 서버로부터 수신된 위치로 로컬 트랜스폼을 보간(Interpolation)하여 끊김 현상(Snap) 방지
+                transform.position = Vector3.SmoothDamp(transform.position, networkPosition.Value, ref networkPositionVelocity, networkPositionSmoothTime);
+
+                // 회전 보간 속도 연산
+                float rotSpeed = networkRotationSmoothTime > 0 ? (1f / networkRotationSmoothTime) : 15f;
+                transform.rotation = Quaternion.Slerp(transform.rotation, networkRotation.Value, Time.deltaTime * rotSpeed);
+
+                // 타 클라이언트의 락온 상태를 기반으로 애니메이터의 isStrafing 파라미터를 갱신하여 
+                // 다른 플레이어가 내 화면에서 스케이트 타듯 움직이는 버그를 방지 (Hash 사용)
+                if (character != null && character.animator != null)
+                {
+                    character.animator.SetBool(AnimatorParameterHash.isStrafing, isLockedOn.Value);
+                }
+            }
         }
         #endregion
 
@@ -256,6 +290,13 @@ namespace TDA.Character
             base.OnNetworkSpawn();
             // 물체(ID)를 잡거나 놓을 때 클라이언트 단의 IK 관절을 업데이트하는 이벤트 구독
             currentRightHandGrabbedObjectID.OnValueChanged += OnGrabbedObjectChanged;
+
+            // [P0-01 신규 추가] 네트워크 스폰 시 타 클라이언트의 초기 위치 강제 동기화 (Snap)
+            if (!IsOwner)
+            {
+                transform.position = networkPosition.Value;
+                transform.rotation = networkRotation.Value;
+            }
         }
 
         public override void OnNetworkDespawn()

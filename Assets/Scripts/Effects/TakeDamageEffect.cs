@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TDA.Core.Events; // [신규 추가] ActionID 및 Funnel 아키텍처 연동을 위한 네임스페이스
 
 [CreateAssetMenu(menuName = "Character Effects/Instant Effects/Take Damage")]
 public class TakeDamageEffect : InstantCharacterEffect
@@ -43,8 +44,7 @@ public class TakeDamageEffect : InstantCharacterEffect
 
         // 데미지 계산
         CalculateDamage(character);
-        // 방향별 데미지 위치 체크
-        // 데미지 애니메이션 재생
+        // 방향별 데미지 위치 체크 및 데미지 애니메이션 재생 (Funnel 라우팅)
         PlayDirectionalBasedDamagedAnimation(character);
         // 빌드업 체크(독, 출혈등)
         // 데미지 사운드 이펙트 재생
@@ -53,7 +53,6 @@ public class TakeDamageEffect : InstantCharacterEffect
         PlayDamageVFX(character);
 
         // 캐릭터가 ai 일 시, 데미지를 초래한 캐릭터가 존재시 타게팅.
-
     }
 
     private void CalculateDamage(CharacterManager character)
@@ -79,7 +78,6 @@ public class TakeDamageEffect : InstantCharacterEffect
             finalDamageDealt = 1;
         }
 
-
         Debug.Log("Final Damage Given: " + finalDamageDealt);
         character.characterNetworkManager.currentHealth.Value -= finalDamageDealt;
     }
@@ -97,57 +95,63 @@ public class TakeDamageEffect : InstantCharacterEffect
         AudioClip physicalDamageSFX = WorldSoundFXManager.Instance.ChooseRandomSFXFromArray(WorldSoundFXManager.Instance.physicalDamageSFX);
 
         character.characterSoundFxManager.PlaySoundFX(physicalDamageSFX);
-
     }
 
     private void PlayDirectionalBasedDamagedAnimation(CharacterManager character)
     {
         if (!character.IsOwner)
             return;
+
         // TD : 포이즈가 부셔졌는지 계싼
         poiseIsBroken = true;
 
-        // [에러 수정] 문자열 기반이 아닌 해시 기반(int) 로컬 변수 사용
-        int damageAnimationHash = 0;
+        if (!playDamageAnimation) return;
 
-        // 공격자의 앵글을 계산
+        // 수동 애니메이션 선택 시 예외 처리 (레거시 문자열 해시 직접 재생)
+        if (manuallySelectDamageAnimation)
+        {
+            character.characterAnimationManager.PlayTargetAnimation(Animator.StringToHash(damageAnimation), true);
+            return; // 수동 재생 시 아래 방향별 로직 스킵
+        }
+
+        // [아키텍처 혁신: Funnel 라우팅] 
+        // Hash List를 무작위로 뽑던 기존 방식을 버리고, 
+        // 3방향(뒤, 좌, 우) 피격 시스템을 위한 ActionID로 명확히 라우팅합니다.
+        ActionID staggerDirection = ActionID.Stagger_Backward; // 기본값 (정면/후면 피격 시 뒤로 밀림)
+
+        // 공격자의 앵글을 계산하여 피격 방향 분기
         if (angleHitFrom >= 145 && angleHitFrom <= 180)
         {
-            // 정면 애니메이션 플레이
-            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.forward_Medium_Damage_Hashes);
+            // 정면 피격 -> 뒤로 밀림
+            staggerDirection = ActionID.Stagger_Backward;
         }
         else if (angleHitFrom <= -145 && angleHitFrom >= -180)
         {
-            // 정면 애니메이션 플레이
-            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.forward_Medium_Damage_Hashes);
+            // 정면 피격 -> 뒤로 밀림
+            staggerDirection = ActionID.Stagger_Backward;
         }
         else if (angleHitFrom >= -45 && angleHitFrom <= 45)
         {
-            // 후면 애니메이션 플레이
-            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.backward_Medium_Damage_Hashes);
+            // 후면 피격 -> (현재 3방향 기획에 따라) 뒤로 밀리거나 공용 모션 사용
+            staggerDirection = ActionID.Stagger_Backward;
         }
         else if (angleHitFrom >= -144 && angleHitFrom <= -45)
         {
-            // 좌측 애니메이션 플레이
-            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.left_Medium_Damage_Hashes);
+            // 좌측 피격 -> 우측으로 밀림
+            staggerDirection = ActionID.Stagger_Right;
         }
         else if (angleHitFrom >= 45 && angleHitFrom <= 144)
         {
-            // 우측 애니메이션 플레이
-            damageAnimationHash = character.characterAnimationManager.GetRandomAnimationFromList(character.characterAnimationManager.right_Medium_Damage_Hashes);
+            // 우측 피격 -> 좌측으로 밀림
+            staggerDirection = ActionID.Stagger_Left;
         }
 
-        // 수동 애니메이션 선택 시 예외 처리
-        if (manuallySelectDamageAnimation)
+        // 포이즈가 깨졌다면 L4(Funnel)로 피격 신호 위임
+        if (poiseIsBroken)
         {
-            damageAnimationHash = Animator.StringToHash(damageAnimation);
-        }
-
-        if (poiseIsBroken && damageAnimationHash != 0)
-        {
-            // [에러 수정] 바뀐 변수명(lastAnimationPlayedHash)과 데이터 타입(int) 반영
-            character.characterAnimationManager.lastAnimationPlayedHash = damageAnimationHash;
-            character.characterAnimationManager.PlayTargetAnimation(damageAnimationHash, true);
+            // ⭕ 시각적 실행은 L4 애니메이션 매니저의 onHit 깔때기로 '위임'합니다!
+            // 이렇게 해야 현재 진행 중인 모든 공격을 파괴(Interrupt)하고 1순위로 밀려납니다.
+            character.characterAnimationManager.PlayTargetHitReactionFunnel((int)staggerDirection);
         }
     }
 }
