@@ -17,6 +17,9 @@ public class CharacterManager : NetworkBehaviour
     [HideInInspector] public CharacterLocomotionManager characterLocomotionManager;
     [HideInInspector] public CharacterInventoryManager characterInventoryManager;
     [HideInInspector] public CharacterIKController characterIKController;
+    [HideInInspector] public CharacterStatsManager characterStatsManager;
+    [HideInInspector] public CharacterEventManager characterEventManager;
+    [HideInInspector] public CharacterDefenseManager characterDefenseManager;
 
     [Header("Character Group")]
     public CharacterGroup characterGroup;
@@ -43,6 +46,9 @@ public class CharacterManager : NetworkBehaviour
         characterLocomotionManager = GetComponent<CharacterLocomotionManager>();
         characterInventoryManager = GetComponent<CharacterInventoryManager>();
         characterIKController = GetComponent<CharacterIKController>();
+        characterStatsManager = GetComponent<CharacterStatsManager>();
+        characterEventManager = GetComponent<CharacterEventManager>();
+        characterDefenseManager = GetComponent<CharacterDefenseManager>();
     }
 
     protected virtual void Start()

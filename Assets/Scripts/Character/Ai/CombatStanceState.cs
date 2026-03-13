@@ -16,6 +16,15 @@ public class CombatStanceState : AIState
     public int fleeHealthThreshold = 20;
     public float retreatStaminaThreshold = 10f;
 
+    // =========================================================================================
+    // [신규 추가] 방어 시스템 (P0-02) 설정
+    // =========================================================================================
+    [Header("Defense Settings (P0-02)")]
+    [Tooltip("이 상태에서 AI가 방패를 들고 방어를 시도할지 여부입니다.")]
+    public bool canGuardInStance = true;
+    [Tooltip("플레이어가 액션(공격 등)을 취할 때 가드를 올릴 확률입니다.")]
+    [Range(0, 100)] public float guardReactionChance = 50f;
+
     public override AIState Tick(AICharacterManager aiCharacter)
     {
         if (aiCharacter.aiCharacterCombatManager.currentTarget == null)
@@ -53,6 +62,43 @@ public class CombatStanceState : AIState
             return SwitchState(aiCharacter, pursueTargetState);
         }
 
+        // =========================================================================================
+        // 🛡️ [P0-02] AI 지능형 방어 로직 (AIDefenseManager 연동)
+        // =========================================================================================
+        if (canGuardInStance && aiCharacter.characterDefenseManager != null && aiCharacter.characterDefenseManager.currentDefendingItem != null)
+        {
+            CharacterManager target = aiCharacter.aiCharacterCombatManager.currentTarget;
+
+            // 1. 타겟이 공격(isPerformingAction) 중이고, 내 가드가 내려가 있다면 확률적으로 가드 올리기
+            if (target != null && target.isPerformingAction)
+            {
+                if (!aiCharacter.characterDefenseManager.isDefending)
+                {
+                    // 초당 확률로 보정하여 프레임률에 관계없이 일정한 확률로 방어 시도
+                    if (Random.value < (guardReactionChance / 100f) * Time.deltaTime * 5f)
+                    {
+                        // 상단(Top) 기준 방어 시작
+                        aiCharacter.characterDefenseManager.StartDefense(GuardDirection.Top);
+                        aiCharacter.aiCharacterCombatManager.DebugLog("적의 공격 움직임 감지 -> 가드 올림!");
+                    }
+                }
+            }
+            // 2. 타겟이 멈췄거나, 내가 곧 공격할 타이밍이 되었다면 가드 내리기
+            else
+            {
+                if (aiCharacter.characterDefenseManager.isDefending)
+                {
+                    // 공격 쿨타임이 거의 다 찼거나(0.5초 전), 적과 거리가 멀어지면 방패를 내림
+                    if (Time.time >= aiCharacter.aiCharacterCombatManager.nextAttackTime - 0.5f || distanceFromTarget > attackRange)
+                    {
+                        aiCharacter.characterDefenseManager.StopDefense();
+                        aiCharacter.aiCharacterCombatManager.DebugLog("공격 준비 완료 또는 거리 벌어짐 -> 가드 내림");
+                    }
+                }
+            }
+        }
+        // =========================================================================================
+
         aiCharacter.aiCharacterCombatManager.HandleStrafingAroundTarget();
 
         if (!aiCharacter.isPerformingAction)
@@ -77,6 +123,14 @@ public class CombatStanceState : AIState
     protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
         base.ResetStateFlags(aiCharacterManager);
+
+        // =========================================================================================
+        // [방어 시스템 P0-02 연동] 상태를 빠져나갈 때 가드를 강제로 해제하여 다음 행동(공격 등)을 방해하지 않게 합니다.
+        // =========================================================================================
+        if (aiCharacterManager.characterDefenseManager != null && aiCharacterManager.characterDefenseManager.isDefending)
+        {
+            aiCharacterManager.characterDefenseManager.StopDefense();
+        }
 
         // CombatStanceState 내부에서 추가로 ResetPath를 호출하는 곳이 있다면 동일하게 감싸줍니다.
         if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.isActiveAndEnabled && aiCharacterManager.navMeshAgent.isOnNavMesh)

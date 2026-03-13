@@ -50,6 +50,9 @@ namespace TDA.Character.Player
         [Tooltip("물리적으로 계산된 순수 시선 각도 차이 (몸통 기준)")]
         [SerializeField] private float rawAngleDifference;
 
+        // [버그 픽스] 스폰 직후 카메라 불안정으로 인한 유령 턴(Phantom Turn) 방지용 타이머
+        private float spawnStabilizeTimer = 0.5f;
+
         protected override void Awake()
         {
             base.Awake();
@@ -65,6 +68,12 @@ namespace TDA.Character.Player
 
             if (Application.isPlaying && player != null && player.IsOwner)
             {
+                // 스폰 직후 0.5초 동안 안정화 타이머를 차감합니다.
+                if (spawnStabilizeTimer > 0f)
+                {
+                    spawnStabilizeTimer -= Time.deltaTime;
+                }
+
                 CalculateLookAtTarget();
                 HandleHybridRotationLogic();
             }
@@ -115,7 +124,6 @@ namespace TDA.Character.Player
             rawAngleDifference = signedAngle;
 
             // 2. [액션 가드] 공격 등 진짜 액션 중일 때는 파라미터를 0으로 세탁하고 빠져나갑니다.
-            // 단, 우리가 지금 '턴(Turn)'을 관장하고 있는 중이라면 이 가드를 무시해야 캔슬이 가능합니다!
             if (player.isPerformingAction && !isTurningDebug)
             {
                 targetLookWeight = 0f;
@@ -129,8 +137,36 @@ namespace TDA.Character.Player
             }
 
             // =========================================================================================
-            // 🚨 [요청 사항 반영] 이동 및 반대 방향 조작 시 턴 즉시 캔슬 (Immediate Cancel)
+            // 🚨 [신규 추가: 방어 중 턴 애니메이션 재생 방지] 
+            // 방어 자세(Guard_BlendTree)를 굳건히 유지해야 하므로, 턴 애니메이션으로 강제 전이되는 것을 막습니다.
             // =========================================================================================
+            if (player.playerDefenseManager != null && player.playerDefenseManager.isDefending)
+            {
+                isTurningDebug = false;
+                currentTurnDirection = 0f;
+                currentTurnAngle = 0f;
+
+                if (player.animator != null)
+                {
+                    // 턴 애니메이션이 트리거되지 않도록 애니메이터 파라미터도 강제로 0으로 잠급니다.
+                    player.animator.SetFloat("turnAngle", 0f);
+                }
+
+                // 애니메이션(Turn_90) 대신, 방어 중에는 제자리에서도 카메라가 보는 방향으로 
+                // 몸통 전체를 묵직하게 스크립트로 회전(Slerp) 시킵니다.
+                // (카메라 데드존에 턱 걸렸을 때 마우스를 억지로 더 밀면 발을 비비며 돌아가는 연출)
+                if (absAngle > 10f && directionToTarget != Vector3.zero)
+                {
+                    Quaternion targetRot = Quaternion.LookRotation(directionToTarget.normalized);
+                    // 방어 중이므로 일반 턴보다 느리고 묵직한 속도(3f)로 몸을 돌립니다.
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 3f * Time.deltaTime);
+                }
+
+                return; // 아래에 있는 Turn 애니메이션 강제 CrossFade 로직을 완전히 무시하고 빠져나갑니다!
+            }
+            // =========================================================================================
+
+            // 🚨 [기존 픽스] 이동 및 반대 방향 조작 시 턴 즉시 캔슬 (Immediate Cancel)
             if (isTurningDebug)
             {
                 bool shouldCancel = false;
@@ -169,23 +205,8 @@ namespace TDA.Character.Player
                     return; // 아래의 턴 로직 건너뜀
                 }
             }
-            // =========================================================================================
 
-            // 유저가 W(전진)를 눌러 이미 이동 중일 때는 제자리 턴을 강제로 막습니다.
-            if (player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f)
-            {
-                isTurningDebug = false;
-                currentTurnDirection = 0f; // 턴 정보 리셋
-                if (player.animator != null)
-                {
-                    player.animator.SetFloat("turnAngle", currentTurnAngle);
-                }
-                return;
-            }
-
-            // =========================================================================================
             // 🚨 [치명적 버그 픽스] 이동 중 제자리 턴 발생 방어막 (Movement Guard)
-            // =========================================================================================
             // 유저가 W(전진)를 눌러 이동 중일 때는 몸통이 회전하더라도 제자리 턴을 강제로 막습니다.
             if (player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f)
             {
@@ -195,9 +216,8 @@ namespace TDA.Character.Player
                     // 이동 중일 때는 애니메이터의 turnAngle 파라미터도 0으로 밀어버려 불필요한 블렌딩을 막습니다.
                     player.animator.SetFloat("turnAngle", 0f);
                 }
-                return; // 아래의 정지 상태 전용 턴 애니메이션 발동 로직을 건너뜁니다!
+                return; // 정지 상태 전용 턴 애니메이션 발동 로직을 건너뜁니다!
             }
-            // =========================================================================================
 
             // 3. 턴 방어 및 무한 루프 캔슬 로직
             if (isTurningDebug)
@@ -215,7 +235,8 @@ namespace TDA.Character.Player
             }
 
             // 4. 턴 애니메이션 발동 (정지 상태일 때만 여기까지 도달함)
-            if (absAngle > turnStepAngle && !isTurningDebug)
+            // [버그 픽스] 스폰 직후 0.5초 동안은 카메라가 안정화되는 시기이므로 턴 애니메이션을 강제로 막습니다.
+            if (absAngle > turnStepAngle && !isTurningDebug && spawnStabilizeTimer <= 0f)
             {
                 isTurningDebug = true;
                 currentTurnDirection = Mathf.Sign(signedAngle); // 내가 어느 쪽으로 도는지 기억

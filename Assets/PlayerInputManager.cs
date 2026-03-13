@@ -107,6 +107,18 @@ public class PlayerInputManager : MonoBehaviour
             playerControls.PlayerAction.RB.performed += i => player.OnRBInputReceived();
             playerControls.PlayerAction.RT.performed += i => player.OnRTInputReceived();
 
+            // =========================================================================================
+            // 🚨 [방어 시스템 P0-02 연동] 방어(Block) 버튼 및 Q키(ExtendedGuard) 확실한 바인딩
+            // =========================================================================================
+            // 주의: InputAction 창에서 두 액션 모두 Action Type을 'Button'으로 설정해야 합니다.
+            playerControls.PlayerAction.Block.performed += i => player.OnBlockInputReceived(true);
+            playerControls.PlayerAction.Block.canceled += i => player.OnBlockInputReceived(false);
+
+            // (만약 ExtendedGuard 액션이 없다면 InputAction 에디터에서 새로 만들어주셔야 합니다!)
+            playerControls.PlayerAction.ExtendedGuard.performed += i => player.OnExtendedGuardInputReceived(true);
+            playerControls.PlayerAction.ExtendedGuard.canceled += i => player.OnExtendedGuardInputReceived(false);
+            // =========================================================================================
+
             //playerControls.PlayerAction.HoldRT.performed += i => Hold_RT_Input = true;
             //playerControls.PlayerAction.HoldRT.canceled += i => Hold_RT_Input = false;
 

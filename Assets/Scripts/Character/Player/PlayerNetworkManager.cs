@@ -120,6 +120,12 @@ namespace TDA.Character.Player
         public void OnCurrentWeaponBeingUsedIDChange(int oldID, int newID)
         {
             WeaponItem newWeapon = Instantiate(WorldItemDatabase.Instance.GetWeaponByID(newID));
+            if(newWeapon == null)
+            {
+                // 테스트용 로그: 무기가 null인 경우 경고 메시지를 출력합니다.
+                Debug.LogWarning($"[PlayerNetworkManager] No weapon found for ID {newID} when trying to update current weapon being used.");
+                return;
+            }
             player.playerCombatManager.currentWeaponBeingUsed = newWeapon;
         }
 

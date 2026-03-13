@@ -211,6 +211,15 @@ public enum DefenseResult
 
 public enum ShieldStance { FarGrip, CloseGrip }
 
+// ※ 참조용: 타격 정보 구조체 (기존 Combat 시스템의 DamageCollider 등에서 전달해 줄 데이터 형태)
+public struct HitEventData
+{
+    public float damage;
+    public float impactForce;
+    // public WeaponWeightClass weaponWeight; // 기획서의 무기 무게 등급
+    public GuardDirection attackDirection;    // 공격이 들어오는 방향
+}
+
 // =========================================================================================
 // [Funnel 아키텍처 연동] 액션 및 리액션 라우팅 인덱스 (ActionID)
 // 체계적으로 10단위 그룹핑하여 번호를 부여. (pC 단계의 8방향 확장을 대비함)

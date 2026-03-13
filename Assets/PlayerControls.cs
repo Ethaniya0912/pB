@@ -258,7 +258,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""name"": ""RT"",
                     ""type"": ""Button"",
                     ""id"": ""e13fd4a5-a952-47f6-9cc7-98a9e3fb56af"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
@@ -330,6 +330,24 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""name"": ""Inventory"",
                     ""type"": ""Button"",
                     ""id"": ""0cdcea3d-a9eb-4cc3-81df-51dbb645d16c"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Block"",
+                    ""type"": ""Button"",
+                    ""id"": ""b094cb79-a8d9-4009-8c6a-a3b1b6a0b5f9"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ExtendedGuard"",
+                    ""type"": ""Button"",
+                    ""id"": ""712aa559-a5e7-4879-ae28-0af89eae23b3"",
                     ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
@@ -457,6 +475,28 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""action"": ""Inventory"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""28ff4184-e9bf-4f9c-88c5-d8adcc2f178a"",
+                    ""path"": ""<Mouse>/rightButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Block"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e40c9756-7e6e-45d5-9ce0-a7d114ab31f7"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ExtendedGuard"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         },
@@ -530,6 +570,8 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         m_PlayerAction_SeekRightLockOnTarget = m_PlayerAction.FindAction("Seek Right Lock On Target", throwIfNotFound: true);
         m_PlayerAction_Interaction = m_PlayerAction.FindAction("Interaction", throwIfNotFound: true);
         m_PlayerAction_Inventory = m_PlayerAction.FindAction("Inventory", throwIfNotFound: true);
+        m_PlayerAction_Block = m_PlayerAction.FindAction("Block", throwIfNotFound: true);
+        m_PlayerAction_ExtendedGuard = m_PlayerAction.FindAction("ExtendedGuard", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_E = m_UI.FindAction("E", throwIfNotFound: true);
@@ -820,6 +862,8 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
     private readonly InputAction m_PlayerAction_SeekRightLockOnTarget;
     private readonly InputAction m_PlayerAction_Interaction;
     private readonly InputAction m_PlayerAction_Inventory;
+    private readonly InputAction m_PlayerAction_Block;
+    private readonly InputAction m_PlayerAction_ExtendedGuard;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player Action".
     /// </summary>
@@ -875,6 +919,14 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "PlayerAction/Inventory".
         /// </summary>
         public InputAction @Inventory => m_Wrapper.m_PlayerAction_Inventory;
+        /// <summary>
+        /// Provides access to the underlying input action "PlayerAction/Block".
+        /// </summary>
+        public InputAction @Block => m_Wrapper.m_PlayerAction_Block;
+        /// <summary>
+        /// Provides access to the underlying input action "PlayerAction/ExtendedGuard".
+        /// </summary>
+        public InputAction @ExtendedGuard => m_Wrapper.m_PlayerAction_ExtendedGuard;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -934,6 +986,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @Inventory.started += instance.OnInventory;
             @Inventory.performed += instance.OnInventory;
             @Inventory.canceled += instance.OnInventory;
+            @Block.started += instance.OnBlock;
+            @Block.performed += instance.OnBlock;
+            @Block.canceled += instance.OnBlock;
+            @ExtendedGuard.started += instance.OnExtendedGuard;
+            @ExtendedGuard.performed += instance.OnExtendedGuard;
+            @ExtendedGuard.canceled += instance.OnExtendedGuard;
         }
 
         /// <summary>
@@ -978,6 +1036,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @Inventory.started -= instance.OnInventory;
             @Inventory.performed -= instance.OnInventory;
             @Inventory.canceled -= instance.OnInventory;
+            @Block.started -= instance.OnBlock;
+            @Block.performed -= instance.OnBlock;
+            @Block.canceled -= instance.OnBlock;
+            @ExtendedGuard.started -= instance.OnExtendedGuard;
+            @ExtendedGuard.performed -= instance.OnExtendedGuard;
+            @ExtendedGuard.canceled -= instance.OnExtendedGuard;
         }
 
         /// <summary>
@@ -1232,6 +1296,20 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnInventory(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Block" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnBlock(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ExtendedGuard" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnExtendedGuard(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "UI" which allows adding and removing callbacks.

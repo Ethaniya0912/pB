@@ -359,7 +359,7 @@ namespace TDA.Character
                     Debug.Log("[PlayerCombatManager] Light Attack 02 실행, 스태미나 차감");
                     break;
 
-                case global::AttackType.HeavyAttack01:
+                /*case global::AttackType.HeavyAttack01:
                     staminaDeducted = weaponToUse.baseStaminaCost * weaponToUse.heavyAttackStaminaCostMultiplier;
                     Debug.Log("[PlayerCombatManager] Heavy Attack 01 실행, 스태미나 차감");
                     break;
@@ -377,7 +377,7 @@ namespace TDA.Character
                 case global::AttackType.ChargeAttack02:
                     staminaDeducted = weaponToUse.baseStaminaCost * weaponToUse.heavyAttackStaminaCostMultiplier * 1.5f;
                     Debug.Log("[PlayerCombatManager] Charge Attack 02 실행, 스태미나 대폭 차감");
-                    break;
+                    break;*/
 
                 default:
                     Debug.LogWarning("[PlayerCombatManager] 스태미나 차감 실패: 정의되지 않은 공격 타입입니다.");

@@ -4,6 +4,7 @@ using UnityEngine;
 using TDA.Character.Player;
 using System; // PlayerManager 참조를 위해 추가
 using TDA.Core.Events; // [신규 추가] ActionID 및 Funnel 아키텍처 연동을 위한 네임스페이스
+using TDA.Items; // [방어 시스템 P0-02] ShieldWeaponItemSO 캐스팅을 위해 추가
 
 namespace TDA.Character.Player
 {
@@ -241,7 +242,11 @@ namespace TDA.Character.Player
 
             rightHandSlot.UnloadWeapon();
 
-            if (itemID == -1) return;
+            if (itemID == -1)
+            {
+                UpdateDefendingItem();
+                return;
+            }
 
             WeaponItem weapon = WorldItemDatabase.Instance.GetWeaponByID(itemID);
             if (weapon != null && weapon.weaponModel != null)
@@ -255,6 +260,10 @@ namespace TDA.Character.Player
                     rightWeaponManager.SetWeaponDamage(player, weapon);
                 }
             }
+
+            // 무기 장착이 끝난 후, 무엇으로 방어할지 스마트 갱신
+            // (내부에서 DefenseManager의 SetDefendingItem을 자동으로 호출합니다)
+            UpdateDefendingItem();
         }
 
         public void LoadLeftWeapon(int itemID)
@@ -263,7 +272,11 @@ namespace TDA.Character.Player
 
             leftHandSlot.UnloadWeapon();
 
-            if (itemID == -1) return;
+            if (itemID == -1)
+            {
+                UpdateDefendingItem();
+                return;
+            }
 
             WeaponItem weapon = WorldItemDatabase.Instance.GetWeaponByID(itemID);
             if (weapon != null && weapon.weaponModel != null)
@@ -277,7 +290,50 @@ namespace TDA.Character.Player
                     leftWeaponManager.SetWeaponDamage(player, weapon);
                 }
             }
+
+            // 무기 장착이 끝난 후, 무엇으로 방어할지 스마트 갱신
+            // (내부에서 DefenseManager의 SetDefendingItem을 자동으로 호출합니다)
+            UpdateDefendingItem();
         }
+        #endregion
+
+        #region [신규] 방어 장비 스마트 판단 로직
+
+        /// <summary>
+        /// 캐릭터가 장착한 무기 상태를 분석하여 무엇으로 방어할지(DefenseManager) 자동으로 결정합니다.
+        /// 1순위: 왼손 방패, 2순위: 오른손 무기(검)
+        /// </summary>
+        public void UpdateDefendingItem()
+        {
+            if (player.playerDefenseManager == null || player.playerNetworkManager == null) return;
+
+            // 1. 왼손 무기 확인
+            int leftID = player.playerNetworkManager.currentLeftHandWeaponID.Value;
+            WeaponItem leftWeapon = WorldItemDatabase.Instance.GetWeaponByID(leftID);
+
+            if (leftWeapon is ShieldWeaponItemSO shield)
+            {
+                // 왼손에 든 게 '방패'라면 무조건 1순위 방패로 막음!
+                player.playerDefenseManager.SetDefendingItem(shield);
+                return;
+            }
+
+            // 2. 왼손에 방패가 없다면 오른손 무기 확인
+            int rightID = player.playerNetworkManager.currentRightHandWeaponID.Value;
+            WeaponItem rightWeapon = WorldItemDatabase.Instance.GetWeaponByID(rightID);
+
+            if (rightWeapon != null && rightWeapon.itemID != WorldItemDatabase.Instance.unarmedWeapon.itemID)
+            {
+                // 오른손에 검/도끼를 들고 있다면 이것으로 막음!
+                player.playerDefenseManager.SetDefendingItem(rightWeapon);
+            }
+            else
+            {
+                // 양손 모두 맨손이면 방어 셋업 안함 (맨손 막기 불가)
+                player.playerDefenseManager.SetDefendingItem(null);
+            }
+        }
+
         #endregion
 
         #region Weapon Switching & Colliders

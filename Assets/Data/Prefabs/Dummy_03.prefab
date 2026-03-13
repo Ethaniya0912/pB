@@ -556,6 +556,7 @@ GameObject:
   - component: {fileID: -6378788767511415067}
   - component: {fileID: 8537996597277619272}
   - component: {fileID: 5062653150551271864}
+  - component: {fileID: 2659419398298417440}
   m_Layer: 8
   m_Name: Dummy_03
   m_TagString: Untagged
@@ -614,7 +615,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1383825015
+  GlobalObjectIdHash: 1723572614
   InScenePlacedSourceGlobalObjectIdHash: 1383825015
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1007,6 +1008,9 @@ MonoBehaviour:
   characterLocomotionManager: {fileID: 0}
   characterInventoryManager: {fileID: 0}
   characterIKController: {fileID: 0}
+  characterStatsManager: {fileID: 0}
+  characterEventManager: {fileID: 0}
+  characterDefenseManager: {fileID: 0}
   characterGroup: 1
   isPerformingAction: 0
   applyRootMotion: 0
@@ -1087,6 +1091,24 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &2659419398298417440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb77479a2f3b0454b9118f3451f1c9e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AIDefenseManager
+  currentGuardDirection: 0
+  currentShieldStance: 1
+  isDefending: 0
+  currentEquippedShield: {fileID: 0}
+  currentShieldDurability: 0
+  showDebugLogs: 1
 --- !u!1 &4241950335516143453
 GameObject:
   m_ObjectHideFlags: 0

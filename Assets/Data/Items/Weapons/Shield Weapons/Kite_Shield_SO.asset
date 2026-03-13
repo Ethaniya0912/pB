@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 900ce579e2fbef043a87bc8046d3150e, type: 3}
+  m_Name: Kite_Shield_SO
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Items.ShieldWeaponItemSO
+  itemIcon: {fileID: 0}
+  itemName: Kite_Shield
+  itemID: 13
+  itemModel: {fileID: 0}
+  itemSizeWidth: 1
+  itemSizeHeight: 1
+  itemDescription: 
+  weaponModel: {fileID: 0}
+  muscleReq: 0
+  physicalDamage: 0
+  elementalDamage: 0
+  poiseDamage: 10
+  light_Attack_01_Modifier: 1.1
+  light_Attack_02_Modifier: 1.2
+  heavy_Attack_01_Modifier: 1.4
+  heavy_Attack_02_Modifier: 1.6
+  charge_Attack_01_Modifier: 2.5
+  charge_Attack_02_Modifier: 2.7
+  baseStaminaCost: 20
+  lightAttackStaminaCostMultiplier: 0.9
+  heavyAttackStaminaCostMultiplier: 1
+  oh_RB_Action: {fileID: 0}
+  oh_RT_Action: {fileID: 0}
+  physicalBlockAbsorption: 1
+  magicBlockAbsorption: 0.7
+  maxDurability: 150
+  deflectionResistance: 60
+  parryWindowDuration: 0.15

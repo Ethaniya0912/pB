@@ -412,7 +412,7 @@ Transform:
   m_GameObject: {fileID: 1976752837467902156}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7071069, y: -0.000000029802319, z: -0, w: 0.70710677}
-  m_LocalPosition: {x: 1.9109416, y: 0.022709837, z: 0.21924782}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 99.999985, y: 99.99996, z: 99.999985}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -554,6 +554,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2162376904217234103}
+  - component: {fileID: 7942598168344976328}
   m_Layer: 0
   m_Name: WeaponSocket_Right
   m_TagString: Untagged
@@ -571,11 +572,25 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.021496534, y: -0.7177319, z: 0.000405231, w: 0.6959876}
   m_LocalPosition: {x: -0.000047584588, y: 0.00070692156, z: 0.00004791604}
-  m_LocalScale: {x: 1, y: 0.99999994, z: 0.99999994}
+  m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2333199608686301495}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7942598168344976328
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3105715454670213965}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c492fdb6a2227ca45965abc5c7d72100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponModelInstantiationSlot
+  weaponSlot: 0
+  currentWeaponModel: {fileID: 0}
 --- !u!1 &3264232698013936579
 GameObject:
   m_ObjectHideFlags: 0
@@ -634,7 +649,7 @@ Transform:
   m_GameObject: {fileID: 3295559558389574469}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7071069, y: -0.000000029802319, z: -0, w: 0.70710677}
-  m_LocalPosition: {x: 1.9109416, y: 0.022709837, z: 0.21924782}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 99.999985, y: 99.99996, z: 99.999985}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -776,6 +791,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1061492194823891254}
+  - component: {fileID: 4744060280457025688}
   m_Layer: 0
   m_Name: WeaponSocket_Left
   m_TagString: Untagged
@@ -793,11 +809,25 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.71781397, y: 0.00000017976487, z: -0.00000008314841, w: 0.69623494}
   m_LocalPosition: {x: 0.000045434375, y: 0.0007776629, z: 0.000045754325}
-  m_LocalScale: {x: 1.0000001, y: 0.9999999, z: 0.9999999}
+  m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 349062877099320886}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4744060280457025688
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3741276637081894900}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c492fdb6a2227ca45965abc5c7d72100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponModelInstantiationSlot
+  weaponSlot: 1
+  currentWeaponModel: {fileID: 0}
 --- !u!1 &3922923194782894697
 GameObject:
   m_ObjectHideFlags: 0
@@ -1730,6 +1760,8 @@ GameObject:
   - component: {fileID: 9202242292753928654}
   - component: {fileID: 9193014581143191389}
   - component: {fileID: 9076171216469950194}
+  - component: {fileID: 4084987415979659578}
+  - component: {fileID: 3824280903865820914}
   m_Layer: 6
   m_Name: Player_ranger 2
   m_TagString: Untagged
@@ -1829,6 +1861,9 @@ MonoBehaviour:
   characterLocomotionManager: {fileID: 0}
   characterInventoryManager: {fileID: 0}
   characterIKController: {fileID: 0}
+  characterStatsManager: {fileID: 0}
+  characterEventManager: {fileID: 0}
+  characterDefenseManager: {fileID: 0}
   characterGroup: 0
   isPerformingAction: 0
   applyRootMotion: 0
@@ -1844,7 +1879,11 @@ MonoBehaviour:
   playerEquipmentManager: {fileID: 0}
   playerCombatManager: {fileID: 0}
   playerInteractionManager: {fileID: 0}
+  playerEventManager: {fileID: 0}
+  playerDefenseManager: {fileID: 0}
   playerCamera: {fileID: 0}
+  isHoldingCloseGrip: 0
+  isHoldingFarGrip: 0
 --- !u!114 &7301172757607828420
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2264,7 +2303,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
-  currentRightHandWeapon: {fileID: 11400000, guid: e78af79fd7ba32e4a8e683fa55711293,
+  currentRightHandWeapon: {fileID: 11400000, guid: b4d050427fcd7fc4a8894238713d507d,
     type: 2}
   currentLeftHandWeapon: {fileID: 11400000, guid: bb3418e72d4ec4c27b9a0378cf3b6a2a,
     type: 2}
@@ -2311,12 +2350,12 @@ MonoBehaviour:
     m_InternalValue: -1
   currentBackpackID:
     m_InternalValue: -1
-  rightHandSlot: {fileID: 0}
-  leftHandSlot: {fileID: 0}
+  rightHandSlot: {fileID: 7942598168344976328}
+  leftHandSlot: {fileID: 4744060280457025688}
   rightWeaponManager: {fileID: 0}
   leftWeaponManager: {fileID: 0}
   rightHandWeaponModel: {fileID: 3105715454670213965}
-  leftHandWeaponModel: {fileID: 0}
+  leftHandWeaponModel: {fileID: 3741276637081894900}
   bagVisualController: {fileID: 0}
   backpackSlot: {fileID: 0}
 --- !u!54 &5642113471206716925
@@ -2563,6 +2602,43 @@ MonoBehaviour:
   showConsoleLogs: 1
   showEventGizmo: 1
   eventGizmoDuration: 1
+--- !u!114 &4084987415979659578
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d1275883c8de2841a7eaaf7668814d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Player.PlayerDefenseManager
+  currentGuardDirection: 0
+  currentShieldStance: 1
+  isDefending: 0
+  currentDefendingItem: {fileID: 0}
+  currentShieldDurability: 0
+  showDebugLogs: 1
+  baseStaminaDrainRatio: 0.2
+  farGripStaminaPenaltyMultiplier: 1.5
+--- !u!114 &3824280903865820914
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 521bc6efbd9afc346ad69d1d909a3bef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.DebugTools.PlayerEquipmentDebugger
+  rightHandTestWeapon: {fileID: 11400000, guid: e43da9c27983eb04cbb14465059c8633,
+    type: 2}
+  leftHandTestWeapon: {fileID: 11400000, guid: e43da9c27983eb04cbb14465059c8633, type: 2}
+  leftHandTestShield: {fileID: 11400000, guid: f6ef535891cce2d43ae15f55266aaa80, type: 2}
+  testBackpack: {fileID: 11400000, guid: 58ab2de8bdce20647823bdd634f13413, type: 2}
 --- !u!1 &8505638985449197730
 GameObject:
   m_ObjectHideFlags: 0

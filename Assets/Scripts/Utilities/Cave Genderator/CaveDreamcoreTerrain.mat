@@ -54,7 +54,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtMask:
-        m_Texture: {fileID: 2800000, guid: ed2aa48bce7d4474e9f579832f03c08b, type: 3}
+        m_Texture: {fileID: 2800000, guid: 628377c9da453f842a25fdd6bc2fa582, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtNormal:
@@ -82,7 +82,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossMask:
-        m_Texture: {fileID: 2800000, guid: 48947c78e45049948a67813a83e56fb4, type: 3}
+        m_Texture: {fileID: 2800000, guid: 628377c9da453f842a25fdd6bc2fa582, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossNormal:
