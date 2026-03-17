@@ -7,6 +7,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using System.Linq;
 
 namespace CaveSystem
 {
@@ -294,6 +295,15 @@ namespace CaveSystem
                     // 한 프레임 대기하여 엔진이 NavMesh 갱신을 완료할 시간을 줍니다.
                     yield return null;
 
+                    // =========================================================================================
+                    // 🚨 [핵심 버그 수정] NavMesh가 완전히 구워진 직후에, 스폰 대기 중이던 몬스터들을 소환합니다!
+                    // 이 타이밍에 스폰해야 NavMeshAgent가 길을 찾지 못하고 에러를 뿜는 현상을 원천 차단할 수 있습니다.
+                    // =========================================================================================
+                    if (CaveSystem.Multiplayer.CaveSpawnerManager.Instance != null)
+                    {
+                        CaveSystem.Multiplayer.CaveSpawnerManager.Instance.ProcessPendingSpawns();
+                    }
+
                     // 3. 에이전트 재가동 및 바닥 스냅(Snap)
                     // 허공에 떠있거나 살짝 파묻혀 에러를 내던 에이전트들을 새로운 바닥에 찰싹 붙여줍니다.
                     foreach (var agent in allAgents)
@@ -311,7 +321,7 @@ namespace CaveSystem
                         }
                     }
 
-                    Log("✔️ NavMesh 갱신 및 몬스터 재배치 완료.");
+                    Log("✔️ NavMesh 갱신 및 몬스터 재배치/스폰 완료.");
                 }
             }
         }

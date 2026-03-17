@@ -58,13 +58,17 @@ public class PatrolState : AIState
         // 2. 패트롤 로직 (공유 SO 대신 개별 매니저의 변수 사용)
         if (combatInfo.isWandering)
         {
-            if (aiCharacter.navMeshAgent.remainingDistance <= aiCharacter.navMeshAgent.stoppingDistance)
+            // 🚨 [에러 방어 안전망] 에이전트가 살아서 맵(NavMesh) 위에 안착했을 때만 목적지까지의 거리를 묻습니다!
+            if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
             {
-                combatInfo.isWandering = false;
-                aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
+                if (aiCharacter.navMeshAgent.remainingDistance <= aiCharacter.navMeshAgent.stoppingDistance)
+                {
+                    combatInfo.isWandering = false;
+                    aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
 
-                float waitTime = Random.Range(combatInfo.wanderIntervalMin, combatInfo.wanderIntervalMax);
-                combatInfo.nextWanderTime = Time.time + waitTime;
+                    float waitTime = Random.Range(combatInfo.wanderIntervalMin, combatInfo.wanderIntervalMax);
+                    combatInfo.nextWanderTime = Time.time + waitTime;
+                }
             }
         }
         else
@@ -84,9 +88,13 @@ public class PatrolState : AIState
                     wanderTarget = combatInfo.GetWanderLocation();
                 }
 
-                aiCharacter.navMeshAgent.SetDestination(wanderTarget);
-                aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0.5f, false);
-                combatInfo.isWandering = true;
+                // 🚨 [에러 방어 안전망] 목표 지점을 설정할 때도 에이전트가 땅에 있는지 확인합니다!
+                if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
+                {
+                    aiCharacter.navMeshAgent.SetDestination(wanderTarget);
+                    aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0.5f, false);
+                    combatInfo.isWandering = true;
+                }
             }
         }
 

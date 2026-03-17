@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: "\uC8FC\uC0C1\uC808\uB9AC"
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveBiomeData
   biomeName: "\uC8FC\uC0C1\uC808\uB9AC"
-  noiseType: 0
+  noiseType: 1
   noiseFrequency: 0.095
   yCompression: 0.26
   sminStrength: 2.5

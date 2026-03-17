@@ -68,6 +68,11 @@ namespace CaveSystem.Multiplayer
         private int currentPlayerSpawnCount = 0;
 
         // =========================================================================================
+        // [추가] 지연 스폰 대기열 (NavMesh 에러 방지용)
+        // =========================================================================================
+        private HashSet<Vector3Int> pendingSpawnChunks = new HashSet<Vector3Int>();
+
+        // =========================================================================================
         // [추가] 몹 이름 부여 시스템 (Name Pool & Counter)
         // =========================================================================================
         private static readonly string[] MobNamePool = new string[]
@@ -108,6 +113,7 @@ namespace CaveSystem.Multiplayer
             chunkSpawnerDataMap.Clear();
             editorAllSpawners.Clear();
             currentPlayerSpawnCount = 0;
+            pendingSpawnChunks.Clear(); // 대기열 초기화
 
             // 이름 카운터도 초기화하여 새 맵에서는 다시 1번부터 시작하도록 합니다.
             mobNameCounters.Clear();
@@ -237,11 +243,30 @@ namespace CaveSystem.Multiplayer
                 Log($"[분석 완료] 청크 {chunkPos} -> 유효 데이터 신규 등록: {addedCount}개 / 겹침 배척(스킵): {skippedOverlapCount}개 / 누적: {spawnerList.Count}개");
             }
 
-            // 등록 완료 후 즉시 스폰 시도 (게임 씬, 서버 권한일 경우에만)
+            // =========================================================================================
+            // 🚨 [핵심 버그 수정] 즉시 스폰하지 않고 대기열에 담아둡니다! 
+            // 이 청크의 물리 데이터는 등록되었지만 아직 NavMesh가 구워지지 않았을 수 있기 때문입니다.
+            // =========================================================================================
             if (IsServer && UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex != 0)
+            {
+                pendingSpawnChunks.Add(chunkPos);
+            }
+        }
+
+        /// <summary>
+        /// CaveManager에서 NavMesh 굽기가 완전히 끝난 직후에 호출되어, 
+        /// 대기 중이던 몬스터들을 일제히 안전한 길 위에 스폰시킵니다.
+        /// </summary>
+        public void ProcessPendingSpawns()
+        {
+            if (pendingSpawnChunks.Count == 0) return;
+
+            foreach (var chunkPos in pendingSpawnChunks)
             {
                 TrySpawnEntitiesInChunk(chunkPos);
             }
+
+            pendingSpawnChunks.Clear();
         }
 
         /// <summary>
@@ -354,8 +379,16 @@ namespace CaveSystem.Multiplayer
                     case 0: // 일반 통로/방 (일반 몹 스폰)
                         if (regularMobPrefabs != null && regularMobPrefabs.Length > 0)
                         {
+                            Vector3 finalSpawnPos = data.position;
+
+                            // [안전망 추가] 스폰 위치가 허공/땅속일 경우 가장 가까운 NavMesh 위로 당겨옵니다.
+                            if (UnityEngine.AI.NavMesh.SamplePosition(finalSpawnPos, out UnityEngine.AI.NavMeshHit navHit, 3.0f, UnityEngine.AI.NavMesh.AllAreas))
+                            {
+                                finalSpawnPos = navHit.position;
+                            }
+
                             GameObject selectedMob = regularMobPrefabs[Random.Range(0, regularMobPrefabs.Length)];
-                            spawnedObj = Instantiate(selectedMob, data.position, Quaternion.identity);
+                            spawnedObj = Instantiate(selectedMob, finalSpawnPos, Quaternion.identity);
 
                             // [수정] 몹 오브젝트에 랜덤 생성된 이름 부여
                             spawnedObj.name = GetRandomMobName();
@@ -374,11 +407,23 @@ namespace CaveSystem.Multiplayer
                             Vector3 mobPos = data.position + Vector3.right * 1.5f;
                             if (HasHeadroom(mobPos))
                             {
+                                // 보스방 곁다리 몹 스폰 시에도 NavMesh 보정 적용
+                                if (UnityEngine.AI.NavMesh.SamplePosition(mobPos, out UnityEngine.AI.NavMeshHit navHit, 3.0f, UnityEngine.AI.NavMesh.AllAreas))
+                                {
+                                    mobPos = navHit.position;
+                                }
+
                                 GameObject selectedMob = regularMobPrefabs[Random.Range(0, regularMobPrefabs.Length)];
                                 GameObject mobObj = Instantiate(selectedMob, mobPos, Quaternion.identity);
 
                                 // [수정] 보스방 곁다리 몹에도 이름 부여
                                 mobObj.name = GetRandomMobName();
+
+                                // 몹이 성공적으로 스폰되었다면 에이전트를 켭니다.
+                                if (mobObj.TryGetComponent<UnityEngine.AI.NavMeshAgent>(out var agent))
+                                {
+                                    agent.enabled = true;
+                                }
 
                                 NetworkObject mobNetObj = mobObj.GetComponent<NetworkObject>();
                                 if (mobNetObj != null && !mobNetObj.IsSpawned) mobNetObj.Spawn();
@@ -404,6 +449,12 @@ namespace CaveSystem.Multiplayer
 
                 if (spawnedObj != null)
                 {
+                    // 🚨 [최종 안전장치] 스폰된 오브젝트가 몬스터라면 이제 안전하게 NavMeshAgent를 켭니다.
+                    if (spawnedObj.TryGetComponent<UnityEngine.AI.NavMeshAgent>(out var spawnedAgent))
+                    {
+                        spawnedAgent.enabled = true;
+                    }
+
                     NetworkObject netObj = spawnedObj.GetComponent<NetworkObject>();
                     if (netObj != null && !netObj.IsSpawned)
                     {

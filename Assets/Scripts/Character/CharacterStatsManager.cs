@@ -16,7 +16,7 @@ namespace TDA.Character
         CharacterManager character;
 
         [Header("Stamina Regeneration")]
-        [SerializeField] private int staminaRegenerationAmount = 2;
+        [SerializeField] public int staminaRegenerationAmount = 2;
         private float staminaRegenerationTimer = 0;
         private float staminaTickTimer = 0;
         [SerializeField] float staminaRegenerationDelay = 2;

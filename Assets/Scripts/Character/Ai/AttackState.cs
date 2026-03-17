@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using TDA.Character; // AttackType을 인식하기 위해 네임스페이스 추가
+using TDA.Character;
 using TDA.Character.AI;
 
 [System.Serializable]
@@ -32,6 +32,22 @@ public class AttackState : AIState
     [Header("Available Attacks")]
     public AIAttackAction[] aiAttacks;
 
+    public float GetMaximumAttackRange()
+    {
+        float maxRange = 0f;
+        if (aiAttacks != null)
+        {
+            foreach (var attack in aiAttacks)
+            {
+                if (attack.maximumDistance > maxRange)
+                {
+                    maxRange = attack.maximumDistance;
+                }
+            }
+        }
+        return maxRange;
+    }
+
     public override AIState Tick(AICharacterManager aiCharacter)
     {
         if (aiCharacter.isPerformingAction)
@@ -50,31 +66,39 @@ public class AttackState : AIState
 
         if (chosenAttack != null)
         {
-            aiCharacter.aiCharacterCombatManager.DebugLog($"⚔️ 공격 실행: {(chosenAttack.actionStateID != 0 ? "ActionID " + chosenAttack.actionStateID : chosenAttack.attackAnimation)}");
-
             aiCharacter.aiCharacterCombatManager.nextAttackTime = Time.time + chosenAttack.attackCooldown;
             if (chosenAttack.isChargeAttack) aiCharacter.characterNetworkManager.isChargingAttack.Value = true;
 
-            // [최신 구조 동기화] ActionState 기반의 Funnel 패턴을 우선 사용하고, 0일 경우 기존 Legacy(문자열 Hash) 패턴을 사용합니다.
+            // =========================================================================================
+            // 🚨 [심층 디버깅] 애니메이터가 명령을 무시하는지 추적합니다.
+            // =========================================================================================
             if (chosenAttack.actionStateID != 0)
             {
-                aiCharacter.characterCombatManager.currentAttackType = chosenAttack.attackType; // 데미지 연산용 타입 명시
+                aiCharacter.characterCombatManager.currentAttackType = chosenAttack.attackType;
+                Debug.Log($"<color=orange>[Attack Trigger]</color> {aiCharacter.gameObject.name} ➔ ActionState 파라미터를 <color=white>{chosenAttack.actionStateID}</color>(으)로 변경하고 onAction 방아쇠를 당깁니다!");
+
                 aiCharacter.characterAnimationManager.PlayTargetActionFunnel(chosenAttack.actionStateID, true, true, false, false);
             }
             else
             {
+                Debug.Log($"<color=orange>[Attack Trigger]</color> {aiCharacter.gameObject.name} ➔ 레거시 모션 <color=white>'{chosenAttack.attackAnimation}'</color> CrossFade 재생을 시도합니다.");
+
                 aiCharacter.characterAnimationManager.PlayTargetAttackActionAnimation(
                     chosenAttack.attackType,
                     Animator.StringToHash(chosenAttack.attackAnimation),
                     true, true, false, false
                 );
             }
+
+            // 방아쇠를 당긴 직후 상태 체크 (여기서 true가 안 나오면 AnimationManager가 고장난 것입니다)
+            Debug.Log($"<color=yellow>[State Check]</color> 방아쇠를 당긴 직후 isPerformingAction 상태: <color=lime>{aiCharacter.isPerformingAction}</color>");
         }
         else
         {
-            aiCharacter.aiCharacterCombatManager.DebugLog("⚠️ 사용 가능한 공격을 찾지 못했습니다.");
+            aiCharacter.aiCharacterCombatManager.DebugLog("⚠️ 사거리 내에 사용 가능한 공격 패턴(AIAttackAction)이 없습니다!");
         }
 
+        // 🚨 이 FSM 설계에서는 Attack State가 1프레임만에 끝나고 CombatStance로 돌아가는 것이 100% '정상'입니다.
         return SwitchState(aiCharacter, combatStanceState);
     }
 

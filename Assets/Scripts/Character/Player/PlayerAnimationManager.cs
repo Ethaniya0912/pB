@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TDA.Character.Player;
 using UnityEngine;
+using TDA.Core.Events; // AnimatorParameterHash 참조
 
 namespace TDA.Character
 {
@@ -112,9 +113,9 @@ namespace TDA.Character
             }
 
             // 3. 파라미터 적용 (dampTime을 통해 애니메이터 내부적으로 부드럽게 보간됨)
-            player.animator.SetFloat("Horizontal", rawHorizontal, locomotionDampTime, Time.deltaTime);
-            player.animator.SetFloat("Vertical", snappedVertical, locomotionDampTime, Time.deltaTime);
-            player.animator.SetFloat("moveAmount", moveAmount, locomotionDampTime, Time.deltaTime);
+            player.animator.SetFloat(AnimatorParameterHash.Horizontal, rawHorizontal, locomotionDampTime, Time.deltaTime);
+            player.animator.SetFloat(AnimatorParameterHash.Vertical, snappedVertical, locomotionDampTime, Time.deltaTime);
+            player.animator.SetFloat(AnimatorParameterHash.moveAmount, moveAmount, locomotionDampTime, Time.deltaTime);
 
             // 🚨 [치명적 버그 수정] 이전에 발생했던 'isMoving' 파라미터 누락 에러의 주범입니다.
             // 유저님 애니메이터에는 isMoving이 없으므로 아래 코드는 주석 처리되어야 합니다!
@@ -136,7 +137,8 @@ namespace TDA.Character
         /// <param name="targetRotation">대상을 완벽히 마주 보는 회전값</param>
         /// <param name="startNormalizedTime">워핑을 허용하기 시작할 애니메이션 시간 (예: 0.1f - 칼을 치켜드는 시점)</param>
         /// <param name="endNormalizedTime">워핑 개입을 멈출 애니메이션 시간 (예: 0.4f - 임팩트가 터지는 시점)</param>
-        public IEnumerator WarpToTargetRoutine(Vector3 targetPosition, Quaternion targetRotation, float startNormalizedTime, float endNormalizedTime)
+        /// <param name="layerIndex">공격 애니메이션이 재생 중인 레이어 인덱스 (기본값 1: Action Override)</param>
+        public IEnumerator WarpToTargetRoutine(Vector3 targetPosition, Quaternion targetRotation, float startNormalizedTime, float endNormalizedTime, int layerIndex = 1)
         {
             // 애니메이터 컴포넌트가 없으면 즉시 코루틴을 종료하여 NullReferenceException을 방지합니다.
             if (player.animator == null) yield break;
@@ -149,15 +151,16 @@ namespace TDA.Character
             // 2. 무한 루프를 돌며 렌더링 프레임 단위로 애니메이션 시간을 감시합니다.
             while (true)
             {
-                // [안전성 보장] 애니메이션 트랜지션(CrossFade) 중이라면 다음 상태(실제 실행될 공격)의 시간을,
-                // 트랜지션이 끝났다면 현재 상태의 시간을 가져와야 타임라인 진행도가 꼬이지 않습니다.
-                AnimatorStateInfo stateInfo = player.animator.IsInTransition(0)
-                    ? player.animator.GetNextAnimatorStateInfo(0)
-                    : player.animator.GetCurrentAnimatorStateInfo(0);
+                // 🚨 [치명적 버그 수정 1] 하드코딩된 '0'번(Base Layer) 레이어가 아닌, 
+                // 실제로 공격이 재생되고 있는 '1'번(Action Override) 레이어의 시간을 읽어오도록 수정했습니다!
+                AnimatorStateInfo stateInfo = player.animator.IsInTransition(layerIndex)
+                    ? player.animator.GetNextAnimatorStateInfo(layerIndex)
+                    : player.animator.GetCurrentAnimatorStateInfo(layerIndex);
 
-                // 루프(반복) 애니메이션을 대비한 모듈러 정규화 연산
-                // normalizedTime은 1.0이 넘어가면 2회차 재생을 의미하므로, 소수점 이하(0.0 ~ 0.99)만 추출하여 1주기 내의 진행도를 구합니다.
-                float currentNormalizedTime = stateInfo.normalizedTime % 1f;
+                // 🚨 [치명적 버그 수정 2] % 1f (모듈러 연산) 강제 삭제!
+                // 공격 애니메이션은 반복(Loop)되지 않는 단발성 모션입니다. % 1f를 쓰면 시간이 1.0을 초과했을 때 
+                // 다시 0.01로 변해버려 영원히 루프를 탈출하지 못하는 '스케이팅 버그'가 발생합니다.
+                float currentNormalizedTime = stateInfo.normalizedTime;
 
                 // [가장 중요한 타임라인 필터링 방어 로직]
 

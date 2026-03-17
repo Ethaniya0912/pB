@@ -74,12 +74,6 @@ namespace TDA.Character
         // =========================================================================================
         // [핵심 추가] Funnel & Root Motion 통합 라우터 (Data-Driven Architecture 적용)
         // =========================================================================================
-        /// <summary>
-        /// 하드코딩된 파라미터 전달을 완전히 폐기하고, SO 데이터를 읽어 모든 플래그를 자동으로 셋팅하는 단일 깔때기(Funnel)입니다.
-        /// 이 메서드는 "단일 진실 공급원(Single Source of Truth)" 철학에 따라 오직 SO 데이터에만 의존합니다.
-        /// </summary>
-        /// <param name="logicalStateName">애니메이터의 상태 이름 (SO와 매핑됨)</param>
-        /// <param name="customAnimSet">특정 무기 등 커스텀 SO 세트 (Null일 경우 Base 세트 사용)</param>
         public virtual void PlayTargetAction(string logicalStateName, Animation.CharacterAnimationSetSO customAnimSet = null)
         {
             Animation.CharacterAnimationSetSO targetSet = customAnimSet != null ? customAnimSet : baseAnimationSet;
@@ -120,7 +114,6 @@ namespace TDA.Character
                     actionParams.applyRootMotion);
             }
         }
-        // =========================================================================================
 
         public int GetRandomAnimationFromList(List<int> animationHashList)
         {
@@ -152,7 +145,6 @@ namespace TDA.Character
             float snappedHorizontal = 0f;
             float snappedVertical = 0f;
 
-            // [안전성 강화] 부등호 범위를 단순화하여 조이스틱/키보드의 소수점 오차(-1.0001f 등)를 완벽히 캡처합니다.
             if (horizontalValue > 0 && horizontalValue <= 0.5f) { snappedHorizontal = 0.5f; }
             else if (horizontalValue > 0.5f) { snappedHorizontal = 1f; }
             else if (horizontalValue < 0 && horizontalValue >= -0.5f) { snappedHorizontal = -0.5f; }
@@ -163,7 +155,6 @@ namespace TDA.Character
             else if (verticalValue < 0 && verticalValue >= -0.5f) { snappedVertical = -0.5f; }
             else if (verticalValue < -0.5f) { snappedVertical = -1f; }
 
-            // moveAmount 계산: 입력의 절대값을 합쳐 0~1 사이로 정규화합니다.
             float moveAmount = Mathf.Clamp01(Mathf.Abs(horizontalValue) + Mathf.Abs(verticalValue));
 
             if (isSprinting)
@@ -172,29 +163,18 @@ namespace TDA.Character
                 moveAmount = 2f;
             }
 
-            // 디버깅을 위해 인스펙터 노출용 변수에 현재 값 캐싱
             debugHorizontalValue = snappedHorizontal;
             debugVerticalValue = snappedVertical;
             debugMoveAmountValue = moveAmount;
 
-            // Hash를 사용하여 애니메이터 파라미터 갱신 (GC 제로)
+            // 🚨 [구조 완벽화] 해시(Hash) 변수를 사용하여 파라미터 업데이트 (가비지 컬렉션 및 오타 원천 차단)
             character.animator.SetFloat(AnimatorParameterHash.Horizontal, snappedHorizontal, locomotionDampTime, Time.deltaTime);
             character.animator.SetFloat(AnimatorParameterHash.Vertical, snappedVertical, locomotionDampTime, Time.deltaTime);
-
-            // 기획된 애니메이터 파라미터인 moveAmount를 정확히 송출합니다.
             character.animator.SetFloat(AnimatorParameterHash.moveAmount, moveAmount, locomotionDampTime, Time.deltaTime);
-
-            // 🚨 [버그 수정] AI(몬스터) 애니메이터에는 isMoving 파라미터가 없어서 해시 에러가 발생합니다.
-            // 따라서 플레이어(PlayerManager)일 때만 해당 파라미터를 세팅하도록 방어막을 칩니다.
-            if (character is Player.PlayerManager)
-            {
-                character.animator.SetBool(AnimatorParameterHash.isMoving, moveAmount > 0);
-            }
         }
 
         // =========================================================================================
         // [신규 아키텍처: Funnel 패턴] 트리거(Trigger) 기반 상태 전이용
-        // 향후 PlayTargetAction(SO) 구조로 100% 통합 시 제거될 수 있습니다.
         // =========================================================================================
         public virtual void PlayTargetActionFunnel(
             int targetActionIndex,
@@ -210,7 +190,10 @@ namespace TDA.Character
 
             Debug.Log($"<color=cyan>[Action Funnel]</color> Executing Action State: {targetActionIndex}");
 
+            // 🚨 [누락 복구 & 해시 적용] 이전에 씹힌 트리거 찌꺼기(Pending Trigger)를 청소하는 
+            // ResetTrigger와 SetTrigger에 모두 안전한 정적(Static) 해시값을 주입합니다!
             character.animator.SetInteger(AnimatorParameterHash.ActionState, targetActionIndex);
+            character.animator.ResetTrigger(AnimatorParameterHash.onAction);
             character.animator.SetTrigger(AnimatorParameterHash.onAction);
         }
 
@@ -223,13 +206,14 @@ namespace TDA.Character
 
             Debug.Log($"<color=red>[Hit Funnel]</color> Executing Hit Reaction: {targetHitIndex}");
 
+            // 🚨 [누락 복구 & 해시 적용] 피격 시에도 트리거 청소(ResetTrigger) 추가 및 해시 구조화 완비!
             character.animator.SetInteger(AnimatorParameterHash.ActionState, targetHitIndex);
+            character.animator.ResetTrigger(AnimatorParameterHash.onHit);
             character.animator.SetTrigger(AnimatorParameterHash.onHit);
         }
 
         // =========================================================================================
         // [레거시 호환용] 기존 스크립트(IK, Locomotion 등)에서 쓰던 하드코딩 CrossFade 방식
-        // (주의: 점진적으로 SO 기반의 PlayTargetAction() 으로 전환해야 합니다.)
         // =========================================================================================
         public virtual void PlayTargetAnimation(
             int targetAnimHash,

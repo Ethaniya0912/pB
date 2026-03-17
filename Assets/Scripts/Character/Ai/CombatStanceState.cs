@@ -12,6 +12,7 @@ public class CombatStanceState : AIState
     public RetreatState retreatState;
 
     [Header("Combat Settings")]
+    [Tooltip("기본 공격 사거리. (연결된 Attack State 내부에 공격 패턴이 있다면 그 패턴들의 최대 사거리로 자동 덮어씌워집니다.)")]
     public float attackRange = 2.5f;
     public int fleeHealthThreshold = 20;
     public float retreatStaminaThreshold = 10f;
@@ -60,9 +61,24 @@ public class CombatStanceState : AIState
             return SwitchState(aiCharacter, retreatState);
         }
 
+        // =========================================================================================
+        // 🚨 [핵심 버그 수정: 사거리 자동 동기화]
+        // 인스펙터의 attackRange와 실제 공격 패턴의 maximumDistance가 어긋나서 무한 루프가 도는 것을 방지합니다!
+        // =========================================================================================
+        float currentAttackRange = attackRange;
+        if (attackState != null)
+        {
+            float maxRange = attackState.GetMaximumAttackRange();
+            if (maxRange > 0f)
+            {
+                currentAttackRange = maxRange; // 실제 가지고 있는 공격 중 가장 긴 사거리로 자동 보정!
+            }
+        }
+
         float distanceFromTarget = Vector3.Distance(aiCharacter.transform.position, aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
 
-        if (distanceFromTarget > attackRange)
+        // 덮어씌워진 정확한 사거리(currentAttackRange)로 비교합니다.
+        if (distanceFromTarget > currentAttackRange)
         {
             aiCharacter.aiCharacterCombatManager.DebugLog($"타겟이 공격 범위를 벗어남 (거리: {distanceFromTarget:F1}) -> Pursue 상태로 전환");
             return SwitchState(aiCharacter, pursueTargetState);
@@ -94,8 +110,8 @@ public class CombatStanceState : AIState
             {
                 if (aiCharacter.characterDefenseManager.isDefending)
                 {
-                    // 공격 쿨타임이 거의 다 찼거나(0.5초 전), 적과 거리가 멀어지면 방패를 내림
-                    if (Time.time >= aiCharacter.aiCharacterCombatManager.nextAttackTime - 0.5f || distanceFromTarget > attackRange)
+                    // 방패를 내리는 로직도 수정된 currentAttackRange를 기반으로 완벽하게 연동됩니다.
+                    if (Time.time >= aiCharacter.aiCharacterCombatManager.nextAttackTime - 0.5f || distanceFromTarget > currentAttackRange)
                     {
                         aiCharacter.characterDefenseManager.StopDefense();
                         aiCharacter.aiCharacterCombatManager.DebugLog("공격 준비 완료 또는 거리 벌어짐 -> 가드 내림");
