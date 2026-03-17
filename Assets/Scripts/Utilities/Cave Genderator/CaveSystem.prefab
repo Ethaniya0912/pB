@@ -11,12 +11,12 @@ GameObject:
   - component: {fileID: 610720801656390734}
   - component: {fileID: 5663994727461010306}
   - component: {fileID: 5654663744512938626}
-  - component: {fileID: 6742086907179902921}
   - component: {fileID: 3354250196118440665}
+  - component: {fileID: 9142723733302644776}
+  - component: {fileID: 6742086907179902921}
   - component: {fileID: 8864940877554877188}
   - component: {fileID: 3656489775571081439}
   - component: {fileID: 4200818508678733251}
-  - component: {fileID: 9142723733302644776}
   - component: {fileID: 5470916156110361977}
   m_Layer: 0
   m_Name: CaveSystem
@@ -54,14 +54,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveManager
   currentState: 0
   isHeadlessPregenMode: 1
-  caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
+  requestNavMeshUpdate: 0
   biomeSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
+  playerPrefab: {fileID: 0}
   playerTransform: {fileID: 0}
   saveLoadSystem: {fileID: 8864940877554877188}
   chunkManager: {fileID: 5654663744512938626}
   computeDispatcher: {fileID: 6742086907179902921}
   graphBuilder: {fileID: 5470916156110361977}
   meshJobManager: {fileID: 3354250196118440665}
+  navMeshSurface: {fileID: 0}
 --- !u!114 &5654663744512938626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -74,32 +76,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39c83a7d1a298db4ba4e95f97e978b31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveChunkManager
-  enableOcclusionCulling: 1
   ChunkSize: 64
-  VoxelSize: 0.5
+  VoxelSize: 3
   ViewDistance: 4
   PhysicsDistance: 4
-  MaxPoolSize: 500
-  ChunkPrefab: {fileID: 9027138362142067134, guid: f57f2bdd811060a43849a95f3ed6cd44,
-    type: 3}
+  EnableOcclusionCulling: 1
+  ChunkLayerMask:
+    serializedVersion: 2
+    m_Bits: 0
   fallVelocityThreshold: -5
   preLoadBaseDepth: 2
   transitionMargin: 10
---- !u!114 &6742086907179902921
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2519618729728016252}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2e85c3502a124ff4bae7beb9a4670494, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveComputeDispatcher
-  densityShader: {fileID: 7200000, guid: 109b418452deb21488a3bde6a416c600, type: 3}
-  marchingCubesShader: {fileID: 7200000, guid: 50a3c771e823573458e84e488530c10e, type: 3}
-  caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
+  MaxPoolSize: 500
+  ChunkPrefab: {fileID: 9027138362142067134, guid: f57f2bdd811060a43849a95f3ed6cd44,
+    type: 3}
 --- !u!114 &3354250196118440665
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -116,7 +106,37 @@ MonoBehaviour:
   waterMaterial: {fileID: 2100000, guid: 4f40f7821ba5f1c46afc4f41450591f6, type: 2}
   caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
   chunkSize: 64
-  voxelSize: 0.5
+  voxelSize: 3
+--- !u!114 &9142723733302644776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2519618729728016252}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86ed2220e1073e7468af0ccf9b98916c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.TerrainCacheManager
+  cachedChunkCount: 0
+  chunkSize: 64
+  voxelSize: 3
+--- !u!114 &6742086907179902921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2519618729728016252}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e85c3502a124ff4bae7beb9a4670494, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveComputeDispatcher
+  densityShader: {fileID: 7200000, guid: 109b418452deb21488a3bde6a416c600, type: 3}
+  marchingCubesShader: {fileID: 7200000, guid: 50a3c771e823573458e84e488530c10e, type: 3}
+  caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
 --- !u!114 &8864940877554877188
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -172,21 +192,6 @@ MonoBehaviour:
   lightIntensity: 5000
   caveFogColor: {r: 0.01, g: 0.02, b: 0.03, a: 1}
   caveFogDensity: 1
---- !u!114 &9142723733302644776
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2519618729728016252}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 86ed2220e1073e7468af0ccf9b98916c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.TerrainCacheManager
-  cachedChunkCount: 0
-  chunkSize: 64
-  voxelSize: 0.5
 --- !u!114 &5470916156110361977
 MonoBehaviour:
   m_ObjectHideFlags: 0

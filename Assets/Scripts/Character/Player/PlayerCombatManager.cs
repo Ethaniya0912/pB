@@ -18,6 +18,7 @@ namespace TDA.Character
     ///    2차 이벤트를 발송하여 실행 순서의 무결성을 보장합니다.
     /// 2. 다중 상속 회피: NetworkBehaviour 상속을 유지하기 위해 IAnimationEventListener 인터페이스를 구현합니다.
     /// 3. 클리핑 방지 (P3): 에임 어시스트를 통해 적의 급소를 찾고, 무기 사거리를 고려한 완벽한 안전 좌표를 도출합니다.
+    /// 4. 제스처 궤적 연동 (P0-03): 마우스 드래그 궤적에 따른 방향성 공격과 콜라이더 정밀 제어를 수행합니다.
     /// </summary>
     public class PlayerCombatManager : CharacterCombatManager
     {
@@ -46,7 +47,7 @@ namespace TDA.Character
         }
 
         // =========================================================================================
-        // [P1] 이벤트 생명주기 관리 및 수신부
+        // [P1 & P0-03] 이벤트 생명주기 관리 및 수신부 (Type-Safe Enum 기반 콜라이더 제어)
         // =========================================================================================
 
         protected override void OnEnable()
@@ -62,23 +63,52 @@ namespace TDA.Character
         }
 
         /// <summary>
-        /// [P4] IAnimationEventListener 인터페이스 구현부.
-        /// 방송국에서 송출된 이벤트 Enum(타입 안정성)을 받아 능동적으로 전투 플래그를 제어합니다.
+        /// [P4 & P0-03] IAnimationEventListener 인터페이스 구현부.
+        /// 방송국에서 송출된 이벤트 Enum(타입 안정성)을 받아 능동적으로 전투 플래그 및 콜라이더를 제어합니다.
         /// </summary>
         public override void OnAnimationEventReceived(global::AnimationEventType eventType)
         {
-            // [방어 로직] HitBoxEnable, HitBoxDisable 등 전투 판정 콜라이더 개폐는 
-            // 전부 부모 클래스(CharacterCombatManager)에서 완벽히 처리하므로 base를 호출해 줍니다.
             base.OnAnimationEventReceived(eventType);
 
-            // 자식 클래스인 여기서는 '플레이어 조작에만 관련된' 콤보 플래그만 통제합니다.
-            if (eventType == global::AnimationEventType.ComboEnable)
+            // [P0-03] Switch-Case 기반의 명확하고 확장성 높은 이벤트 처리
+            switch (eventType)
             {
-                EnableCombo();
-            }
-            else if (eventType == global::AnimationEventType.ComboDisable || eventType == global::AnimationEventType.Action_Ended)
-            {
-                DisableCombo();
+                // --- 콤보 제어 ---
+                case global::AnimationEventType.ComboEnable:
+                    EnableCombo();
+                    break;
+
+                case global::AnimationEventType.ComboDisable:
+                case global::AnimationEventType.Action_Ended:
+                    DisableCombo();
+                    break;
+
+                // --- 물리 판정 및 시각 효과(검기) 동기화 ---
+                case global::AnimationEventType.HitBoxEnable:
+                    if (player.playerEquipmentManager != null)
+                    {
+                        // 1프레임의 오차 없이 타격 판정 활성화
+                        player.playerEquipmentManager.OpenDamageCollider();
+                    }
+                    if (player.characterEventManager != null)
+                    {
+                        // 판정이 열리는 동시에 시각적인 검기 이펙트(Trail) 출력
+                        player.characterEventManager.NotifyAnimationEvent(global::AnimationEventType.Trail_Enable_Smooth);
+                    }
+                    break;
+
+                case global::AnimationEventType.HitBoxDisable:
+                    if (player.playerEquipmentManager != null)
+                    {
+                        // 타격 프레임이 지나면 즉시 콜라이더 닫기
+                        player.playerEquipmentManager.CloseDamageCollider();
+                    }
+                    if (player.characterEventManager != null)
+                    {
+                        // 검기 이펙트 끄기
+                        player.characterEventManager.NotifyAnimationEvent(global::AnimationEventType.Trail_Disable_Smooth);
+                    }
+                    break;
             }
         }
 
@@ -99,6 +129,76 @@ namespace TDA.Character
         {
             canComboWithMainHandWeapon = false;
             canComboWithOffHandWeapon = false;
+        }
+
+        // =========================================================================================
+        // [P0-03 신규] 체술 기반 제스처 공격 라우터
+        // =========================================================================================
+
+        /// <summary>
+        /// PlayerGestureManager에서 분석한 마우스 궤적(방향)에 따라 맞춤형 애니메이션을 실행합니다.
+        /// </summary>
+        /// <param name="actionID">1 = 우->좌 베기, 2 = 좌->우 베기 등 애니메이터로 넘길 Action State ID</param>
+        public void PerformDirectionalAttack(int actionID)
+        {
+            // 1. 자원 및 상태 검문
+            if (player.playerNetworkManager.isDead.Value) return;
+            if (player.playerNetworkManager.currentStamina.Value <= 0) return;
+
+            // [버그 픽스] 제자리 턴(Turn) 중일 때는 답답함 없이 공격으로 즉시 캔슬할 수 있도록 예외(isTurning)를 둡니다.
+            bool isTurning = false;
+            if (player.animator != null)
+            {
+                AnimatorStateInfo baseState = player.animator.GetCurrentAnimatorStateInfo(0);
+                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0); // [추가] 트랜지션 전환 중인 찰나의 상태도 감지
+
+                if (baseState.IsName("Turn_Left_90") || baseState.IsName("Turn_Right_90") ||
+                    baseState.IsName("Turn_Left_180") || baseState.IsName("Turn_Right_180") ||
+                    nextState.IsName("Turn_Left_90") || nextState.IsName("Turn_Right_90") ||
+                    nextState.IsName("Turn_Left_180") || nextState.IsName("Turn_Right_180"))
+                {
+                    isTurning = true;
+                }
+            }
+
+            // [추가된 로직] 강공격 해방(ActionID 11, 12)은 콤보나 다른 액션 제한을 무시하고 무조건 즉시 발동되도록 예외 처리합니다.
+            bool isChargeRelease = (actionID == 11 || actionID == 12);
+
+            // 콤보 창이 열려있지 않은데 이미 다른 액션 중(턴 제외, 강공격 해방 제외)이라면 궤적 입력을 무시/큐잉합니다. (광클 캔슬 방지)
+            if (player.isPerformingAction && !canComboWithMainHandWeapon && !isTurning && !isChargeRelease) return;
+
+            // 2. 공격 실행
+            if (WorldGameStateManager.Instance.IsCombatAllowed())
+            {
+                // [신규] 차징 해방(강공격) 시점에 차징 종료 이벤트를 쏴서 사운드 페이드 아웃을 유도합니다.
+                if (isChargeRelease && player.characterEventManager != null)
+                {
+                    player.characterEventManager.NotifyAnimationEvent(global::AnimationEventType.Charge_Ended);
+                }
+
+                // 무기 동기화
+                if (player.playerInventoryManager.currentRightHandWeapon != null)
+                {
+                    player.playerNetworkManager.currentWeaponBeingUsed.Value = player.playerInventoryManager.currentRightHandWeapon.itemID;
+                }
+
+                player.playerNetworkManager.SetCharacterActionHand(true);
+
+                // [임시 처리] 기존 스태미나 차감 시스템과의 호환성을 위해 AttackType을 강제 지정합니다.
+                // 향후 SO 데이터 중심 구조가 완전히 정착되면 이 부분은 SO 내부 변수로 대체될 수 있습니다.
+                currentAttackType = global::AttackType.HeavyAttack01;
+
+                // [핵심] Funnel을 통해 해당 방향의 ActionID를 애니메이터 파라미터에 꽂아 넣습니다.
+                player.playerAnimationManager.PlayTargetActionFunnel(actionID, true, true, false, false);
+
+                // 궤적 공격에 따른 스태미나 즉시 차감
+                DrainStaminaBasedOnAttack();
+
+                // 다음 애니메이션 프레임(ComboEnable 이벤트)이 오기 전까지 콤보 창을 굳게 닫아둡니다.
+                DisableCombo();
+
+                Debug.Log($"<color=yellow>[CombatManager]</color> 궤적 기반 공격 실행 완료! (ActionID: {actionID})");
+            }
         }
 
         // =========================================================================================
@@ -359,7 +459,7 @@ namespace TDA.Character
                     Debug.Log("[PlayerCombatManager] Light Attack 02 실행, 스태미나 차감");
                     break;
 
-                /*case global::AttackType.HeavyAttack01:
+                case global::AttackType.HeavyAttack01:
                     staminaDeducted = weaponToUse.baseStaminaCost * weaponToUse.heavyAttackStaminaCostMultiplier;
                     Debug.Log("[PlayerCombatManager] Heavy Attack 01 실행, 스태미나 차감");
                     break;
@@ -377,7 +477,7 @@ namespace TDA.Character
                 case global::AttackType.ChargeAttack02:
                     staminaDeducted = weaponToUse.baseStaminaCost * weaponToUse.heavyAttackStaminaCostMultiplier * 1.5f;
                     Debug.Log("[PlayerCombatManager] Charge Attack 02 실행, 스태미나 대폭 차감");
-                    break;*/
+                    break;
 
                 default:
                     Debug.LogWarning("[PlayerCombatManager] 스태미나 차감 실패: 정의되지 않은 공격 타입입니다.");

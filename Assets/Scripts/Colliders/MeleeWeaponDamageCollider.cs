@@ -15,6 +15,12 @@ public class MeleeWeaponDamageCollider : DamageCollider
     public float charge_Attack_01_Modifier;
     public float charge_Attack_02_Modifier;
 
+    // =========================================================================================
+    // [P0-03 신규] 중복 타격 방지 리스트
+    // 한 번의 무기 궤적(스윙) 동안 이미 데미지를 입힌 대상을 기억하여 다단 히트를 원천 차단합니다.
+    // =========================================================================================
+    protected List<CharacterManager> charactersDamagedThisSwing = new List<CharacterManager>();
+
     protected override void Awake()
     {
         base.Awake();
@@ -28,6 +34,31 @@ public class MeleeWeaponDamageCollider : DamageCollider
                                         // 애니메이션 작동시에만 처맞음. 아니면 계속맞음.
     }
 
+    // =========================================================================================
+    // [P0-03] Type-Safe Enum 이벤트에 의해 호출되는 콜라이더 개폐 및 리셋 로직
+    // =========================================================================================
+
+    public void EnableDamageCollider()
+    {
+        damageCollider.enabled = true;
+        // 새로운 스윙 궤적이 시작될 때마다 기억 리셋 (중복 타격 방지 초기화)
+        charactersDamagedThisSwing.Clear();
+
+        // 부모(DamageCollider) 클래스의 기존 리스트도 안전을 위해 함께 초기화합니다.
+        if (characterDamaged != null)
+        {
+            characterDamaged.Clear();
+        }
+    }
+
+    public void DisableDamageCollider()
+    {
+        damageCollider.enabled = false;
+        charactersDamagedThisSwing.Clear();
+    }
+
+    // =========================================================================================
+
     protected override void OnTriggerEnter(Collider other)
     {
         // 콜라이더에 접촉된 other의 캐릭터 컴포넌트를 가져온후 damageTarget 에 복사.
@@ -38,6 +69,13 @@ public class MeleeWeaponDamageCollider : DamageCollider
             // 스스로 공격 안되게 방지.
             if (damageTarget == characterCausingDamage)
                 return;
+
+            // [P0-03] 이번 궤적(Swing)에서 이미 때린 대상이라면 무시! (팔, 다리 동시 충돌 다단 히트 방지)
+            if (charactersDamagedThisSwing.Contains(damageTarget))
+                return;
+
+            // 검문을 통과했다면 때린 놈 리스트에 등록
+            charactersDamagedThisSwing.Add(damageTarget);
 
             contactPoint = other.gameObject.GetComponent<Collider>().ClosestPointOnBounds(transform.position);
             Debug.Log(other.gameObject);

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6e872d2726a83c148b00341ee9d72924, type: 3}
-  m_Name: Slash_Attack_01
+  m_Name: Fumble_Stagger
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Animation.AnimationEventParamsSO
   targetClip: {fileID: 0}
   applyRootMotion: 1
@@ -18,13 +18,9 @@ MonoBehaviour:
   canRotate: 0
   canMove: 0
   eventPoints:
+  - triggerTime: 0.05
+    eventType: 354
   - triggerTime: 0.1
-    eventType: 311
-  - triggerTime: 0.35
-    eventType: 0
-  - triggerTime: 0.4
-    eventType: 2
-  - triggerTime: 0.65
-    eventType: 3
-  warpStartTime: 0.1
-  warpEndTime: 0.4
+    eventType: 605
+  warpStartTime: 0
+  warpEndTime: 0

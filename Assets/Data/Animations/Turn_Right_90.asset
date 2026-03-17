@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e872d2726a83c148b00341ee9d72924, type: 3}
   m_Name: Turn_Right_90
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Animation.AnimationEventParamsSO
-  targetClip: {fileID: 0}
+  targetClip: {fileID: -203655887218126122, guid: 553b12b284b6add44aedd6c829581da2,
+    type: 3}
   applyRootMotion: 1
   isPerformingAction: 1
   canRotate: 0
@@ -20,5 +21,5 @@ MonoBehaviour:
   eventPoints:
   - triggerTime: 0.4
     eventType: 304
-  warpStartTime: 0.1
-  warpEndTime: 0.4
+  warpStartTime: 0
+  warpEndTime: 0

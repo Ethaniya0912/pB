@@ -26,6 +26,7 @@ namespace CaveSystem
         [SerializeField] private int cachedChunkCount = 0;
 
         [Header("Gizmos Settings")]
+        public bool showGizmos = true; // [🔥 추가] 기즈모를 끄고 켤 수 있는 토글 스위치
         public float chunkSize = 16f; // Gizmo 시각화를 위한 청크 물리 크기
         public float voxelSize = 1.0f;
 
@@ -117,7 +118,8 @@ namespace CaveSystem
         /// </summary>
         private void OnDrawGizmos()
         {
-            if (cachedChunks == null || cachedChunks.Count == 0) return;
+            // [🔥 추가] 기즈모 끄기 토글이 체크 해제되어 있거나 캐시가 없으면 즉시 종료
+            if (!showGizmos || cachedChunks == null || cachedChunks.Count == 0) return;
 
             // 이미 구워져서 캐시에 적재된 청크는 파란색 반투명 큐브로 표시
             Gizmos.color = new Color(0.0f, 1.0f, 1.0f, 0.3f);

@@ -20,5 +20,5 @@ MonoBehaviour:
   eventPoints:
   - triggerTime: 0.4
     eventType: 304
-  warpStartTime: 0.1
-  warpEndTime: 0.4
+  warpStartTime: 0
+  warpEndTime: 0

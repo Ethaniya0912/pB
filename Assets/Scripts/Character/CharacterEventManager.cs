@@ -52,14 +52,15 @@ namespace TDA.Character
         /// <summary>
         /// 감시자(BaseActionBehaviour)가 델타 타임 트래킹 중 특정 프레임을 통과했을 때 호출합니다.
         /// </summary>
-        public void NotifyAnimationEvent(global::AnimationEventType eventType)
+        // [신규] 디버깅을 위해 어디서 호출했는지 출처(sourceInfo)를 선택적으로 받을 수 있게 확장했습니다.
+        public void NotifyAnimationEvent(global::AnimationEventType eventType, string sourceInfo = "")
         {
             // 1. 구독 중인 모든 리스너에게 이벤트 브로드캐스팅
             OnAnimationEventTriggered?.Invoke(eventType);
 
 #if UNITY_EDITOR
             // 2. 에디터 환경 전용 디버그 로거 및 기즈모 추가 (블랙박스 방지)
-            LogEventDispatch(eventType);
+            LogEventDispatch(eventType, sourceInfo);
 
             if (showEventGizmo)
             {
@@ -97,19 +98,22 @@ namespace TDA.Character
 
 #if UNITY_EDITOR
         #region [Debug] 디버깅 툴
-        private void LogEventDispatch(global::AnimationEventType eventType)
+        // [신규] sourceInfo 매개변수를 추가하여 로그에 함께 출력합니다.
+        private void LogEventDispatch(global::AnimationEventType eventType, string sourceInfo)
         {
             if (OnAnimationEventTriggered == null)
             {
                 // 수신자가 한 명도 없으면 체크박스 여부와 상관없이 경고를 띄웁니다! (매우 중요한 디버깅 기능)
-                Debug.LogWarning($"[CharacterEventManager: {gameObject.name}] <color=red>이벤트({eventType})가 송출되었으나 수신 대기 중인 리스너가 0명입니다! 매니저들이 구독을 잊었는지 확인하세요.</color>");
+                string sourceText = string.IsNullOrEmpty(sourceInfo) ? "Manual/Code" : sourceInfo;
+                Debug.LogWarning($"[CharacterEventManager: {gameObject.name}] <color=red>이벤트({eventType})가 송출되었으나 수신 대기 중인 리스너가 0명입니다! 매니저들이 구독을 잊었는지 확인하세요.</color> 출처: {sourceText}");
                 return;
             }
 
             if (showConsoleLogs)
             {
                 int count = OnAnimationEventTriggered.GetInvocationList().Length;
-                Debug.Log($"[Event] <color=cyan>{gameObject.name}</color> -> 송출: <color=yellow>{eventType}</color> (현재 수신 대기 중인 매니저: {count}명)");
+                string sourceText = string.IsNullOrEmpty(sourceInfo) ? "Manual/Code" : sourceInfo;
+                Debug.Log($"[Event] <color=cyan>{gameObject.name}</color> -> 송출: <color=yellow>{eventType}</color> | 출처: <color=white>{sourceText}</color> (현재 수신 대기 중인 매니저: {count}명)");
             }
         }
 

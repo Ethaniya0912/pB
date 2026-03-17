@@ -1,13 +1,20 @@
 using System.Collections.Generic;
 using UnityEngine;
-using TDA.Character; // [에러 수정] AttackType을 인식하기 위해 네임스페이스 추가
+using TDA.Character; // AttackType을 인식하기 위해 네임스페이스 추가
 using TDA.Character.AI;
 
 [System.Serializable]
 public class AIAttackAction
 {
+    [Header("New Architecture (P0-03)")]
+    [Tooltip("최신 Funnel 패턴용 ActionState ID입니다. 0이 아니면 이 값을 최우선으로 사용하여 애니메이션을 재생합니다.")]
+    public int actionStateID = 0;
+
+    [Header("Legacy Architecture")]
     public string attackAnimation;
-    public AttackType attackType; // TDA.Character.AttackType 으로 정상 인식됨
+    public AttackType attackType;
+
+    [Header("Attack Settings")]
     public float minimumDistance = 0f;
     public float maximumDistance = 2.5f;
     public float weight = 10f;
@@ -43,17 +50,25 @@ public class AttackState : AIState
 
         if (chosenAttack != null)
         {
-            aiCharacter.aiCharacterCombatManager.DebugLog($"⚔️ 공격 실행: {chosenAttack.attackAnimation}");
+            aiCharacter.aiCharacterCombatManager.DebugLog($"⚔️ 공격 실행: {(chosenAttack.actionStateID != 0 ? "ActionID " + chosenAttack.actionStateID : chosenAttack.attackAnimation)}");
 
             aiCharacter.aiCharacterCombatManager.nextAttackTime = Time.time + chosenAttack.attackCooldown;
             if (chosenAttack.isChargeAttack) aiCharacter.characterNetworkManager.isChargingAttack.Value = true;
 
-            // [에러 수정] PlayTargetAttackActionAnimation이 이제 문자열(string) 대신 해시(int)를 받으므로 변환 적용
-            aiCharacter.characterAnimationManager.PlayTargetAttackActionAnimation(
-                chosenAttack.attackType,
-                Animator.StringToHash(chosenAttack.attackAnimation),
-                true, true, false, false
-            );
+            // [최신 구조 동기화] ActionState 기반의 Funnel 패턴을 우선 사용하고, 0일 경우 기존 Legacy(문자열 Hash) 패턴을 사용합니다.
+            if (chosenAttack.actionStateID != 0)
+            {
+                aiCharacter.characterCombatManager.currentAttackType = chosenAttack.attackType; // 데미지 연산용 타입 명시
+                aiCharacter.characterAnimationManager.PlayTargetActionFunnel(chosenAttack.actionStateID, true, true, false, false);
+            }
+            else
+            {
+                aiCharacter.characterAnimationManager.PlayTargetAttackActionAnimation(
+                    chosenAttack.attackType,
+                    Animator.StringToHash(chosenAttack.attackAnimation),
+                    true, true, false, false
+                );
+            }
         }
         else
         {

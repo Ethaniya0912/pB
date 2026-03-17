@@ -41,7 +41,6 @@ namespace TDA.Character.Player
         [Tooltip("현재 IK 컨트롤러가 턴 애니메이션을 관장하고 있는지 여부를 나타냅니다.")]
         [SerializeField] private bool isTurningDebug = false;
 
-        // [신규] 현재 회전 방향을 기억하여 역방향 조작 시 캔슬하기 위한 변수 (1 = 우회전, -1 = 좌회전)
         private float currentTurnDirection = 0f;
 
         [Tooltip("현재 애니메이터로 전송 중인 최종 턴 각도입니다.")]
@@ -50,7 +49,6 @@ namespace TDA.Character.Player
         [Tooltip("물리적으로 계산된 순수 시선 각도 차이 (몸통 기준)")]
         [SerializeField] private float rawAngleDifference;
 
-        // [버그 픽스] 스폰 직후 카메라 불안정으로 인한 유령 턴(Phantom Turn) 방지용 타이머
         private float spawnStabilizeTimer = 0.5f;
 
         protected override void Awake()
@@ -68,7 +66,6 @@ namespace TDA.Character.Player
 
             if (Application.isPlaying && player != null && player.IsOwner)
             {
-                // 스폰 직후 0.5초 동안 안정화 타이머를 차감합니다.
                 if (spawnStabilizeTimer > 0f)
                 {
                     spawnStabilizeTimer -= Time.deltaTime;
@@ -111,7 +108,7 @@ namespace TDA.Character.Player
 
         private void HandleHybridRotationLogic()
         {
-            // 1. 무조건 실제 각도부터 먼저 계산합니다. (파라미터 업데이트를 위해)
+            // 1. 무조건 실제 각도부터 먼저 계산합니다.
             Vector3 directionToTarget = currentLookAtPosition - transform.position;
             directionToTarget.y = 0f;
 
@@ -123,8 +120,66 @@ namespace TDA.Character.Player
 
             rawAngleDifference = signedAngle;
 
+            // 애니메이터 진짜 상태 읽기
+            bool isPlayingTurnAnim = false;
+            bool isTransitioningToTurn = false;
+
+            if (player.animator != null)
+            {
+                AnimatorStateInfo state = player.animator.GetCurrentAnimatorStateInfo(0);
+                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0);
+
+                if (state.IsName(turnLeft90StateName) || state.IsName(turnRight90StateName) ||
+                    state.IsName(turnLeft180StateName) || state.IsName(turnRight180StateName))
+                {
+                    isPlayingTurnAnim = true;
+                }
+
+                if (nextState.IsName(turnLeft90StateName) || nextState.IsName(turnRight90StateName) ||
+                    nextState.IsName(turnLeft180StateName) || nextState.IsName(turnRight180StateName))
+                {
+                    isTransitioningToTurn = true;
+                }
+            }
+
+            if (isPlayingTurnAnim || isTransitioningToTurn)
+            {
+                isTurningDebug = true;
+            }
+
+            // =========================================================================================
+            // 🚨 [가장 중요한 순서 변경] 턴 종료 후 상태 초기화 (최우선 실행)
+            // 아래의 Action Guard 때문에 안전망 코드가 무시당하는 치명적 렉(레이스 컨디션)을 해결하기 위해
+            // 리셋 방어막을 함수 최상단으로 끌어올렸습니다!
+            // =========================================================================================
+            if (!isPlayingTurnAnim && !isTransitioningToTurn)
+            {
+                if (isTurningDebug)
+                {
+                    isTurningDebug = false;
+                    currentTurnDirection = 0f;
+                }
+
+                // 턴 애니메이션이 끝났고, 아직 isPerformingAction이 true라면 묶인 발(Root Motion)을 즉시 풀어줍니다.
+                if (player.isPerformingAction)
+                {
+                    AnimatorStateInfo actionState = player.animator.GetCurrentAnimatorStateInfo(1);
+                    // 상단 레이어(Action)가 빈 상태(Empty)라면, 무기 공격 중이 아니라 '턴 때문에 걸린 락'이 확실하므로 해제!
+                    if (actionState.IsName("Empty State") || actionState.IsName("Empty"))
+                    {
+                        player.isPerformingAction = false;
+                        if (player.animator != null) player.animator.applyRootMotion = false;
+                    }
+                }
+
+                targetLookWeight = 1.0f; // 평상시 IK 복구
+            }
+
+            // =========================================================================================
             // 2. [액션 가드] 공격 등 진짜 액션 중일 때는 파라미터를 0으로 세탁하고 빠져나갑니다.
-            if (player.isPerformingAction && !isTurningDebug)
+            // 위에서 '가짜 액션 락(턴으로 인한 락)'이 해제되었으므로, 이제 평상시에는 이 가드에 갇히지 않고 무사통과합니다!
+            // =========================================================================================
+            if (player.isPerformingAction && !isPlayingTurnAnim && !isTransitioningToTurn)
             {
                 targetLookWeight = 0f;
                 currentTurnAngle = 0f;
@@ -133,13 +188,10 @@ namespace TDA.Character.Player
                 {
                     player.animator.SetFloat("turnAngle", currentTurnAngle);
                 }
-                return;
+                return; // 가드에 걸리면 즉시 종료
             }
 
-            // =========================================================================================
-            // 🚨 [신규 추가: 방어 중 턴 애니메이션 재생 방지] 
-            // 방어 자세(Guard_BlendTree)를 굳건히 유지해야 하므로, 턴 애니메이션으로 강제 전이되는 것을 막습니다.
-            // =========================================================================================
+            // 3. 방어 중 예외 처리 (제자리 비비기 연출)
             if (player.playerDefenseManager != null && player.playerDefenseManager.isDefending)
             {
                 isTurningDebug = false;
@@ -148,99 +200,85 @@ namespace TDA.Character.Player
 
                 if (player.animator != null)
                 {
-                    // 턴 애니메이션이 트리거되지 않도록 애니메이터 파라미터도 강제로 0으로 잠급니다.
                     player.animator.SetFloat("turnAngle", 0f);
                 }
 
-                // 애니메이션(Turn_90) 대신, 방어 중에는 제자리에서도 카메라가 보는 방향으로 
-                // 몸통 전체를 묵직하게 스크립트로 회전(Slerp) 시킵니다.
-                // (카메라 데드존에 턱 걸렸을 때 마우스를 억지로 더 밀면 발을 비비며 돌아가는 연출)
                 if (absAngle > 10f && directionToTarget != Vector3.zero)
                 {
                     Quaternion targetRot = Quaternion.LookRotation(directionToTarget.normalized);
-                    // 방어 중이므로 일반 턴보다 느리고 묵직한 속도(3f)로 몸을 돌립니다.
                     transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 3f * Time.deltaTime);
                 }
 
-                return; // 아래에 있는 Turn 애니메이션 강제 CrossFade 로직을 완전히 무시하고 빠져나갑니다!
+                return;
             }
-            // =========================================================================================
 
-            // 🚨 [기존 픽스] 이동 및 반대 방향 조작 시 턴 즉시 캔슬 (Immediate Cancel)
-            if (isTurningDebug)
+            // 4. 이동 및 캔슬 로직 (Cancel Guard)
+            if (isPlayingTurnAnim || isTransitioningToTurn)
             {
                 bool shouldCancel = false;
 
-                // A. 턴 도중 W, A, S, D 이동 키를 누른 경우 (기다리지 않고 즉시 걷기)
                 if (player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f)
                 {
                     shouldCancel = true;
                 }
-                // B. 턴 도중 마우스를 반대편으로 휙 돌려버린 경우 (역방향 턴을 위해 캔슬)
                 else if (currentTurnDirection != 0f && Mathf.Sign(signedAngle) != currentTurnDirection)
                 {
-                    // 중심을 넘어서 반대쪽 임계치까지 마우스를 돌렸을 때
                     if (absAngle > turnStepAngle)
                     {
                         shouldCancel = true;
                     }
                 }
 
-                // 취소 조건 달성 시 물리 락(Lock)을 강제로 해방합니다.
                 if (shouldCancel)
                 {
                     isTurningDebug = false;
                     currentTurnDirection = 0f;
-                    targetLookWeight = 1.0f; // 시선 IK 즉시 복구
+                    targetLookWeight = 1.0f;
 
                     player.isPerformingAction = false;
                     if (player.animator != null)
                     {
-                        player.animator.applyRootMotion = false; // 이동 스크립트에게 주도권 반환
+                        player.animator.applyRootMotion = false;
                         player.animator.SetFloat("turnAngle", 0f);
-
-                        // 현재 재생 중인 턴 애니메이션을 박살 내고 0.1초 만에 Locomotion으로 트랜지션
                         player.animator.CrossFade(locomotionStateName, 0.1f);
                     }
-                    return; // 아래의 턴 로직 건너뜀
+                    return;
                 }
             }
 
-            // 🚨 [치명적 버그 픽스] 이동 중 제자리 턴 발생 방어막 (Movement Guard)
-            // 유저가 W(전진)를 눌러 이동 중일 때는 몸통이 회전하더라도 제자리 턴을 강제로 막습니다.
+            // 5. 이동 중 제자리 턴 발생 방어막 (Movement Guard)
             if (player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f)
             {
                 isTurningDebug = false;
                 if (player.animator != null)
                 {
-                    // 이동 중일 때는 애니메이터의 turnAngle 파라미터도 0으로 밀어버려 불필요한 블렌딩을 막습니다.
                     player.animator.SetFloat("turnAngle", 0f);
                 }
-                return; // 정지 상태 전용 턴 애니메이션 발동 로직을 건너뜁니다!
+                return;
             }
 
-            // 3. 턴 방어 및 무한 루프 캔슬 로직
-            if (isTurningDebug)
-            {
-                currentTurnAngle = 0f;
-            }
-            else
-            {
-                currentTurnAngle = signedAngle;
-            }
+            // =========================================================================================
+            // 6. 턴 파라미터 상시 업데이트
+            // (위의 가드들을 무사히 통과했다면 실시간으로 각도를 꽂아 넣어줍니다!)
+            // =========================================================================================
+            currentTurnAngle = signedAngle;
 
             if (player.animator != null)
             {
                 player.animator.SetFloat("turnAngle", currentTurnAngle);
             }
 
-            // 4. 턴 애니메이션 발동 (정지 상태일 때만 여기까지 도달함)
-            // [버그 픽스] 스폰 직후 0.5초 동안은 카메라가 안정화되는 시기이므로 턴 애니메이션을 강제로 막습니다.
-            if (absAngle > turnStepAngle && !isTurningDebug && spawnStabilizeTimer <= 0f)
+            // 7. 턴 애니메이션 발동
+            if (absAngle > turnStepAngle && !isPlayingTurnAnim && !isTransitioningToTurn && spawnStabilizeTimer <= 0f)
             {
                 isTurningDebug = true;
-                currentTurnDirection = Mathf.Sign(signedAngle); // 내가 어느 쪽으로 도는지 기억
-                targetLookWeight = 0f; // 엑소시스트 방어 트리거 (목 꺾임 방지)
+                currentTurnDirection = Mathf.Sign(signedAngle);
+                targetLookWeight = 0f;
+
+                if (player.animator != null)
+                {
+                    player.animator.CrossFade("Empty", 0.1f, 1);
+                }
 
                 string targetAnimState = "";
 
@@ -253,17 +291,20 @@ namespace TDA.Character.Player
                     targetAnimState = signedAngle > 0 ? turnRight90StateName : turnLeft90StateName;
                 }
 
-                // SO 연동 구조: 상태 이름(String)만 넘겨 Funnel로 처리합니다!
                 player.playerAnimationManager.PlayTargetAction(targetAnimState);
+
+                player.isPerformingAction = true;
+                if (player.animator != null)
+                {
+                    player.animator.applyRootMotion = true;
+                }
 
                 Debug.Log($"<color=cyan>[PlayerIKController]</color> 턴 애니메이션 발동! (각도: {absAngle:F1}도)");
             }
-            else if (isTurningDebug && absAngle < (turnStepAngle - turnHysteresisOffset))
+            else if ((isPlayingTurnAnim || isTransitioningToTurn) && absAngle < (turnStepAngle - turnHysteresisOffset))
             {
-                // 몸통 회전이 끝나고 카메라와의 시야 오차가 안정권에 들어오면 턴을 자연스럽게 해제합니다.
                 isTurningDebug = false;
                 currentTurnDirection = 0f;
-                targetLookWeight = 1.0f; // 다시 IK 시선 개입을 시작
             }
         }
     }

@@ -8314,7 +8314,7 @@ MonoBehaviour:
   sampleCount: 5
   seamTolerance: 0.01
   autoValidateOnStart: 0
-  showGizmos: 1
+  showGizmos: 0
   currentSeed: 0
   lastFoundIssues: []
 --- !u!114 &1464201072
@@ -8369,8 +8369,8 @@ MonoBehaviour:
   corridorMobSpawnProbability: 0.02
   bossRoomMobSpawnProbability: 0
   rareOreSpawnProbability: 0.0001
-  showGizmos: 1
-  showDebugLogs: 1
+  showGizmos: 0
+  showDebugLogs: 0
 --- !u!114 &1464201074
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9494,7 +9494,7 @@ PrefabInstance:
     - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: voxelSize
-      value: 0.5
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -9534,7 +9534,7 @@ PrefabInstance:
     - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: VoxelSize
-      value: 0.5
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -9555,7 +9555,12 @@ PrefabInstance:
     - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: voxelSize
-      value: 0.5
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: showGizmos
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

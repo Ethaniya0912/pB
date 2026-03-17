@@ -18,6 +18,9 @@ namespace TDA.Character.Player
         public PlayerManager player;
         [SerializeField] private Transform cameraPivotTransform;
 
+        // [P0-03] 마우스 제스처 연동 캐싱
+        private PlayerGestureManager playerGestureManager;
+
         // =========================================================================================
         // [신규 추가] 직관적인 카메라 거리 조절 옵션
         // =========================================================================================
@@ -53,8 +56,16 @@ namespace TDA.Character.Player
         [Tooltip("캐릭터가 전진(이동)을 시작할 때, 카메라가 캐릭터의 등 뒤 정면으로 자동으로 부드럽게 돌아올지 여부입니다.")]
         [SerializeField] private bool enableAutoCenterOnMove = true;
 
+        [Tooltip("대기(Idle) 상태에서 마우스 입력이 없을 때 카메라가 정면으로 복귀할지 여부입니다.")]
+        [SerializeField] private bool enableAutoCenterOnIdle = true;
+
+        [Tooltip("대기 상태에서 카메라가 정면으로 복귀하기 전 기다리는 시간(초)입니다.")]
+        [SerializeField] private float idleAutoCenterDelay = 5.0f;
+
         [Tooltip("자동 정렬 시 카메라가 등 뒤로 복귀하는 속도입니다. 값이 클수록 빠르게 정렬됩니다.")]
         [SerializeField] private float autoCenterSpeed = 2.0f;
+
+        private float noInputTimer = 0f;
 
         [Header("Debug & Gizmos")]
         [Tooltip("씬 뷰에서 카메라의 허용 시야각 부채꼴을 시각적으로 렌더링할지 여부입니다.")]
@@ -120,8 +131,11 @@ namespace TDA.Character.Player
         [SerializeField] private float unlockedCameraHeight = 1.65f;
         [SerializeField] private float lockedCameraHeight = 2.0f;
 
+        // [버그 수정] 흔들림 누적 방지용 베이스 높이 변수 추가
+        private float currentPivotHeight;
+
         private float cameraHorizontalInput;
-        public float CameraHorizontalInput => cameraHorizontalInput; // [신규] 외부(Locomotion)에서 마우스 델타를 읽기 위한 프로퍼티
+        public float CameraHorizontalInput => cameraHorizontalInput; // 외부(Locomotion)에서 마우스 델타를 읽기 위한 프로퍼티
         private float cameraVerticalInput;
         private float leftAndRightLookAngle;
         private float upAndDownLookAngle;
@@ -161,6 +175,9 @@ namespace TDA.Character.Player
                 // 오브젝트가 렌즈를 파먹는 현상(근거리 클리핑)을 원천 차단하기 위해 값을 강제로 가장 작게 낮춥니다.
                 cameraObject.nearClipPlane = 0.01f;
             }
+
+            // 시작할 때 기준 높이를 초기화합니다.
+            currentPivotHeight = unlockedCameraHeight;
         }
 
         private void Start()
@@ -278,8 +295,38 @@ namespace TDA.Character.Player
         {
             if (isContextualMode) return transform.rotation;
 
-            // [수정: 타겟 각도 연산] 마우스 입력을 실제 카메라 각도가 아닌 '타겟 각도(Yaw)'에 먼저 누적시킵니다.
-            currentTargetLeftAndRightAngle += (cameraHorizontalInput * leftAndRightRotationSpeed * mouseSensitivity) * Time.deltaTime;
+            // =========================================================================================
+            // 🚨 [P0-03 연동] 마우스 제스처 공격 중 카메라 회전 잠금 (Interception)
+            // 플레이어가 드래그로 궤적을 그리는 동안 화면이 휙휙 돌아가면 조준이 불가능하므로 시야를 고정합니다.
+            // =========================================================================================
+            if (playerGestureManager == null && player != null)
+            {
+                playerGestureManager = player.GetComponent<PlayerGestureManager>();
+            }
+
+            float currentHorizontal = cameraHorizontalInput;
+            float currentVertical = cameraVerticalInput;
+
+            // 드래그 중일 때는 마우스 델타 입력을 무시하여 카메라를 그 자리에 멈춰세웁니다.
+            if (playerGestureManager != null && playerGestureManager.IsDragging)
+            {
+                currentHorizontal = 0f;
+                currentVertical = 0f;
+            }
+            // =========================================================================================
+
+            // 마우스 입력을 실제 카메라 각도가 아닌 '타겟 각도(Yaw)'에 먼저 누적시킵니다.
+            currentTargetLeftAndRightAngle += (currentHorizontal * leftAndRightRotationSpeed * mouseSensitivity) * Time.deltaTime;
+
+            // [신규] 마우스 입력이 없는 시간 측정
+            if (Mathf.Abs(currentHorizontal) < 0.01f && Mathf.Abs(currentVertical) < 0.01f)
+            {
+                noInputTimer += Time.deltaTime;
+            }
+            else
+            {
+                noInputTimer = 0f;
+            }
 
             // 오일러 각도 정규화 및 차이 계산 (캐릭터 몸통 기준)
             float playerBodyYaw = player.transform.eulerAngles.y;
@@ -288,13 +335,24 @@ namespace TDA.Character.Player
             // 시야각 클램핑 (Deadzone 락) - 숄더뷰 데드존 제한
             angleDifference = Mathf.Clamp(angleDifference, -maxViewAngle, maxViewAngle);
 
+            bool isMoving = player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f;
+
             // 오토 센터링 (Auto-Centering) 개입
-            if (enableAutoCenterOnMove && player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f)
+            if (enableAutoCenterOnMove && isMoving)
             {
-                // 유저가 마우스 조작을 멈췄을 때만 개입
-                if (Mathf.Abs(cameraHorizontalInput) < 0.01f)
+                // 유저가 이동 중 마우스 조작을 멈췄을 때 센터링 개입
+                if (Mathf.Abs(currentHorizontal) < 0.01f)
                 {
                     angleDifference = Mathf.Lerp(angleDifference, 0f, autoCenterSpeed * Time.deltaTime);
+                }
+            }
+            else if (enableAutoCenterOnIdle && !isMoving)
+            {
+                // 대기 중 5초 이상 입력이 없을 때
+                if (noInputTimer >= idleAutoCenterDelay)
+                {
+                    // 평소보다 느린 속도(0.3배)로 천천히 돌아가도록 센터링 개입
+                    angleDifference = Mathf.Lerp(angleDifference, 0f, (autoCenterSpeed * 0.3f) * Time.deltaTime);
                 }
             }
 
@@ -302,10 +360,10 @@ namespace TDA.Character.Player
             currentTargetLeftAndRightAngle = playerBodyYaw + angleDifference;
 
             // 상하(Pitch) 타겟 회전 계산
-            currentTargetUpAndDownAngle -= (cameraVerticalInput * upAndDownRotationSpeed * mouseSensitivity) * Time.deltaTime;
+            currentTargetUpAndDownAngle -= (currentVertical * upAndDownRotationSpeed * mouseSensitivity) * Time.deltaTime;
             currentTargetUpAndDownAngle = Mathf.Clamp(currentTargetUpAndDownAngle, minimumPivot, maximumPivot);
 
-            // [신규: 묵직한 보간 로직] 실제 카메라 각도를 타겟 각도를 향해 부드럽게 댐핑시킵니다.
+            // 묵직한 보간 로직: 실제 카메라 각도를 타겟 각도를 향해 부드럽게 댐핑시킵니다.
             // (Mathf.SmoothDampAngle을 사용하여 360도 랩핑 오차를 완벽하게 보정합니다)
             leftAndRightLookAngle = Mathf.SmoothDampAngle(leftAndRightLookAngle, currentTargetLeftAndRightAngle, ref leftRightRotationVelocity, cameraRotationDampTime);
             upAndDownLookAngle = Mathf.SmoothDamp(upAndDownLookAngle, currentTargetUpAndDownAngle, ref upDownRotationVelocity, cameraRotationDampTime);
@@ -462,7 +520,10 @@ namespace TDA.Character.Player
             }
 
             transform.rotation = baseRotation * bodycamRot;
-            cameraPivotTransform.localPosition = new Vector3(0, cameraPivotTransform.localPosition.y, 0) + shakeOffset;
+
+            // [버그 수정] cameraPivotTransform.localPosition.y를 그대로 읽어오면 이전 프레임의 흔들림(shakeOffset.y)이 누적되어 좌표가 이탈합니다.
+            // 항상 기준이 되는 'currentPivotHeight'에 흔들림을 일시적으로 더하도록 수정하여 원복 불량 현상을 완벽히 차단합니다.
+            cameraPivotTransform.localPosition = new Vector3(0, currentPivotHeight, 0) + shakeOffset;
         }
 
         // =========================================================================================
@@ -579,18 +640,20 @@ namespace TDA.Character.Player
         {
             float duration = 0.5f;
             float timer = 0f;
-            float startH = cameraPivotTransform.localPosition.y;
+            float startH = currentPivotHeight; // 시작 높이를 현재 기준 높이로 설정
 
             while (timer < duration)
             {
                 timer += Time.deltaTime;
                 float t = timer / duration;
                 float targetH = (player.playerCombatManager.currentTarget != null) ? lockedCameraHeight : unlockedCameraHeight;
-                float currentH = Mathf.Lerp(startH, targetH, t);
-                cameraPivotTransform.localPosition = new Vector3(0, currentH, 0);
+
+                // 직접 localPosition을 건드리지 않고 기준 높이(currentPivotHeight)만 부드럽게 갱신합니다.
+                currentPivotHeight = Mathf.Lerp(startH, targetH, t);
                 yield return null;
             }
-            cameraPivotTransform.localPosition = new Vector3(0, (player.playerCombatManager.currentTarget != null) ? lockedCameraHeight : unlockedCameraHeight, 0);
+
+            currentPivotHeight = (player.playerCombatManager.currentTarget != null) ? lockedCameraHeight : unlockedCameraHeight;
         }
 
         public void SetContextualFocus(Transform target, CameraStancePreset preset)
@@ -629,12 +692,14 @@ namespace TDA.Character.Player
             bodycamWeight = Mathf.Clamp01(weight);
         }
 
-        /// <summary>
-        /// 외부(주로 AnimationManager의 루트 모션)에서 카메라의 좌우 앵글을 부드럽게 보정하기 위해 호출합니다.
-        /// </summary>
+        // =========================================================================================
+        // [버그 수정] 애니메이터 루트 모션 회전 보정용 메서드 추가
+        // PlayerAnimationManager에서 턴(Turn) 애니메이션 재생 시 카메라가 엇나가는 것을 방지합니다.
+        // =========================================================================================
         public void AdjustCameraYaw(float angleOffset)
         {
             leftAndRightLookAngle += angleOffset;
+            currentTargetLeftAndRightAngle += angleOffset;
         }
 
         // =========================================================================================
@@ -662,7 +727,5 @@ namespace TDA.Character.Player
             Gizmos.DrawRay(pivotPosition, leftBoundary * 5f);
             Gizmos.DrawRay(pivotPosition, rightBoundary * 5f);
         }
-
-
     }
 }

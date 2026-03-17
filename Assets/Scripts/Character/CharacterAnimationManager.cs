@@ -7,7 +7,7 @@ namespace TDA.Character
 {
     /// <summary>
     /// [P1] 캐릭터의 애니메이션 실행과 물리적 뼈대 조작을 전담하는 순수 제어자(Driver) 클래스입니다.
-    /// 레거시 호출 함수들을 모두 덜어내고, 오직 Hash 기반의 네트워크 동기화 애니메이션 재생만 담당합니다.
+    /// 레거시 호출 함수들을 점진적으로 덜어내고, 오직 SO 데이터 기반의 깔때기(Funnel) 재생만 담당하도록 고도화되었습니다.
     /// </summary>
     public class CharacterAnimationManager : MonoBehaviour
     {
@@ -72,10 +72,11 @@ namespace TDA.Character
         }
 
         // =========================================================================================
-        // [핵심 추가] Funnel & Root Motion 통합 라우터 (Data-Driven Architecture)
+        // [핵심 추가] Funnel & Root Motion 통합 라우터 (Data-Driven Architecture 적용)
         // =========================================================================================
         /// <summary>
-        /// 하드코딩된 파라미터 전달을 폐기하고, SO 데이터를 읽어 모든 플래그를 자동으로 셋팅하는 단일 깔때기(Funnel) 메서드입니다.
+        /// 하드코딩된 파라미터 전달을 완전히 폐기하고, SO 데이터를 읽어 모든 플래그를 자동으로 셋팅하는 단일 깔때기(Funnel)입니다.
+        /// 이 메서드는 "단일 진실 공급원(Single Source of Truth)" 철학에 따라 오직 SO 데이터에만 의존합니다.
         /// </summary>
         /// <param name="logicalStateName">애니메이터의 상태 이름 (SO와 매핑됨)</param>
         /// <param name="customAnimSet">특정 무기 등 커스텀 SO 세트 (Null일 경우 Base 세트 사용)</param>
@@ -99,7 +100,7 @@ namespace TDA.Character
                 return;
             }
 
-            // SO 데이터로 캐릭터의 물리 및 제어 상태 플래그 덮어쓰기 (Data-Driven)
+            // [정합성 완성] SO 데이터가 물리/상태 제어의 절대적인 기준이 됩니다. (하드코딩 제거)
             character.isPerformingAction = actionParams.isPerformingAction;
             character.canRotate = actionParams.canRotate;
             character.canMove = actionParams.canMove;
@@ -180,13 +181,20 @@ namespace TDA.Character
             character.animator.SetFloat(AnimatorParameterHash.Horizontal, snappedHorizontal, locomotionDampTime, Time.deltaTime);
             character.animator.SetFloat(AnimatorParameterHash.Vertical, snappedVertical, locomotionDampTime, Time.deltaTime);
 
-            // [수정 완료] Speed가 아닌, 기획된 애니메이터 파라미터인 moveAmount를 정확히 송출합니다.
+            // 기획된 애니메이터 파라미터인 moveAmount를 정확히 송출합니다.
             character.animator.SetFloat(AnimatorParameterHash.moveAmount, moveAmount, locomotionDampTime, Time.deltaTime);
-            character.animator.SetBool(AnimatorParameterHash.isMoving, moveAmount > 0);
+
+            // 🚨 [버그 수정] AI(몬스터) 애니메이터에는 isMoving 파라미터가 없어서 해시 에러가 발생합니다.
+            // 따라서 플레이어(PlayerManager)일 때만 해당 파라미터를 세팅하도록 방어막을 칩니다.
+            if (character is Player.PlayerManager)
+            {
+                character.animator.SetBool(AnimatorParameterHash.isMoving, moveAmount > 0);
+            }
         }
 
         // =========================================================================================
-        // [신규 아키텍처: Funnel 패턴] 능동적 액션 (onAction -> DoAttack 등으로 치환 가능)
+        // [신규 아키텍처: Funnel 패턴] 트리거(Trigger) 기반 상태 전이용
+        // 향후 PlayTargetAction(SO) 구조로 100% 통합 시 제거될 수 있습니다.
         // =========================================================================================
         public virtual void PlayTargetActionFunnel(
             int targetActionIndex,
@@ -200,18 +208,12 @@ namespace TDA.Character
             character.canRotate = canRotate;
             character.canMove = canMove;
 
-            // 디버깅의 핵심: 누가 언제 어떤 액션을 발생시켰는지 역추적 가능
             Debug.Log($"<color=cyan>[Action Funnel]</color> Executing Action State: {targetActionIndex}");
 
             character.animator.SetInteger(AnimatorParameterHash.ActionState, targetActionIndex);
-
-            // 전역 AnimatorParameterHash에 명시된 onAction (능동 액션) 트리거 사용
             character.animator.SetTrigger(AnimatorParameterHash.onAction);
         }
 
-        // =========================================================================================
-        // [신규 아키텍처: Funnel 패턴] 수동적 리액션 (onHit) - 절대적 인터럽트
-        // =========================================================================================
         public virtual void PlayTargetHitReactionFunnel(int targetHitIndex)
         {
             character.isPerformingAction = true;
@@ -222,13 +224,12 @@ namespace TDA.Character
             Debug.Log($"<color=red>[Hit Funnel]</color> Executing Hit Reaction: {targetHitIndex}");
 
             character.animator.SetInteger(AnimatorParameterHash.ActionState, targetHitIndex);
-
-            // 전역 AnimatorParameterHash에 명시된 onHit (피격) 트리거 사용
             character.animator.SetTrigger(AnimatorParameterHash.onHit);
         }
 
         // =========================================================================================
-        // [레거시 호환용] 기존 스크립트(IK, Locomotion 등)에서 쓰던 CrossFade 방식 보존
+        // [레거시 호환용] 기존 스크립트(IK, Locomotion 등)에서 쓰던 하드코딩 CrossFade 방식
+        // (주의: 점진적으로 SO 기반의 PlayTargetAction() 으로 전환해야 합니다.)
         // =========================================================================================
         public virtual void PlayTargetAnimation(
             int targetAnimHash,

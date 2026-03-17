@@ -2,6 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+public class Enums : MonoBehaviour
+{
+}
+
 // =========================================================================================
 // [P4 신규 추가] 애니메이션 이벤트 통합 규약 (Type-Safe Event System)
 // 기획 의도: String 하드코딩으로 인한 버그를 막고, 카테고리별로 300개의 여유 슬롯을 두어 
@@ -99,6 +103,7 @@ public enum AnimationEventType
     PlayVoice_Stagger = 351,    // 피격 시 고통스러운 신음 소리 (Stagger 연동)
     PlayVoice_Death = 352,      // 사망 단말마
     PlayVoice_Breathe = 353,    // 대기(Idle) 중 희박한 확률로 나오는 거친 숨소리
+    PlayVoice_Stagger_Pain = 354, // [P0-03] 엇박자(절기) 조작 실패 시 근육이 꼬이는 고통스러운 신음
 
     // --- 시스템 및 상태 이상 (System UI/UX) ---
     PlaySFX_Stamina_Out = 390,  // 스태미나 고갈 시 헐떡임/경고음
@@ -117,6 +122,7 @@ public enum AnimationEventType
     CameraShake_Roll = 602,     // 구르기 후 바닥에 닿을 때 카메라 충격
     CameraKick_FOV_In = 603,    // 강공격 차지 시 FOV를 좁혀 집중감 부여
     CameraKick_FOV_Out = 604,   // 타격 임팩트 시 FOV를 튕겨내어 타격감 폭발
+    CameraShake_Heavy_Fumble = 605, // [P0-03] 엇박자(절기) 조작 실패 시 시야가 요동치는 강렬한 카메라 반동
 
     // --- 무기 검기 및 궤적 (Weapon Trails) ---
     Trail_Enable_15fps = 620,   // [Dual Framerate] 레트로 감성의 15fps 스텝 검기 켜기
@@ -211,6 +217,16 @@ public enum DefenseResult
 
 public enum ShieldStance { FarGrip, CloseGrip }
 
+// =========================================================================================
+// [P0-03 신규] 체술 기반 제스처 전투 시스템 (Weapon Stance)
+// 기획 의도: 전투 내내 플레이어에게 자신의 무기 위치를 인지시키고 엇박자 입력을 차단합니다.
+// =========================================================================================
+public enum WeaponStance
+{
+    LeftHold,   // 무기를 캐릭터 기준 왼쪽에 쥐고 있는 상태 (우->좌 베기 이후)
+    RightHold   // 무기를 캐릭터 기준 오른쪽에 쥐고 있는 상태 (좌->우 베기 이후)
+}
+
 // ※ 참조용: 타격 정보 구조체 (기존 Combat 시스템의 DamageCollider 등에서 전달해 줄 데이터 형태)
 public struct HitEventData
 {
@@ -230,8 +246,12 @@ public enum ActionID
 
     // --- 전투 및 기본 공격 (Combat) [1 ~ 19] ---
     // (pC 단계 8방향 적용을 위해 1~8번 대역을 기본 베기로 예약. 현재는 좌/우만 사용)
-    Attack_Right_01 = 1,      // 우에서 좌로 베기
-    Attack_Left_01 = 2,       // 좌에서 우로 베기
+    Attack_Right_01 = 1,      // 우에서 좌로 베기 (기본)
+    Attack_Left_01 = 2,       // 좌에서 우로 베기 (기본)
+
+    // [P0-03 신규 추가] 강공격 (차징) Action ID 할당
+    Attack_Right_Heavy_01 = 11, // 우에서 좌로 강공격 (차징)
+    Attack_Left_Heavy_01 = 12,  // 좌에서 우로 강공격 (차징)
 
     // --- 특수기 및 방어 기술 (Special Combat) [20 ~ 29] ---
     Shield_Bash = 21,         // 방패 밀치기 (포이즈 붕괴)
@@ -245,6 +265,9 @@ public enum ActionID
     // --- 상호작용 및 시스템 (Interaction) [50 ~ 99] ---
     Item_Grab = 50,
     Weapon_Swap = 51,
+
+    // [P0-03 신규 추가] 엇박자 조작 실패 (절기) 페널티 모션
+    Fumble_Stagger = 99,
 
     // --- 피격 리액션 (Hit Reactions - onHit Trigger 연동) [100 ~ 199] ---
     // (현재 3방향 피격 시스템 적용)

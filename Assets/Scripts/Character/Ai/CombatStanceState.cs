@@ -1,6 +1,6 @@
+using TDA.Character;
 using TDA.Character.AI;
 using UnityEngine;
-using UnityEngine.TextCore.Text;
 
 [CreateAssetMenu(menuName = "AI/States/Combat Stance")]
 public class CombatStanceState : AIState
@@ -43,7 +43,13 @@ public class CombatStanceState : AIState
 
         if (aiCharacter.isPerformingAction)
         {
-            aiCharacter.navMeshAgent.ResetPath();
+            // 🚨 [치명적 버그 수정] 동굴(CaveManager)이 실시간 생성될 때, 
+            // 몬스터가 NavMesh 밖(공중)에 있는데 ResetPath를 부르면 에러가 터지는 현상을 완벽 방어합니다.
+            if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
+            {
+                aiCharacter.navMeshAgent.ResetPath();
+            }
+
             aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
             return this;
         }
@@ -132,10 +138,10 @@ public class CombatStanceState : AIState
             aiCharacterManager.characterDefenseManager.StopDefense();
         }
 
-        // CombatStanceState 내부에서 추가로 ResetPath를 호출하는 곳이 있다면 동일하게 감싸줍니다.
+        // [안전성 강화] 상태 전이 시 기존 목표 지점을 확실히 지워줍니다.
         if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.isActiveAndEnabled && aiCharacterManager.navMeshAgent.isOnNavMesh)
         {
-            // aiCharacter.navMeshAgent.ResetPath();
+            aiCharacterManager.navMeshAgent.ResetPath();
         }
     }
 }

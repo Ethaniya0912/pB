@@ -1,12 +1,14 @@
 using UnityEngine;
+using System.Collections;
 using TDA.Character;
 using TDA.World;
+// using UnityEngine.Rendering; // 향후 포스트 프로세싱 연동 시 주석 해제
 
 namespace TDA.Character.Player
 {
     /// <summary>
     /// [Player Specific Event Router] 플레이어 캐릭터에서 발생하는 Enum 이벤트를 수신하여
-    /// 1인칭 바디캠 쉐이크, 풋스텝 사운드, 회전 락(Lock) 등 실질적인 게임 로직으로 토스(Toss)하는 브릿지입니다.
+    /// 1인칭 바디캠 쉐이크, 풋스텝 사운드, 회전 락(Lock), 화면 비네팅 등 실질적인 게임 로직으로 토스(Toss)하는 브릿지입니다.
     /// </summary>
     public class PlayerEventManager : CharacterEventManager
     {
@@ -60,6 +62,16 @@ namespace TDA.Character.Player
                     }
                     break;
 
+                // 🚨 [Phase 4] 절기(Fumble) 반동 제어
+                case global::AnimationEventType.CameraShake_Heavy_Fumble:
+                    if (player.IsOwner && player.playerCamera != null)
+                    {
+                        // 플레이어에게 순간적인 멀미와 방향 감각 상실을 유도하는 강렬한 반동
+                        player.playerCamera.Shake(0.5f, 0.4f);
+                        Debug.Log("<color=red>[PlayerEventManager]</color> 카메라 쉐이크(Fumble) 발동: 멀미와 방향 감각 상실 유도!");
+                    }
+                    break;
+
                 // =======================================================
                 // [로코모션 물리 락(Lock) 연동]
                 // =======================================================
@@ -76,7 +88,7 @@ namespace TDA.Character.Player
                     break;
 
                 // =======================================================
-                // [사운드/VFX 피드백 (Placeholder)]
+                // [사운드 피드백] 발소리 및 타격/피격음
                 // =======================================================
                 case global::AnimationEventType.PlayFootstep_L:
                 case global::AnimationEventType.PlayFootstep_R:
@@ -90,6 +102,26 @@ namespace TDA.Character.Player
                 case global::AnimationEventType.PlaySFX_Swing_Light:
                 case global::AnimationEventType.PlaySFX_Swing_Heavy:
                     // TODO: 무기 스윙 사운드 재생
+                    break;
+
+                // 🚨 [Phase 4] 절기(Fumble) 사운드 에셋 연동
+                case global::AnimationEventType.PlayVoice_Stagger_Pain:
+                    // TODO: 오디오 매니저 연동 (근육 꼬이는 소리, 뼈 어긋나는 소리, 고통스러운 기침 등)
+                    // 예: AudioManager.Instance.PlaySFX(SFX_Muscle_Tear);
+                    Debug.Log("<color=red>[PlayerEventManager]</color> 뼈와 살이 뒤틀리는 사운드 재생 (절기 페널티)!");
+                    break;
+
+                // =======================================================
+                // [시각 효과 / VFX 연동]
+                // =======================================================
+                // 🚨 [Phase 4] 화면 비네트(Vignette) 포스트 프로세싱 트리거
+                case global::AnimationEventType.ScreenFX_Hit_Vignette:
+                    if (player.IsOwner)
+                    {
+                        // TODO: Global Volume의 Vignette Intensity를 조절하는 코루틴 또는 Tween 호출
+                        // 예시: PlayerUIManager.Instance.TriggerVignetteEffect(0.5f, 0.5f);
+                        Debug.Log("<color=red>[PlayerEventManager]</color> 화면 외곽 붉은색 점멸 (Vignette) 이펙트 트리거!");
+                    }
                     break;
             }
         }

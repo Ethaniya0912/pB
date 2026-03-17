@@ -37,6 +37,7 @@ namespace TDA.Character.Player
         [HideInInspector] public PlayerInteractionManager playerInteractionManager;
         [HideInInspector] public PlayerEventManager playerEventManager;
         [HideInInspector] public PlayerDefenseManager playerDefenseManager;
+        [HideInInspector] public PlayerGestureManager playerGestureManager; // [P0-03] 제스처 매니저 추가
 
         [Header("Event & Camera Dependencies (L4 - View)")]
         [HideInInspector] public PlayerCamera playerCamera;
@@ -66,6 +67,20 @@ namespace TDA.Character.Player
             playerInteractionManager = GetComponent<PlayerInteractionManager>();
             playerEventManager = GetComponent<PlayerEventManager>();
             playerDefenseManager = GetComponent<PlayerDefenseManager>();
+            playerGestureManager = GetComponent<PlayerGestureManager>();
+
+            // 부모 클래스의 변수에 업캐스팅 할당
+            characterLocomotionManager = playerLocomotionManager;
+            characterAnimationManager = playerAnimationManager;
+            characterNetworkManager = playerNetworkManager;
+            characterStatsManager = playerStatsManager;
+            characterInventoryManager = playerInventoryManager;
+            characterCombatManager = playerCombatManager;
+            characterDefenseManager = playerDefenseManager;
+
+            // [컴파일 에러 픽스] CharacterManager에 선언되어 있지 않은 매니저들은 업캐스팅을 생략합니다.
+            // characterEquipmentManager = playerEquipmentManager;
+            // characterInteractionManager = playerInteractionManager;
         }
 
         protected override void Update()
@@ -148,11 +163,11 @@ namespace TDA.Character.Player
             if (!IsServer && IsOwner)
             {
                 // 내가 방금 접속했다면, 이미 방에 있던 다른 유저들의 무기/장비 외형을 내 화면에 갱신시킵니다.
-                foreach (var player in WorldGameSessionManager.Instance.players)
+                foreach (var p in WorldGameSessionManager.Instance.players)
                 {
-                    if (player != this)
+                    if (p != this)
                     {
-                        player.LoadOtherPlayerCharacterWhenJoiningServer();
+                        p.LoadOtherPlayerCharacterWhenJoiningServer();
                     }
                 }
             }
@@ -212,169 +227,16 @@ namespace TDA.Character.Player
 
         #endregion
 
-        #region [Input Routing] 전투, 방어 및 상호작용 (Combat, Defense & Interaction Gating)
-
-        // =========================================================================================
-        // 🚨 [방어 시스템 P0-02 연동] ShieldStance (우클릭 vs Q키) 스마트 라우팅 및 디버깅
-        // =========================================================================================
-
-        /// <summary>
-        /// 우클릭 입력: 몸 가까이 밀착하여 확실하게 방어하는 스탠다드 가드 (CloseGrip)
-        /// </summary>
-        public void OnBlockInputReceived(bool isBlocking)
-        {
-            if (playerDefenseManager == null) return;
-
-            // 🔎 [디버그] 입력값이 제대로 들어오는지 추적
-            Debug.Log($"<color=white>[Input Tracker]</color> 마우스 우클릭(Block) 신호: {isBlocking} | 기존 우클릭 꾹:{isHoldingCloseGrip}, Q키 꾹:{isHoldingFarGrip}");
-
-            isHoldingCloseGrip = isBlocking;
-
-            if (isBlocking)
-            {
-                ShieldStance targetStance = isHoldingFarGrip ? ShieldStance.FarGrip : ShieldStance.CloseGrip;
-                playerDefenseManager.StartDefense(GuardDirection.Top, targetStance);
-            }
-            else
-            {
-                if (isHoldingFarGrip)
-                {
-                    Debug.Log("<color=orange>[Input Tracker]</color> 우클릭을 뗐지만 Q키를 누르고 있어 가드를 풀지 않습니다.");
-                    playerDefenseManager.StartDefense(GuardDirection.Top, ShieldStance.FarGrip);
-                }
-                else
-                {
-                    playerDefenseManager.StopDefense();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Q키 입력: 방패를 멀리 뻗어 견제하는 익스텐디드 가드 (FarGrip)
-        /// </summary>
-        public void OnExtendedGuardInputReceived(bool isGuarding)
-        {
-            if (playerDefenseManager == null) return;
-
-            // 🔎 [디버그] 입력값이 제대로 들어오는지 추적
-            Debug.Log($"<color=white>[Input Tracker]</color> 키보드 Q(Extended) 신호: {isGuarding} | 기존 우클릭 꾹:{isHoldingCloseGrip}, Q키 꾹:{isHoldingFarGrip}");
-
-            isHoldingFarGrip = isGuarding;
-
-            if (isGuarding)
-            {
-                playerDefenseManager.StartDefense(GuardDirection.Top, ShieldStance.FarGrip);
-            }
-            else
-            {
-                if (isHoldingCloseGrip)
-                {
-                    Debug.Log("<color=orange>[Input Tracker]</color> Q키를 뗐지만 우클릭을 누르고 있어 일반 방어로 복귀합니다.");
-                    playerDefenseManager.StartDefense(GuardDirection.Top, ShieldStance.CloseGrip);
-                }
-                else
-                {
-                    playerDefenseManager.StopDefense();
-                }
-            }
-        }
-        // =========================================================================================
-
-        internal void OnRBInputReceived()
-        {
-            // [검문 1순위: 상호작용] 물건을 들고 있을 땐 전투(공격)를 차단하고 물건 놓기를 우선 수행합니다.
-            if (playerInteractionManager.currentlyHeldObject != null)
-            {
-                playerNetworkManager.SetCharacterActionHand(true);
-                playerInteractionManager.OnRBInputReceived();
-                return; // 도메인 배분 완료 후 즉시 종료
-            }
-
-            // [검문 2순위: 자원 상태] 스태미나가 없으면 허공에 칼질하는 것을 원천 차단합니다.
-            if (playerNetworkManager.currentStamina.Value <= 0) return;
-
-            // [검문 3순위: 액션 제어권] 사망했거나 이미 피격/공격 모션이 진행 중이라면 입력을 무시합니다.
-            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
-
-            // [검문 4순위: 전역 상태] 인벤토리를 보고 있거나 컷신 중인지 확인합니다.
-            if (WorldGameStateManager.Instance.IsCombatAllowed())
-            {
-                // [선제적 갱신(Pre-emptive Sync)]
-                // 공격 연산에 들어가기 직전, 현재 사용할 무기 ID를 네트워크에 먼저 공표하여 멀티 데스싱크(Desync)를 방어합니다.
-                if (playerInventoryManager.currentRightHandWeapon != null)
-                {
-                    playerNetworkManager.currentWeaponBeingUsed.Value = playerInventoryManager.currentRightHandWeapon.itemID;
-                }
-
-                playerNetworkManager.SetCharacterActionHand(true);
-
-                // 모든 검문이 끝났으므로 전투 도메인에게 실제 액션 집행을 하달합니다.
-                playerCombatManager.OnRBInputReceived();
-            }
-        }
-
-        internal void OnRTInputReceived()
-        {
-            // [버그 수정] RT(우클릭)와 방어(Block) 입력이 겹쳐서 가드가 씹히는 현상 해결
-            // 기존 강공격 발동 로직을 주석 처리하여, 우클릭 시 오직 '방어'만 실행되도록 만듭니다.
-            /*
-            if (playerNetworkManager.currentStamina.Value <= 0) return;
-            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
-
-            if (WorldGameStateManager.Instance.IsCombatAllowed())
-            {
-                if (playerInventoryManager.currentRightHandWeapon != null)
-                {
-                    playerNetworkManager.currentWeaponBeingUsed.Value = playerInventoryManager.currentRightHandWeapon.itemID;
-                }
-
-                playerNetworkManager.SetCharacterActionHand(true);
-                playerCombatManager.OnRTInputReceived();
-            }
-            */
-            // 디버그 확인용 로그 남기기
-            // Debug.Log("<color=gray>[Input]</color> 강공격(RT)이 방어(Block)를 위해 비활성화되었습니다.");
-        }
-
-        internal void OnSwitchWeaponInputReceived(SwithchWeaponSide value)
-        {
-            switch (value)
-            {
-                case SwithchWeaponSide.Left:
-                    playerEquipmentManager.SwitchLeftWeapon();
-                    break;
-                case SwithchWeaponSide.Right:
-                    playerEquipmentManager.SwitchRightWeapon();
-                    break;
-            }
-        }
-
-        internal void OnInteractionInputReceived()
-        {
-            // 상호작용 가능 구역인지 전역 매니저에서 판단
-            if (WorldGameStateManager.Instance.IsInteractionAllowed())
-            {
-                playerInteractionManager.OnInteractionInputReceived();
-            }
-        }
-
-        internal void OnAltInputReceived(bool isPressed)
-        {
-            // UI 레이어의 마우스 커서 표시/숨김 등 처리
-            playerInteractionManager.OnAltInputReceived(isPressed);
-        }
-
-        internal void OnInventoryInputReceived()
-        {
-            playerInventoryManager.OnInventoryInputReceived();
-        }
-
-        #endregion
-
         #region [Input Routing] 이동, 카메라 및 타겟팅 (Locomotion & Vision)
 
         public void OnMovementInputReceived(Vector2 movementInput)
         {
+            // 상호작용(아이템 줍기 등)이나 컷씬 도중이라면 이동 금지
+            if (playerInteractionManager != null && playerInteractionManager.currentlyHeldObject != null) return;
+
+            // 🚨 [P0-03] 마우스 제스처를 긋는 동안 실수로 걷는 것을 방지
+            if (playerGestureManager != null && playerGestureManager.IsDragging) return;
+
             if (movementInput.sqrMagnitude > 0)
             {
                 // [지능형 뷰 전이] 인벤토리를 보거나 벤치에 앉아있다가 WASD(이동)를 누르면, 
@@ -395,6 +257,9 @@ namespace TDA.Character.Player
 
         internal void OnDodgeInputReceived()
         {
+            // 🚨 [P0-03] 제스처 드래그 중에는 구르기 잠금
+            if (playerGestureManager != null && playerGestureManager.IsDragging) return;
+
             // 1. 구르기 검문 (Gating)
             if (playerNetworkManager.isDead.Value || isPerformingAction) return;
 
@@ -407,6 +272,13 @@ namespace TDA.Character.Player
 
         internal void OnCameraInputReceived(Vector2 cameraInput)
         {
+            // 🚨 [P0-03 버그 수정] 마우스 제스처를 그리는 동안 카메라가 같이 돌아가는 현상 원천 차단
+            // 여기서 입력을 강제로 0으로 세탁해버려야 카메라 스크립트에 방해를 주지 않습니다.
+            if (playerGestureManager != null && playerGestureManager.IsDragging)
+            {
+                cameraInput = Vector2.zero;
+            }
+
             if (playerCamera != null)
             {
                 playerCamera.OnCameraInputReceived(cameraInput.x, cameraInput.y);
@@ -435,12 +307,165 @@ namespace TDA.Character.Player
 
         #endregion
 
+        #region [Input Routing] 전투, 방어 및 상호작용 (Combat, Defense & Interaction Gating)
+
+        // =========================================================================================
+        // 🚨 [방어 시스템 P0-02 연동] ShieldStance (우클릭 vs Q키) 스마트 라우팅 및 디버깅
+        // =========================================================================================
+
+        /// <summary>
+        /// 우클릭 입력: 몸 가까이 밀착하여 확실하게 방어하는 스탠다드 가드 (CloseGrip)
+        /// </summary>
+        public void OnBlockInputReceived(bool isBlocking)
+        {
+            if (playerDefenseManager == null) return;
+
+            // 🚨 [P0-03] 공격 제스처 중에는 가드 키가 먹히지 않도록 막음
+            if (playerGestureManager != null && playerGestureManager.IsDragging) return;
+
+            isHoldingCloseGrip = isBlocking;
+
+            if (isBlocking)
+            {
+                ShieldStance targetStance = isHoldingFarGrip ? ShieldStance.FarGrip : ShieldStance.CloseGrip;
+                playerDefenseManager.StartDefense(GuardDirection.Top, targetStance);
+            }
+            else
+            {
+                if (isHoldingFarGrip)
+                {
+                    playerDefenseManager.StartDefense(GuardDirection.Top, ShieldStance.FarGrip);
+                }
+                else
+                {
+                    playerDefenseManager.StopDefense();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Q키 입력: 방패를 멀리 뻗어 견제하는 익스텐디드 가드 (FarGrip)
+        /// </summary>
+        public void OnExtendedGuardInputReceived(bool isGuarding)
+        {
+            if (playerDefenseManager == null) return;
+
+            // 🚨 [P0-03] 공격 제스처 중 방어 전환 금지
+            if (playerGestureManager != null && playerGestureManager.IsDragging) return;
+
+            isHoldingFarGrip = isGuarding;
+
+            if (isGuarding)
+            {
+                playerDefenseManager.StartDefense(GuardDirection.Top, ShieldStance.FarGrip);
+            }
+            else
+            {
+                if (isHoldingCloseGrip)
+                {
+                    playerDefenseManager.StartDefense(GuardDirection.Top, ShieldStance.CloseGrip);
+                }
+                else
+                {
+                    playerDefenseManager.StopDefense();
+                }
+            }
+        }
+        // =========================================================================================
+
+        internal void OnRBInputReceived()
+        {
+            // [검문 1순위: 상호작용] 물건을 들고 있을 땐 전투(공격)를 차단하고 물건 놓기를 우선 수행합니다.
+            if (playerInteractionManager != null && playerInteractionManager.currentlyHeldObject != null)
+            {
+                playerNetworkManager.SetCharacterActionHand(true);
+                playerInteractionManager.OnRBInputReceived();
+                return; // 도메인 배분 완료 후 즉시 종료
+            }
+
+            // 🚨 [P0-03 버그 수정] 기존 단발성 평타 공격 차단!
+            // 좌클릭을 누르자마자 기존의 공격 스크립트가 발동하여 isPerformingAction이 true가 되어버리는 바람에,
+            // 정작 PlayerGestureManager가 제스처를 그리지 못하고 강제로 종료되던 문제를 해결했습니다.
+            /*
+            if (playerNetworkManager.currentStamina.Value <= 0) return;
+            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
+
+            if (WorldGameStateManager.Instance.IsCombatAllowed())
+            {
+                if (playerInventoryManager.currentRightHandWeapon != null)
+                {
+                    playerNetworkManager.currentWeaponBeingUsed.Value = playerInventoryManager.currentRightHandWeapon.itemID;
+                }
+
+                playerNetworkManager.SetCharacterActionHand(true);
+                playerCombatManager.OnRBInputReceived();
+            }
+            */
+            // Debug.Log("<color=gray>[Input]</color> 제스처 시스템(P0-03)을 사용하기 위해 기존 평타(RB) 즉발 입력이 차단되었습니다.");
+        }
+
+        internal void OnRTInputReceived()
+        {
+            // [방어 시스템 버그 수정] 우클릭 시 강공격 발동을 주석 처리하여 '방어' 기능과 겹치지 않게 합니다.
+            /*
+            if (playerNetworkManager.currentStamina.Value <= 0) return;
+            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
+
+            if (WorldGameStateManager.Instance.IsCombatAllowed())
+            {
+                playerNetworkManager.SetCharacterActionHand(true);
+                playerCombatManager.OnRTInputReceived();
+            }
+            */
+        }
+
+        internal void OnSwitchWeaponInputReceived(SwithchWeaponSide value)
+        {
+            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
+
+            switch (value)
+            {
+                case SwithchWeaponSide.Left:
+                    playerEquipmentManager.SwitchLeftWeapon();
+                    break;
+                case SwithchWeaponSide.Right:
+                    playerEquipmentManager.SwitchRightWeapon();
+                    break;
+            }
+        }
+
+        internal void OnInteractionInputReceived()
+        {
+            // 상호작용 가능 구역인지 전역 매니저에서 판단
+            if (WorldGameStateManager.Instance.IsInteractionAllowed())
+            {
+                playerInteractionManager.OnInteractionInputReceived();
+            }
+        }
+
+        internal void OnAltInputReceived(bool isPressed)
+        {
+            // UI 레이어의 마우스 커서 표시/숨김 등 처리
+            if (playerInteractionManager != null)
+            {
+                playerInteractionManager.OnAltInputReceived(isPressed);
+            }
+        }
+
+        internal void OnInventoryInputReceived()
+        {
+            if (playerNetworkManager.isDead.Value) return;
+            playerInventoryManager.OnInventoryInputReceived();
+        }
+
+        #endregion
+
         #region [State Management] 생명주기 및 저장/불러오기 (Death & Persistence)
 
         public override IEnumerator ProcessDeathEvent(bool manuallySelectDeathAnimation = false)
         {
             // 사망 시 소울류 특유의 'YOU DIED' UI 팝업을 띄웁니다.
-            if (IsOwner && PlayerUIManager.Instance != null)
+            if (IsOwner && PlayerUIManager.Instance != null && PlayerUIManager.Instance.playerUIPopUpManager != null)
             {
                 PlayerUIManager.Instance.playerUIPopUpManager.SendYouDiedPopUp();
             }
@@ -457,7 +482,7 @@ namespace TDA.Character.Player
                 playerNetworkManager.currentHealth.Value = playerNetworkManager.maxHealth.Value;
                 playerNetworkManager.currentStamina.Value = playerNetworkManager.maxStamina.Value;
 
-                // [최적화 적용] 부활 시 기본 자세(Empty)로 전이할 때 문자열이 아닌 Hash를 사용하여 GC(가비지 컬렉터) 생성을 방지합니다.
+                // [최적화 적용] 부활 시 기본 자세(Empty)로 전이할 때 문자열이 아닌 Hash를 사용하여 GC 생성을 방지합니다.
                 playerAnimationManager.PlayTargetAnimation(AnimatorParameterHash.ActionState, false);
             }
         }
@@ -495,7 +520,7 @@ namespace TDA.Character.Player
             playerNetworkManager.maxHealth.Value = playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);
             playerNetworkManager.maxStamina.Value = playerStatsManager.CalculateStaminaBasedOnEnduranceLevel(playerNetworkManager.endurance.Value);
 
-            if (PlayerUIManager.Instance != null)
+            if (PlayerUIManager.Instance != null && PlayerUIManager.Instance.playerUIHUDManager != null)
                 PlayerUIManager.Instance.playerUIHUDManager.SetMaxStaminaValue(playerNetworkManager.maxStamina.Value);
 
             playerNetworkManager.currentHealth.Value = playerStatsManager.CalculateHealthBasedOnVitalityLevel(playerNetworkManager.vitality.Value);

@@ -63,7 +63,8 @@ namespace TDA.Character
                 player.transform.rotation *= deltaRotation;
 
                 // =========================================================================================
-                // 🚨 [턴 앵글 보정 완벽판] 회전 시 카메라 시야 동기화 및 중앙 정렬 (Auto-Centering)
+                // 🚨 [턴 앵글 보정 완벽판] 회전 시 카메라 시야 동기화
+                // (마우스 조작과 싸우던 중앙 정렬 자력(Centering Force) 로직은 삭제되었습니다)
                 // =========================================================================================
                 if (cameraTurnCompensationWeight > 0f && player.playerCamera != null)
                 {
@@ -71,24 +72,8 @@ namespace TDA.Character
                     float deltaY = deltaRotation.eulerAngles.y;
                     if (deltaY > 180f) deltaY -= 360f;
 
-                    // 2. [추가된 로직] 카메라를 캐릭터의 정면(등 뒤)으로 서서히 끌어당기는 자력(Force) 계산
-                    float centeringForce = 0f;
-                    if (player.playerCamera.cameraObject != null)
-                    {
-                        Vector3 camForward = player.playerCamera.cameraObject.transform.forward;
-                        camForward.y = 0;
-                        Vector3 bodyForward = player.transform.forward;
-                        bodyForward.y = 0;
-
-                        // 캐릭터 정면과 카메라가 바라보는 방향의 각도 차이 (-180 ~ 180)
-                        float angleToCenter = Vector3.SignedAngle(camForward, bodyForward, Vector3.up);
-
-                        // 각도 차이에 비례하여 정면으로 당기는 속도 (5f는 자력의 강도입니다. 필요시 조절)
-                        centeringForce = angleToCenter * 5f * Time.deltaTime;
-                    }
-
-                    // 3. 루트모션 회전량과 중앙 정렬 자력을 합산하여 카메라에 적용
-                    float finalCameraAdjust = (deltaY + centeringForce) * cameraTurnCompensationWeight;
+                    // 루트모션 회전량만 카메라에 반영합니다. (마우스 조작 우선)
+                    float finalCameraAdjust = deltaY * cameraTurnCompensationWeight;
 
                     if (Mathf.Abs(finalCameraAdjust) > 0.001f)
                     {
@@ -131,7 +116,9 @@ namespace TDA.Character
             player.animator.SetFloat("Vertical", snappedVertical, locomotionDampTime, Time.deltaTime);
             player.animator.SetFloat("moveAmount", moveAmount, locomotionDampTime, Time.deltaTime);
 
-            player.animator.SetBool("isMoving", moveAmount > 0);
+            // 🚨 [치명적 버그 수정] 이전에 발생했던 'isMoving' 파라미터 누락 에러의 주범입니다.
+            // 유저님 애니메이터에는 isMoving이 없으므로 아래 코드는 주석 처리되어야 합니다!
+            // player.animator.SetBool("isMoving", moveAmount > 0);
         }
 
         // =========================================================================================
