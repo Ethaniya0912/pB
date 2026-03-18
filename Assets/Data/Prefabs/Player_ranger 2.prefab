@@ -1574,7 +1574,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.02149359, y: 0.7177322, z: -0.0004049392, w: 0.69598734}
   m_LocalPosition: {x: 0.000047619338, y: 0.0007151014, z: 0.00034780908}
-  m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6755807621721507105}
@@ -1716,7 +1716,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.021496559, y: -0.7177319, z: 0.00040521155, w: 0.6959876}
   m_LocalPosition: {x: -0.00004758432, y: 0.00071607676, z: 0.00034777628}
-  m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8752848422559707680}
@@ -1830,7 +1830,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 200123567
+  GlobalObjectIdHash: 3529753785
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   DeferredDespawnTick: 0
   Ownership: 1
@@ -2645,6 +2645,8 @@ MonoBehaviour:
   liftHeightThreshold: 0.25
   plantVelocityThreshold: 0.5
   stepCooldown: 0.2
+  enableAutoCalibration: 1
+  debugCalibrationLogs: 1
   targetHandWeight: 0
   targetLookWeight: 0
   freeLookDistance: 15
