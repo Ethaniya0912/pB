@@ -9,10 +9,15 @@ public class PatrolState : AIState
     public CallForHelpState callForHelpState;
 
     [Header("Detection Settings")]
+    [Tooltip("타겟(플레이어)을 감지할 레이어 마스크를 반드시 지정하세요! (예: Character)")]
     public LayerMask detectionLayer;
     public float detectionRadius = 15f;
     public float minimumDetectionAngle = -50f;
     public float maximumDetectionAngle = 50f;
+
+    [Header("Debug")]
+    [Tooltip("체크 시 몬스터가 왜 플레이어를 감지하지 못하는지 콘솔에 상세한 이유를 출력합니다.")]
+    public bool showDetectionLogs = false;
 
     public override AIState Tick(AICharacterManager aiCharacter)
     {
@@ -26,7 +31,6 @@ public class PatrolState : AIState
 
         // =========================================================================================
         // 🚨 [상태 불일치(Ghost Action) 안전망]
-        // 전투가 끝난 직후 Patrol로 넘어왔는데 플래그가 안 풀려있으면 평생 굳어버리는 현상 방지
         // =========================================================================================
         if (aiCharacter.isPerformingAction)
         {
@@ -37,66 +41,102 @@ public class PatrolState : AIState
                    (actionStateInfo.IsName("Empty State") || actionStateInfo.IsName("Empty")))
                 {
                     aiCharacter.isPerformingAction = false;
-                    combatInfo.DebugLog("<color=red>[Fail-safe]</color> Patrol 중 Ghost Action 감지! 강제 해제합니다.");
+                    if (showDetectionLogs) combatInfo.DebugLog("<color=red>[Fail-safe]</color> Patrol 중 Ghost Action 감지! 강제 해제합니다.");
                 }
             }
-
-            // 액션 중이면 이동 로직을 타지 않고 대기
             return this;
         }
 
-        // 1. 타겟 탐지 로직
+        // =========================================================================================
+        // 👁️ 1. 타겟 탐지 로직 (FOV 및 시야각 완벽 보정)
+        // =========================================================================================
+        if (detectionLayer.value == 0 && showDetectionLogs)
+        {
+            Debug.LogWarning($"<color=red>[AI 에러]</color> {aiCharacter.name}의 PatrolState에 Detection Layer가 설정되지 않았습니다! 인스펙터에서 플레이어의 레이어를 꼭 체크하세요.");
+        }
+
         Collider[] colliders = Physics.OverlapSphere(aiCharacter.transform.position, detectionRadius, detectionLayer);
+
         foreach (var collider in colliders)
         {
             CharacterManager targetCharacter = collider.transform.GetComponent<CharacterManager>();
 
-            if (targetCharacter != null && WorldUtilityManager.Instance.CanIDamageThisTarget(aiCharacter.characterGroup, targetCharacter.characterGroup))
+            if (targetCharacter != null && targetCharacter != aiCharacter)
             {
-                Vector3 targetDirection = targetCharacter.transform.position - aiCharacter.transform.position;
-                float viewableAngle = Vector3.Angle(targetDirection, aiCharacter.transform.forward);
-
-                if (viewableAngle > minimumDetectionAngle && viewableAngle < maximumDetectionAngle)
+                // 피아 식별 (팀 확인)
+                if (WorldUtilityManager.Instance.CanIDamageThisTarget(aiCharacter.characterGroup, targetCharacter.characterGroup))
                 {
-                    combatInfo.currentTarget = targetCharacter;
+                    // [버그 수정] Y축(높낮이) 차이 때문에 시야각 판정이 꼬이는 것을 막기 위해 XZ 평면으로 뭉개버립니다.
+                    Vector3 targetDirection = targetCharacter.transform.position - aiCharacter.transform.position;
+                    targetDirection.y = 0f;
+                    Vector3 forward = aiCharacter.transform.forward;
+                    forward.y = 0f;
 
-                    // 지원군 판단
-                    if (combatInfo.aiIntelligenceLevel >= combatInfo.intelligenceToCallHelp && !combatInfo.hasCalledForHelp)
+                    // SignedAngle을 사용하여 좌(-)/우(+) 시야 각도를 정확히 추출합니다.
+                    float viewableAngle = Vector3.SignedAngle(forward, targetDirection.normalized, Vector3.up);
+
+                    if (viewableAngle >= minimumDetectionAngle && viewableAngle <= maximumDetectionAngle)
                     {
-                        AICharacterManager allyToCall = combatInfo.FindNearestPeacefulAlly();
-                        if (allyToCall != null)
-                        {
-                            combatInfo.targetAllyToCall = allyToCall; // 매니저에 타겟 저장 (SO 오염 방지)
-                            return SwitchState(aiCharacter, callForHelpState);
-                        }
-                    }
+                        // [신규 추가] 벽 관통 감지 방지 (Line of Sight)
+                        // 플레이어가 시야각 안에 있더라도, 벽 뒤에 숨어있다면 감지하지 못하게 합니다.
+                        int enviroLayers = WorldUtilityManager.Instance.GetEnviroLayers();
+                        Vector3 eyePosition = aiCharacter.transform.position + Vector3.up * 1.5f;
+                        Vector3 targetEyePosition = targetCharacter.transform.position + Vector3.up * 1.5f;
 
-                    return SwitchState(aiCharacter, pursueTargetState);
+                        if (Physics.Linecast(eyePosition, targetEyePosition, enviroLayers))
+                        {
+                            if (showDetectionLogs) combatInfo.DebugLog($"타겟({targetCharacter.name})이 시야각 내에 있지만 <color=orange>벽에 가려져 있습니다.</color>");
+                            continue; // 벽에 막혔으므로 다음 타겟 검사
+                        }
+
+                        if (showDetectionLogs) combatInfo.DebugLog($"<color=lime>타겟({targetCharacter.name}) 발견!</color> 추적을 시작합니다.");
+                        combatInfo.currentTarget = targetCharacter;
+
+                        // 지원군 판단
+                        if (combatInfo.aiIntelligenceLevel >= combatInfo.intelligenceToCallHelp && !combatInfo.hasCalledForHelp)
+                        {
+                            AICharacterManager allyToCall = combatInfo.FindNearestPeacefulAlly();
+                            if (allyToCall != null)
+                            {
+                                combatInfo.targetAllyToCall = allyToCall;
+                                return SwitchState(aiCharacter, callForHelpState);
+                            }
+                        }
+
+                        return SwitchState(aiCharacter, pursueTargetState);
+                    }
+                    else if (showDetectionLogs)
+                    {
+                        combatInfo.DebugLog($"타겟({targetCharacter.name})이 거리에 있지만 <color=orange>시야각({viewableAngle:F1}도)</color>을 벗어났습니다. (요구사항: {minimumDetectionAngle}도 ~ {maximumDetectionAngle}도)");
+                    }
+                }
+                else if (showDetectionLogs)
+                {
+                    combatInfo.DebugLog($"탐지된 대상({targetCharacter.name})은 공격할 수 없는 아군/동일그룹({targetCharacter.characterGroup})입니다.");
                 }
             }
         }
 
-        // 2. 패트롤 로직 (공유 SO 대신 개별 매니저의 변수 사용)
+        // =========================================================================================
+        // 🚶 2. 패트롤 로직 (경로 막힘 픽스 복구 완료)
+        // =========================================================================================
         if (combatInfo.isWandering)
         {
             if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
             {
-                // =========================================================================================
-                // 🚨 [버그 픽스] 경로 탐색 실패 시 무한 대기 버그 해결
-                // 목적지가 벽 안쪽이거나 갈 수 없는 곳이면 런닝머신을 타며 영원히 굳어버립니다.
-                // =========================================================================================
+                // [이전 버그 픽스 복구] 목적지가 벽 안쪽이거나 갈 수 없는 곳이면 영원히 런닝머신을 타는 현상 해결
                 if (!aiCharacter.navMeshAgent.pathPending &&
                     (aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathPartial ||
                      aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid))
                 {
-                    combatInfo.DebugLog("<color=orange>순찰 경로가 막혔습니다. 새로운 경로를 탐색합니다.</color>");
+                    if (showDetectionLogs) combatInfo.DebugLog("<color=orange>순찰 경로가 막혔습니다. 탐색을 포기합니다.</color>");
                     combatInfo.isWandering = false;
                     aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
                     combatInfo.nextWanderTime = Time.time + 1.0f; // 1초 뒤 바로 재탐색
                     return this;
                 }
 
-                // 경로 계산이 끝났고(pathPending == false), 목적지에 도착했다면
+                // 경로 계산이 끝났고 목적지에 도착했다면
                 if (!aiCharacter.navMeshAgent.pathPending && aiCharacter.navMeshAgent.remainingDistance <= aiCharacter.navMeshAgent.stoppingDistance)
                 {
                     combatInfo.isWandering = false;
@@ -124,7 +164,6 @@ public class PatrolState : AIState
                     wanderTarget = combatInfo.GetWanderLocation();
                 }
 
-                // 🚨 [에러 방어 안전망] 목표 지점을 설정할 때도 에이전트가 땅에 있는지 확인합니다!
                 if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
                 {
                     aiCharacter.navMeshAgent.SetDestination(wanderTarget);
@@ -137,7 +176,6 @@ public class PatrolState : AIState
         return this;
     }
 
-    // 상태 전환 시 걷기 모션과 방황 플래그를 정지시켜 백지화
     protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
         base.ResetStateFlags(aiCharacterManager);

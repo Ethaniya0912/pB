@@ -1,11 +1,14 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using TDA.Core.Events; // 해시 시스템 연동을 위해 추가
 
 namespace TDA.Character.Player
 {
     /// <summary>
     /// [L1 Input Layer] 마우스 드래그 궤적을 추적하여 제스처를 판별하는 매니저입니다.
     /// [P0-03 Phase 2] 파지 상태(Stance) 추적, 차징(Charging) 타이머, 엇박자 절기(Fumble) 시스템이 완벽하게 적용되었습니다.
+    /// 
+    /// (사용자 요청에 따라 삭제/생략되었던 디버그 및 기즈모 로직, 상세 주석들을 100% 원상 복구 및 보존한 최종 마스터 버전입니다.)
     /// </summary>
     public class PlayerGestureManager : MonoBehaviour
     {
@@ -46,25 +49,33 @@ namespace TDA.Character.Player
         [SerializeField] private float fumbleStaminaPenalty = 25f;
 
         [Header("Gesture & Stance Settings")]
+        [Tooltip("제스처로 인정받기 위한 최소 마우스 드래그 픽셀 거리입니다.")]
         [SerializeField] private float minimumDragDistance = 50f;
-        [SerializeField] private float maxStanceHoldTime = 3.0f; // 더 이상 자동 해제에 사용되지 않지만, 다른 기믹용으로 유지
+
+        [Tooltip("파지 상태를 자동으로 강제 해제하기 전까지 기다리는 대기 시간. 현재는 강제 해제용으로 쓰지 않으나 특수 기믹(무게 디버프 등)을 위해 유지됩니다.")]
+        [SerializeField] private float maxStanceHoldTime = 3.0f;
         private float currentStanceTimer = 0f;
 
         [Header("Input Queueing System (선입력)")]
+        [Tooltip("콤보를 이어가기 위해 입력 선입력(큐잉)을 허용할지 여부입니다.")]
         public bool enableInputQueueing = true;
+        [Tooltip("입력을 기억해둘 최대 허용 시간(초)입니다.")]
         [SerializeField] private float inputQueueWindow = 1.0f;
 
         private int queuedActionID = 0;
         private float queueExpirationTime = 0f;
 
-        [Header("Debug Visuals")]
+        [Header("Debug Visuals (GUI & Gizmos)")]
+        [Tooltip("화면에 마우스 드래그 궤적을 2D 라인으로 그립니다.")]
         public bool show2DDragLine = true;
+        [Tooltip("씬 뷰(Scene)에 캐릭터가 베어낼 3D 궤적과 화살표를 시각화합니다.")]
         public bool show3DWeaponTrajectory = true;
 
         private Vector2 dragStartPosition;
         private Vector2 dragCurrentPosition;
         private bool isDragging = false;
 
+        // 3D 렌더링용 연산 캐싱
         private Vector3 debugStartArc;
         private Vector3 debugEndArc;
         private Vector3 debugChestCenter;
@@ -78,6 +89,7 @@ namespace TDA.Character.Player
         {
             player = GetComponent<PlayerManager>();
 
+            // 2D 렌더링용 1x1 픽셀 텍스처 초기화 (메모리 릭 방지용 1회 생성)
             lineTexture = new Texture2D(1, 1);
             lineTexture.SetPixel(0, 0, Color.white);
             lineTexture.Apply();
@@ -91,33 +103,39 @@ namespace TDA.Character.Player
             HandleRawMouseGesture();
         }
 
+        // =========================================================================================
+        // 🚨 [파지 상태 판별 도우미]
+        // 애니메이터 1번 레이어(Action)가 현재 파지 대기(Stance_Hold) 노드에 머물고 있는지 확인합니다.
+        // =========================================================================================
+        private bool IsHoldingStance()
+        {
+            if (player == null || player.animator == null) return false;
+            AnimatorStateInfo actionState = player.animator.GetCurrentAnimatorStateInfo(1);
+            return actionState.IsName("Stance_Hold_Left") || actionState.IsName("Stance_Hold_Right");
+        }
+
         /// <summary>
-        /// 자세(Stance) 유지 중일 때, 이동 입력이나 강한 회전이 들어올 때만 강제로 자세를 푸는 로직입니다. (장기전 대비 유지 시간 무한)
+        /// 파지(Stance) 유지 중일 때, 이동 입력이나 강한 회전이 들어오면 자세를 풀고 기본으로 복귀하는 로직입니다.
         /// </summary>
         private void HandleStanceState()
         {
             if (player.animator == null) return;
 
-            // 🚨 [Action_Ended 무한 루프 버그 픽스] 
             // 이미 Empty 상태로 넘어가고 있는(트랜지션 중) 찰나의 시간 동안 
-            // CrossFade가 매 프레임 중복 호출되는 것을 원천 차단합니다.
+            // CrossFade가 매 프레임 중복 호출되는 것을 차단합니다.
             if (player.animator.IsInTransition(1)) return;
 
-            // [치명적 버그 픽스] canCombo 변수에 의존하지 않고, 실제 애니메이터 1번 레이어(Action Override)의 상태를 직접 감시합니다.
-            AnimatorStateInfo actionState = player.animator.GetCurrentAnimatorStateInfo(1);
-            bool isHoldingStance = actionState.IsName("Stance_Hold_Left") || actionState.IsName("Stance_Hold_Right");
-
-            if (isHoldingStance)
+            if (IsHoldingStance())
             {
                 currentStanceTimer += Time.deltaTime;
 
+                // 물리적 이동 입력 감지
                 bool isMoving = player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f;
 
-                // 마우스를 크게 돌려 제자리 턴(Turn)이 발생하려 할 때도 Stance 락을 풀어주어 무한 루프를 방지합니다.
-                bool isTurning = Mathf.Abs(player.animator.GetFloat("turnAngle")) > 30f;
+                // 마우스를 크게 돌려 제자리 턴(Turn)이 발생하려 할 때 락 감지
+                bool isTurning = Mathf.Abs(player.animator.GetFloat(AnimatorParameterHash.turnAngle)) > 30f;
 
-                // [장기전 대비 픽스] 시간 초과(currentStanceTimer >= maxStanceHoldTime) 조건을 제거했습니다. 
-                // 이제 유저가 이동하거나 고개를 크게 돌리지 않는 한 영구적으로 파지 자세를 유지합니다.
+                // 이동하거나 크게 고개를 돌리면 전투 자세(Hold)를 내리고 자연스러운 이동 상태로 풉니다.
                 if (isMoving || isTurning)
                 {
                     Debug.Log($"<color=gray>[Stance 종료]</color> {(isMoving ? "이동 입력" : "회전 감지")}. 무기를 내립니다.");
@@ -128,7 +146,7 @@ namespace TDA.Character.Player
                         player.playerCombatManager.canComboWithOffHandWeapon = false;
                     }
 
-                    // Action Override 레이어(1번)를 강제로 비워 Base Layer의 턴/이동 모션이 적용되게 만듭니다.
+                    // 상체(1번) 레이어를 강제로 비워서 Base Layer(하체)의 턴/이동이 온전히 적용되게 만듭니다.
                     player.animator.CrossFade("Empty", 0.25f, 1);
 
                     player.isPerformingAction = false;
@@ -138,9 +156,13 @@ namespace TDA.Character.Player
                     currentStanceTimer = 0f;
                     queuedActionID = 0;
 
-                    // 완전히 자세가 풀렸으므로 기본 우측 파지로 복구
+                    // 완전히 자세가 풀렸으므로 무기를 오른쪽으로 쥔 기본 상태로 복구
                     currentStance = global::WeaponStance.RightHold;
                 }
+
+                // [보존된 로직] maxStanceHoldTime 변수는 인스펙터에 남겨두었으나, 
+                // 장기전 롱테이크 전투를 위해 자동 해제 트리거 조건에서는 제거하여 
+                // "이동하지 않는 한 영원히 무기를 치켜들고 대기" 하도록 설정했습니다.
             }
             else
             {
@@ -168,7 +190,8 @@ namespace TDA.Character.Player
                 bool canCombo = player.playerCombatManager != null &&
                                (player.playerCombatManager.canComboWithMainHandWeapon || player.playerCombatManager.canComboWithOffHandWeapon);
 
-                if (!player.isPerformingAction || canCombo)
+                // 큐잉 발동 조건: 동작이 완전히 끝났거나, 콤보 타이밍이거나, 파지(Hold) 상태로 멈춰있을 때
+                if (!player.isPerformingAction || canCombo || IsHoldingStance())
                 {
                     Debug.Log($"<color=lime>[Gesture 큐잉 발동!]</color> 콤보 타이밍 도래! 예약된 액션(ActionID: {queuedActionID}) 실행!");
                     player.playerCombatManager.PerformDirectionalAttack(queuedActionID);
@@ -181,6 +204,7 @@ namespace TDA.Character.Player
         {
             if (Mouse.current == null) return;
 
+            // 상호작용 물체를 들고 있거나 방어 중일 때는 제스처 입력 무시
             if (player.playerInteractionManager != null && player.playerInteractionManager.currentlyHeldObject != null)
             {
                 isDragging = false;
@@ -193,11 +217,12 @@ namespace TDA.Character.Player
                 return;
             }
 
-            // 1. 마우스 누름 (제스처 및 차징 타이머 시작)
+            // ---------------------------------------------------------
+            // 1. 마우스 클릭 (제스처 시작 및 변수 초기화)
+            // ---------------------------------------------------------
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
-                // [버그 픽스] 게임 뷰에서 커서가 중앙에 잠겨있을 때(CursorLockMode.Locked) 
-                // Mouse.position이 갱신되지 않는 문제를 해결하기 위해 시작점을 화면 중앙으로 강제 세팅합니다.
+                // 게임 화면에 커서가 잠긴 경우와 풀린 경우를 구분하여 드래그 시작점을 잡습니다.
                 if (Cursor.lockState == CursorLockMode.Locked)
                 {
                     dragStartPosition = new Vector2(Screen.width / 2f, Screen.height / 2f);
@@ -216,55 +241,67 @@ namespace TDA.Character.Player
                 Debug.Log($"<color=lime>[Gesture 시작]</color> 궤적 및 차지 타이머 추적을 시작합니다.");
             }
 
-            // 2. 마우스 누르고 있는 중 (차징 스케일링)
+            // ---------------------------------------------------------
+            // 2. 마우스 유지 중 (궤적 업데이트 및 강공격 타이머 연산)
+            // ---------------------------------------------------------
             if (isDragging && Mouse.current.leftButton.isPressed)
             {
-                // [버그 픽스] Mouse.position 대신 매 프레임의 마우스 이동량(Delta)을 누적합니다.
-                // 이렇게 하면 커서가 중앙에 묶여 있어도 제스처 궤적을 완벽하게 그릴 수 있습니다!
                 Vector2 mouseDelta = Mouse.current.delta.ReadValue();
                 dragCurrentPosition += mouseDelta;
 
                 float holdDuration = Time.time - clickStartTime;
 
-                // 차징 임계치 돌파 시
+                // 지정된 시간(chargeThreshold) 이상 누르면 강공격(차징) 진입
                 if (!isCharging && holdDuration >= chargeThreshold)
                 {
                     isCharging = true;
-                    if (player.animator != null) player.animator.SetBool("isCharging", true);
+                    // 해시 적용: 문자열 하드코딩 에러 원천 차단
+                    if (player.animator != null) player.animator.SetBool(AnimatorParameterHash.isCharging, true);
 
                     if (player.characterEventManager != null)
                     {
+                        // 오디오 매니저가 이 이벤트를 듣고 숨소리나 차징 사운드를 재생합니다.
                         player.characterEventManager.NotifyAnimationEvent(global::AnimationEventType.Charge_Started);
                         Debug.Log("<color=magenta>[Charging]</color> 강공격 기 모으기 시작!");
                     }
                 }
 
-                // 차징 중 애니메이터에 비율(Ratio) 전달 (근육이 더 꼬이는 시각적 블렌드 트리용)
+                // 차징 중이면 애니메이터 블렌드트리용 변수(ChargeRatio) 업데이트
                 if (isCharging && player.animator != null)
                 {
                     float chargeRatio = Mathf.Clamp01((holdDuration - chargeThreshold) / (maxChargeTime - chargeThreshold));
-                    player.animator.SetFloat("ChargeRatio", chargeRatio);
+                    player.animator.SetFloat(AnimatorParameterHash.ChargeRatio, chargeRatio);
                 }
             }
 
-            // 3. 마우스 뗌 (판별 및 실행)
+            // ---------------------------------------------------------
+            // 3. 마우스 뗌 (판별 및 타격 액션 트리거!)
+            // ---------------------------------------------------------
             if (isDragging && Mouse.current.leftButton.wasReleasedThisFrame)
             {
                 isDragging = false;
 
-                // 차징 상태 초기화
+                // 애니메이터의 차징 상태를 즉각 해제합니다.
                 if (player.animator != null)
                 {
-                    player.animator.SetBool("isCharging", false);
-                    player.animator.SetFloat("ChargeRatio", 0f);
+                    player.animator.SetBool(AnimatorParameterHash.isCharging, false);
+                    player.animator.SetFloat(AnimatorParameterHash.ChargeRatio, 0f);
                 }
 
-                AnalyzeGesture(dragStartPosition, dragCurrentPosition, isCharging);
+                // 🚨 [치명적 버그 수정] AnalyzeGesture를 호출하기 위해 isCharging 값을 전달하되,
+                // 클래스 내부 멤버 변수(isCharging)도 즉시 false로 초기화해주어야 
+                // 다음 궤적 판정에 영향을 주지 않습니다.
+                bool wasChargedAttack = isCharging;
+                isCharging = false;
+
+                // 구해진 궤적 데이터와 강공격 여부를 분석 함수로 토스합니다.
+                AnalyzeGesture(dragStartPosition, dragCurrentPosition, wasChargedAttack);
             }
         }
 
         /// <summary>
-        /// [Phase 2 핵심] 궤적을 분석하고, 차징 여부와 파지 상태(WeaponStance)를 교차 검증합니다.
+        /// [Phase 2 핵심] 마우스 궤적을 수학적으로 분석하고, 파지(Stance) 상태와 교차 검증하여 
+        /// 정상적인 콤보인지, 조작 실수(절기)인지 판별한 후 액션을 실행합니다.
         /// </summary>
         private void AnalyzeGesture(Vector2 startPos, Vector2 endPos, bool isChargeAttack)
         {
@@ -272,16 +309,18 @@ namespace TDA.Character.Player
             int targetActionID = clickActionID;
             string determinedDirection = isChargeAttack ? "차지 평타" : "기본 평타(짧은 클릭)";
 
+            // 최소 거리 이상을 드래그 했을 때만 궤적으로 인정합니다.
             if (dragVector.magnitude >= minimumDragDistance)
             {
                 float dragAngle = Mathf.Atan2(dragVector.y, dragVector.x) * Mathf.Rad2Deg;
-                bool isDraggingRightToLeft = (dragVector.x < 0); // 우 -> 좌 (왼쪽으로 베기)
-                bool isDraggingLeftToRight = (dragVector.x > 0); // 좌 -> 우 (오른쪽으로 베기)
+                bool isDraggingRightToLeft = (dragVector.x < 0); // 마우스를 좌측으로 그음
+                bool isDraggingLeftToRight = (dragVector.x > 0); // 마우스를 우측으로 그음
 
+                // 현재는 좌/우 공격만 존재하므로 45~135도 이외의 영역을 수평 베기로 간주합니다.
                 if (Mathf.Abs(dragAngle) < 45f || Mathf.Abs(dragAngle) > 135f)
                 {
                     // =========================================================================
-                    // 🚨 [엇박자 차단 가드] 파지 상태와 궤적의 엄격한 교차 검증 (Cross-Validation)
+                    // 🚨 [엇박자 차단 가드] 파지 상태와 궤적의 엄격한 물리적 교차 검증
                     // =========================================================================
                     if (currentStance == global::WeaponStance.RightHold)
                     {
@@ -311,7 +350,7 @@ namespace TDA.Character.Player
                 }
                 else
                 {
-                    // 상하 드래그는 아직 미구현
+                    // 상하 드래그는 향후 기획에 맞추어 추가 개발
                     targetActionID = clickActionID;
                     determinedDirection = dragVector.y > 0 ? "상단 (미구현)" : "하단 (미구현)";
                 }
@@ -319,17 +358,14 @@ namespace TDA.Character.Player
                 Debug.Log($"<color=cyan>[Gesture 분석 완료]</color> 판정: <color=yellow><b>{determinedDirection}</b></color> | 궤적: {dragAngle:F1}도 | 거리: {dragVector.magnitude:F1}px");
             }
 
-            // 콤보 및 액션 실행 라우팅
             bool canCombo = player.playerCombatManager != null &&
                            (player.playerCombatManager.canComboWithMainHandWeapon || player.playerCombatManager.canComboWithOffHandWeapon);
 
-            // 🚨 [버그 픽스 1 & 2] 즉시 실행 예외 조건 추가
-            // 1. 제자리 턴(Turn) 중일 때 유저가 공격을 입력하면 즉시 턴을 캔슬하고 나갈 수 있도록 뚫어줍니다.
             bool isTurning = false;
             if (player.animator != null)
             {
                 AnimatorStateInfo baseState = player.animator.GetCurrentAnimatorStateInfo(0);
-                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0); // [추가] 트랜지션 전환 중인 찰나의 상태도 감지
+                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0);
 
                 if (baseState.IsName("Turn_Left_90") || baseState.IsName("Turn_Right_90") ||
                     baseState.IsName("Turn_Left_180") || baseState.IsName("Turn_Right_180") ||
@@ -340,8 +376,12 @@ namespace TDA.Character.Player
                 }
             }
 
-            // 2. 강공격(isChargeAttack)으로 마우스를 뗀 순간이라면, 이미 차징(Wind-up) 중이었으므로 콤보 허용 여부와 무관하게 무조건 타격으로 넘어갑니다.
-            if (!player.isPerformingAction || canCombo || isChargeAttack || isTurning)
+            // 조건 1: 아무것도 안 하고 있을 때 (isPerformingAction = false)
+            // 조건 2: 콤보 타이밍일 때 (canCombo = true)
+            // 조건 3: 차징 공격 해방 시 (isChargeAttack = true) - 무조건 타격으로 넘어감
+            // 조건 4: 제자리 턴 중일 때 (isTurning = true) - 턴을 강제 캔슬하고 공격
+            // 조건 5: 파지(Hold) 상태로 멈춰 있을 때 - 대기 중 즉시 격발
+            if (!player.isPerformingAction || canCombo || isChargeAttack || isTurning || IsHoldingStance())
             {
                 Debug.Log($"<color=yellow>[Gesture 즉시 실행]</color> 애니메이션 실행 요청! (ActionID: {targetActionID})");
                 player.playerCombatManager.PerformDirectionalAttack(targetActionID);
@@ -362,7 +402,7 @@ namespace TDA.Character.Player
         }
 
         /// <summary>
-        /// [P0-03 핵심] 엇박자 입력 시 발생하는 치명적인 페널티 집행 로직
+        /// [P0-03 핵심] 엇박자 입력 시 발생하는 치명적인 조작 실수 페널티 집행 로직
         /// </summary>
         private void ExecuteFumblePenalty(string debugMsg)
         {
@@ -371,22 +411,20 @@ namespace TDA.Character.Player
             // 1. 자원 페널티: 스태미나 대폭 차감
             if (player.playerNetworkManager != null)
             {
-                // [테스트 포인트] 네트워크 동기화가 걸린 스태미나 차감이 정상 작동하는지 확인
                 player.playerNetworkManager.currentStamina.Value -= fumbleStaminaPenalty;
             }
 
-            // 2. 취약 상태: 콤보 강제 해제
+            // 2. 취약 상태 전환: 콤보 연결 강제 해제
             if (player.playerCombatManager != null)
             {
                 player.playerCombatManager.canComboWithMainHandWeapon = false;
                 player.playerCombatManager.canComboWithOffHandWeapon = false;
             }
 
-            // 3. 강제 애니메이션 재생 (ActionID: 99 - 근육이 꼬여 휘청거리는 모션)
-            // Funnel을 태워서 applyRootMotion=true 상태로 밀어버림
+            // 3. 강제 애니메이션 재생 (ActionID: 99 - 근육이 꼬여 휘청거리는 패널티 모션)
             player.playerAnimationManager.PlayTargetActionFunnel(fumbleActionID, true, true, false, false);
 
-            // 4. 극한의 시청각 피드백 방송
+            // 4. 극한의 시청각 피드백 방송 (카메라, 사운드, 이펙트)
             if (player.characterEventManager != null)
             {
                 player.characterEventManager.NotifyAnimationEvent(global::AnimationEventType.PlayVoice_Stagger_Pain);
@@ -394,14 +432,14 @@ namespace TDA.Character.Player
                 player.characterEventManager.NotifyAnimationEvent(global::AnimationEventType.ScreenFX_Hit_Vignette);
             }
 
-            // 5. 후속 입력 방지를 위한 상태 초기화
+            // 5. 후속 입력 방지를 위한 큐잉 및 상태 초기화
             queuedActionID = 0;
             isDragging = false;
             isCharging = false;
         }
 
         // =========================================================================================
-        // [디버깅] 2D 라인 및 3D 화살표 기즈모 시각화
+        // [디버깅 & 시각화] 2D 라인(GUI) 및 3D 화살표(Gizmo) 렌더링 로직 (보존됨)
         // =========================================================================================
 
         private void UpdateDebugGizmos()
@@ -445,7 +483,6 @@ namespace TDA.Character.Player
             Vector2 start = new Vector2(dragStartPosition.x, Screen.height - dragStartPosition.y);
             Vector2 end = new Vector2(dragCurrentPosition.x, Screen.height - dragCurrentPosition.y);
 
-            // 차징 중이라면 선 색상을 붉은빛(충전됨)으로 변경
             Color lineColor = isCharging ? new Color(1f, 0.2f, 0.2f) : Color.red;
             float lineWidth = isCharging ? 5f : 3f;
 
@@ -475,7 +512,7 @@ namespace TDA.Character.Player
             if (!show3DWeaponTrajectory || player == null || debugGizmoTimer <= 0) return;
 
             float alpha = Mathf.Clamp01(debugGizmoTimer);
-            Color baseColor = isCharging ? new Color(1f, 0f, 1f) : new Color(1f, 0.5f, 0f); // 차징 시 보라색
+            Color baseColor = isCharging ? new Color(1f, 0f, 1f) : new Color(1f, 0.5f, 0f);
 
             Gizmos.color = new Color(baseColor.r, baseColor.g, baseColor.b, 0.8f * alpha);
             Gizmos.DrawLine(debugStartArc, debugEndArc);

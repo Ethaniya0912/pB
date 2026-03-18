@@ -143,14 +143,21 @@ namespace TDA.Character
         {
             // 1. 자원 및 상태 검문
             if (player.playerNetworkManager.isDead.Value) return;
-            if (player.playerNetworkManager.currentStamina.Value <= 0) return;
 
-            // [버그 픽스] 제자리 턴(Turn) 중일 때는 답답함 없이 공격으로 즉시 캔슬할 수 있도록 예외(isTurning)를 둡니다.
+            if (player.playerNetworkManager.currentStamina.Value <= 0)
+            {
+                Debug.Log("<color=red>[CombatManager Guard]</color> 스태미나가 부족하여 공격이 취소되었습니다.");
+                return;
+            }
+
             bool isTurning = false;
+            bool isHoldingStance = false; // 파지 상태 추적 변수
+            bool isEmptyState = false;    // [신규 추가] 엠프티(Empty) 상태 추적 변수
+
             if (player.animator != null)
             {
                 AnimatorStateInfo baseState = player.animator.GetCurrentAnimatorStateInfo(0);
-                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0); // [추가] 트랜지션 전환 중인 찰나의 상태도 감지
+                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0);
 
                 if (baseState.IsName("Turn_Left_90") || baseState.IsName("Turn_Right_90") ||
                     baseState.IsName("Turn_Left_180") || baseState.IsName("Turn_Right_180") ||
@@ -159,13 +166,39 @@ namespace TDA.Character
                 {
                     isTurning = true;
                 }
+
+                // 🚨 애니메이터 1번 레이어(Action)의 상태 정밀 검사!
+                if (player.animator.layerCount > 1)
+                {
+                    AnimatorStateInfo actionState = player.animator.GetCurrentAnimatorStateInfo(1);
+
+                    // 1) 파지 상태 확인
+                    if (actionState.IsName("Stance_Hold_Left") || actionState.IsName("Stance_Hold_Right"))
+                    {
+                        isHoldingStance = true;
+                    }
+
+                    // 2) [핵심 추가] Empty 상태 확인! 
+                    // Empty 상태이거나, Empty로 복귀하는 찰나의 트랜지션 중이라면 플래그 꼬임을 무시하고 뚫어줍니다.
+                    if (actionState.IsName("Empty State") || actionState.IsName("Empty"))
+                    {
+                        isEmptyState = true;
+                    }
+                }
             }
 
-            // [추가된 로직] 강공격 해방(ActionID 11, 12)은 콤보나 다른 액션 제한을 무시하고 무조건 즉시 발동되도록 예외 처리합니다.
             bool isChargeRelease = (actionID == 11 || actionID == 12);
 
-            // 콤보 창이 열려있지 않은데 이미 다른 액션 중(턴 제외, 강공격 해방 제외)이라면 궤적 입력을 무시/큐잉합니다. (광클 캔슬 방지)
-            if (player.isPerformingAction && !canComboWithMainHandWeapon && !isTurning && !isChargeRelease) return;
+            // 🚨 [핵심 버그 뚫기] isHoldingStance 및 isEmptyState 예외 추가!
+            // 파지(Hold) 상태로 멈춰 있거나, 아무것도 안 하는 완벽한 대기(Empty) 상태일 때는, 
+            // isPerformingAction 플래그가 버그로 인해 true로 꼬여있더라도 강제로 가드를 뚫고 공격(약공격 포함)을 실행해야 합니다.
+            if (player.isPerformingAction && !canComboWithMainHandWeapon && !isTurning && !isChargeRelease && !isHoldingStance && !isEmptyState)
+            {
+                // [디버깅 추가] 공격이 가드에 막혀 씹힐 때, 그 이유와 현재 상태들을 상세히 출력하여 디버깅을 돕습니다.
+                Debug.Log($"<color=orange>[CombatManager Guard]</color> 공격 씹힘! (사유: 액션 중이며 예외 조건 불충족)\n" +
+                          $"<color=gray>상세 상태 -> 콤보가능:{canComboWithMainHandWeapon}, 턴중:{isTurning}, 차징해방:{isChargeRelease}, 홀드중:{isHoldingStance}, 빈상태:{isEmptyState}</color>");
+                return;
+            }
 
             // 2. 공격 실행
             if (WorldGameStateManager.Instance.IsCombatAllowed())
@@ -185,7 +218,6 @@ namespace TDA.Character
                 player.playerNetworkManager.SetCharacterActionHand(true);
 
                 // [임시 처리] 기존 스태미나 차감 시스템과의 호환성을 위해 AttackType을 강제 지정합니다.
-                // 향후 SO 데이터 중심 구조가 완전히 정착되면 이 부분은 SO 내부 변수로 대체될 수 있습니다.
                 currentAttackType = global::AttackType.HeavyAttack01;
 
                 // [핵심] Funnel을 통해 해당 방향의 ActionID를 애니메이터 파라미터에 꽂아 넣습니다.
@@ -198,6 +230,10 @@ namespace TDA.Character
                 DisableCombo();
 
                 Debug.Log($"<color=yellow>[CombatManager]</color> 궤적 기반 공격 실행 완료! (ActionID: {actionID})");
+            }
+            else
+            {
+                Debug.Log("<color=orange>[CombatManager Guard]</color> 월드 상태가 전투를 허용하지 않아 공격이 취소되었습니다.");
             }
         }
 

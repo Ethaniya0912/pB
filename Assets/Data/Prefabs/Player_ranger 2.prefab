@@ -1830,7 +1830,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3529753785
+  GlobalObjectIdHash: 200123567
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   DeferredDespawnTick: 0
   Ownership: 1
@@ -2001,13 +2001,13 @@ MonoBehaviour:
   maxMadness:
     m_InternalValue: 1
   currentStamina:
-    m_InternalValue: 100
+    m_InternalValue: 1000
   maxStamina:
-    m_InternalValue: 100
+    m_InternalValue: 1000
   currentHealth:
-    m_InternalValue: 1
+    m_InternalValue: 1000
   maxHealth:
-    m_InternalValue: 1
+    m_InternalValue: 1000
   currentRightHandGrabbedObjectID:
     m_InternalValue: 0
   characterName:
@@ -2107,8 +2107,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e63d1dde48566424d9999ffa85be58c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  staminaRegenerationAmount: 2
-  staminaRegenerationDelay: 2
+  staminaRegenerationAmount: 1
+  staminaRegenerationDelay: 0.1
 --- !u!143 &7646145741709208637
 CharacterController:
   m_ObjectHideFlags: 0
