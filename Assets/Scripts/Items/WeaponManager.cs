@@ -1,10 +1,15 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class WeaponManager : MonoBehaviour
 {
+    [Header("Damage Collider")]
     public MeleeWeaponDamageCollider meleeWeaponDamageCollider;
+
+    [Header("Audio (Steam Audio)")]
+    public AudioSource weaponAudioSource; // 무기 끝에 달린 AudioSource 연결
+
 
     private void Awake()
     {

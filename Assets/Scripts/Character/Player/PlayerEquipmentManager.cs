@@ -258,6 +258,11 @@ namespace TDA.Character.Player
                 if (rightWeaponManager != null)
                 {
                     rightWeaponManager.SetWeaponDamage(player, weapon);
+
+                    // =========================================================================================
+                    // 🚨 [Steam Audio 연동] 부모(CharacterEquipmentManager)의 공통 기능을 호출하여 연결
+                    // =========================================================================================
+                    RegisterWeaponAudioSource(rightWeaponManager, weapon.itemName);
                 }
             }
 
@@ -288,6 +293,37 @@ namespace TDA.Character.Player
                 if (leftWeaponManager != null)
                 {
                     leftWeaponManager.SetWeaponDamage(player, weapon);
+
+                    // =========================================================================================
+                    // 🚨 [Steam Audio 연동] 부모(CharacterEquipmentManager)의 공통 기능을 호출하여 연결
+                    // =========================================================================================
+                    RegisterWeaponAudioSource(leftWeaponManager, weapon.itemName);
+                }
+
+                // [방어 시스템 P0-02 연동] 장착한 무기가 방패(ShieldWeaponItemSO)인지 검사합니다.
+                if (weapon is TDA.Items.ShieldWeaponItemSO shieldSO)
+                {
+                    // 방패 매니저(ShieldManager) 세팅
+                    ShieldManager shieldManager = leftHandWeaponModel.GetComponentInChildren<ShieldManager>();
+                    if (shieldManager != null)
+                    {
+                        shieldManager.SetShieldDefenseStats(character, shieldSO);
+                    }
+
+                    // 캐릭터의 방어 매니저에 방패 데이터(내구도, 처냄 저항 등)를 주입합니다.
+                    if (character.characterDefenseManager != null)
+                    {
+                        character.characterDefenseManager.SetDefendingItem(shieldSO);
+                        Debug.Log($"<color=cyan>[Equipment]</color> {shieldSO.itemName} 방패의 내구도 및 스탯이 DefenseManager에 주입되었습니다.");
+                    }
+                }
+                else
+                {
+                    // 만약 방패가 아닌 일반 무기(쌍검 등)를 들었다면 방패 데이터를 초기화합니다.
+                    if (character.characterDefenseManager != null)
+                    {
+                        character.characterDefenseManager.SetDefendingItem(null);
+                    }
                 }
             }
 

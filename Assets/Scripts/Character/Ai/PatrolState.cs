@@ -21,7 +21,28 @@ public class PatrolState : AIState
         // 0. 누군가(아군)가 내게 적의 존재를 알렸다면 즉시 추적 상태로!
         if (combatInfo.currentTarget != null)
         {
-            return SwitchState(aiCharacter, pursueTargetState); // 수정됨: SwitchState 사용
+            return SwitchState(aiCharacter, pursueTargetState);
+        }
+
+        // =========================================================================================
+        // 🚨 [상태 불일치(Ghost Action) 안전망]
+        // 전투가 끝난 직후 Patrol로 넘어왔는데 플래그가 안 풀려있으면 평생 굳어버리는 현상 방지
+        // =========================================================================================
+        if (aiCharacter.isPerformingAction)
+        {
+            if (aiCharacter.animator != null && aiCharacter.animator.layerCount > 1)
+            {
+                AnimatorStateInfo actionStateInfo = aiCharacter.animator.GetCurrentAnimatorStateInfo(1);
+                if (!aiCharacter.animator.IsInTransition(1) &&
+                   (actionStateInfo.IsName("Empty State") || actionStateInfo.IsName("Empty")))
+                {
+                    aiCharacter.isPerformingAction = false;
+                    combatInfo.DebugLog("<color=red>[Fail-safe]</color> Patrol 중 Ghost Action 감지! 강제 해제합니다.");
+                }
+            }
+
+            // 액션 중이면 이동 로직을 타지 않고 대기
+            return this;
         }
 
         // 1. 타겟 탐지 로직
@@ -46,11 +67,11 @@ public class PatrolState : AIState
                         if (allyToCall != null)
                         {
                             combatInfo.targetAllyToCall = allyToCall; // 매니저에 타겟 저장 (SO 오염 방지)
-                            return SwitchState(aiCharacter, callForHelpState); // 수정됨: SwitchState 사용
+                            return SwitchState(aiCharacter, callForHelpState);
                         }
                     }
 
-                    return SwitchState(aiCharacter, pursueTargetState); // 수정됨: SwitchState 사용
+                    return SwitchState(aiCharacter, pursueTargetState);
                 }
             }
         }
@@ -58,10 +79,25 @@ public class PatrolState : AIState
         // 2. 패트롤 로직 (공유 SO 대신 개별 매니저의 변수 사용)
         if (combatInfo.isWandering)
         {
-            // 🚨 [에러 방어 안전망] 에이전트가 살아서 맵(NavMesh) 위에 안착했을 때만 목적지까지의 거리를 묻습니다!
             if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
             {
-                if (aiCharacter.navMeshAgent.remainingDistance <= aiCharacter.navMeshAgent.stoppingDistance)
+                // =========================================================================================
+                // 🚨 [버그 픽스] 경로 탐색 실패 시 무한 대기 버그 해결
+                // 목적지가 벽 안쪽이거나 갈 수 없는 곳이면 런닝머신을 타며 영원히 굳어버립니다.
+                // =========================================================================================
+                if (!aiCharacter.navMeshAgent.pathPending &&
+                    (aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathPartial ||
+                     aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid))
+                {
+                    combatInfo.DebugLog("<color=orange>순찰 경로가 막혔습니다. 새로운 경로를 탐색합니다.</color>");
+                    combatInfo.isWandering = false;
+                    aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
+                    combatInfo.nextWanderTime = Time.time + 1.0f; // 1초 뒤 바로 재탐색
+                    return this;
+                }
+
+                // 경로 계산이 끝났고(pathPending == false), 목적지에 도착했다면
+                if (!aiCharacter.navMeshAgent.pathPending && aiCharacter.navMeshAgent.remainingDistance <= aiCharacter.navMeshAgent.stoppingDistance)
                 {
                     combatInfo.isWandering = false;
                     aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
@@ -101,7 +137,7 @@ public class PatrolState : AIState
         return this;
     }
 
-    // 수정됨: 상태 전환 시 걷기 모션과 방황 플래그를 정지시켜 백지화
+    // 상태 전환 시 걷기 모션과 방황 플래그를 정지시켜 백지화
     protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
         base.ResetStateFlags(aiCharacterManager);

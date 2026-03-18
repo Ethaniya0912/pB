@@ -44,6 +44,26 @@ public class CombatStanceState : AIState
 
         if (aiCharacter.isPerformingAction)
         {
+            // =========================================================================================
+            // 🚨 [상태 불일치(Ghost Action) 안전망]
+            // 스크립트는 "액션 중"이라고 플래그를 켰는데, 막상 애니메이터(Action Layer)는 'Empty'에 멈춰있다면?
+            // (원인: SO에 입력한 ActionState ID가 애니메이터 화살표 조건에 없어서 재생이 씹힌 경우)
+            // 평생 굳어버리는 버그를 막기 위해, 즉시 플래그를 강제 세탁(Reset)하고 빠져나갑니다!
+            // =========================================================================================
+            if (aiCharacter.animator != null && aiCharacter.animator.layerCount > 1)
+            {
+                AnimatorStateInfo actionStateInfo = aiCharacter.animator.GetCurrentAnimatorStateInfo(1);
+
+                // 트랜지션 중이 아니고, 현재 상태가 빈 상태(Empty)라면 씹힌 것!
+                if (!aiCharacter.animator.IsInTransition(1) &&
+                   (actionStateInfo.IsName("Empty State") || actionStateInfo.IsName("Empty")))
+                {
+                    aiCharacter.isPerformingAction = false;
+                    aiCharacter.aiCharacterCombatManager.DebugLog("<color=red>[Fail-safe]</color> 존재하지 않는 ActionID가 호출되어 씹혔습니다! 강제로 굳음 상태를 해제합니다.");
+                    return this; // 플래그를 끄고 다음 프레임부터 다시 정상 작동하도록 유도
+                }
+            }
+
             // 🚨 [치명적 버그 수정] 동굴(CaveManager)이 실시간 생성될 때, 
             // 몬스터가 NavMesh 밖(공중)에 있는데 ResetPath를 부르면 에러가 터지는 현상을 완벽 방어합니다.
             if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
@@ -83,6 +103,21 @@ public class CombatStanceState : AIState
             aiCharacter.aiCharacterCombatManager.DebugLog($"타겟이 공격 범위를 벗어남 (거리: {distanceFromTarget:F1}) -> Pursue 상태로 전환");
             return SwitchState(aiCharacter, pursueTargetState);
         }
+
+        // =========================================================================================
+        // 🧠 [지능 추가] 쿨타임 대기 중 타겟 주시 (Rotation)
+        // AI가 쿨타임을 기다리며 얼타는 것처럼 보이지 않도록, 항상 플레이어를 향해 매섭게 몸을 돌립니다!
+        // =========================================================================================
+        Vector3 direction = aiCharacter.aiCharacterCombatManager.currentTarget.transform.position - aiCharacter.transform.position;
+        direction.y = 0;
+        direction.Normalize();
+
+        if (direction != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            aiCharacter.transform.rotation = Quaternion.Slerp(aiCharacter.transform.rotation, targetRotation, 5f * Time.deltaTime);
+        }
+        // =========================================================================================
 
         // =========================================================================================
         // 🛡️ [P0-02] AI 지능형 방어 로직 (AIDefenseManager 연동)

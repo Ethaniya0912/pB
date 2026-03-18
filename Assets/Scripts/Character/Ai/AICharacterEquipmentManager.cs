@@ -94,6 +94,11 @@ namespace TDA.Character.AI
                 if (rightWeaponManager != null)
                 {
                     rightWeaponManager.SetWeaponDamage(aiCharacter, weapon);
+
+                    // =========================================================================================
+                    // 🚨 [Steam Audio 연동] 부모(CharacterEquipmentManager)의 공통 기능을 호출하여 연결
+                    // =========================================================================================
+                    RegisterWeaponAudioSource(rightWeaponManager, weapon.itemName);
                 }
             }
 
@@ -123,6 +128,11 @@ namespace TDA.Character.AI
                 if (leftWeaponManager != null)
                 {
                     leftWeaponManager.SetWeaponDamage(aiCharacter, weapon);
+
+                    // =========================================================================================
+                    // 🚨 [Steam Audio 연동] 부모(CharacterEquipmentManager)의 공통 기능을 호출하여 연결
+                    // =========================================================================================
+                    RegisterWeaponAudioSource(leftWeaponManager, weapon.itemName);
                 }
 
                 // [방어 시스템 P0-02 연동] 장착한 무기가 방패(Shield)일 경우 스펙 주입
