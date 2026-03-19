@@ -37,9 +37,9 @@ MonoBehaviour:
     bobbingAmount: 1.2
   impactShake:
     enableShake: 1
-    shakeIntensity: 1.2
+    shakeIntensity: 0.2
     shakeDelay: 0
-    maxDuration: 0.3
+    maxDuration: 0.1
   dofFocusDistance: 2
   vignetteIntensity: 0.3
   pauseOnApply: 0

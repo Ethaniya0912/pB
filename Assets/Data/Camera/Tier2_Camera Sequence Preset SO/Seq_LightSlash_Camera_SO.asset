@@ -19,10 +19,46 @@ MonoBehaviour:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
+        time: -0.99053955
+        value: 0.0037231445
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: -0.6962343
+        value: -0.010944121
+        inSlope: 0.24430573
+        outSlope: 0.24430573
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0.33333334
+      - serializedVersion: 3
+        time: -0.10217911
+        value: -0.0407471
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    holdDuration: 0.1
+    trackingStartTime: 0
+    trackingEndTime: 1
+    trackingWeightCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
         time: 0
-        value: 0
-        inSlope: 2
-        outSlope: 2
+        value: 1
+        inSlope: 0
+        outSlope: 0
         tangentMode: 0
         weightedMode: 0
         inWeight: 0
@@ -39,8 +75,8 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    holdDuration: 0.2
   canBeInterruptedByInput: 0
   canBeInterruptedByDamage: 0
   restoreToDefaultStanceOnFinish: 1
-  restoreBlendDuration: 0.15
+  restoreBlendDuration: 0.1
+  pauseOnApply: 0

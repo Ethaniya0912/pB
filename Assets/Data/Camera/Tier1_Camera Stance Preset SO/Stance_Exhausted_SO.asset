@@ -14,12 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
   fov: 60
   zTilt: 0
+  yawOffset: 0
   baseOffset: {x: 0.5, y: -0.2, z: -2.5}
   useDynamicFraming: 0
   dynamicFraming:
     leftStrafeMaxOffset: -0.4
     rightStrafeMaxOffset: 0.4
-    framingDelayTime: 0.35
+    holdLeftStrafe: 0
+    holdRightStrafe: 0
+    leftFramingDelay: 0.15
+    rightFramingDelay: 0.15
+    centerReturnDelay: 0.35
   focusTargets:
   - target: 0
     weight: 1
@@ -29,9 +34,10 @@ MonoBehaviour:
     swaySpeed: 2
     bobbingAmount: 1.2
   impactShake:
-    enableShake: 0
-    shakeIntensity: 0.5
+    enableShake: 1
+    shakeIntensity: 0.1
     shakeDelay: 0
-    maxDuration: 0.3
+    maxDuration: 0.1
   dofFocusDistance: 0.6
   vignetteIntensity: 0.3
+  pauseOnApply: 0

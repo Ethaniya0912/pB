@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
   fov: 60
   zTilt: 0
-  yawOffset: 0
+  yawOffset: 3
   baseOffset: {x: 0, y: 0, z: -1.5}
   useDynamicFraming: 0
   dynamicFraming:

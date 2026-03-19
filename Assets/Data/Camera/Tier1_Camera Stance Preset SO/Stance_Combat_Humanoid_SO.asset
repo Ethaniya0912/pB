@@ -32,8 +32,8 @@ MonoBehaviour:
     weight: 0.7
   handheldEffect:
     enableHandheldEffect: 1
-    swayAmount: 0.5
-    swaySpeed: 1
+    swayAmount: 0.1
+    swaySpeed: 0.5
     bobbingAmount: 1.2
   impactShake:
     enableShake: 0
