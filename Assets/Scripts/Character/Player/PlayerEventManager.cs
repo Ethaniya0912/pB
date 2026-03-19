@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using TDA.Character;
 using TDA.World;
+using TDA.Cameras; // [신규] 카메라 SO 데이터 참조를 위해 추가
 // using UnityEngine.Rendering; // 향후 포스트 프로세싱 연동 시 주석 해제
 
 namespace TDA.Character.Player
@@ -13,6 +14,26 @@ namespace TDA.Character.Player
     public class PlayerEventManager : CharacterEventManager
     {
         private PlayerManager player;
+
+        // =========================================================================================
+        // 🚨 [데이터 주도 설계 완벽화] 하드코딩 플로트(Float)를 제거하고 SO 참조로 전면 개편!
+        // 기획자가 Camera Stance / Sequence SO에 세팅해둔 값을 그대로 빼와서 사용합니다.
+        // =========================================================================================
+        [Header("Camera Directing Data (SO-Driven)")]
+        [Tooltip("가벼운 피격이나 착지 시 쉐이크 수치를 가져올 1계층 스탠스 SO")]
+        [SerializeField] private CameraStancePresetSO lightShakeStance;
+
+        [Tooltip("묵직한 강공격 임팩트나 강한 넉백 시 쉐이크 수치를 가져올 1계층 스탠스 SO")]
+        [SerializeField] private CameraStancePresetSO heavyShakeStance;
+
+        [Tooltip("구르기 후 바닥을 짚을 때 쉐이크 수치를 가져올 1계층 스탠스 SO")]
+        [SerializeField] private CameraStancePresetSO rollShakeStance;
+
+        [Tooltip("절기(Fumble) 조작 실패 시, 쉐이크/비네트/틸트 등 전방위 멀미 연출을 덮어씌울 2계층 시퀀스 SO")]
+        [SerializeField] private CameraSequencePresetSO fumblePenaltySequence;
+
+        [Tooltip("일반 피격 시 화면 비네트(붉은 점멸) 효과를 덮어씌울 2계층 시퀀스 SO")]
+        [SerializeField] private CameraSequencePresetSO hitVignetteSequence;
 
         protected virtual void Awake()
         {
@@ -36,39 +57,48 @@ namespace TDA.Character.Player
             switch (eventType)
             {
                 // =======================================================
-                // [카메라 연출 연동] (PlayerCamera.cs의 Shake 함수 호출)
+                // 🚨 [아키텍처 정상화] 카메라 직접 호출(player.playerCamera) 금지!
+                // 모든 연출 요청은 오직 중앙 관제탑(WorldCameraManager)으로만 보냅니다.
                 // =======================================================
                 case global::AnimationEventType.CameraShake_Light:
-                    if (player.IsOwner && player.playerCamera != null)
+                    // 로컬 플레이어의 화면만 흔들리도록 IsOwner 검사
+                    if (player.IsOwner && WorldCameraManager.Instance != null && lightShakeStance != null)
                     {
-                        // 가벼운 피격이나 착지 시 미세한 흔들림 (Intensity, Duration)
-                        player.playerCamera.Shake(0.15f, 0.2f);
+                        // 기획자가 SO 인스펙터에 입력한 값을 그대로 빼와서 관제탑에 전달합니다.
+                        if (lightShakeStance.impactShake.enableShake)
+                        {
+                            WorldCameraManager.Instance.ApplyCameraShake(lightShakeStance.impactShake.shakeIntensity, lightShakeStance.impactShake.maxDuration);
+                        }
                     }
                     break;
 
                 case global::AnimationEventType.CameraShake_Heavy:
-                    if (player.IsOwner && player.playerCamera != null)
+                    if (player.IsOwner && WorldCameraManager.Instance != null && heavyShakeStance != null)
                     {
-                        // 묵직한 강공격 임팩트나 강한 넉백 시의 화면 지진
-                        player.playerCamera.Shake(0.4f, 0.35f);
+                        if (heavyShakeStance.impactShake.enableShake)
+                        {
+                            WorldCameraManager.Instance.ApplyCameraShake(heavyShakeStance.impactShake.shakeIntensity, heavyShakeStance.impactShake.maxDuration);
+                        }
                     }
                     break;
 
                 case global::AnimationEventType.CameraShake_Roll:
-                    if (player.IsOwner && player.playerCamera != null)
+                    if (player.IsOwner && WorldCameraManager.Instance != null && rollShakeStance != null)
                     {
-                        // 구르기 후 바닥을 짚을 때의 특유의 충격
-                        player.playerCamera.Shake(0.2f, 0.15f);
+                        if (rollShakeStance.impactShake.enableShake)
+                        {
+                            WorldCameraManager.Instance.ApplyCameraShake(rollShakeStance.impactShake.shakeIntensity, rollShakeStance.impactShake.maxDuration);
+                        }
                     }
                     break;
 
-                // 🚨 [Phase 4] 절기(Fumble) 반동 제어
+                // 🚨 [Phase 4] 절기(Fumble) 반동 제어 (2계층 시퀀스 통째로 실행!)
                 case global::AnimationEventType.CameraShake_Heavy_Fumble:
-                    if (player.IsOwner && player.playerCamera != null)
+                    if (player.IsOwner && WorldCameraManager.Instance != null && fumblePenaltySequence != null)
                     {
-                        // 플레이어에게 순간적인 멀미와 방향 감각 상실을 유도하는 강렬한 반동
-                        player.playerCamera.Shake(0.5f, 0.4f);
-                        Debug.Log("<color=red>[PlayerEventManager]</color> 카메라 쉐이크(Fumble) 발동: 멀미와 방향 감각 상실 유도!");
+                        // 단순 Shake를 넘어, SO에 정의된 극단적인 FOV 왜곡, Z-Tilt(화면 비틀림), 강한 쉐이크를 한방에 터뜨립니다.
+                        WorldCameraManager.Instance.PlayCameraSequence(fumblePenaltySequence);
+                        Debug.Log("<color=red>[PlayerEventManager]</color> 절기(Fumble) 시퀀스 SO 재생: 멀미와 방향 감각 상실 유도!");
                     }
                     break;
 
@@ -116,11 +146,11 @@ namespace TDA.Character.Player
                 // =======================================================
                 // 🚨 [Phase 4] 화면 비네트(Vignette) 포스트 프로세싱 트리거
                 case global::AnimationEventType.ScreenFX_Hit_Vignette:
-                    if (player.IsOwner)
+                    if (player.IsOwner && WorldCameraManager.Instance != null && hitVignetteSequence != null)
                     {
-                        // TODO: Global Volume의 Vignette Intensity를 조절하는 코루틴 또는 Tween 호출
-                        // 예시: PlayerUIManager.Instance.TriggerVignetteEffect(0.5f, 0.5f);
-                        Debug.Log("<color=red>[PlayerEventManager]</color> 화면 외곽 붉은색 점멸 (Vignette) 이펙트 트리거!");
+                        // 기존 UI 팝업 방식이 아닌, Camera Sequence SO 내부의 비네팅(Vignette Intensity) 수치를 읽어 자연스럽게 화면 테두리를 조입니다!
+                        WorldCameraManager.Instance.PlayCameraSequence(hitVignetteSequence);
+                        Debug.Log("<color=red>[PlayerEventManager]</color> 화면 외곽 붉은색 점멸 (Vignette 시퀀스 SO) 트리거!");
                     }
                     break;
             }

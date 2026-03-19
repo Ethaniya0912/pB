@@ -38,8 +38,22 @@ namespace TDA.Cameras
         [Tooltip("우측 게걸음(Strafe) 시 화면 우측/중앙으로 치우칠 최대 거리 (예: 0.2)")]
         public float rightStrafeMaxOffset;
 
-        [Tooltip("방향 전환 시 카메라가 프레이밍 목표 지점에 도달하는 지연 시간 (초)")]
-        public float framingDelayTime;
+        [Header("Hold Settings (정지 시 유지 여부)")]
+        [Tooltip("좌측 이동을 멈췄을 때, 카메라 중심이 원점으로 돌아오지 않고 좌측 오프셋을 유지할지 여부")]
+        public bool holdLeftStrafe;
+
+        [Tooltip("우측 이동을 멈췄을 때, 카메라 중심이 원점으로 돌아오지 않고 우측 오프셋을 유지할지 여부")]
+        public bool holdRightStrafe;
+
+        [Header("Delay & Speed Settings (보간 속도)")]
+        [Tooltip("좌측으로 카메라가 쏠릴 때의 반응 속도(지연 시간). 작을수록 빠름.")]
+        public float leftFramingDelay;
+
+        [Tooltip("우측으로 카메라가 쏠릴 때의 반응 속도(지연 시간).")]
+        public float rightFramingDelay;
+
+        [Tooltip("이동을 멈추고(Hold 해제 상태일 때) 원점(0)으로 복귀하는 속도. 스냅백 멀미를 막기 위해 보통 더 느리게(값 크게) 줍니다.")]
+        public float centerReturnDelay;
     }
 
     [Serializable]
@@ -88,6 +102,12 @@ namespace TDA.Cameras
         [Tooltip("Z축 기울기 (Dutch Angle). 불안감, 광기, 타격의 충격을 시각화할 때 화면을 비스듬하게 꺾습니다.")]
         [Range(-45f, 45f)] public float zTilt = 0f;
 
+        // =========================================================================================
+        // 🚨 [0순위 Data] 좌우 앵글 보정(Yaw Offset) 그릇 추가
+        // =========================================================================================
+        [Tooltip("카메라의 기본 좌/우 회전 편향 각도입니다. 캐릭터 어깨 너머 뷰의 방향성과 역동성을 제어합니다.")]
+        [Range(-45f, 45f)] public float yawOffset = 0f;
+
         [Tooltip("타겟(Pivot)을 기준으로 한 카메라의 상대적 오프셋입니다. (X: 좌우, Y: 높이, Z: 거리)")]
         public Vector3 baseOffset = new Vector3(0.5f, 1.5f, -2.5f);
 
@@ -98,7 +118,11 @@ namespace TDA.Cameras
         {
             leftStrafeMaxOffset = -0.4f,
             rightStrafeMaxOffset = 0.4f,
-            framingDelayTime = 0.35f
+            holdLeftStrafe = false,
+            holdRightStrafe = false,
+            leftFramingDelay = 0.15f,
+            rightFramingDelay = 0.15f,
+            centerReturnDelay = 0.35f
         };
 
         [Header("다중 타겟 포커싱 (Multi-Targeting)")]
@@ -130,5 +154,12 @@ namespace TDA.Cameras
 
         [Tooltip("이 스탠스 특유의 화면 외곽 어두워짐(Vignette) 강도입니다. 피격이나 공포 연출 시 올립니다.")]
         [Range(0f, 1f)] public float vignetteIntensity = 0.3f;
+
+        // =========================================================================================
+        // 🚨 [0순위 Safe-net] 디버그 일시정지(Pause) 방어막 데이터 추가
+        // =========================================================================================
+        [Header("Debug Control (Safe-net)")]
+        [Tooltip("디버그 모드가 켜져 있을 때, 이 스탠스로 전환이 완료되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
+        public bool pauseOnApply = false;
     }
 }

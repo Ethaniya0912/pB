@@ -14,12 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
   fov: 60
   zTilt: 0
-  baseOffset: {x: 0.14, y: -0.29, z: 196.04}
+  yawOffset: 0
+  baseOffset: {x: 0, y: 0, z: -1.5}
   useDynamicFraming: 0
   dynamicFraming:
-    leftStrafeMaxOffset: -0.4
-    rightStrafeMaxOffset: 0.4
-    framingDelayTime: 0.35
+    leftStrafeMaxOffset: 0.8
+    rightStrafeMaxOffset: -0.8
+    holdLeftStrafe: 1
+    holdRightStrafe: 1
+    leftFramingDelay: 0.15
+    rightFramingDelay: 0.15
+    centerReturnDelay: 0.35
   focusTargets: []
   handheldEffect:
     enableHandheldEffect: 1
@@ -33,3 +38,4 @@ MonoBehaviour:
     maxDuration: 0.3
   dofFocusDistance: 2
   vignetteIntensity: 0.3
+  pauseOnApply: 0

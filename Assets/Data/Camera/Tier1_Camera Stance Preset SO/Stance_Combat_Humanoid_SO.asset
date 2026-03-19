@@ -12,14 +12,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d17dac28cd585794bb7e26f7852976fb, type: 3}
   m_Name: Stance_Combat_Humanoid_SO
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
-  fov: 55
+  fov: 50
   zTilt: 0
-  baseOffset: {x: 0.6, y: 1.4, z: -2.2}
+  yawOffset: 0
+  baseOffset: {x: 0, y: 0, z: -2}
   useDynamicFraming: 1
   dynamicFraming:
-    leftStrafeMaxOffset: -0.3
-    rightStrafeMaxOffset: 0.3
-    framingDelayTime: 0.4
+    leftStrafeMaxOffset: 0.8
+    rightStrafeMaxOffset: -0.8
+    holdLeftStrafe: 1
+    holdRightStrafe: 1
+    leftFramingDelay: 1
+    rightFramingDelay: 1
+    centerReturnDelay: 1
   focusTargets:
   - target: 0
     weight: 0.3
@@ -37,3 +42,4 @@ MonoBehaviour:
     maxDuration: 0.3
   dofFocusDistance: 2
   vignetteIntensity: 0.3
+  pauseOnApply: 0

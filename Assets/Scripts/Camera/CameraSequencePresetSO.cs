@@ -18,6 +18,19 @@ namespace TDA.Cameras
 
         [Tooltip("현재 스탠스에 완전히 도달한 후, 다음 스텝으로 넘어가기 전까지 머무르는 유지 시간 (초 단위)")]
         public float holdDuration;
+
+        // =========================================================================================
+        // 🚨 [0순위 Data] 멀미 방지용 추적 구간(Tracking Window) 변수 추가
+        // =========================================================================================
+        [Header("Tracking Window (멀미 방지)")]
+        [Tooltip("이 스텝에서 카메라가 캐릭터의 회전/타겟을 따라가기 시작할 애니메이션 진행도 (0.0~1.0)")]
+        [Range(0f, 1f)] public float trackingStartTime;
+
+        [Tooltip("카메라 추적을 종료하고 시야를 고정할 진행도 (0.0~1.0)")]
+        [Range(0f, 1f)] public float trackingEndTime;
+
+        [Tooltip("추적 가중치 곡선 (시선이 급격하게 튀는 것을 막고 부드럽게 개입하기 위해 사용)")]
+        public AnimationCurve trackingWeightCurve;
     }
 
     /// <summary>
@@ -46,6 +59,13 @@ namespace TDA.Cameras
         public float restoreBlendDuration = 1.0f;
 
         // =========================================================================================
+        // 🚨 [0순위 Safe-net] 시퀀스 디버그 일시정지 방어막 추가
+        // =========================================================================================
+        [Header("Debug Control (Safe-net)")]
+        [Tooltip("디버그 모드일 때, 이 시퀀스가 시작되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
+        public bool pauseOnApply = false;
+
+        // =========================================================================================
         // [추가/보완] Editor 편의성 (기본 커브 세팅)
         // 새 스텝을 추가할 때 AnimationCurve가 텅 비어있어 직선(Linear)으로 딱딱하게 이동하는 것을
         // 방지하기 위해 데이터 유효성을 검사합니다.
@@ -62,8 +82,16 @@ namespace TDA.Cameras
                     if (step.blendCurve == null || step.blendCurve.length == 0)
                     {
                         step.blendCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-                        steps[i] = step;
                     }
+
+                    // 🚨 [0순위 Data] 멀미 방지용 가중치 곡선도 기본값으로 자동 초기화합니다.
+                    if (step.trackingWeightCurve == null || step.trackingWeightCurve.length == 0)
+                    {
+                        step.trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f); // 기본 100% 추적
+                        step.trackingEndTime = 1f; // 기본 끝까지 추적
+                    }
+
+                    steps[i] = step;
                 }
             }
         }
