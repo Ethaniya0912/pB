@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4635089267901155688
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 91678315226017749}
+  - component: {fileID: 9008461827291437196}
+  m_Layer: 0
+  m_Name: World Game State Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &91678315226017749
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4635089267901155688}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.43918, y: 0, z: -0.45851}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9008461827291437196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4635089267901155688}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3941867566a65f4ca67446654d1a4b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorldGameStateManager
+  currentState: 0
+  inventoryCameraSequence: {fileID: 11400000, guid: 5220c6d6ac5d5d2499e553e6083e0424,
+    type: 2}
+  tableCameraSequence: {fileID: 11400000, guid: 6c1da110fb5a6be4fa7a7a9a8c22165a,
+    type: 2}
+  cookingCameraSequence: {fileID: 11400000, guid: dd14c85ba18982941b5546b64d230b15,
+    type: 2}
+  lockOnCameraSequence: {fileID: 11400000, guid: 5f4371b7b9d8ff246ab2f27da706dfdb,
+    type: 2}
+  lockOnGiantCameraSequence: {fileID: 11400000, guid: 2c8ac7a2b8da00a4ab5737d7637aab90,
+    type: 2}
+  freeAimCombatCameraSequence: {fileID: 11400000, guid: 8af2e9298d197344b8250fd4bf399faf,
+    type: 2}
+  normalCameraSequence: {fileID: 11400000, guid: b074c40b1c722a240a6eddc6ebced3a2,
+    type: 2}
+  showDebugLogs: 1

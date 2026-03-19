@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using TDA.Cameras; // [신규] 카메라 시퀀스 SO 참조를 위해 추가
 
 namespace TDA.Character.Animation
 {
@@ -30,6 +31,13 @@ namespace TDA.Character.Animation
         public bool isPerformingAction = true;
         public bool canRotate = false;
         public bool canMove = false;
+
+        // =========================================================================================
+        // 🚨 [허브 A 연동] 애니메이션과 1:1로 매핑되는 카메라 연출 시퀀스 데이터
+        // =========================================================================================
+        [Header("Camera Directing (SO Data-Driven)")]
+        [Tooltip("이 애니메이션 액션이 시작될 때 재생할 2계층 카메라 시퀀스 에셋을 연결하세요. (예: 강공격 줌인 연출)")]
+        public CameraSequencePresetSO cameraSequence;
 
         [Header("Event Timeline (P1 & P4)")]
         public List<AnimationEventPoint> eventPoints = new List<AnimationEventPoint>();

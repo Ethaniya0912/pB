@@ -17,6 +17,7 @@ MonoBehaviour:
   isPerformingAction: 1
   canRotate: 0
   canMove: 0
+  cameraSequence: {fileID: 11400000, guid: bb197125c370be140b8178bd6b2c499c, type: 2}
   eventPoints:
   - triggerTime: 0.05
     eventType: 351

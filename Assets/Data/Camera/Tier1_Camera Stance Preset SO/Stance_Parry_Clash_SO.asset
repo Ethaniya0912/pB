@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d17dac28cd585794bb7e26f7852976fb, type: 3}
+  m_Name: Stance_Parry_Clash_SO
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
+  fov: 40
+  zTilt: 0
+  baseOffset: {x: 0.6, y: 1.4, z: -2.2}
+  useDynamicFraming: 1
+  dynamicFraming:
+    leftStrafeMaxOffset: -0.3
+    rightStrafeMaxOffset: 0.3
+    framingDelayTime: 0.4
+  focusTargets:
+  - target: 3
+    weight: 1
+  handheldEffect:
+    enableHandheldEffect: 0
+    swayAmount: 0.5
+    swaySpeed: 1
+    bobbingAmount: 1.2
+  impactShake:
+    enableShake: 1
+    shakeIntensity: 0.8
+    shakeDelay: 0
+    maxDuration: 0.1
+  dofFocusDistance: 2
+  vignetteIntensity: 0.3
