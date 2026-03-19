@@ -1917,9 +1917,64 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
+      propertyPath: player
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: debugRawZ
+      value: -1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
       propertyPath: cameraObject
       value: 
       objectReference: {fileID: 704622675}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: debugActualZ
+      value: -1.4999999
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: debugTargetZ
+      value: -1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: maxViewAngle
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: maximumPivot
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: targetCameraFPS
+      value: 60
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: lastCallerReason
+      value: "\uB77D\uC628(Lock-On) \uD65C\uC131\uD654"
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: lockedCameraHeight
+      value: 1.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: nearestLockOnTarget
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: unlockedCameraHeight
+      value: 1.35
+      objectReference: {fileID: 0}
     - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
       propertyPath: cameraCollisionRadius
@@ -1928,17 +1983,17 @@ PrefabInstance:
     - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
       propertyPath: defaultCameraDistance
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
       propertyPath: upAndDownRotationSpeed
-      value: 44
+      value: 22
       objectReference: {fileID: 0}
     - target: {fileID: 412164111573294642, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
       propertyPath: leftAndRightRotationSpeed
-      value: 22
+      value: 11
       objectReference: {fileID: 0}
     - target: {fileID: 441261574821470970, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
