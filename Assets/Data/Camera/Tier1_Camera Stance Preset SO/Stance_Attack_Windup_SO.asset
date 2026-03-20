@@ -28,8 +28,8 @@ MonoBehaviour:
   useDynamicFraming: 1
   inheritDynamicFraming: 1
   dynamicFraming:
-    leftStrafeMaxOffset: 1.5
-    rightStrafeMaxOffset: -1.5
+    leftStrafeMaxOffset: 1
+    rightStrafeMaxOffset: -1
     holdLeftStrafe: 1
     holdRightStrafe: 1
     leftStrafeYaw: -20

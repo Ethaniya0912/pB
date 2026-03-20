@@ -35,10 +35,10 @@ MonoBehaviour:
     leftStrafeYaw: -15
     rightStrafeYaw: 10
     dynamicYawWeight: 1
-    leftFramingDelay: 0.15
-    rightFramingDelay: 0.15
-    centerReturnDelay: 0.35
-    forwardBackwardReturnTime: 5
+    leftFramingDelay: 1
+    rightFramingDelay: 1
+    centerReturnDelay: 10
+    forwardBackwardReturnTime: 10
   focusTargets:
   - target: 0
     weight: 0.3

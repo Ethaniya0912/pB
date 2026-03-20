@@ -14,17 +14,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
   fov: 50
   zTilt: 0
-  yawOffset: 0
-  baseOffset: {x: 0, y: 0, z: -2}
+  baseYawOffset: 0
+  baseOffset: {x: 0, y: 1.7, z: -2}
+  verticalBehavior:
+    behaviorType: 0
+    elevationSpeed: 5
+    maxElevationHeight: 0.5
+    minElevationHeight: 5
+    fixedPitchAngle: 25
+    pitchForMaxHeight: 45
+    maxDynamicHeight: 1.5
+    heightSmoothTime: 0.15
   useDynamicFraming: 1
+  inheritDynamicFraming: 1
   dynamicFraming:
-    leftStrafeMaxOffset: 0.8
-    rightStrafeMaxOffset: -0.8
+    leftStrafeMaxOffset: 1
+    rightStrafeMaxOffset: -1
     holdLeftStrafe: 1
     holdRightStrafe: 1
+    leftStrafeYaw: -15
+    rightStrafeYaw: 10
+    dynamicYawWeight: 1
     leftFramingDelay: 1
     rightFramingDelay: 1
     centerReturnDelay: 1
+    forwardBackwardReturnTime: 5
   focusTargets:
   - target: 0
     weight: 0.3
