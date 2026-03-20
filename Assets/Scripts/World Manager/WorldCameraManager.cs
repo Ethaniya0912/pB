@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using TDA.Cameras;
 using TDA.Character.Player;
@@ -9,6 +10,20 @@ using UnityEditor;
 
 namespace TDA.World
 {
+    /// <summary>
+    /// [히스토리 데이터를 담을 구조체]
+    /// 에디터 및 런타임에서 최근 발생한 카메라 SO 전환 내역을 추적하기 위해 사용됩니다.
+    /// </summary>
+    [System.Serializable]
+    public struct CameraStateRecord
+    {
+        public string timestamp;
+        public string callerEvent;
+        // 🚨 이름(string) 대신 실제 SO 레퍼런스를 담아 에디터에서 즉시 포커싱할 수 있게 합니다.
+        public CameraSequencePresetSO seqSO;
+        public CameraStancePresetSO stanceSO;
+    }
+
     /// <summary>
     /// [중앙 관제탑] 1계층/2계층 SO 카메라 데이터를 파싱하여 코루틴 기반으로 
     /// 물리적 카메라 보간(Interpolation) 연산을 실행하고 관리하는 싱글턴 매니저입니다.
@@ -62,6 +77,16 @@ namespace TDA.World
         private Coroutine activeSequenceCoroutine;
         public bool IsSequencePlaying { get; private set; }
 
+        // =====================================================================
+        // 🔹 히스토리 트래킹 데이터
+        // =====================================================================
+        [HideInInspector]
+        public List<CameraStateRecord> historyList = new List<CameraStateRecord>();
+
+        [Header("History Tracking")]
+        [Tooltip("메모리 낭비를 막기 위해 유지할 최대 히스토리 개수")]
+        [SerializeField] private int maxHistoryCount = 15;
+
         private void Awake()
         {
             if (Instance == null)
@@ -79,7 +104,7 @@ namespace TDA.World
         {
             if (defaultRestStance != null)
             {
-                ApplyStanceInstantly(defaultRestStance);
+                ApplyStanceInstantly(defaultRestStance, "Game Start");
             }
         }
 
@@ -91,14 +116,51 @@ namespace TDA.World
             if (defaultRestStance != null && !IsSequencePlaying)
             {
                 currentStanceSO = defaultRestStance;
-                ApplyStanceInstantly(defaultRestStance);
+                ApplyStanceInstantly(defaultRestStance, "Set Local Camera");
             }
+        }
+
+        // =====================================================================
+        // 🔹 히스토리 기록 로직
+        // =====================================================================
+        /// <summary>
+        /// 상태 전환 시 호출하여 관제탑에 기록을 남기는 함수
+        /// </summary>
+        public void RecordCameraState(string caller, CameraSequencePresetSO seqSO, CameraStancePresetSO stanceSO)
+        {
+            CameraStateRecord record = new CameraStateRecord
+            {
+                timestamp = System.DateTime.Now.ToString("HH:mm:ss.fff"),
+                callerEvent = caller,
+                seqSO = seqSO,
+                stanceSO = stanceSO
+            };
+
+            // 최신 기록이 맨 위(0번 인덱스)로 오도록 삽입
+            historyList.Insert(0, record);
+
+            // 최대 개수를 초과하면 가장 오래된 기록 삭제
+            if (historyList.Count > maxHistoryCount)
+            {
+                historyList.RemoveAt(historyList.Count - 1);
+            }
+        }
+
+        // =========================================================================================
+        // [외부 스탠스 강제 전환] (PlayerCombatManager 등에서 호출 가능)
+        // =========================================================================================
+        public void ChangeCameraStance(CameraStancePresetSO newStance, string callerName = "Unknown")
+        {
+            if (newStance == null) return;
+
+            currentStanceSO = newStance;
+            ApplyStanceInstantly(newStance, callerName);
         }
 
         // =========================================================================================
         // [핵심 라우팅] 2계층 시퀀스 연출 재생
         // =========================================================================================
-        public void PlayCameraSequence(CameraSequencePresetSO sequenceSO)
+        public void PlayCameraSequence(CameraSequencePresetSO sequenceSO, string callerName = "Unknown")
         {
             if (sequenceSO == null) return;
 
@@ -111,6 +173,9 @@ namespace TDA.World
             currentSequenceSO = sequenceSO;
             IsSequencePlaying = true;
             Debug.Log($"<color=magenta>[WorldCameraManager]</color> 🎬 새로운 카메라 시퀀스 재생 시작: <b>{sequenceSO.name}</b>");
+
+            // 히스토리에 실제 SO 레퍼런스를 전달
+            RecordCameraState(callerName, sequenceSO, currentStanceSO);
 
 #if UNITY_EDITOR
             if (sequenceSO.pauseOnApply)
@@ -127,7 +192,7 @@ namespace TDA.World
             activeSequenceCoroutine = StartCoroutine(CameraSequenceRoutine(sequenceSO));
         }
 
-        public void StopSequenceAndRestore(float overrideBlendTime = 0.5f)
+        public void StopSequenceAndRestore(float overrideBlendTime = 0.5f, string callerName = "StopSequenceForce")
         {
             if (activeSequenceCoroutine != null)
             {
@@ -139,6 +204,9 @@ namespace TDA.World
             if (defaultRestStance != null)
             {
                 currentStanceSO = defaultRestStance;
+
+                // 히스토리 기록
+                RecordCameraState(callerName, null, defaultRestStance);
 
                 SequenceStep restoreStep = new SequenceStep
                 {
@@ -182,7 +250,7 @@ namespace TDA.World
                     }
                     else
                     {
-                        ApplyStanceInstantly(step.targetStance);
+                        ApplyStanceInstantly(step.targetStance, "Sequence Routine");
                     }
 
                     // 2. [Impact Shake] 
@@ -227,7 +295,7 @@ namespace TDA.World
                 }
                 else
                 {
-                    ApplyStanceInstantly(defaultRestStance);
+                    ApplyStanceInstantly(defaultRestStance, "Sequence Restore");
                 }
             }
 
@@ -276,7 +344,6 @@ namespace TDA.World
             currentVerticalBehavior = targetStance.verticalBehavior;
 
             // 🚨 [v3.0 고도화] 2계층 SO 스텝에 정의된 액션 댐핑 오버라이드 추출 및 방출
-            // PlayerCamera.cs는 이 값을 가져가서 애니메이션 덜덜거림을 억제합니다.
             CurrentPositionDamping = step.actionPositionDamping > 0f ? step.actionPositionDamping : 0.1f;
             CurrentRotationDamping = step.actionRotationDamping > 0f ? step.actionRotationDamping : 0.1f;
 
@@ -323,10 +390,10 @@ namespace TDA.World
 
             // 시퀀스/스텝 종료 시 가중치 원복
             CurrentTrackingWeight = 1f;
-            ApplyStanceInstantly(targetStance);
+            ApplyStanceInstantly(targetStance, "Blend Finish");
         }
 
-        private void ApplyStanceInstantly(CameraStancePresetSO stance)
+        private void ApplyStanceInstantly(CameraStancePresetSO stance, string callerName = "Unknown")
         {
             if (stance == null) return;
 
@@ -340,13 +407,15 @@ namespace TDA.World
             currentDynamicFraming = stance.dynamicFraming;
             currentHandheldEffect = stance.handheldEffect;
 
-            // 🚨 [신규] 수직 시점 조작 데이터 즉시 덮어쓰기
             currentVerticalBehavior = stance.verticalBehavior;
 
             if (stance.focusTargets != null && stance.focusTargets.Count > 0)
             {
                 currentTargetBiasWeight = stance.focusTargets[stance.focusTargets.Count - 1].weight;
             }
+
+            // 상태 즉시 적용 시 히스토리 기록 (객체 레퍼런스 전달)
+            RecordCameraState(callerName, currentSequenceSO, stance);
 
 #if UNITY_EDITOR
             if (stance.pauseOnApply)
@@ -372,12 +441,15 @@ namespace TDA.World
 
 #if UNITY_EDITOR
     // =========================================================================================
-    // 🚨 SO 라이브 에디터 (Live Editor) 관제탑 편입
+    // 🚨 SO 라이브 에디터 (Live Editor) 관제탑 편입 및 히스토리 뷰어
     // =========================================================================================
     [CustomEditor(typeof(WorldCameraManager))]
     public class WorldCameraManagerEditor : Editor
     {
         private bool showLiveEditor = true;
+        private bool showHistoryPanel = true;
+
+        private Vector2 historyScrollPos;
 
         // 라이브 에디팅 임시 변수 캐싱
         private CameraStancePresetSO lastLiveEditSO;
@@ -386,7 +458,6 @@ namespace TDA.World
         private float editZTilt;
         private float editBaseYawOffset;
 
-        // [신규] 수직 조작 방식 변수 캐싱
         private CameraVerticalBehavior editBehaviorType;
         private float editElevationSpeed;
         private float editMaxElevationHeight;
@@ -417,7 +488,6 @@ namespace TDA.World
             editZTilt = so.zTilt;
             editBaseYawOffset = so.baseYawOffset;
 
-            // [신규] 수직 조작 방식 동기화
             editBehaviorType = so.verticalBehavior.behaviorType;
             editElevationSpeed = so.verticalBehavior.elevationSpeed;
             editMaxElevationHeight = so.verticalBehavior.maxElevationHeight;
@@ -462,7 +532,6 @@ namespace TDA.World
             so.zTilt = editZTilt;
             so.baseYawOffset = editBaseYawOffset;
 
-            // [신규] 수직 조작 방식 덮어쓰기
             so.verticalBehavior.behaviorType = editBehaviorType;
             so.verticalBehavior.elevationSpeed = editElevationSpeed;
             so.verticalBehavior.maxElevationHeight = editMaxElevationHeight;
@@ -627,13 +696,99 @@ namespace TDA.World
                     var m_ApplyStanceMethod = typeof(WorldCameraManager).GetMethod("ApplyStanceInstantly", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     if (m_ApplyStanceMethod != null)
                     {
-                        m_ApplyStanceMethod.Invoke(wcm, new object[] { wcm.currentStanceSO });
+                        m_ApplyStanceMethod.Invoke(wcm, new object[] { wcm.currentStanceSO, "Live Editor Update" });
                     }
 
                     Debug.Log($"<color=cyan>[Live Editor]</color> 관제탑 데이터가 갱신되어 {wcm.currentStanceSO.name} 에셋의 수치가 화면에 즉시 적용되었습니다!");
                 }
                 GUI.backgroundColor = Color.white;
 
+                EditorGUILayout.EndVertical();
+            }
+
+            // =================================================================================
+            // 📜 3. 카메라 상태 변경 히스토리 패널 (버튼화 적용)
+            // =================================================================================
+            EditorGUILayout.Space(10);
+            showHistoryPanel = EditorGUILayout.Foldout(showHistoryPanel, "📜 카메라 상태 변경 히스토리 (Stance & Seq)", true, new GUIStyle(EditorStyles.foldoutHeader) { fontStyle = FontStyle.Bold });
+
+            if (showHistoryPanel)
+            {
+                EditorGUILayout.BeginVertical("box");
+
+                // 테이블 헤더
+                EditorGUILayout.BeginHorizontal("box");
+                EditorGUILayout.LabelField("발생 시간", EditorStyles.boldLabel, GUILayout.Width(85));
+                EditorGUILayout.LabelField("호출 스크립트/이벤트명", EditorStyles.boldLabel, GUILayout.Width(180));
+                EditorGUILayout.LabelField("Seq SO명 (클릭하여 열기)", EditorStyles.boldLabel, GUILayout.Width(150));
+                EditorGUILayout.LabelField("Stance SO명 (클릭하여 열기)", EditorStyles.boldLabel, GUILayout.Width(150));
+                EditorGUILayout.EndHorizontal();
+
+                // 데이터 검증 및 출력
+                if (wcm.historyList == null || wcm.historyList.Count == 0)
+                {
+                    EditorGUILayout.HelpBox("기록된 SO 변경 히스토리가 없습니다. (WorldCameraManager.RecordCameraState 호출 시 자동 기록됨)", MessageType.Info);
+                }
+                else
+                {
+                    // 클릭 가능한 버튼 스타일 세팅
+                    GUIStyle linkBtnStyle = new GUIStyle(GUI.skin.button);
+                    linkBtnStyle.alignment = TextAnchor.MiddleLeft;
+                    linkBtnStyle.fontSize = 11;
+
+                    // 스크롤 뷰 지원
+                    historyScrollPos = EditorGUILayout.BeginScrollView(historyScrollPos, GUILayout.Height(220));
+
+                    for (int i = 0; i < wcm.historyList.Count; i++)
+                    {
+                        var record = wcm.historyList[i];
+
+                        // 지브라스트라이핑(교차 배경색)
+                        Color bgColor = i % 2 == 0 ? new Color(0.2f, 0.2f, 0.2f, 0.3f) : new Color(0.3f, 0.3f, 0.3f, 0.1f);
+                        GUI.backgroundColor = bgColor;
+                        EditorGUILayout.BeginHorizontal("helpbox");
+                        GUI.backgroundColor = Color.white;
+
+                        // 데이터 출력
+                        EditorGUILayout.LabelField(record.timestamp, GUILayout.Width(85));
+                        EditorGUILayout.LabelField(record.callerEvent, GUILayout.Width(180));
+
+                        // 🚨 Seq SO 버튼 처리
+                        string seqName = record.seqSO != null ? record.seqSO.name : "-";
+                        if (GUILayout.Button(seqName, linkBtnStyle, GUILayout.Width(150)))
+                        {
+                            if (record.seqSO != null)
+                            {
+                                EditorGUIUtility.PingObject(record.seqSO); // 프로젝트 창에서 반짝임 효과
+                                Selection.activeObject = record.seqSO;     // 인스펙터에 즉시 선택
+                            }
+                        }
+
+                        // 🚨 Stance SO 버튼 처리
+                        string stanceName = record.stanceSO != null ? record.stanceSO.name : "-";
+                        if (GUILayout.Button(stanceName, linkBtnStyle, GUILayout.Width(150)))
+                        {
+                            if (record.stanceSO != null)
+                            {
+                                EditorGUIUtility.PingObject(record.stanceSO); // 프로젝트 창에서 반짝임 효과
+                                Selection.activeObject = record.stanceSO;     // 인스펙터에 즉시 선택
+                            }
+                        }
+
+                        EditorGUILayout.EndHorizontal();
+                    }
+
+                    EditorGUILayout.EndScrollView();
+
+                    EditorGUILayout.Space(5);
+
+                    // 히스토리 초기화
+                    if (GUILayout.Button("히스토리 지우기", GUILayout.Height(25)))
+                    {
+                        wcm.historyList.Clear();
+                        EditorUtility.SetDirty(wcm);
+                    }
+                }
                 EditorGUILayout.EndVertical();
             }
 

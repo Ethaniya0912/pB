@@ -17,7 +17,7 @@ MonoBehaviour:
   baseYawOffset: 0
   baseOffset: {x: 0, y: 1.7, z: -2}
   verticalBehavior:
-    behaviorType: 0
+    behaviorType: 2
     elevationSpeed: 5
     maxElevationHeight: 0.5
     minElevationHeight: 5

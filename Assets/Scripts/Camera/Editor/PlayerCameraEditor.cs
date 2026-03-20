@@ -12,12 +12,17 @@ namespace TDA.Character.Player.Editor
     /// [PlayerCamera 전용 커스텀 에디터]
     /// 런타임 중 프레임 단위의 애니메이션 진행도, 충돌체, 앵글을 모니터링하는 디버거 기능과,
     /// 1계층 스탠스 SO의 수치(특히 수직 조작감 등 신규 파라미터)를 실시간으로 튜닝하고 영구 저장하는 라이브 에디터를 제공합니다.
+    /// 히스토리 패널을 통해 최근 발생한 스탠스 및 시퀀스 변경 내역을 추적할 수 있습니다.
     /// </summary>
     [CustomEditor(typeof(PlayerCamera))]
     public class PlayerCameraEditor : UnityEditor.Editor
     {
         private bool showDebugPanel = true;
         private bool showLiveEditor = true;
+        private bool showHistoryPanel = true; // 히스토리 패널 토글
+
+        // 히스토리 스크롤 위치
+        private Vector2 historyScrollPos;
 
         // =====================================================================
         // 라이브 에디팅 임시 변수 캐싱 (SO 덮어쓰기 및 동기화용)
@@ -71,7 +76,7 @@ namespace TDA.Character.Player.Editor
             if (!Application.isPlaying || pc.player == null)
             {
                 EditorGUILayout.Space(10);
-                EditorGUILayout.HelpBox("▶ 게임을 실행(Play)하면 이곳에 상세한 카메라 애니메이션 프레임 모니터 및 SO 라이브 에디터가 표시됩니다.", MessageType.Info);
+                EditorGUILayout.HelpBox("▶ 게임을 실행(Play)하면 이곳에 상세한 카메라 애니메이션 프레임 모니터, SO 라이브 에디터, 히스토리 내역이 표시됩니다.", MessageType.Info);
                 return;
             }
 
@@ -359,6 +364,94 @@ namespace TDA.Character.Player.Editor
                 {
                     EditorGUILayout.HelpBox("현재 활성화된 CameraStancePresetSO가 없습니다. WorldCameraManager가 SO를 렌더링하고 있는지 확인하세요.", MessageType.Warning);
                 }
+            }
+
+            // =================================================================================
+            // 📜 3. 카메라 상태 변경 히스토리 (Stance & Seq) - 이전 요청사항 통합
+            // =================================================================================
+            EditorGUILayout.Space(10);
+            showHistoryPanel = EditorGUILayout.Foldout(showHistoryPanel, "📜 카메라 상태 변경 히스토리 (Stance & Seq)", true, new GUIStyle(EditorStyles.foldoutHeader) { fontStyle = FontStyle.Bold });
+
+            if (showHistoryPanel)
+            {
+                EditorGUILayout.BeginVertical("box");
+
+                // 테이블 헤더 (목차)
+                EditorGUILayout.BeginHorizontal("box");
+                EditorGUILayout.LabelField("발생 시간", EditorStyles.boldLabel, GUILayout.Width(85));
+                EditorGUILayout.LabelField("호출 스크립트 및 이벤트명", EditorStyles.boldLabel, GUILayout.Width(200));
+                EditorGUILayout.LabelField("Seq SO명 (클릭)", EditorStyles.boldLabel, GUILayout.Width(130));
+                EditorGUILayout.LabelField("Stance SO명 (클릭)", EditorStyles.boldLabel, GUILayout.Width(130));
+                EditorGUILayout.EndHorizontal();
+
+                // PlayerCamera 대신 WorldCameraManager의 인스턴스를 가져옵니다.
+                WorldCameraManager wcmHistory = WorldCameraManager.Instance;
+
+                // 데이터가 없을 경우 처리
+                if (wcmHistory == null || wcmHistory.historyList == null || wcmHistory.historyList.Count == 0)
+                {
+                    EditorGUILayout.HelpBox("기록된 SO 변경 히스토리가 없습니다. (WorldCameraManager.RecordCameraState 호출 시 기록됨)", MessageType.Info);
+                }
+                else
+                {
+                    // 클릭 가능한 버튼 스타일 세팅
+                    GUIStyle linkBtnStyle = new GUIStyle(GUI.skin.button);
+                    linkBtnStyle.alignment = TextAnchor.MiddleLeft;
+                    linkBtnStyle.fontSize = 11;
+
+                    // 스크롤 뷰 시작
+                    historyScrollPos = EditorGUILayout.BeginScrollView(historyScrollPos, GUILayout.Height(180));
+
+                    for (int i = 0; i < wcmHistory.historyList.Count; i++)
+                    {
+                        var record = wcmHistory.historyList[i];
+
+                        // 가독성을 위해 줄마다 배경색 교차 적용 (Zebrastriping)
+                        Color bgColor = i % 2 == 0 ? new Color(0.2f, 0.2f, 0.2f, 0.3f) : new Color(0.3f, 0.3f, 0.3f, 0.1f);
+                        GUI.backgroundColor = bgColor;
+                        EditorGUILayout.BeginHorizontal("helpbox");
+                        GUI.backgroundColor = Color.white; // 색상 복구
+
+                        // 데이터 출력
+                        EditorGUILayout.LabelField(record.timestamp, GUILayout.Width(85));
+                        EditorGUILayout.LabelField(record.callerEvent, GUILayout.Width(200));
+
+                        // 🚨 변경된 SO 레퍼런스 대응 및 버튼 클릭 연동 (컴파일 에러 해결 구간)
+                        string seqName = record.seqSO != null ? record.seqSO.name : "-";
+                        if (GUILayout.Button(seqName, linkBtnStyle, GUILayout.Width(130)))
+                        {
+                            if (record.seqSO != null)
+                            {
+                                EditorGUIUtility.PingObject(record.seqSO);
+                                Selection.activeObject = record.seqSO;
+                            }
+                        }
+
+                        string stanceName = record.stanceSO != null ? record.stanceSO.name : "-";
+                        if (GUILayout.Button(stanceName, linkBtnStyle, GUILayout.Width(130)))
+                        {
+                            if (record.stanceSO != null)
+                            {
+                                EditorGUIUtility.PingObject(record.stanceSO);
+                                Selection.activeObject = record.stanceSO;
+                            }
+                        }
+
+                        EditorGUILayout.EndHorizontal();
+                    }
+
+                    EditorGUILayout.EndScrollView();
+
+                    EditorGUILayout.Space(5);
+
+                    // 히스토리 초기화 버튼
+                    if (GUILayout.Button("히스토리 지우기", GUILayout.Height(25)))
+                    {
+                        wcmHistory.historyList.Clear();
+                        EditorUtility.SetDirty(wcmHistory); // 매니저 객체에 변경사항 알림
+                    }
+                }
+                EditorGUILayout.EndVertical();
             }
 
             Repaint();
