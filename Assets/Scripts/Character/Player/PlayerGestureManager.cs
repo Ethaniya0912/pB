@@ -9,6 +9,7 @@ namespace TDA.Character.Player
     /// [P0-03 Phase 2] 파지 상태(Stance) 추적, 차징(Charging) 타이머, 엇박자 절기(Fumble) 시스템이 완벽하게 적용되었습니다.
     /// 
     /// (사용자 요청에 따라 삭제/생략되었던 디버그 및 기즈모 로직, 상세 주석들을 100% 원상 복구 및 보존한 최종 마스터 버전입니다.)
+    /// [버그 수정] 턴 애니메이션이 1번 레이어로 격상됨에 따라 턴 상태 판독 주소를 동기화하여 제스처 씹힘 현상을 완벽하게 해결했습니다.
     /// </summary>
     public class PlayerGestureManager : MonoBehaviour
     {
@@ -362,15 +363,17 @@ namespace TDA.Character.Player
                            (player.playerCombatManager.canComboWithMainHandWeapon || player.playerCombatManager.canComboWithOffHandWeapon);
 
             bool isTurning = false;
-            if (player.animator != null)
+            if (player.animator != null && player.animator.layerCount > 1)
             {
-                AnimatorStateInfo baseState = player.animator.GetCurrentAnimatorStateInfo(0);
-                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0);
+                // 🚨 [버그 완벽 수정] 턴 애니메이션은 이제 0번이 아니라 1번(Action) 레이어에 있습니다!
+                // Action Layer(1)의 상태를 추적해야 턴 중임을 정상적으로 깨닫고 턴을 캔슬하며 궤적 공격을 실행합니다.
+                AnimatorStateInfo actionState = player.animator.GetCurrentAnimatorStateInfo(1);
+                AnimatorStateInfo nextActionState = player.animator.GetNextAnimatorStateInfo(1);
 
-                if (baseState.IsName("Turn_Left_90") || baseState.IsName("Turn_Right_90") ||
-                    baseState.IsName("Turn_Left_180") || baseState.IsName("Turn_Right_180") ||
-                    nextState.IsName("Turn_Left_90") || nextState.IsName("Turn_Right_90") ||
-                    nextState.IsName("Turn_Left_180") || nextState.IsName("Turn_Right_180"))
+                if (actionState.IsName("Turn_Left_90") || actionState.IsName("Turn_Right_90") ||
+                    actionState.IsName("Turn_Left_180") || actionState.IsName("Turn_Right_180") ||
+                    nextActionState.IsName("Turn_Left_90") || nextActionState.IsName("Turn_Right_90") ||
+                    nextActionState.IsName("Turn_Left_180") || nextActionState.IsName("Turn_Right_180"))
                 {
                     isTurning = true;
                 }

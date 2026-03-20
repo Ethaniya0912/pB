@@ -156,21 +156,21 @@ namespace TDA.Character
 
             if (player.animator != null)
             {
-                AnimatorStateInfo baseState = player.animator.GetCurrentAnimatorStateInfo(0);
-                AnimatorStateInfo nextState = player.animator.GetNextAnimatorStateInfo(0);
-
-                if (baseState.IsName("Turn_Left_90") || baseState.IsName("Turn_Right_90") ||
-                    baseState.IsName("Turn_Left_180") || baseState.IsName("Turn_Right_180") ||
-                    nextState.IsName("Turn_Left_90") || nextState.IsName("Turn_Right_90") ||
-                    nextState.IsName("Turn_Left_180") || nextState.IsName("Turn_Right_180"))
-                {
-                    isTurning = true;
-                }
-
-                // 🚨 애니메이터 1번 레이어(Action)의 상태 정밀 검사!
+                // 🚨 [버그 완벽 수정] 턴 애니메이션이 1번 레이어(Action)로 격상됨에 따라 판독 주소를 동기화했습니다.
+                // 더 이상 0번 레이어(Base)를 검사하지 않고, 1번 레이어에서 턴과 파지 상태를 모두 정밀 검사합니다.
                 if (player.animator.layerCount > 1)
                 {
                     AnimatorStateInfo actionState = player.animator.GetCurrentAnimatorStateInfo(1);
+                    AnimatorStateInfo nextActionState = player.animator.GetNextAnimatorStateInfo(1);
+
+                    // 턴 상태 확인
+                    if (actionState.IsName("Turn_Left_90") || actionState.IsName("Turn_Right_90") ||
+                        actionState.IsName("Turn_Left_180") || actionState.IsName("Turn_Right_180") ||
+                        nextActionState.IsName("Turn_Left_90") || nextActionState.IsName("Turn_Right_90") ||
+                        nextActionState.IsName("Turn_Left_180") || nextActionState.IsName("Turn_Right_180"))
+                    {
+                        isTurning = true;
+                    }
 
                     // 1) 파지 상태 확인
                     if (actionState.IsName("Stance_Hold_Left") || actionState.IsName("Stance_Hold_Right"))
@@ -527,11 +527,9 @@ namespace TDA.Character
         {
             base.SetTarget(newTarget);
 
-            // 로컬플레이어가 하고 잇다면
-            if (player.IsOwner)
-            {
-                player.playerCamera.SetLockCameraHeight();
-            }
+            // [버그 수정 완료] PlayerCamera.cs에서 하드코딩된 SetLockCameraHeight() 함수가 
+            // 삭제되었으므로 이 부분의 호출을 깔끔하게 제거했습니다.
+            // 락온 시 카메라 높이는 이제 WorldGameStateManager와 SO 데이터가 완벽히 통제합니다.
         }
     }
 }

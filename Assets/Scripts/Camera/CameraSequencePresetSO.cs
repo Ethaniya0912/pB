@@ -31,6 +31,17 @@ namespace TDA.Cameras
 
         [Tooltip("추적 가중치 곡선 (시선이 급격하게 튀는 것을 막고 부드럽게 개입하기 위해 사용)")]
         public AnimationCurve trackingWeightCurve;
+
+        // =========================================================================================
+        // 🚨 [v3.0 고도화] 액션 댐핑 오버라이드 (Action Damping Override)
+        // 360도 스윙이나 타격 순간 등에서 발생하는 High-frequency 덜덜거림을 억제합니다.
+        // =========================================================================================
+        [Header("Action Damping Override (액션 묵직함 제어)")]
+        [Tooltip("액션 중 카메라의 '위치'가 덜덜거리는 것을 막는 지연 시간입니다. 값이 클수록 위치가 묵직하게 따라갑니다. (기본: 0.1, 추천: 0.2~0.3)")]
+        public float actionPositionDamping;
+
+        [Tooltip("액션 중 카메라의 '앵글'이 덜덜거리는 것을 막는 지연 시간입니다. 값이 클수록 10kg 스테디캠을 단 것처럼 화면 회전이 무거워집니다. (기본: 0.1, 추천: 0.2~0.3)")]
+        public float actionRotationDamping;
     }
 
     /// <summary>
@@ -58,18 +69,10 @@ namespace TDA.Cameras
         [Tooltip("자동 복귀 시, 원래 시점까지 스르륵 돌아가는 데 걸리는 보간 시간(초)입니다.")]
         public float restoreBlendDuration = 1.0f;
 
-        // =========================================================================================
-        // 🚨 [0순위 Safe-net] 시퀀스 디버그 일시정지 방어막 추가
-        // =========================================================================================
         [Header("Debug Control (Safe-net)")]
         [Tooltip("디버그 모드일 때, 이 시퀀스가 시작되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
         public bool pauseOnApply = false;
 
-        // =========================================================================================
-        // [추가/보완] Editor 편의성 (기본 커브 세팅)
-        // 새 스텝을 추가할 때 AnimationCurve가 텅 비어있어 직선(Linear)으로 딱딱하게 이동하는 것을
-        // 방지하기 위해 데이터 유효성을 검사합니다.
-        // =========================================================================================
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -78,18 +81,24 @@ namespace TDA.Cameras
                 for (int i = 0; i < steps.Count; i++)
                 {
                     SequenceStep step = steps[i];
+
                     // 커브가 비어있거나 키프레임이 없다면 부드러운 기본 Ease-In-Out 커브로 초기화해 줍니다.
                     if (step.blendCurve == null || step.blendCurve.length == 0)
                     {
                         step.blendCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
                     }
 
-                    // 🚨 [0순위 Data] 멀미 방지용 가중치 곡선도 기본값으로 자동 초기화합니다.
+                    // 멀미 방지용 가중치 곡선 기본값 자동 초기화
                     if (step.trackingWeightCurve == null || step.trackingWeightCurve.length == 0)
                     {
                         step.trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f); // 기본 100% 추적
                         step.trackingEndTime = 1f; // 기본 끝까지 추적
                     }
+
+                    // 🚨 [v3.0 고도화] 신규 스텝 생성 시 Damping Override 값이 0이면 기본값(0.1)으로 보호 처리합니다.
+                    // 0으로 설정될 경우 카메라가 노이즈를 필터링하지 못하고 극심하게 떨리는 것을 미연에 방지합니다.
+                    if (step.actionPositionDamping <= 0f) step.actionPositionDamping = 0.1f;
+                    if (step.actionRotationDamping <= 0f) step.actionRotationDamping = 0.1f;
 
                     steps[i] = step;
                 }

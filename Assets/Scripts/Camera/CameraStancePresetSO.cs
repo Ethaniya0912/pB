@@ -4,10 +4,6 @@ using System.Collections.Generic;
 
 namespace TDA.Cameras
 {
-    // =========================================================================================
-    // [추가 사항] 다중 타겟 포커싱을 위한 타겟 식별자 Enum
-    // (설계서에 '별도 Enum'으로 명시된 부분을 코드가 즉시 작동할 수 있도록 구체화하여 추가했습니다)
-    // =========================================================================================
     public enum TargetIdentifier
     {
         PlayerRoot,         // 플레이어의 발끝
@@ -17,6 +13,16 @@ namespace TDA.Cameras
         LockedOnEnemyRoot,  // 현재 락온된 적의 발끝
         LockedOnEnemyChest, // 현재 락온된 적의 가슴 (주요 포커스)
         InteractableObject  // 현재 상호작용 중인 오브젝트 (문, 레버 등)
+    }
+
+    // =========================================================================================
+    // 🚨 [신규 추가] 수직(상하) 시점 조작감 분기 Enum
+    // =========================================================================================
+    public enum CameraVerticalBehavior
+    {
+        ClassicPivot,           // [선택 3] 기존처럼 중심점을 기준으로 팽이 돌듯 회전
+        ElevationOnly,          // [선택 1] 각도는 고정된 채 카메라 Y축 높이만 승강기처럼 위아래로 이동 (2.5D/퍼즐용)
+        DynamicOverShoulder     // [선택 2] 바닥을 볼수록 카메라가 솟아올라 정수리 파고듬을 방지 (AAA급 숄더뷰)
     }
 
     [Serializable]
@@ -29,13 +35,42 @@ namespace TDA.Cameras
         [Range(0f, 1f)] public float weight;
     }
 
+    // =========================================================================================
+    // 🚨 [신규 추가] 수직 조작감 디테일 파라미터 구조체
+    // =========================================================================================
+    [Serializable]
+    public struct VerticalBehaviorData
+    {
+        [Tooltip("마우스를 위아래로 움직일 때 카메라가 반응하는 방식을 결정합니다.")]
+        public CameraVerticalBehavior behaviorType;
+
+        [Header("선택 1: Elevation Only Settings")]
+        [Tooltip("마우스 수직 입력 시 카메라 높이(Y축)가 변하는 감도(속도)입니다.")]
+        public float elevationSpeed;
+        [Tooltip("마우스를 끝까지 올렸을 때 도달할 최대 Y축 오프셋 (예: +3.0m)")]
+        public float maxElevationHeight;
+        [Tooltip("마우스를 끝까지 내렸을 때 도달할 최소 Y축 오프셋 (예: +0.5m)")]
+        public float minElevationHeight;
+        [Tooltip("이 뷰를 사용할 때 강제 고정될 카메라의 Pitch 각도 (예: 25도 = 살짝 내려다봄)")]
+        public float fixedPitchAngle;
+
+        [Header("선택 2: Dynamic Over Shoulder Settings")]
+        [Tooltip("카메라가 이 각도(양수 = 바닥을 내려다봄)에 도달할 때, 아래의 '최대 추가 높이'가 100% 적용됩니다. (예: 45도)")]
+        public float pitchForMaxHeight;
+        [Tooltip("바닥을 내려다볼 때, 기존 Base Y Offset에 동적으로 더해질 최대 추가 높이입니다. (예: +1.5m)")]
+        public float maxDynamicHeight;
+        [Tooltip("마우스를 빠르게 상하로 흔들 때, 카메라 높이가 덜컹거리지 않게 잡아주는 완충 시간(초)입니다. (예: 0.1s)")]
+        public float heightSmoothTime;
+    }
+
     [Serializable]
     public struct DynamicFramingData
     {
-        [Tooltip("좌측 게걸음(Strafe) 시 화면 좌측으로 치우칠 최대 거리 (예: -0.5)")]
+        [Header("Position Offset (X축)")]
+        [Tooltip("좌측 게걸음(Strafe) 시 화면 좌측으로 치우칠 최대 거리 (예: -0.4)")]
         public float leftStrafeMaxOffset;
 
-        [Tooltip("우측 게걸음(Strafe) 시 화면 우측/중앙으로 치우칠 최대 거리 (예: 0.2)")]
+        [Tooltip("우측 게걸음(Strafe) 시 화면 우측/중앙으로 치우칠 최대 거리 (예: 0.4)")]
         public float rightStrafeMaxOffset;
 
         [Header("Hold Settings (정지 시 유지 여부)")]
@@ -44,6 +79,16 @@ namespace TDA.Cameras
 
         [Tooltip("우측 이동을 멈췄을 때, 카메라 중심이 원점으로 돌아오지 않고 우측 오프셋을 유지할지 여부")]
         public bool holdRightStrafe;
+
+        [Header("Rotation Offset (Yaw 각도)")]
+        [Tooltip("좌측 게걸음 시 카메라가 꺾일 추가 Y각도 (예: -15도)")]
+        public float leftStrafeYaw;
+
+        [Tooltip("우측 게걸음 시 카메라가 꺾일 추가 Y각도 (예: 10도)")]
+        public float rightStrafeYaw;
+
+        [Tooltip("다중 타겟 포커스(락온) 사용 시, 이 다이내믹 Yaw 각도를 얼마나 반영할지 결정합니다. (0 = 타겟팅 우선 / 1 = 앵글 꺾임 우선)")]
+        [Range(0f, 1f)] public float dynamicYawWeight;
 
         [Header("Delay & Speed Settings (보간 속도)")]
         [Tooltip("좌측으로 카메라가 쏠릴 때의 반응 속도(지연 시간). 작을수록 빠름.")]
@@ -54,6 +99,10 @@ namespace TDA.Cameras
 
         [Tooltip("이동을 멈추고(Hold 해제 상태일 때) 원점(0)으로 복귀하는 속도. 스냅백 멀미를 막기 위해 보통 더 느리게(값 크게) 줍니다.")]
         public float centerReturnDelay;
+
+        [Header("Auto Centering (전후방 직진 시 복귀)")]
+        [Tooltip("앞이나 뒤로 이동할 때, 편향되어 있던 시야와 오프셋이 서서히 영점(가운데)으로 돌아오는데 걸리는 시간입니다. (예: 5.0초)")]
+        public float forwardBackwardReturnTime;
     }
 
     [Serializable]
@@ -68,7 +117,7 @@ namespace TDA.Cameras
         [Tooltip("흔들림의 속도 (호흡 빈도)입니다.")]
         public float swaySpeed;
 
-        [Tooltip("이동할 때 상하좌우로 덜컹거리는 보빙(Bobbing) 강도입니다.")]
+        [Tooltip("이동할 때 상하좌우로 덜컹거리는 보빙(Bobbing) 강도입니다. (뛸 때 화면 진동의 주 원인)")]
         public float bobbingAmount;
     }
 
@@ -102,27 +151,49 @@ namespace TDA.Cameras
         [Tooltip("Z축 기울기 (Dutch Angle). 불안감, 광기, 타격의 충격을 시각화할 때 화면을 비스듬하게 꺾습니다.")]
         [Range(-45f, 45f)] public float zTilt = 0f;
 
-        // =========================================================================================
-        // 🚨 [0순위 Data] 좌우 앵글 보정(Yaw Offset) 그릇 추가
-        // =========================================================================================
-        [Tooltip("카메라의 기본 좌/우 회전 편향 각도입니다. 캐릭터 어깨 너머 뷰의 방향성과 역동성을 제어합니다.")]
-        [Range(-45f, 45f)] public float yawOffset = 0f;
+        [Tooltip("카메라의 정지 시 기본 좌/우 회전 편향 각도입니다. 캐릭터 어깨 너머 뷰의 베이스 방향을 제어합니다.")]
+        [Range(-45f, 45f)] public float baseYawOffset = 0f;
 
         [Tooltip("타겟(Pivot)을 기준으로 한 카메라의 상대적 오프셋입니다. (X: 좌우, Y: 높이, Z: 거리)")]
         public Vector3 baseOffset = new Vector3(0.5f, 1.5f, -2.5f);
 
+        // =========================================================================================
+        // 🚨 [신규 추가] 수직 조작감 데이터 할당
+        // =========================================================================================
+        [Header("수직(상하) 시점 조작 방식 (Vertical Behavior)")]
+        public VerticalBehaviorData verticalBehavior = new VerticalBehaviorData
+        {
+            behaviorType = CameraVerticalBehavior.ClassicPivot, // 기본은 익숙한 팽이 궤도
+            elevationSpeed = 5.0f,
+            maxElevationHeight = 3.5f,
+            minElevationHeight = 0.5f,
+            fixedPitchAngle = 25.0f,
+            pitchForMaxHeight = 45.0f, // 🚨 양수(+)로 수정 완료 (바닥을 보는 각도)
+            maxDynamicHeight = 1.5f,
+            heightSmoothTime = 0.15f
+        };
+
         [Header("동적 프레이밍 (Dynamic Framing)")]
         [Tooltip("횡이동(Strafe) 시 이동 방향에 따라 카메라 중심이 자동으로 쏠리는(편향) 연출을 사용할지 여부입니다.")]
         public bool useDynamicFraming = false;
+
+        // 🚨 [추가된 코드] 공격 시퀀스 등에서 직전 프레이밍 상태를 그대로 이어받을지 결정합니다.
+        [Tooltip("이 옵션이 켜져 있으면 위/아래의 프레이밍 수치를 모두 무시하고, 이 스탠스에 돌입하기 직전의 꺾여있던 화면 구도를 그대로 얼려서(Freeze) 유지합니다.")]
+        public bool inheritDynamicFraming = false;
+
         public DynamicFramingData dynamicFraming = new DynamicFramingData
         {
             leftStrafeMaxOffset = -0.4f,
             rightStrafeMaxOffset = 0.4f,
             holdLeftStrafe = false,
             holdRightStrafe = false,
+            leftStrafeYaw = -15f,
+            rightStrafeYaw = 10f,
+            dynamicYawWeight = 1.0f,
             leftFramingDelay = 0.15f,
             rightFramingDelay = 0.15f,
-            centerReturnDelay = 0.35f
+            centerReturnDelay = 0.35f,
+            forwardBackwardReturnTime = 5.0f
         };
 
         [Header("다중 타겟 포커싱 (Multi-Targeting)")]
@@ -136,7 +207,7 @@ namespace TDA.Cameras
             enableHandheldEffect = true,
             swayAmount = 0.5f,
             swaySpeed = 1.0f,
-            bobbingAmount = 1.2f
+            bobbingAmount = 1.2f // 🚨 뛸 때 진동이 거슬리면 이 값을 0으로 내립니다.
         };
 
         [Tooltip("폭발, 타격, 지진 등 특정 시점에 단발성으로 터지는 충격(Shake) 효과 설정입니다.")]
@@ -155,9 +226,6 @@ namespace TDA.Cameras
         [Tooltip("이 스탠스 특유의 화면 외곽 어두워짐(Vignette) 강도입니다. 피격이나 공포 연출 시 올립니다.")]
         [Range(0f, 1f)] public float vignetteIntensity = 0.3f;
 
-        // =========================================================================================
-        // 🚨 [0순위 Safe-net] 디버그 일시정지(Pause) 방어막 데이터 추가
-        // =========================================================================================
         [Header("Debug Control (Safe-net)")]
         [Tooltip("디버그 모드가 켜져 있을 때, 이 스탠스로 전환이 완료되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
         public bool pauseOnApply = false;

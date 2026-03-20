@@ -643,7 +643,7 @@ Animator:
   m_GameObject: {fileID: 4233442530097016134}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 617397347bb26ec449c286483f6c27ea, type: 3}
-  m_Controller: {fileID: 9100000, guid: 0971db20e01c05c4195b1a00e7a2cb88, type: 2}
+  m_Controller: {fileID: 9100000, guid: 6faa1fadd4d7b45449193dba61e77264, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
   m_ApplyRootMotion: 1
@@ -667,7 +667,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1383825015
+  GlobalObjectIdHash: 1723572614
   InScenePlacedSourceGlobalObjectIdHash: 1383825015
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1348,6 +1348,8 @@ MonoBehaviour:
   liftHeightThreshold: 0.25
   plantVelocityThreshold: 0.5
   stepCooldown: 0.2
+  enableAutoCalibration: 1
+  debugCalibrationLogs: 1
   targetHandWeight: 0
   targetLookWeight: 0
 --- !u!114 &1778917036455899257

@@ -19,16 +19,12 @@ namespace TDA.World
 
         [Header("Local Camera Reference")]
         [Tooltip("현재 씬에 존재하는 로컬 플레이어의 숄더뷰 카메라")]
-        private PlayerCamera localPlayerCamera;
+        public PlayerCamera localPlayerCamera;
 
         [Header("Default Rest Stance")]
         [Tooltip("시퀀스 연출이 모두 끝났을 때 돌아갈 가장 기본적인 탐험/일상 스탠스 SO")]
         public CameraStancePresetSO defaultRestStance;
 
-        // =========================================================================================
-        // [디버그 및 OSD 추적용 변수 복구] 
-        // 이전 코드 병합 과정에서 누락되었던 추적용 변수들을 복구하여 OSD에 정상 출력되게 합니다!
-        // =========================================================================================
         [Header("State Tracking (OSD 탐색 대상)")]
         public CameraSequencePresetSO currentSequenceSO;
         public CameraStancePresetSO currentStanceSO;
@@ -40,9 +36,20 @@ namespace TDA.World
         [HideInInspector] public float currentZTilt = 0f;
         [HideInInspector] public Vector3 currentBaseOffset = new Vector3(0.5f, 1.5f, -2.5f);
 
-        // 🚨 [1순위 Data] 로코모션 및 스탠스에서 렌더링할 런타임 YawOffset 및 추적 가중치(Weight) 선언
-        [HideInInspector] public float currentYawOffset = 0f;
-        [HideInInspector] public float currentTrackingWeight = 1f;
+        [HideInInspector] public float currentBaseYawOffset = 0f;
+
+        // 🚨 [Tracking Window] 멀미 방지용 실시간 추적 가중치 프로퍼티
+        public float CurrentTrackingWeight { get; private set; } = 1f;
+
+        // =========================================================================================
+        // 🚨 [v3.0 고도화] 액션 댐핑 오버라이드 (Action Damping Override) 프로퍼티
+        // 스윙 중 발생하는 1프레임 단위의 덜덜거림을 10kg 스테디캠처럼 짓눌러 억제합니다.
+        // =========================================================================================
+        public float CurrentPositionDamping { get; private set; } = 0.1f;
+        public float CurrentRotationDamping { get; private set; } = 0.1f;
+
+        // 🚨 [신규 추가] 수직(상하) 시점 조작 방식 데이터
+        [HideInInspector] public VerticalBehaviorData currentVerticalBehavior;
 
         [HideInInspector] public DynamicFramingData currentDynamicFraming;
         [HideInInspector] public HandheldNoiseData currentHandheldEffect;
@@ -96,7 +103,6 @@ namespace TDA.World
             if (sequenceSO == null) return;
 
             // [우선순위 지배 (Last Call Wins)] 
-            // 기존에 재생 중이던 카메라 연출이 있다면 가차없이 끊어버리고 가장 최신 명령을 덮어씌웁니다.
             if (activeSequenceCoroutine != null)
             {
                 StopCoroutine(activeSequenceCoroutine);
@@ -106,9 +112,6 @@ namespace TDA.World
             IsSequencePlaying = true;
             Debug.Log($"<color=magenta>[WorldCameraManager]</color> 🎬 새로운 카메라 시퀀스 재생 시작: <b>{sequenceSO.name}</b>");
 
-            // =========================================================================================
-            // 🚨 [0순위 Safe-net] 시퀀스 에셋의 Pause 트리거 검사
-            // =========================================================================================
 #if UNITY_EDITOR
             if (sequenceSO.pauseOnApply)
             {
@@ -124,10 +127,6 @@ namespace TDA.World
             activeSequenceCoroutine = StartCoroutine(CameraSequenceRoutine(sequenceSO));
         }
 
-        /// <summary>
-        /// 진행 중인 시퀀스를 강제로 중단하고 즉각(혹은 부드럽게) 기본 상태로 복구합니다.
-        /// (피격 시 인터럽트 등에 사용)
-        /// </summary>
         public void StopSequenceAndRestore(float overrideBlendTime = 0.5f)
         {
             if (activeSequenceCoroutine != null)
@@ -141,7 +140,6 @@ namespace TDA.World
             {
                 currentStanceSO = defaultRestStance;
 
-                // 🚨 [1순위 리팩토링] SequenceStep 규격을 맞추어 임시 복귀 스텝을 생성합니다.
                 SequenceStep restoreStep = new SequenceStep
                 {
                     targetStance = defaultRestStance,
@@ -149,7 +147,9 @@ namespace TDA.World
                     blendCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f),
                     trackingStartTime = 0f,
                     trackingEndTime = 1f,
-                    trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f)
+                    trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f),
+                    actionPositionDamping = 0.1f, // 안전망 초기화
+                    actionRotationDamping = 0.1f  // 안전망 초기화
                 };
 
                 activeSequenceCoroutine = StartCoroutine(BlendToStanceRoutine(restoreStep));
@@ -158,12 +158,11 @@ namespace TDA.World
             {
                 IsSequencePlaying = false;
                 currentSequenceSO = null;
+                CurrentPositionDamping = 0.1f;
+                CurrentRotationDamping = 0.1f;
             }
         }
 
-        // =========================================================================================
-        // 타임라인 보간 파서 (Timeline Interpolation Parser)
-        // =========================================================================================
         private IEnumerator CameraSequenceRoutine(CameraSequencePresetSO sequence)
         {
             if (sequence.steps != null && sequence.steps.Count > 0)
@@ -176,19 +175,17 @@ namespace TDA.World
 
                     currentStanceSO = step.targetStance;
 
-                    // 1. [Blend] 이전 컷에서 목표 스탠스 컷으로 스르륵 보간 이동합니다.
+                    // 1. [Blend] 
                     if (step.blendDuration > 0)
                     {
-                        // 🚨 [1순위 리팩토링] 인자들을 개별로 넘기지 않고 SequenceStep 구조체를 통째로 전달합니다.
                         yield return StartCoroutine(BlendToStanceRoutine(step));
                     }
                     else
                     {
-                        // 컷 전환 (Zero Duration) 이면 즉각 덮어씌움
                         ApplyStanceInstantly(step.targetStance);
                     }
 
-                    // 2. [Impact Shake] 카메라 쉐이크(타격감)가 설정되어 있다면 스크립트 트리거 발동
+                    // 2. [Impact Shake] 
                     if (step.targetStance.impactShake.enableShake && localPlayerCamera != null)
                     {
                         if (step.targetStance.impactShake.shakeDelay > 0)
@@ -201,7 +198,7 @@ namespace TDA.World
                         }
                     }
 
-                    // 3. [Hold] 컷이 완성된 후 명시된 시간 동안 유지하며 멈춥니다.
+                    // 3. [Hold] 
                     if (step.holdDuration > 0)
                     {
                         yield return new WaitForSeconds(step.holdDuration);
@@ -209,15 +206,11 @@ namespace TDA.World
                 }
             }
 
-            // =========================================================================================
-            // 모든 컷(Step) 연출이 끝났다면 복귀(Restore) 정책에 따릅니다.
-            // =========================================================================================
             if (sequence.restoreToDefaultStanceOnFinish && defaultRestStance != null)
             {
                 currentStanceSO = defaultRestStance;
                 if (sequence.restoreBlendDuration > 0)
                 {
-                    // 🚨 [1순위 리팩토링] 복귀를 위한 가상의 SequenceStep 생성
                     SequenceStep restoreStep = new SequenceStep
                     {
                         targetStance = defaultRestStance,
@@ -225,7 +218,9 @@ namespace TDA.World
                         blendCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f),
                         trackingStartTime = 0f,
                         trackingEndTime = 1f,
-                        trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f)
+                        trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f),
+                        actionPositionDamping = 0.1f, // 안전망 초기화
+                        actionRotationDamping = 0.1f  // 안전망 초기화
                     };
 
                     yield return StartCoroutine(BlendToStanceRoutine(restoreStep));
@@ -239,6 +234,10 @@ namespace TDA.World
             IsSequencePlaying = false;
             currentSequenceSO = null;
             activeSequenceCoroutine = null;
+
+            // 시퀀스가 완전히 종료되었으므로 액션 댐핑 오버라이드 값을 초기화합니다.
+            CurrentPositionDamping = 0.1f;
+            CurrentRotationDamping = 0.1f;
         }
 
         private IEnumerator DelayedShakeRoutine(CameraShakeData shakeData)
@@ -252,79 +251,78 @@ namespace TDA.World
 
         /// <summary>
         /// 🚨 [1순위 Core Physics] 프레임 단위 보간 연산 (비선형 커브 및 추적 구간 제어)
-        /// 전달받은 SequenceStep의 데이터를 바탕으로 비선형 보간과 트래킹 윈도우를 실시간으로 렌더링합니다.
         /// </summary>
         private IEnumerator BlendToStanceRoutine(SequenceStep step)
         {
             float timer = 0f;
-            float duration = step.blendDuration;
+            float totalDuration = step.blendDuration + step.holdDuration;
             CameraStancePresetSO targetStance = step.targetStance;
 
-            // 보간 시작점 스냅샷 캡처
             float startFOV = currentFOV;
             float startZTilt = currentZTilt;
             Vector3 startBaseOffset = currentBaseOffset;
-            float startYawOffset = currentYawOffset; // 🚨 1순위: Yaw Offset 보간 시작점
+            float startBaseYawOffset = currentBaseYawOffset;
 
-            // 보간 목표점 설정
             float targetFOV = targetStance.fov;
             float targetZTilt = targetStance.zTilt;
             Vector3 targetBaseOffset = targetStance.baseOffset;
-            float targetYawOffsetGoal = targetStance.yawOffset; // 🚨 1순위: Yaw Offset 목표점
+            float targetBaseYawOffsetGoal = targetStance.baseYawOffset;
 
-            // 구조체(동적 프레이밍 등)와 배열 데이터는 보간 중 이질감을 막기 위해 시작 시점에 즉시 덮어씁니다.
+            // 구조체(동적 프레이밍 등)와 배열 데이터는 보간 중 이질감을 막기 위해 즉시 덮어씁니다.
             currentDynamicFraming = targetStance.dynamicFraming;
             currentHandheldEffect = targetStance.handheldEffect;
 
-            // 포커싱 타겟 업데이트
+            // 🚨 [신규] 수직 시점 조작 데이터 즉시 덮어쓰기
+            currentVerticalBehavior = targetStance.verticalBehavior;
+
+            // 🚨 [v3.0 고도화] 2계층 SO 스텝에 정의된 액션 댐핑 오버라이드 추출 및 방출
+            // PlayerCamera.cs는 이 값을 가져가서 애니메이션 덜덜거림을 억제합니다.
+            CurrentPositionDamping = step.actionPositionDamping > 0f ? step.actionPositionDamping : 0.1f;
+            CurrentRotationDamping = step.actionRotationDamping > 0f ? step.actionRotationDamping : 0.1f;
+
             if (targetStance.focusTargets != null && targetStance.focusTargets.Count > 0)
             {
-                // 실제 Transform 매핑 로직은 PlayerCamera나 별도 바인딩 클래스에서 타겟 식별자(Enum)를 통해 찾아옵니다.
-                // 여기서는 가중치(Weight)만 즉시 주입합니다.
                 currentTargetBiasWeight = targetStance.focusTargets[targetStance.focusTargets.Count - 1].weight;
             }
 
-            // 프레임 단위 보간 연산 (Lerp)
-            while (timer < duration)
+            while (timer < totalDuration)
             {
                 timer += Time.deltaTime;
 
-                // 🚨 정규화된 시간 (0.0 ~ 1.0) 도출
-                float normalizedTime = Mathf.Clamp01(timer / duration);
+                float normTime = Mathf.Clamp01(timer / totalDuration);
 
-                // 디자이너가 설정한 커브(Ease-In, Ease-Out 등)를 적용하여 유기적인 가속도를 만듭니다.
-                float curveT = (step.blendCurve != null && step.blendCurve.length > 0) ? step.blendCurve.Evaluate(normalizedTime) : normalizedTime;
-
-                // 🚨 1순위 적용: 비선형 커브 보간 적용 (LerpUnclamped를 사용하여 커브의 오버슈트/바운스 효과까지 완벽 지원합니다)
-                currentFOV = Mathf.LerpUnclamped(startFOV, targetFOV, curveT);
-                currentZTilt = Mathf.LerpUnclamped(startZTilt, targetZTilt, curveT);
-                currentBaseOffset = Vector3.LerpUnclamped(startBaseOffset, targetBaseOffset, curveT);
-                currentYawOffset = Mathf.LerpUnclamped(startYawOffset, targetYawOffsetGoal, curveT);
-
-                // 🚨 1순위 적용: 멀미 방지를 위한 Tracking Window 가중치 추출
-                if (normalizedTime >= step.trackingStartTime && normalizedTime <= step.trackingEndTime)
+                // =========================================================================================
+                // 🚨 [Tracking Window] 멀미 방지 가중치 계산 (시간 도메인 매핑)
+                // =========================================================================================
+                if (normTime >= step.trackingStartTime && normTime <= step.trackingEndTime)
                 {
                     if (step.trackingWeightCurve != null && step.trackingWeightCurve.length > 0)
-                    {
-                        // 커브에 명시된 가중치를 실시간으로 읽어와 PlayerCamera에 전달합니다.
-                        currentTrackingWeight = step.trackingWeightCurve.Evaluate(normalizedTime);
-                    }
+                        CurrentTrackingWeight = step.trackingWeightCurve.Evaluate(normTime);
                     else
-                    {
-                        currentTrackingWeight = 1f; // 커브가 없으면 기본적으로 100% 추적 허용
-                    }
+                        CurrentTrackingWeight = 1f;
                 }
                 else
                 {
-                    // 추적 구간(Window)을 벗어났다면 시선을 강제로 고정(0)시킵니다.
-                    currentTrackingWeight = 0f;
+                    CurrentTrackingWeight = 0f;
                 }
 
-                // (※ 이렇게 세팅된 current 변수들을 PlayerCamera.cs의 LateUpdate() 에서 매 프레임 읽어갑니다)
+                // 렌즈 및 구도 보간 연산은 blendDuration 동안에만 진행합니다.
+                if (timer <= step.blendDuration && step.blendDuration > 0f)
+                {
+                    float blendNormTime = Mathf.Clamp01(timer / step.blendDuration);
+                    float curveT = (step.blendCurve != null && step.blendCurve.length > 0) ? step.blendCurve.Evaluate(blendNormTime) : blendNormTime;
+
+                    currentFOV = Mathf.LerpUnclamped(startFOV, targetFOV, curveT);
+                    currentZTilt = Mathf.LerpUnclamped(startZTilt, targetZTilt, curveT);
+                    currentBaseOffset = Vector3.LerpUnclamped(startBaseOffset, targetBaseOffset, curveT);
+                    currentBaseYawOffset = Mathf.LerpUnclamped(startBaseYawOffset, targetBaseYawOffsetGoal, curveT);
+                }
+
                 yield return null;
             }
 
-            // 오차 없는 완벽한 도착을 위해 마지막 프레임에 강제 스냅
+            // 시퀀스/스텝 종료 시 가중치 원복
+            CurrentTrackingWeight = 1f;
             ApplyStanceInstantly(targetStance);
         }
 
@@ -335,28 +333,26 @@ namespace TDA.World
             currentFOV = stance.fov;
             currentZTilt = stance.zTilt;
             currentBaseOffset = stance.baseOffset;
-            currentYawOffset = stance.yawOffset; // 🚨 1순위 적용
+            currentBaseYawOffset = stance.baseYawOffset;
 
-            // 🚨 즉각 적용(일반 상태 복귀 등) 시에는 기본적으로 시선 추적을 100% 허용합니다.
-            currentTrackingWeight = 1f;
+            CurrentTrackingWeight = 1f;
 
             currentDynamicFraming = stance.dynamicFraming;
             currentHandheldEffect = stance.handheldEffect;
+
+            // 🚨 [신규] 수직 시점 조작 데이터 즉시 덮어쓰기
+            currentVerticalBehavior = stance.verticalBehavior;
 
             if (stance.focusTargets != null && stance.focusTargets.Count > 0)
             {
                 currentTargetBiasWeight = stance.focusTargets[stance.focusTargets.Count - 1].weight;
             }
 
-            // =========================================================================================
-            // 🚨 [0순위 Safe-net] 디버그 모드 시 인스펙터 강제 정지 트리거
-            // 목표 컷신/스탠스에 도착한 바로 그 1프레임에 엔진을 멈춰 수치를 편안하게 수정할 수 있게 합니다.
-            // =========================================================================================
 #if UNITY_EDITOR
             if (stance.pauseOnApply)
             {
                 TDA.Character.Player.PlayerCamera localCam = FindFirstObjectByType<TDA.Character.Player.PlayerCamera>();
-                if (localCam != null && localCam.showDebugLogs) // 플레이어 카메라의 디버그 허용 여부 체크
+                if (localCam != null && localCam.showDebugLogs)
                 {
                     Debug.Log($"<color=red>[Debug Pause Triggered]</color> <b>{stance.name}</b> 스탠스에 완벽히 도달하여 게임을 강제로 일시정지합니다! (인스펙터 수치를 확인하세요)");
                     EditorApplication.isPaused = true;
@@ -365,27 +361,18 @@ namespace TDA.World
 #endif
         }
 
-        // =========================================================================================
-        // 외부 스크립트용 헬퍼 유틸리티 (기존 API 하위 호환 및 연동 편의성)
-        // =========================================================================================
-
-        /// <summary>
-        /// PlayerEventManager 등 외부에서 Enum(CameraShake_Heavy 등)으로 인해 단발성 흔들림을 주입해야 할 때 사용합니다.
-        /// </summary>
         public void ApplyCameraShake(float intensity, float duration)
         {
             if (localPlayerCamera != null)
             {
-                localPlayerCamera.Shake(intensity, duration);
+                localPlayerCamera.GetType().GetMethod("Shake")?.Invoke(localPlayerCamera, new object[] { intensity, duration });
             }
         }
     }
 
 #if UNITY_EDITOR
     // =========================================================================================
-    // 🚨 [아키텍처 복원] SO 라이브 에디터 (Live Editor) 관제탑 편입
-    // PlayerCamera(렌더러)에 있던 땜빵식 SO 직접 덮어쓰기 기능을, 
-    // 데이터 흐름의 원천(Source)인 WorldCameraManager로 완벽하게 복원하여 단방향 아키텍처를 지킵니다.
+    // 🚨 SO 라이브 에디터 (Live Editor) 관제탑 편입
     // =========================================================================================
     [CustomEditor(typeof(WorldCameraManager))]
     public class WorldCameraManagerEditor : Editor
@@ -397,11 +384,25 @@ namespace TDA.World
         private float editFov;
         private Vector3 editBaseOffset;
         private float editZTilt;
-        private float editYawOffset;
+        private float editBaseYawOffset;
 
-        private float editLeftStrafe, editRightStrafe, editFramingDelay;
+        // [신규] 수직 조작 방식 변수 캐싱
+        private CameraVerticalBehavior editBehaviorType;
+        private float editElevationSpeed;
+        private float editMaxElevationHeight;
+        private float editMinElevationHeight;
+        private float editFixedPitchAngle;
+        private float editPitchForMaxHeight;
+        private float editMaxDynamicHeight;
+        private float editHeightSmoothTime;
+
+        private float editLeftStrafe, editRightStrafe;
         private bool editHoldLeft, editHoldRight;
         private float editLeftDelay, editRightDelay, editCenterDelay;
+
+        private float editLeftStrafeYaw, editRightStrafeYaw;
+        private float editDynamicYawWeight;
+        private float editForwardBackwardReturnTime;
 
         private bool editEnableHandheld;
         private float editSwayAmount, editSwaySpeed, editBobbingAmount;
@@ -414,7 +415,17 @@ namespace TDA.World
             editFov = so.fov;
             editBaseOffset = so.baseOffset;
             editZTilt = so.zTilt;
-            editYawOffset = so.yawOffset;
+            editBaseYawOffset = so.baseYawOffset;
+
+            // [신규] 수직 조작 방식 동기화
+            editBehaviorType = so.verticalBehavior.behaviorType;
+            editElevationSpeed = so.verticalBehavior.elevationSpeed;
+            editMaxElevationHeight = so.verticalBehavior.maxElevationHeight;
+            editMinElevationHeight = so.verticalBehavior.minElevationHeight;
+            editFixedPitchAngle = so.verticalBehavior.fixedPitchAngle;
+            editPitchForMaxHeight = so.verticalBehavior.pitchForMaxHeight;
+            editMaxDynamicHeight = so.verticalBehavior.maxDynamicHeight;
+            editHeightSmoothTime = so.verticalBehavior.heightSmoothTime;
 
             editLeftStrafe = so.dynamicFraming.leftStrafeMaxOffset;
             editRightStrafe = so.dynamicFraming.rightStrafeMaxOffset;
@@ -423,6 +434,11 @@ namespace TDA.World
             editLeftDelay = so.dynamicFraming.leftFramingDelay;
             editRightDelay = so.dynamicFraming.rightFramingDelay;
             editCenterDelay = so.dynamicFraming.centerReturnDelay;
+
+            editLeftStrafeYaw = so.dynamicFraming.leftStrafeYaw;
+            editRightStrafeYaw = so.dynamicFraming.rightStrafeYaw;
+            editDynamicYawWeight = so.dynamicFraming.dynamicYawWeight;
+            editForwardBackwardReturnTime = so.dynamicFraming.forwardBackwardReturnTime;
 
             editEnableHandheld = so.handheldEffect.enableHandheldEffect;
             editSwayAmount = so.handheldEffect.swayAmount;
@@ -444,7 +460,17 @@ namespace TDA.World
             so.fov = editFov;
             so.baseOffset = editBaseOffset;
             so.zTilt = editZTilt;
-            so.yawOffset = editYawOffset;
+            so.baseYawOffset = editBaseYawOffset;
+
+            // [신규] 수직 조작 방식 덮어쓰기
+            so.verticalBehavior.behaviorType = editBehaviorType;
+            so.verticalBehavior.elevationSpeed = editElevationSpeed;
+            so.verticalBehavior.maxElevationHeight = editMaxElevationHeight;
+            so.verticalBehavior.minElevationHeight = editMinElevationHeight;
+            so.verticalBehavior.fixedPitchAngle = editFixedPitchAngle;
+            so.verticalBehavior.pitchForMaxHeight = editPitchForMaxHeight;
+            so.verticalBehavior.maxDynamicHeight = editMaxDynamicHeight;
+            so.verticalBehavior.heightSmoothTime = editHeightSmoothTime;
 
             so.dynamicFraming.leftStrafeMaxOffset = editLeftStrafe;
             so.dynamicFraming.rightStrafeMaxOffset = editRightStrafe;
@@ -453,6 +479,11 @@ namespace TDA.World
             so.dynamicFraming.leftFramingDelay = editLeftDelay;
             so.dynamicFraming.rightFramingDelay = editRightDelay;
             so.dynamicFraming.centerReturnDelay = editCenterDelay;
+
+            so.dynamicFraming.leftStrafeYaw = editLeftStrafeYaw;
+            so.dynamicFraming.rightStrafeYaw = editRightStrafeYaw;
+            so.dynamicFraming.dynamicYawWeight = editDynamicYawWeight;
+            so.dynamicFraming.forwardBackwardReturnTime = editForwardBackwardReturnTime;
 
             so.handheldEffect.enableHandheldEffect = editEnableHandheld;
             so.handheldEffect.swayAmount = editSwayAmount;
@@ -502,12 +533,32 @@ namespace TDA.World
                 editFov = EditorGUILayout.Slider("FOV", editFov, 10f, 120f);
                 editBaseOffset = EditorGUILayout.Vector3Field("Base Offset", editBaseOffset);
                 editZTilt = EditorGUILayout.Slider("Z Tilt", editZTilt, -45f, 45f);
-                editYawOffset = EditorGUILayout.Slider("Yaw Offset (좌우 각도)", editYawOffset, -45f, 45f);
+                editBaseYawOffset = EditorGUILayout.Slider("Base Yaw Offset (기본 좌우 각도)", editBaseYawOffset, -45f, 45f);
+                EditorGUILayout.Space(5);
+
+                // 🚨 [신규] 수직 시점 조작 패널
+                EditorGUILayout.LabelField("↕️ 수직(상하) 시점 조작 (Vertical Behavior)", EditorStyles.miniBoldLabel);
+                editBehaviorType = (CameraVerticalBehavior)EditorGUILayout.EnumPopup("Behavior Type", editBehaviorType);
+
+                if (editBehaviorType == CameraVerticalBehavior.ElevationOnly)
+                {
+                    editElevationSpeed = EditorGUILayout.FloatField("Elevation Speed", editElevationSpeed);
+                    editMaxElevationHeight = EditorGUILayout.FloatField("Max Elevation Height", editMaxElevationHeight);
+                    editMinElevationHeight = EditorGUILayout.FloatField("Min Elevation Height", editMinElevationHeight);
+                    editFixedPitchAngle = EditorGUILayout.FloatField("Fixed Pitch Angle", editFixedPitchAngle);
+                }
+                else if (editBehaviorType == CameraVerticalBehavior.DynamicOverShoulder)
+                {
+                    editPitchForMaxHeight = EditorGUILayout.FloatField("Pitch For Max Height", editPitchForMaxHeight);
+                    editMaxDynamicHeight = EditorGUILayout.FloatField("Max Dynamic Height", editMaxDynamicHeight);
+                    editHeightSmoothTime = EditorGUILayout.FloatField("Height Smooth Time", editHeightSmoothTime);
+                }
                 EditorGUILayout.Space(5);
 
                 // [다이내믹 프레이밍]
                 EditorGUILayout.LabelField("🏃 다이내믹 프레이밍 (Dynamic Framing)", EditorStyles.miniBoldLabel);
 
+                EditorGUILayout.LabelField("Position Offset (X축)", EditorStyles.miniLabel);
                 EditorGUILayout.BeginHorizontal();
                 editLeftStrafe = EditorGUILayout.FloatField("Left Max Offset", editLeftStrafe);
                 editRightStrafe = EditorGUILayout.FloatField("Right Max Offset", editRightStrafe);
@@ -518,10 +569,22 @@ namespace TDA.World
                 editHoldRight = EditorGUILayout.Toggle("Hold Right", editHoldRight);
                 EditorGUILayout.EndHorizontal();
 
+                EditorGUILayout.Space(5);
+                EditorGUILayout.LabelField("Rotation Offset (Yaw 각도)", EditorStyles.miniLabel);
+                EditorGUILayout.BeginHorizontal();
+                editLeftStrafeYaw = EditorGUILayout.FloatField("Left Yaw Angle", editLeftStrafeYaw);
+                editRightStrafeYaw = EditorGUILayout.FloatField("Right Yaw Angle", editRightStrafeYaw);
+                EditorGUILayout.EndHorizontal();
+
+                editDynamicYawWeight = EditorGUILayout.Slider("Yaw Weight (락온 개입률)", editDynamicYawWeight, 0f, 1f);
+
+                EditorGUILayout.Space(5);
+                EditorGUILayout.LabelField("Delay & Speed", EditorStyles.miniLabel);
                 editLeftDelay = EditorGUILayout.FloatField("Left Speed (Delay)", editLeftDelay);
                 editRightDelay = EditorGUILayout.FloatField("Right Speed (Delay)", editRightDelay);
                 editCenterDelay = EditorGUILayout.FloatField("Center Return Speed", editCenterDelay);
 
+                editForwardBackwardReturnTime = EditorGUILayout.FloatField("Return Time (전후진 복귀)", editForwardBackwardReturnTime);
                 EditorGUILayout.Space(5);
 
                 // [핸드헬드]
@@ -561,8 +624,6 @@ namespace TDA.World
                 {
                     ApplyToSO(wcm.currentStanceSO);
 
-                    // 🚨 [핵심] 아키텍처 복원: 관제탑의 런타임 변수에 바뀐 SO 값을 즉시 다시 꽂아넣습니다!
-                    // PlayerCamera는 아무것도 모른 채 이 관제탑의 변수만 바라보게 됩니다.
                     var m_ApplyStanceMethod = typeof(WorldCameraManager).GetMethod("ApplyStanceInstantly", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     if (m_ApplyStanceMethod != null)
                     {

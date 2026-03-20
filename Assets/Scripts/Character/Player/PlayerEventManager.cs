@@ -35,6 +35,12 @@ namespace TDA.Character.Player
         [Tooltip("일반 피격 시 화면 비네트(붉은 점멸) 효과를 덮어씌울 2계층 시퀀스 SO")]
         [SerializeField] private CameraSequencePresetSO hitVignetteSequence;
 
+        // =========================================================================================
+        // 🚨 [신규 추가] 발이 땅에 닿을 때 쿵! 하는 바디캠 킥(Camera Kick) 연동을 위한 시퀀스 SO
+        // =========================================================================================
+        [Tooltip("걷거나 뛸 때 발구름 진동(Camera Kick)을 줄 2계층 시퀀스 SO")]
+        [SerializeField] private CameraSequencePresetSO footstepKickSequence;
+
         protected virtual void Awake()
         {
             player = GetComponent<PlayerManager>();
@@ -118,13 +124,27 @@ namespace TDA.Character.Player
                     break;
 
                 // =======================================================
-                // [사운드 피드백] 발소리 및 타격/피격음
+                // [사운드 피드백 및 바디캠 킥 연동] 발소리 및 타격/피격음
                 // =======================================================
                 case global::AnimationEventType.PlayFootstep_L:
                 case global::AnimationEventType.PlayFootstep_R:
                 case global::AnimationEventType.PlayFootstep_Drag_L:
                 case global::AnimationEventType.PlayFootstep_Drag_R:
                 case global::AnimationEventType.PlayFootstep_Pivot:
+                    // 🚨 [신규] 발소리 이벤트가 터질 때 바디캠(발구름 진동) 효과를 줍니다.
+                    if (player.IsOwner && WorldCameraManager.Instance != null)
+                    {
+                        if (footstepKickSequence != null)
+                        {
+                            WorldCameraManager.Instance.PlayCameraSequence(footstepKickSequence);
+                        }
+                        else
+                        {
+                            // SO가 할당되지 않은 경우를 대비한 하드코딩 Fallback 안전망
+                            WorldCameraManager.Instance.ApplyCameraShake(0.05f, 0.1f);
+                        }
+                    }
+
                     // TODO: SoundManager를 호출하여 현재 바닥 재질에 맞는 풋스텝 재생
                     // 예: AudioManager.Instance.PlayFootstep(transform.position);
                     break;
