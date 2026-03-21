@@ -69,6 +69,12 @@ namespace TDA.Cameras
         [Tooltip("자동 복귀 시, 원래 시점까지 스르륵 돌아가는 데 걸리는 보간 시간(초)입니다.")]
         public float restoreBlendDuration = 1.0f;
 
+        // =========================================================================================
+        // 🚨 [Phase 3 고도화] 2. 연출/동작 종료 후 이전 시점(카메라 앵글)으로 복귀
+        // =========================================================================================
+        [Tooltip("시퀀스 진입 직전의 절대 앵글(Pitch, Yaw)을 기억했다가 종료 시 원래 각도로 되돌립니다. (공격 후 엉뚱한 곳을 바라보는 시점 틀어짐 방지)")]
+        public bool restorePreviousAngle = false;
+
         [Header("Debug Control (Safe-net)")]
         [Tooltip("디버그 모드일 때, 이 시퀀스가 시작되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
         public bool pauseOnApply = false;

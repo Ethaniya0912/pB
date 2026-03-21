@@ -53,6 +53,15 @@ namespace TDA.World
 
         [HideInInspector] public float currentBaseYawOffset = 0f;
 
+        // 🚨 [Phase 4 고도화] 조이스틱 입력 강도(moveAmount)에 따른 동적 수치 변동값 (실시간 더하기 용도)
+        [HideInInspector] public float dynamicFOVOffset = 0f;
+        [HideInInspector] public float dynamicZOffset = 0f;
+
+        // 🚨 [Phase 3 고도화] 연출 진입 전 이전 앵글(Pitch, Yaw) 스냅샷 저장 데이터
+        [HideInInspector] public float storedPitch;
+        [HideInInspector] public float storedYaw;
+        [HideInInspector] public bool shouldRestorePreviousAngle = false;
+
         // 🚨 [Tracking Window] 멀미 방지용 실시간 추적 가중치 프로퍼티
         public float CurrentTrackingWeight { get; private set; } = 1f;
 
@@ -69,9 +78,21 @@ namespace TDA.World
         [HideInInspector] public DynamicFramingData currentDynamicFraming;
         [HideInInspector] public HandheldNoiseData currentHandheldEffect;
 
+        // 🚨 [Phase 5 고도화] 락온 시야 이탈 페널티 및 보정 데이터
+        [HideInInspector] public LockOnPenaltyData currentLockOnPenaltyData;
+
         // 다중 타겟 포커스 (POI) 정보
         [HideInInspector] public Transform[] currentFocusTargets;
         [HideInInspector] public float currentTargetBiasWeight;
+
+        // =========================================================================================
+        // 🚨 [신규] 시각적 디버그 툴 플래그 (Visual Debug Flags)
+        // =========================================================================================
+        [Header("Visual Debugging (On-Screen)")]
+        public bool showEdgePanningGizmo = false;
+        public bool showTargetEscapeGizmo = false;
+        public bool showPredictiveAngleGizmo = false;
+        public bool showSOInfoOnScreen = false;
 
         // 코루틴 추적 및 상태
         private Coroutine activeSequenceCoroutine;
@@ -105,6 +126,26 @@ namespace TDA.World
             if (defaultRestStance != null)
             {
                 ApplyStanceInstantly(defaultRestStance, "Game Start");
+            }
+        }
+
+        private void Update()
+        {
+            // 🚨 [Phase 4 고도화] 인풋(조이스틱 이동량) 기반 동적 수치 개입 실시간 연산
+            if (currentStanceSO != null && currentStanceSO.dynamicInputModifier.enableDynamicInputModifier)
+            {
+                // PlayerInputManager.Instance.moveAmount (이동 강도 0~1) 값을 참조
+                float moveAmount = PlayerInputManager.Instance != null ? PlayerInputManager.Instance.moveAmount : 0f;
+
+                // SO 커브에 값을 대입(Evaluate)하여 결과 산출
+                dynamicFOVOffset = currentStanceSO.dynamicInputModifier.fovModifierCurve.Evaluate(moveAmount);
+                dynamicZOffset = currentStanceSO.dynamicInputModifier.offsetZModifierCurve.Evaluate(moveAmount);
+            }
+            else
+            {
+                // 사용하지 않을 경우 오프셋을 0으로 초기화
+                dynamicFOVOffset = 0f;
+                dynamicZOffset = 0f;
             }
         }
 
@@ -168,6 +209,19 @@ namespace TDA.World
             if (activeSequenceCoroutine != null)
             {
                 StopCoroutine(activeSequenceCoroutine);
+            }
+
+            // 🚨 [Phase 3 고도화] 시퀀스 진입 시 이전 각도 스냅샷 캐싱 (복귀용)
+            if (sequenceSO.restorePreviousAngle && localPlayerCamera != null)
+            {
+                // Reflection을 통해 PlayerCamera 내부에 저장된 현재의 실제 회전 각도를 읽어옴
+                storedPitch = localPlayerCamera.GetType().GetField("upAndDownLookAngle", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(localPlayerCamera) as float? ?? 0f;
+                storedYaw = localPlayerCamera.GetType().GetField("leftAndRightLookAngle", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(localPlayerCamera) as float? ?? 0f;
+                shouldRestorePreviousAngle = true;
+            }
+            else
+            {
+                shouldRestorePreviousAngle = false;
             }
 
             currentSequenceSO = sequenceSO;
@@ -303,9 +357,10 @@ namespace TDA.World
             currentSequenceSO = null;
             activeSequenceCoroutine = null;
 
-            // 시퀀스가 완전히 종료되었으므로 액션 댐핑 오버라이드 값을 초기화합니다.
+            // 시퀀스가 완전히 종료되었으므로 액션 댐핑 오버라이드 및 상태를 초기화합니다.
             CurrentPositionDamping = 0.1f;
             CurrentRotationDamping = 0.1f;
+            shouldRestorePreviousAngle = false;
         }
 
         private IEnumerator DelayedShakeRoutine(CameraShakeData shakeData)
@@ -340,8 +395,9 @@ namespace TDA.World
             currentDynamicFraming = targetStance.dynamicFraming;
             currentHandheldEffect = targetStance.handheldEffect;
 
-            // 🚨 [신규] 수직 시점 조작 데이터 즉시 덮어쓰기
+            // 🚨 [신규] 수직 시점 조작 및 페널티 데이터 즉시 덮어쓰기
             currentVerticalBehavior = targetStance.verticalBehavior;
+            currentLockOnPenaltyData = targetStance.lockOnPenaltyData;
 
             // 🚨 [v3.0 고도화] 2계층 SO 스텝에 정의된 액션 댐핑 오버라이드 추출 및 방출
             CurrentPositionDamping = step.actionPositionDamping > 0f ? step.actionPositionDamping : 0.1f;
@@ -408,6 +464,7 @@ namespace TDA.World
             currentHandheldEffect = stance.handheldEffect;
 
             currentVerticalBehavior = stance.verticalBehavior;
+            currentLockOnPenaltyData = stance.lockOnPenaltyData; // 🚨 [Phase 5 고도화] 덮어쓰기
 
             if (stance.focusTargets != null && stance.focusTargets.Count > 0)
             {
@@ -436,6 +493,81 @@ namespace TDA.World
             {
                 localPlayerCamera.GetType().GetMethod("Shake")?.Invoke(localPlayerCamera, new object[] { intensity, duration });
             }
+        }
+
+        // =========================================================================================
+        // 🚨 [신규] 온스크린 시각적 디버그 드로잉 (On-Screen Debug UI)
+        // =========================================================================================
+        private void OnGUI()
+        {
+            if (!Application.isPlaying) return;
+
+            // 1. 현재 적용 중인 SO 정보 텍스트 (상단 왼쪽)
+            if (showSOInfoOnScreen)
+            {
+                GUIStyle textStyle = new GUIStyle(GUI.skin.label);
+                textStyle.fontSize = 14;
+                textStyle.fontStyle = FontStyle.Bold;
+                textStyle.normal.textColor = Color.cyan;
+
+                string seqName = currentSequenceSO != null ? currentSequenceSO.name : "None";
+                string stanceName = currentStanceSO != null ? currentStanceSO.name : "None";
+
+                GUILayout.BeginArea(new Rect(10, 10, 500, 100));
+                GUILayout.Label($"🎬 Sequence: {seqName}", textStyle);
+                GUILayout.Label($"📸 Stance: {stanceName}", textStyle);
+                GUILayout.EndArea();
+            }
+
+            // 2. 엣지 패닝 범위 가이드 (빨간색 투명 박스)
+            if (showEdgePanningGizmo && currentStanceSO != null)
+            {
+                float threshold = currentStanceSO.edgePanningData.edgePanThreshold;
+                DrawThresholdRect(threshold, new Color(1f, 0f, 0f, 0.15f), "Edge Panning Area");
+            }
+
+            // 3. 타겟 이탈 페널티 범위 가이드 (노란색 투명 박스)
+            if (showTargetEscapeGizmo && currentStanceSO != null)
+            {
+                float threshold = currentStanceSO.lockOnPenaltyData.targetEscapeViewportThreshold;
+                DrawThresholdRect(threshold, new Color(1f, 1f, 0f, 0.15f), "Target Escape Boundary");
+            }
+        }
+
+        private void DrawThresholdRect(float threshold, Color color, string label)
+        {
+            float sw = Screen.width;
+            float sh = Screen.height;
+            float tw = sw * threshold;
+            float th = sh * threshold;
+
+            GUI.color = color;
+            // 상하좌우 엣지 박스 그리기
+            GUI.DrawTexture(new Rect(0, 0, tw, sh), Texture2D.whiteTexture);           // Left
+            GUI.DrawTexture(new Rect(sw - tw, 0, tw, sh), Texture2D.whiteTexture);      // Right
+            GUI.DrawTexture(new Rect(0, 0, sw, th), Texture2D.whiteTexture);           // Top
+            GUI.DrawTexture(new Rect(0, sh - th, sw, th), Texture2D.whiteTexture);      // Bottom
+            GUI.color = Color.white;
+        }
+
+        // =========================================================================================
+        // 🚨 [신규] 카메라 방향 및 목표 예측 기즈모 (Scene View Only)
+        // =========================================================================================
+        private void OnDrawGizmos()
+        {
+            if (!showPredictiveAngleGizmo || localPlayerCamera == null) return;
+
+            // 카메라가 가고자 하는 위치(Desired Position)와 시선 방향을 기즈모로 표시
+            // PlayerCamera 내부의 desiredPos 필드에 접근 (Reflection)
+            Vector3 desiredPos = (Vector3)(localPlayerCamera.GetType().GetField("dbgDesiredPos", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(localPlayerCamera) ?? localPlayerCamera.transform.position);
+
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(desiredPos, 0.3f);
+            Gizmos.DrawLine(localPlayerCamera.transform.position, desiredPos);
+
+            // 카메라 전방 시선 방향 예측 (Frustum 형태)
+            Gizmos.matrix = Matrix4x4.TRS(desiredPos, localPlayerCamera.transform.rotation, Vector3.one);
+            Gizmos.DrawFrustum(Vector3.zero, currentFOV, 2f, 0.1f, 1.0f);
         }
     }
 
@@ -480,6 +612,13 @@ namespace TDA.World
         private bool editEnableShake;
         private float editShakeIntensity, editShakeDelay, editShakeDuration;
 
+        // 🚨 [Phase 5 고도화] 라이브 에디터용 시야 이탈 페널티 캐싱
+        private bool editEnableTargetEscapePenalty;
+        private float editTargetEscapeViewportThreshold;
+        private bool editUseHardCorrection;
+        private AnimationCurve editSoftCorrectionDistanceCurve;
+        private float editStrafeRecoveryWeight;
+
         private void SyncFromSO(CameraStancePresetSO so)
         {
             if (so == null) return;
@@ -519,6 +658,13 @@ namespace TDA.World
             editShakeIntensity = so.impactShake.shakeIntensity;
             editShakeDelay = so.impactShake.shakeDelay;
             editShakeDuration = so.impactShake.maxDuration;
+
+            // 🚨 [Phase 5 고도화] 동기화
+            editEnableTargetEscapePenalty = so.lockOnPenaltyData.enableTargetEscapePenalty;
+            editTargetEscapeViewportThreshold = so.lockOnPenaltyData.targetEscapeViewportThreshold;
+            editUseHardCorrection = so.lockOnPenaltyData.useHardCorrection;
+            editSoftCorrectionDistanceCurve = so.lockOnPenaltyData.softCorrectionDistanceCurve;
+            editStrafeRecoveryWeight = so.lockOnPenaltyData.strafeRecoveryWeight;
         }
 
         private void ApplyToSO(CameraStancePresetSO so)
@@ -564,6 +710,13 @@ namespace TDA.World
             so.impactShake.shakeDelay = editShakeDelay;
             so.impactShake.maxDuration = editShakeDuration;
 
+            // 🚨 [Phase 5 고도화] 적용
+            so.lockOnPenaltyData.enableTargetEscapePenalty = editEnableTargetEscapePenalty;
+            so.lockOnPenaltyData.targetEscapeViewportThreshold = editTargetEscapeViewportThreshold;
+            so.lockOnPenaltyData.useHardCorrection = editUseHardCorrection;
+            so.lockOnPenaltyData.softCorrectionDistanceCurve = editSoftCorrectionDistanceCurve;
+            so.lockOnPenaltyData.strafeRecoveryWeight = editStrafeRecoveryWeight;
+
             EditorUtility.SetDirty(so);
         }
 
@@ -605,7 +758,7 @@ namespace TDA.World
                 editBaseYawOffset = EditorGUILayout.Slider("Base Yaw Offset (기본 좌우 각도)", editBaseYawOffset, -45f, 45f);
                 EditorGUILayout.Space(5);
 
-                // 🚨 [신규] 수직 시점 조작 패널
+                // [수직 시점 조작 패널]
                 EditorGUILayout.LabelField("↕️ 수직(상하) 시점 조작 (Vertical Behavior)", EditorStyles.miniBoldLabel);
                 editBehaviorType = (CameraVerticalBehavior)EditorGUILayout.EnumPopup("Behavior Type", editBehaviorType);
 
@@ -654,6 +807,26 @@ namespace TDA.World
                 editCenterDelay = EditorGUILayout.FloatField("Center Return Speed", editCenterDelay);
 
                 editForwardBackwardReturnTime = EditorGUILayout.FloatField("Return Time (전후진 복귀)", editForwardBackwardReturnTime);
+                EditorGUILayout.Space(5);
+
+                // 🚨 [Phase 5 고도화] 시야 이탈 페널티 에디터 추가
+                EditorGUILayout.LabelField("⚠️ 시야 이탈 페널티 (Target Escape Penalty)", EditorStyles.miniBoldLabel);
+                editEnableTargetEscapePenalty = EditorGUILayout.Toggle("Enable Penalty", editEnableTargetEscapePenalty);
+
+                if (editEnableTargetEscapePenalty)
+                {
+                    EditorGUI.indentLevel++;
+                    editTargetEscapeViewportThreshold = EditorGUILayout.Slider("Escape Threshold", editTargetEscapeViewportThreshold, 0f, 0.5f);
+                    editUseHardCorrection = EditorGUILayout.Toggle("Use Hard Correction", editUseHardCorrection);
+
+                    if (!editUseHardCorrection)
+                    {
+                        editSoftCorrectionDistanceCurve = EditorGUILayout.CurveField("Soft Correction Curve", editSoftCorrectionDistanceCurve);
+                    }
+
+                    editStrafeRecoveryWeight = EditorGUILayout.FloatField("Strafe Recovery Weight", editStrafeRecoveryWeight);
+                    EditorGUI.indentLevel--;
+                }
                 EditorGUILayout.Space(5);
 
                 // [핸드헬드]

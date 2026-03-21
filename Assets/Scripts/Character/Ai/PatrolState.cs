@@ -59,14 +59,15 @@ public class PatrolState : AIState
 
         foreach (var collider in colliders)
         {
-            CharacterManager targetCharacter = collider.transform.GetComponent<CharacterManager>();
+            // [버그 수정] 자식 오브젝트에 콜라이더가 있을 경우를 대비해 GetComponentInParent 사용
+            CharacterManager targetCharacter = collider.GetComponentInParent<CharacterManager>();
 
             if (targetCharacter != null && targetCharacter != aiCharacter)
             {
                 // 피아 식별 (팀 확인)
                 if (WorldUtilityManager.Instance.CanIDamageThisTarget(aiCharacter.characterGroup, targetCharacter.characterGroup))
                 {
-                    // [버그 수정] Y축(높낮이) 차이 때문에 시야각 판정이 꼬이는 것을 막기 위해 XZ 평면으로 뭉개버립니다.
+                    // Y축(높낮이) 차이 때문에 시야각 판정이 꼬이는 것을 막기 위해 XZ 평면으로 뭉개버립니다.
                     Vector3 targetDirection = targetCharacter.transform.position - aiCharacter.transform.position;
                     targetDirection.y = 0f;
                     Vector3 forward = aiCharacter.transform.forward;
@@ -77,16 +78,20 @@ public class PatrolState : AIState
 
                     if (viewableAngle >= minimumDetectionAngle && viewableAngle <= maximumDetectionAngle)
                     {
-                        // [신규 추가] 벽 관통 감지 방지 (Line of Sight)
-                        // 플레이어가 시야각 안에 있더라도, 벽 뒤에 숨어있다면 감지하지 못하게 합니다.
+                        // 🚨 [버그 수정] 벽 관통 감지 방지 (Line of Sight)
                         int enviroLayers = WorldUtilityManager.Instance.GetEnviroLayers();
                         Vector3 eyePosition = aiCharacter.transform.position + Vector3.up * 1.5f;
                         Vector3 targetEyePosition = targetCharacter.transform.position + Vector3.up * 1.5f;
 
-                        if (Physics.Linecast(eyePosition, targetEyePosition, enviroLayers))
+                        // 단순 Linecast(bool)가 아니라 무엇을 맞췄는지 RaycastHit으로 검출합니다.
+                        if (Physics.Linecast(eyePosition, targetEyePosition, out RaycastHit hit, enviroLayers))
                         {
-                            if (showDetectionLogs) combatInfo.DebugLog($"타겟({targetCharacter.name})이 시야각 내에 있지만 <color=orange>벽에 가려져 있습니다.</color>");
-                            continue; // 벽에 막혔으므로 다음 타겟 검사
+                            // 맞춘 대상이 자기 자신(몬스터)이거나 타겟(플레이어)이 아닌 경우에만 '진짜 벽'으로 간주합니다.
+                            if (hit.transform.root != aiCharacter.transform.root && hit.transform.root != targetCharacter.transform.root)
+                            {
+                                if (showDetectionLogs) combatInfo.DebugLog($"타겟({targetCharacter.name})이 시야각 내에 있지만 <color=orange>벽({hit.collider.name})에 가려져 있습니다.</color>");
+                                continue; // 진짜 벽에 막혔으므로 다음 타겟 검사
+                            }
                         }
 
                         if (showDetectionLogs) combatInfo.DebugLog($"<color=lime>타겟({targetCharacter.name}) 발견!</color> 추적을 시작합니다.");
@@ -124,7 +129,7 @@ public class PatrolState : AIState
         {
             if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
             {
-                // [이전 버그 픽스 복구] 목적지가 벽 안쪽이거나 갈 수 없는 곳이면 영원히 런닝머신을 타는 현상 해결
+                // 목적지가 벽 안쪽이거나 갈 수 없는 곳이면 영원히 런닝머신을 타는 현상 해결
                 if (!aiCharacter.navMeshAgent.pathPending &&
                     (aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathPartial ||
                      aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid))

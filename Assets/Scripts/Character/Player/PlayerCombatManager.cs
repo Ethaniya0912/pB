@@ -7,6 +7,9 @@ using TDA.Character.Player;
 using TDA.Items;
 using TDA.Items.WeaponItemActions;
 using TDA.Core.Events;
+// 🚨 [Phase 1 고도화] 카메라 시스템 제어를 위한 네임스페이스 추가
+using TDA.Cameras;
+using TDA.World;
 
 namespace TDA.Character
 {
@@ -17,7 +20,7 @@ namespace TDA.Character
     /// 1. 이벤트 체인(Event Chaining): 애니메이션 감시자의 1차 신호를 받아 데미지/무적 연산을 마친 뒤,
     ///    2차 이벤트를 발송하여 실행 순서의 무결성을 보장합니다.
     /// 2. 다중 상속 회피: NetworkBehaviour 상속을 유지하기 위해 IAnimationEventListener 인터페이스를 구현합니다.
-    /// 3. 클리핑 방지 (P3): 에임 어시스트를 통해 적의 급소를 찾고, 무기 사거리를 고려한 완벽한 안전 좌표를 도출합니다.
+    /// 3. 클리핑 방지 (P3): 에임 어시스트를 통해 적의 급소를 찾고, 무기 사거리 고려한 완벽한 안전 좌표를 도출합니다.
     /// 4. 제스처 궤적 연동 (P0-03): 마우스 드래그 궤적에 따른 방향성 공격과 콜라이더 정밀 제어를 수행합니다.
     /// </summary>
     public class PlayerCombatManager : CharacterCombatManager
@@ -29,6 +32,13 @@ namespace TDA.Character
         [Header("Flags")]
         public bool canComboWithMainHandWeapon = false;
         public bool canComboWithOffHandWeapon = false;
+
+        // =========================================================================================
+        // 🚨 [Phase 1 고도화] 카메라 연동 데이터
+        // =========================================================================================
+        [Header("Camera & UI (Phase 1)")]
+        [Tooltip("락온 시 카메라를 좌측(또는 우측) 숄더뷰로 고정하기 위한 락온 전용 스탠스 SO")]
+        public CameraStancePresetSO lockOnStanceSO;
 
         [Header("Lock On Input")]
         [SerializeField] bool lockOn_Input;
@@ -361,6 +371,13 @@ namespace TDA.Character
                     StopCoroutine(lockOnCoroutine);
                     lockOnCoroutine = null;
                 }
+
+                // 🚨 [Phase 1 고도화] 락온 해제 시 관제탑에 설정된 기본 스탠스로 복귀
+                if (WorldCameraManager.Instance != null && WorldCameraManager.Instance.defaultRestStance != null)
+                {
+                    WorldCameraManager.Instance.ChangeCameraStance(WorldCameraManager.Instance.defaultRestStance, "LockOn Disabled");
+                    Debug.Log("<color=cyan>[PlayerCombatManager]</color> 락온 해제! <b>기본 스탠스</b>로 복귀합니다.");
+                }
             }
             else
             {
@@ -384,6 +401,13 @@ namespace TDA.Character
                     SetTarget(player.playerCamera.nearestLockOnTarget);
                     // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
                     player.playerNetworkManager.isLockedOn.Value = true;
+
+                    // 🚨 [Phase 1 고도화] 락온 성공 시 락온 전용 스탠스(좌측 구도)로 즉시 전환
+                    if (lockOnStanceSO != null && WorldCameraManager.Instance != null)
+                    {
+                        WorldCameraManager.Instance.ChangeCameraStance(lockOnStanceSO, "LockOn Enabled");
+                        Debug.Log($"<color=cyan>[PlayerCombatManager]</color> 락온 성공! <b>{lockOnStanceSO.name}</b> 스탠스로 전환합니다.");
+                    }
                 }
                 else
                 {

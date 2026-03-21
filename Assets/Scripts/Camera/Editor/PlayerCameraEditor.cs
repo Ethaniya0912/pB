@@ -1,4 +1,8 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 using UnityEditor;
 using System.Reflection;
 using TDA.Character.Player;
@@ -20,9 +24,15 @@ namespace TDA.Character.Player.Editor
         private bool showDebugPanel = true;
         private bool showLiveEditor = true;
         private bool showHistoryPanel = true; // 히스토리 패널 토글
+        private bool showVisualDebugSection = true; // 🚨 [신규] 시각적 디버그 설정 섹션
 
         // 히스토리 스크롤 위치
         private Vector2 historyScrollPos;
+        private Vector2 internalHistoryScrollPos; // 🚨 내부 펑션 히스토리 스크롤용
+
+        // 🚨 [신규] 카메라 내부 펑션 히스토리 데이터
+        private List<string> internalFunctionHistory = new List<string>();
+        private string lastRecordedCallerReason = "";
 
         // =====================================================================
         // 라이브 에디팅 임시 변수 캐싱 (SO 덮어쓰기 및 동기화용)
@@ -80,10 +90,71 @@ namespace TDA.Character.Player.Editor
                 return;
             }
 
+            // 🚨 내부 펑션 호출 원인 변경 감지 및 히스토리 기록
+            if (pc.lastCallerReason != lastRecordedCallerReason)
+            {
+                lastRecordedCallerReason = pc.lastCallerReason;
+
+                // 디스플레이용 문자열 가공
+                string displayReason = lastRecordedCallerReason;
+
+                // 1. 액션 트리거 ID는 각 번호와 함께 enum명도 띄울 것
+                if (displayReason.Contains("액션 트리거"))
+                {
+                    int actionID = pc.player.animator != null ? pc.player.animator.GetInteger(AnimatorParameterHash.ActionState) : 0;
+                    string enumName = ((global::AttackType)actionID).ToString(); // AttackType Enum으로 캐스팅
+                    displayReason = $"액션 트리거 (ID: {actionID} - {enumName})";
+                }
+                // 2. 스탠스 즉각 적용, 시퀀스 스탭 진행엔 SO명을 띄울 것
+                else if (displayReason.Contains("스탠스 즉각 적용"))
+                {
+                    string soName = WorldCameraManager.Instance != null && WorldCameraManager.Instance.currentStanceSO != null
+                                    ? WorldCameraManager.Instance.currentStanceSO.name : "None";
+                    displayReason = $"스탠스 즉각 적용 ➔ {soName}";
+                }
+                else if (displayReason.Contains("시퀀스 스텝 진행") || displayReason.Contains("시퀀스 스크립트 호출"))
+                {
+                    string soName = WorldCameraManager.Instance != null && WorldCameraManager.Instance.currentSequenceSO != null
+                                    ? WorldCameraManager.Instance.currentSequenceSO.name : "None";
+                    displayReason = $"{lastRecordedCallerReason} ➔ {soName}";
+                }
+
+                string timeStamp = System.DateTime.Now.ToString("HH:mm:ss.fff");
+                internalFunctionHistory.Insert(0, $"<color=cyan>[{timeStamp}]</color> {displayReason}");
+                if (internalFunctionHistory.Count > 50) // 메모리 최적화를 위해 50개까지만 보관
+                {
+                    internalFunctionHistory.RemoveAt(internalFunctionHistory.Count - 1);
+                }
+            }
+
             EditorGUILayout.Space(15);
 
             GUIStyle headerStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 13, normal = { textColor = new Color(0.4f, 0.8f, 1f) } };
             GUIStyle subHeaderStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.9f, 0.7f, 0.4f) } };
+
+            // =================================================================================
+            // 🚨 [신규] 🔍 시각적 디버그 도구 제어 (Visual Debug Control)
+            // =================================================================================
+            WorldCameraManager wcm = WorldCameraManager.Instance;
+            if (wcm != null)
+            {
+                showVisualDebugSection = EditorGUILayout.Foldout(showVisualDebugSection, "🔍 시각적 디버그 도구 (Visual Debug Tools)", true, new GUIStyle(EditorStyles.foldoutHeader) { fontStyle = FontStyle.Bold });
+                if (showVisualDebugSection)
+                {
+                    EditorGUILayout.BeginVertical("box");
+                    EditorGUI.BeginChangeCheck();
+                    wcm.showSOInfoOnScreen = EditorGUILayout.Toggle(new GUIContent("SO 정보 온스크린 표시", "현재 적용된 Sequence 및 Stance 이름을 상단 왼쪽에 표시합니다."), wcm.showSOInfoOnScreen);
+                    wcm.showEdgePanningGizmo = EditorGUILayout.Toggle(new GUIContent("엣지 패닝 범위 표시", "마우스 조작 데드존(Edge Panning) 범위를 빨간색으로 시각화합니다."), wcm.showEdgePanningGizmo);
+                    wcm.showTargetEscapeGizmo = EditorGUILayout.Toggle(new GUIContent("타겟 이탈 경계 표시", "타겟이 시야에서 상실되는 임계값 범위를 노란색으로 시각화합니다."), wcm.showTargetEscapeGizmo);
+                    wcm.showPredictiveAngleGizmo = EditorGUILayout.Toggle(new GUIContent("카메라 이동/시선 예측 표시", "카메라가 이동할 목표 위치와 시선 각도를 기즈모로 표시합니다."), wcm.showPredictiveAngleGizmo);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        EditorUtility.SetDirty(wcm);
+                    }
+                    EditorGUILayout.EndVertical();
+                }
+                EditorGUILayout.Space(5);
+            }
 
             // =================================================================================
             // 📊 1. 실시간 상태 모니터 (Live Debug - 애니메이션 Frame & 앵글 추적)
@@ -203,8 +274,6 @@ namespace TDA.Character.Player.Editor
 
             if (showLiveEditor)
             {
-                WorldCameraManager wcm = WorldCameraManager.Instance;
-
                 if (wcm != null && wcm.currentStanceSO != null)
                 {
                     // 활성화된 스탠스 SO가 바뀌면 임시 변수들을 동기화
@@ -367,21 +436,24 @@ namespace TDA.Character.Player.Editor
             }
 
             // =================================================================================
-            // 📜 3. 카메라 상태 변경 히스토리 (Stance & Seq) - 이전 요청사항 통합
+            // 📜 3. 카메라 상태 및 내부 펑션 히스토리 (Stance, Seq & Internal)
             // =================================================================================
             EditorGUILayout.Space(10);
-            showHistoryPanel = EditorGUILayout.Foldout(showHistoryPanel, "📜 카메라 상태 변경 히스토리 (Stance & Seq)", true, new GUIStyle(EditorStyles.foldoutHeader) { fontStyle = FontStyle.Bold });
+            showHistoryPanel = EditorGUILayout.Foldout(showHistoryPanel, "📜 카메라 상태 및 펑션 히스토리 (History & Logs)", true, new GUIStyle(EditorStyles.foldoutHeader) { fontStyle = FontStyle.Bold });
 
             if (showHistoryPanel)
             {
+                // --- 1. 카메라 상태 변경 히스토리 (SO 변경) ---
                 EditorGUILayout.BeginVertical("box");
+                EditorGUILayout.LabelField("🎥 카메라 상태 변경 히스토리 (SO)", EditorStyles.boldLabel);
+                EditorGUILayout.Space(3);
 
-                // 테이블 헤더 (목차)
+                // 테이블 헤더 (목차) - 호출 스크립트를 가장 우측으로 이동
                 EditorGUILayout.BeginHorizontal("box");
                 EditorGUILayout.LabelField("발생 시간", EditorStyles.boldLabel, GUILayout.Width(85));
-                EditorGUILayout.LabelField("호출 스크립트 및 이벤트명", EditorStyles.boldLabel, GUILayout.Width(200));
                 EditorGUILayout.LabelField("Seq SO명 (클릭)", EditorStyles.boldLabel, GUILayout.Width(130));
                 EditorGUILayout.LabelField("Stance SO명 (클릭)", EditorStyles.boldLabel, GUILayout.Width(130));
+                EditorGUILayout.LabelField("호출 스크립트 및 이벤트명", EditorStyles.boldLabel, GUILayout.ExpandWidth(true));
                 EditorGUILayout.EndHorizontal();
 
                 // PlayerCamera 대신 WorldCameraManager의 인스턴스를 가져옵니다.
@@ -414,28 +486,29 @@ namespace TDA.Character.Player.Editor
 
                         // 데이터 출력
                         EditorGUILayout.LabelField(record.timestamp, GUILayout.Width(85));
-                        EditorGUILayout.LabelField(record.callerEvent, GUILayout.Width(200));
 
-                        // 🚨 변경된 SO 레퍼런스 대응 및 버튼 클릭 연동 (컴파일 에러 해결 구간)
+                        // 🚨 TDA 멀티 인스펙터 연동 버튼 (Seq SO)
                         string seqName = record.seqSO != null ? record.seqSO.name : "-";
                         if (GUILayout.Button(seqName, linkBtnStyle, GUILayout.Width(130)))
                         {
                             if (record.seqSO != null)
                             {
-                                EditorGUIUtility.PingObject(record.seqSO);
-                                Selection.activeObject = record.seqSO;
+                                TDA.InternalEditorUtils.TDAInspectorWindow.Open(record.seqSO);
                             }
                         }
 
+                        // 🚨 TDA 멀티 인스펙터 연동 버튼 (Stance SO)
                         string stanceName = record.stanceSO != null ? record.stanceSO.name : "-";
                         if (GUILayout.Button(stanceName, linkBtnStyle, GUILayout.Width(130)))
                         {
                             if (record.stanceSO != null)
                             {
-                                EditorGUIUtility.PingObject(record.stanceSO);
-                                Selection.activeObject = record.stanceSO;
+                                TDA.InternalEditorUtils.TDAInspectorWindow.Open(record.stanceSO);
                             }
                         }
+
+                        // 호출 스크립트 및 이벤트를 가장 우측으로 배치
+                        EditorGUILayout.LabelField(record.callerEvent, GUILayout.ExpandWidth(true));
 
                         EditorGUILayout.EndHorizontal();
                     }
@@ -445,10 +518,46 @@ namespace TDA.Character.Player.Editor
                     EditorGUILayout.Space(5);
 
                     // 히스토리 초기화 버튼
-                    if (GUILayout.Button("히스토리 지우기", GUILayout.Height(25)))
+                    if (GUILayout.Button("상태 히스토리 지우기", GUILayout.Height(25)))
                     {
                         wcmHistory.historyList.Clear();
                         EditorUtility.SetDirty(wcmHistory); // 매니저 객체에 변경사항 알림
+                    }
+                }
+                EditorGUILayout.EndVertical();
+
+                EditorGUILayout.Space(10);
+
+                // --- 2. 카메라 내부 펑션 히스토리 (Internal Caller Reason) ---
+                EditorGUILayout.BeginVertical("box");
+                EditorGUILayout.LabelField("⚙️ 카메라 내부 펑션 호출 히스토리", EditorStyles.boldLabel);
+                EditorGUILayout.Space(3);
+
+                if (internalFunctionHistory == null || internalFunctionHistory.Count == 0)
+                {
+                    EditorGUILayout.HelpBox("기록된 내부 펑션 호출 내역이 없습니다.", MessageType.Info);
+                }
+                else
+                {
+                    internalHistoryScrollPos = EditorGUILayout.BeginScrollView(internalHistoryScrollPos, GUILayout.Height(150));
+
+                    for (int i = 0; i < internalFunctionHistory.Count; i++)
+                    {
+                        Color bgColor = i % 2 == 0 ? new Color(0.2f, 0.2f, 0.2f, 0.3f) : new Color(0.3f, 0.3f, 0.3f, 0.1f);
+                        GUI.backgroundColor = bgColor;
+                        EditorGUILayout.BeginHorizontal("helpbox");
+                        GUI.backgroundColor = Color.white;
+
+                        EditorGUILayout.LabelField(internalFunctionHistory[i], new GUIStyle(EditorStyles.label) { richText = true });
+                        EditorGUILayout.EndHorizontal();
+                    }
+                    EditorGUILayout.EndScrollView();
+
+                    EditorGUILayout.Space(5);
+
+                    if (GUILayout.Button("내부 펑션 히스토리 지우기", GUILayout.Height(25)))
+                    {
+                        internalFunctionHistory.Clear();
                     }
                 }
                 EditorGUILayout.EndVertical();

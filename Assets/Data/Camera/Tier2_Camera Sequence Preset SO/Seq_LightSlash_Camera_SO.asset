@@ -79,6 +79,7 @@ MonoBehaviour:
     actionRotationDamping: 0.1
   canBeInterruptedByInput: 0
   canBeInterruptedByDamage: 0
-  restoreToDefaultStanceOnFinish: 1
+  restoreToDefaultStanceOnFinish: 0
   restoreBlendDuration: 0.1
+  restorePreviousAngle: 0
   pauseOnApply: 0

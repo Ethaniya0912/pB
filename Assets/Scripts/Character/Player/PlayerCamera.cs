@@ -10,11 +10,12 @@ using TDA.Core.Events;
 namespace TDA.Character.Player
 {
     /// <summary>
-    /// [AAA 숄더뷰 물리 엔진 코어 v3.7] 
+    /// [AAA 숄더뷰 물리 엔진 코어 v3.7 & 고도화 패치] 
     /// 1. 다이내믹 프레이밍 상속 논리 통합 (Use Dynamic Framing 활성화 시에도 Inherit 동결 100% 보장)
     /// 2. 다이내믹 프레이밍 상속 우선순위 교정 (A/D 입력 씹힘 방어 및 자동 상속)
     /// 3. 180도 래핑(Wrap-around)으로 인한 화면 반전 및 점프 버그 완벽 방어
     /// 4. 마우스 드래깅 현상 제거 및 Zero-Lag 액션 댐핑 오버라이드 구축
+    /// 5. [신규] 락온 시 엣지 패닝 데드존 및 뷰포트 이탈 페널티/보정 시스템 통합
     /// </summary>
     public class PlayerCamera : MonoBehaviour
     {
@@ -338,10 +339,118 @@ namespace TDA.Character.Player
         #endregion
 
         #region Input & Interaction
+        /// <summary>
+        /// 중앙 라우터(PlayerManager)를 통해 들어온 순수 마우스/스틱 조작값을 받아 
+        /// 엣지 패닝 및 페널티 보정 시스템을 연산한 후 적용합니다.
+        /// </summary>
         public void OnCameraInputReceived(float x, float y)
         {
-            cameraHorizontalInput = x;
-            cameraVerticalInput = y;
+            float finalMouseX = x;
+            float finalMouseY = y;
+
+            if (WorldCameraManager.Instance != null && WorldCameraManager.Instance.currentStanceSO != null)
+            {
+                CameraStancePresetSO stance = WorldCameraManager.Instance.currentStanceSO;
+                bool isLockedOn = player != null && player.playerNetworkManager != null && player.playerNetworkManager.isLockedOn.Value;
+
+                if (isLockedOn)
+                {
+                    bool isTargetEscaped = false;
+                    Vector3 targetPos = Vector3.zero;
+
+                    // =========================================================================================
+                    // 🚨 [Phase 5 고도화] 락온 시선 이탈 감지 및 페널티/보정 시스템 연산
+                    // =========================================================================================
+                    if (stance.lockOnPenaltyData.enableTargetEscapePenalty && player.playerCombatManager != null && player.playerCombatManager.currentTarget != null)
+                    {
+                        targetPos = player.playerCombatManager.currentTarget.characterCombatManager.lockOnTransform.position;
+
+                        // 타겟의 스크린상 뷰포트 좌표 (0~1) 계산
+                        Vector3 viewportPos = cameraObject.WorldToViewportPoint(targetPos);
+                        float escapeThreshold = stance.lockOnPenaltyData.targetEscapeViewportThreshold;
+
+                        // 타겟이 카메라 뒤에 있거나(z<0), 설정된 뷰포트 마진값을 넘어 화면 끝으로 벗어났을 경우 페널티 발동
+                        if (viewportPos.z < 0f ||
+                            viewportPos.x < escapeThreshold || viewportPos.x > (1f - escapeThreshold) ||
+                            viewportPos.y < escapeThreshold || viewportPos.y > (1f - escapeThreshold))
+                        {
+                            isTargetEscaped = true;
+                        }
+                    }
+
+                    // 타겟이 화면 밖으로 벗어난 페널티 상황일 때 (Case 1 보정 로직)
+                    if (isTargetEscaped)
+                    {
+                        Vector2 mouseViewport = cameraObject.ScreenToViewportPoint(Input.mousePosition);
+                        float edgeThreshold = stance.edgePanningData.edgePanThreshold;
+
+                        // 유저가 마우스 커서를 엣지(화면 끝)로 가져가 능동적으로 시선을 회복하려 시도하는지 감지
+                        bool isTryingToRecover = (mouseViewport.x <= edgeThreshold) || (mouseViewport.x >= 1f - edgeThreshold) ||
+                                                 (mouseViewport.y <= edgeThreshold) || (mouseViewport.y >= 1f - edgeThreshold);
+
+                        if (isTryingToRecover)
+                        {
+                            // 목표 타겟을 향한 정렬 각도 계산
+                            Vector3 dirToTarget = (targetPos - transform.position).normalized;
+                            Quaternion lookRot = Quaternion.LookRotation(dirToTarget);
+                            float targetYaw = lookRot.eulerAngles.y;
+                            float targetPitch = lookRot.eulerAngles.x;
+
+                            // Unity Euler 각도(0~360)를 Pitch 연산(-45~70)에 맞게 보정
+                            if (targetPitch > 180f) targetPitch -= 360f;
+
+                            if (stance.lockOnPenaltyData.useHardCorrection)
+                            {
+                                // ① 하드 보정 (Hard Correction): 적과 유저를 즉시 중앙으로 빠르게 일직선 정렬
+                                leftAndRightLookAngle = Mathf.LerpAngle(leftAndRightLookAngle, targetYaw, Time.deltaTime * 15f);
+                                upAndDownLookAngle = Mathf.Lerp(upAndDownLookAngle, targetPitch, Time.deltaTime * 15f);
+                            }
+                            else
+                            {
+                                // ② 소프트 보정 (Soft Correction): 거리에 비례하여 보간 속도를 다르게 적용
+                                float dist = Vector3.Distance(transform.position, targetPos);
+
+                                // 커브값: 멀면 빠르고, 가까우면 기본값(느리게)
+                                float speedMult = stance.lockOnPenaltyData.softCorrectionDistanceCurve != null && stance.lockOnPenaltyData.softCorrectionDistanceCurve.length > 0
+                                                  ? stance.lockOnPenaltyData.softCorrectionDistanceCurve.Evaluate(dist)
+                                                  : 1.0f;
+
+                                float baseLerpSpeed = 5f;
+
+                                leftAndRightLookAngle = Mathf.LerpAngle(leftAndRightLookAngle, targetYaw, Time.deltaTime * baseLerpSpeed * speedMult);
+                                upAndDownLookAngle = Mathf.Lerp(upAndDownLookAngle, targetPitch, Time.deltaTime * baseLerpSpeed * speedMult);
+                            }
+
+                            // 시스템이 카메라를 강제 보정 중이므로 유저의 일반 마우스 Delta 이동값은 덮어씌워(무시) 충돌을 방지함
+                            finalMouseX = 0f;
+                            finalMouseY = 0f;
+                        }
+                        // 커서를 엣지에 두지 않고 화면 중앙 영역에 두었다면 -> 시선 자율권 보장 (마우스 Delta 정상 반영)
+                    }
+                    // =========================================================================================
+                    // 🚨 [Phase 1 고도화] 락온 시 카메라 조작 데드존 및 엣지 패닝 (타겟이 화면 안에 잘 있을 때)
+                    // =========================================================================================
+                    else if (stance.edgePanningData.useEdgePanning)
+                    {
+                        Vector2 mouseViewport = cameraObject.ScreenToViewportPoint(Input.mousePosition);
+                        float edgeThreshold = stance.edgePanningData.edgePanThreshold;
+
+                        bool isAtEdgeX = mouseViewport.x <= edgeThreshold || mouseViewport.x >= (1f - edgeThreshold);
+                        bool isAtEdgeY = mouseViewport.y <= edgeThreshold || mouseViewport.y >= (1f - edgeThreshold);
+
+                        // 화면 끝단에 도달하지 않았다면 마우스 델타 입력을 무시하여 전투 중 시점을 고정시킵니다.
+                        if (!isAtEdgeX) finalMouseX = 0f;
+                        if (!isAtEdgeY) finalMouseY = 0f;
+
+                        // 스틱 유저를 위한 물리적 데드존 처리 (잔떨림 무시)
+                        if (Mathf.Abs(finalMouseX) < stance.edgePanningData.lockOnInputDeadzone) finalMouseX = 0f;
+                        if (Mathf.Abs(finalMouseY) < stance.edgePanningData.lockOnInputDeadzone) finalMouseY = 0f;
+                    }
+                }
+            }
+
+            cameraHorizontalInput = finalMouseX;
+            cameraVerticalInput = finalMouseY;
         }
         #endregion
 
@@ -445,6 +554,24 @@ namespace TDA.Character.Player
                                 if (dynamicData.holdRightStrafe) { targetFramingYaw = currentFramingYawOffset; currentYawDelayTime = dynamicData.rightFramingDelay > 0 ? dynamicData.rightFramingDelay : 0.1f; }
                                 else { targetFramingYaw = 0f; currentYawDelayTime = dynamicData.centerReturnDelay > 0 ? dynamicData.centerReturnDelay : 0.3f; }
                             }
+                        }
+                    }
+
+                    // =========================================================================================
+                    // 🚨 [Phase 5 고도화] 락온 타겟 시야 이탈 시 A/D 키 페널티 극복 가중치 연산
+                    // =========================================================================================
+                    bool isLockedOn = player != null && player.playerNetworkManager != null && player.playerNetworkManager.isLockedOn.Value;
+                    if (isLockedOn && activeStance.lockOnPenaltyData.enableTargetEscapePenalty && player.playerCombatManager != null && player.playerCombatManager.currentTarget != null)
+                    {
+                        Vector3 targetPos = player.playerCombatManager.currentTarget.characterCombatManager.lockOnTransform.position;
+                        Vector3 viewportPos = cameraObject.WorldToViewportPoint(targetPos);
+                        float escapeThreshold = activeStance.lockOnPenaltyData.targetEscapeViewportThreshold;
+
+                        if (viewportPos.z < 0f || viewportPos.x < escapeThreshold || viewportPos.x > (1f - escapeThreshold) || viewportPos.y < escapeThreshold || viewportPos.y > (1f - escapeThreshold))
+                        {
+                            // 타겟 이탈 페널티 상태에서 유저가 A/D 이동으로 앵글 쟁취를 시도할 때 가중치(RecoveryWeight)를 곱해 반응성을 높입니다.
+                            targetFraming *= activeStance.lockOnPenaltyData.strafeRecoveryWeight;
+                            targetFramingYaw *= activeStance.lockOnPenaltyData.strafeRecoveryWeight;
                         }
                     }
                 }
@@ -554,6 +681,14 @@ namespace TDA.Character.Player
         private Quaternion HandleRotation()
         {
             if (isContextualMode) return transform.rotation;
+
+            // 🚨 [Phase 3 고도화] 연출/동작 종료 후 이전 시점(카메라 앵글)으로 복귀 보간
+            if (WorldCameraManager.Instance != null && WorldCameraManager.Instance.shouldRestorePreviousAngle)
+            {
+                float restoreSpeed = 5f * Time.deltaTime;
+                leftAndRightLookAngle = Mathf.LerpAngle(leftAndRightLookAngle, WorldCameraManager.Instance.storedYaw, restoreSpeed);
+                upAndDownLookAngle = Mathf.LerpAngle(upAndDownLookAngle, WorldCameraManager.Instance.storedPitch, restoreSpeed);
+            }
 
             float trackingWeight = WorldCameraManager.Instance != null ? WorldCameraManager.Instance.CurrentTrackingWeight : 1f;
 
@@ -729,6 +864,12 @@ namespace TDA.Character.Player
         {
             float rawZ = WorldCameraManager.Instance != null ? WorldCameraManager.Instance.currentBaseOffset.z : -2.5f;
 
+            // 🚨 [Phase 4 고도화] 이동량 조이스틱 입력 기반 동적 Z 오프셋 실시간 연산 적용
+            if (WorldCameraManager.Instance != null)
+            {
+                rawZ += WorldCameraManager.Instance.dynamicZOffset;
+            }
+
             debugRawZ = rawZ;
             float baseZ = -Mathf.Abs(rawZ);
             targetZPosition = baseZ;
@@ -810,7 +951,8 @@ namespace TDA.Character.Player
         {
             if (WorldCameraManager.Instance == null || cameraObject == null) return;
 
-            float targetFov = WorldCameraManager.Instance.currentFOV;
+            // 🚨 [Phase 4 고도화] 이동량 조이스틱 입력 기반 동적 FOV 실시간 연산 적용
+            float targetFov = WorldCameraManager.Instance.currentFOV + WorldCameraManager.Instance.dynamicFOVOffset;
             var handheld = WorldCameraManager.Instance.currentHandheldEffect;
             float zTilt = WorldCameraManager.Instance.currentZTilt;
 

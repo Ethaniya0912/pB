@@ -281,6 +281,7 @@ namespace TDA.Character.Player
 
             if (playerCamera != null)
             {
+                // 🚨 [Phase 2 고도화 연동] L2 라우터로서 가공 없이 순수 입력만 전달
                 playerCamera.OnCameraInputReceived(cameraInput.x, cameraInput.y);
             }
         }

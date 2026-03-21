@@ -137,6 +137,56 @@ namespace TDA.Cameras
         public float maxDuration;
     }
 
+    // =========================================================================================
+    // 🚨 [고도화 방안 추가 구조체]
+    // =========================================================================================
+
+    [Serializable]
+    public struct EdgePanningData
+    {
+        [Tooltip("락온 중일 때 마우스 조작 데드존을 적용하고 화면 끝에서만 앵글이 돌게 할 것인지 여부")]
+        public bool useEdgePanning;
+
+        [Tooltip("화면 끝 판정 임계값 (예: 0.1 이면 화면 가장자리 10% 영역 안에서만 카메라 회전 작동)")]
+        [Range(0.01f, 0.5f)] public float edgePanThreshold;
+
+        [Tooltip("락온 중 마우스/스틱 조작 시 무시할 입력의 크기 (일반 회전 억제용)")]
+        public float lockOnInputDeadzone;
+    }
+
+    [Serializable]
+    public struct DynamicInputModifierData
+    {
+        [Tooltip("이동량(Input moveAmount)에 따라 FOV와 Offset이 동적으로 변하는 기능을 사용할 것인지 여부")]
+        public bool enableDynamicInputModifier;
+
+        [Tooltip("입력 강도(X축: 0~1)에 따라 추가할 FOV 증감량(Y축)")]
+        public AnimationCurve fovModifierCurve;
+
+        [Tooltip("입력 강도(X축: 0~1)에 따라 카메라를 뒤로 당길(밀어낼) Z축 거리(Y축)")]
+        public AnimationCurve offsetZModifierCurve;
+    }
+
+    [Serializable]
+    public struct LockOnPenaltyData
+    {
+        [Tooltip("타겟 시야 이탈 시 자동 추적(Follow) 중단 및 페널티 활성화 여부")]
+        public bool enableTargetEscapePenalty;
+
+        [Tooltip("타겟을 화면 밖으로 판정할 뷰포트 마진 (0.0=완전끝단, 권장: 0.05~0.15)")]
+        [Range(0f, 0.5f)] public float targetEscapeViewportThreshold;
+
+        [Tooltip("True시 하드 보정(즉각 정렬), False시 소프트 보정(거리 비례 보간) 적용")]
+        public bool useHardCorrection;
+
+        [Tooltip("[소프트 보정] 타겟과의 '거리(X축)'에 따른 '회전 복귀 속도(Y축)' 가중치 커브")]
+        public AnimationCurve softCorrectionDistanceCurve;
+
+        [Tooltip("[A/D조작 페널티 극복] 유저 이동 입력에 의해 앵글이 꺾이며 회복되는 강도 (기본 1.0)")]
+        public float strafeRecoveryWeight;
+    }
+
+
     /// <summary>
     /// [1계층 SO] 특정 찰나(Shot)에 카메라가 머물러야 할 시각적, 공간적, 감각적 설정값을 담는 순수 데이터 컨테이너입니다.
     /// 스크립트 내부 하드코딩을 탈피하여, 이 에셋 하나만 넘겨주면 카메라가 즉각적으로 해당 구도를 렌더링합니다.
@@ -199,6 +249,35 @@ namespace TDA.Cameras
         [Header("다중 타겟 포커싱 (Multi-Targeting)")]
         [Tooltip("화면에 담을 여러 타겟(플레이어, 보스 등)과 각 타겟별 개별 가중치(Weight)를 리스트로 관리합니다.")]
         public List<TargetWeightInfo> focusTargets = new List<TargetWeightInfo>();
+
+        // =========================================================================================
+        // 🚨 [고도화 시스템 데이터 세팅] 
+        // =========================================================================================
+
+        [Header("락온 및 엣지 패닝 (Edge Panning)")]
+        [Tooltip("락온 시 엣지 패닝 및 조작 데드존 기능 활성화 데이터")]
+        public EdgePanningData edgePanningData = new EdgePanningData
+        {
+            useEdgePanning = false,
+            edgePanThreshold = 0.1f,
+            lockOnInputDeadzone = 0.5f
+        };
+
+        [Header("시야 이탈 페널티 (Target Escape Penalty)")]
+        [Tooltip("락온 타겟이 화면을 벗어날 때 발생하는 페널티 및 보정 데이터")]
+        public LockOnPenaltyData lockOnPenaltyData = new LockOnPenaltyData
+        {
+            enableTargetEscapePenalty = false,
+            targetEscapeViewportThreshold = 0.1f,
+            useHardCorrection = false,
+            strafeRecoveryWeight = 1.0f
+        };
+
+        [Header("이동 입력 동기화 (Dynamic Input Modifier)")]
+        [Tooltip("유저의 실제 컨트롤러/마우스 이동 입력 크기에 따라 FOV나 거리가 유동적으로 줌인/줌아웃되는 세팅")]
+        public DynamicInputModifierData dynamicInputModifier;
+
+        // =========================================================================================
 
         [Header("카메라 감각 피드백 (Camera Feel)")]
         [Tooltip("숨결이나 발걸음에 의해 카메라가 출렁이는 '바디캠(핸드헬드)' 효과 설정입니다.")]
