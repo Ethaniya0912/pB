@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6dfa80d404be6414ebed68836cdcc836, type: 3}
   m_Name: Skeleton_Base_Set
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.Animation.CharacterAnimationSetSO
-  baseController: {fileID: 9100000, guid: 0971db20e01c05c4195b1a00e7a2cb88, type: 2}
+  baseController: {fileID: 9100000, guid: 6faa1fadd4d7b45449193dba61e77264, type: 2}
   animationMappings:
   - logicalStateName: Turn_Left_90
     paramsSO: {fileID: 11400000, guid: 59271e111d18dc045953a57c5808b21a, type: 2}

@@ -1,0 +1,41 @@
+#pragma kernel UpdateSparks
+
+// 16-byte (float4) structure to prevent alignment breakdown
+struct SparkData
+{
+    float4 positionAge; // xyz = position, w = age
+    float4 velocityLife; // xyz = velocity, w = lifetime
+    float4 baseSize; // x = width, y = height, zw = padding
+};
+
+RWStructuredBuffer<SparkData> _SparkBuffer;
+
+// Safely pass values directly
+float _DeltaTime;
+uint _MaxSparks;
+
+[numthreads(64, 1, 1)]
+void UpdateSparks(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _MaxSparks)
+        return;
+
+    SparkData spark = _SparkBuffer[id.x];
+
+    if (spark.positionAge.w >= spark.velocityLife.w)
+        return;
+
+    // 1. Increase age
+    spark.positionAge.w += _DeltaTime;
+
+    // 2. Safe Exponential Decay (Drag)
+    spark.velocityLife.xyz *= exp(-5.0 * _DeltaTime);
+
+    // 3. Gravity (-Y)
+    spark.velocityLife.y -= 9.81 * _DeltaTime;
+
+    // 4. Update Position
+    spark.positionAge.xyz += spark.velocityLife.xyz * _DeltaTime;
+
+    _SparkBuffer[id.x] = spark;
+}

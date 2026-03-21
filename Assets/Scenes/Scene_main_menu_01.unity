@@ -11820,6 +11820,12 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 453160897456722862, guid: e3b9be758e3b84ee983f83125f59cf3b,
         type: 3}
+      propertyPath: hitsparkVFX
+      value: 
+      objectReference: {fileID: 8892902281893112677, guid: 9cf1c983ffa3325479a49b8a5fa1a491,
+        type: 3}
+    - target: {fileID: 453160897456722862, guid: e3b9be758e3b84ee983f83125f59cf3b,
+        type: 3}
       propertyPath: bloodSplatterVFX
       value: 
       objectReference: {fileID: 8892902281893112677, guid: 9ce1322c72be6ec4c8d7542fcf8b663a,

@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d17dac28cd585794bb7e26f7852976fb, type: 3}
   m_Name: Stance_Light_Impact_SO
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
-  fov: 55
-  zTilt: -2
+  fov: 70
+  zTilt: 9
   baseYawOffset: 0
-  baseOffset: {x: 0, y: 1.7, z: -1.5}
+  baseOffset: {x: 0, y: 1.3, z: -1.08}
   verticalBehavior:
     behaviorType: 2
     elevationSpeed: 5
@@ -139,4 +139,4 @@ MonoBehaviour:
     maxDuration: 0.1
   dofFocusDistance: 2
   vignetteIntensity: 0.3
-  pauseOnApply: 0
+  pauseOnApply: 1

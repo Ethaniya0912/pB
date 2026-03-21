@@ -28,6 +28,11 @@ namespace TDA.Character
 
         [Header("VFX Prefabs")]
         [SerializeField] GameObject bloodSplatterVFX;
+        [SerializeField] GameObject hitsparkVFX;
+
+        // Cache variables for animation events routing
+        [HideInInspector] public Vector3 lastContactPoint;
+        [HideInInspector] public Vector3 lastAttackerPosition;
 
         [Header("Event Triggers (P4)")]
         [Tooltip("애니메이션 이벤트 신호에 맞춰 자율적으로 실행될 이펙트 매핑입니다.")]
@@ -71,12 +76,22 @@ namespace TDA.Character
                 }
             }
 
-            // 2. 이벤트 체인 (물리 데미지 연산 후 확실하게 출혈 연출)
             if (eventType == global::AnimationEventType.Damage_Calculated)
             {
-                // 몬스터의 발밑(Root)이 아닌 타격이 들어가는 평균적인 가슴 높이(Y축 + 1.2f)에 오프셋을 주어 자연스럽게 연출합니다.
-                Vector3 dynamicContactPoint = transform.position + new Vector3(0, 1.2f, 0);
+                // Retrieve cached valid hit position or generate fallback fake position
+                Vector3 cachedContactPoint = lastContactPoint;
+                Vector3 dynamicContactPoint = (cachedContactPoint != Vector3.zero)
+                                              ? cachedContactPoint
+                                              : transform.position + new Vector3(0, 1.2f, 0);
+
                 PlayBloodSplatterVFX(dynamicContactPoint);
+
+                // Fire spark toward outside of character bounds
+                Vector3 deflectDir = (dynamicContactPoint - transform.position).normalized;
+                PlayHitSparkVFX(dynamicContactPoint, deflectDir);
+
+                // Reset cache
+                lastContactPoint = Vector3.zero;
             }
         }
 
@@ -133,6 +148,18 @@ namespace TDA.Character
             {
                 Instantiate(WorldCharacterEffectsManager.Instance.bloodSplatterVFX, contactPoint, Quaternion.identity);
             }
+        }
+
+        // New VFX Call mapping for GPU Sparks
+        public void PlayHitSparkVFX(Vector3 contactPoint, Vector3 deflectDirection)
+        {
+            if (deflectDirection == Vector3.zero) deflectDirection = transform.forward;
+            Quaternion rotation = Quaternion.LookRotation(deflectDirection);
+
+            if (hitsparkVFX != null)
+                Instantiate(hitsparkVFX, contactPoint, rotation);
+            else if (WorldCharacterEffectsManager.Instance != null && WorldCharacterEffectsManager.Instance.hitsparkVFX != null)
+                Instantiate(WorldCharacterEffectsManager.Instance.hitsparkVFX, contactPoint, rotation);
         }
     }
 }

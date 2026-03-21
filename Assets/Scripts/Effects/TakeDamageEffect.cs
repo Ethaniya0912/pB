@@ -87,7 +87,31 @@ public class TakeDamageEffect : InstantCharacterEffect
         // 불 데미지를 가졌다면 불 파티클 재생
         // 라이트닝 데미지, 라이트닝 파티클 등등...
 
+        // 1. 기존 피 튀기는 이펙트 (필요 시 유지)
         character.characterEffectsManager.PlayBloodSplatterVFX(contactPoint);
+
+        // 2. [NEW] 타격 지점에서 바깥으로 튕겨나가는 정확한 방향 벡터 계산
+        // 타격 지점(contactPoint)에서 캐릭터의 중심점(position)을 빼면 캐릭터 바깥을 향하는 벡터가 나옵니다.
+        Vector3 deflectDirection = (contactPoint - character.transform.position).normalized;
+
+        // 만약 타격점이 캐릭터 중앙과 완벽히 겹쳐 벡터가 0이 될 경우를 대비한 안전 장치
+        if (deflectDirection == Vector3.zero)
+        {
+            deflectDirection = character.transform.forward;
+        }
+
+        // 3. 방향 데이터를 담아 스파크 이펙트 실행
+        character.characterEffectsManager.PlayHitSparkVFX(contactPoint, deflectDirection);
+
+        // [핵심] 나중에 애니메이션 이벤트에서 쓰기 위해 타격 지점과 공격자 위치를 저장(캐싱)해 둠
+        character.characterEffectsManager.lastContactPoint = this.contactPoint;
+        character.characterEffectsManager.lastAttackerPosition = character.transform.position; // 또는 공격자의 포지션
+
+        
+        // onanimationreceived때문에 위에 있는 코드가 레거시화된 느낌이 있음.
+        // (참고) 애니메이션을 기다리지 않고 즉시 스파크를 터뜨리고 싶다면 여기서 바로 호출하셔도 됩니다.
+        // Vector3 deflectDir = (contactPoint - character.transform.position).normalized;
+        // character.characterEffectsManager.PlayHitSparkVFX(contactPoint, deflectDir);
     }
 
     private void PlayDamageSFX(CharacterManager character)

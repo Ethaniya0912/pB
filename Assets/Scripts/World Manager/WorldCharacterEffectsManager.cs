@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -9,6 +9,7 @@ public class WorldCharacterEffectsManager : MonoBehaviour
 
     [Header("VFX")]
     public GameObject bloodSplatterVFX;
+    public GameObject hitsparkVFX; // 인스펙터에서 앞서 만든 hitspark 프리팹 연결
 
     [Header("Damage")]
     public TakeDamageEffect takeDamageEffect;
