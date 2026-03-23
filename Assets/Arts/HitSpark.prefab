@@ -62,7 +62,7 @@ MonoBehaviour:
     spreadAmount: 0.35
     useCameraPlaneSpread: 1
   secondaryLayer:
-    count: 500
+    count: 700
     lifeMin: 0.15
     lifeMax: 0.55
     slowFraction: 0.318
@@ -81,17 +81,17 @@ MonoBehaviour:
     slowFraction: 0
     speedMin: 6
     speedMax: 6
-    sizeWidth: 0.008
+    sizeWidth: 0.08
     sizeHeight: 0.3
-    sizeVariance: 0
+    sizeVariance: 0.216
     spreadAmount: 0
     useCameraPlaneSpread: 0
   enableImpactLight: 1
   impactLightColor: {r: 1, g: 0.70018905, b: 0.3915094, a: 1}
-  impactLightRange: 30
+  impactLightRange: 60
   impactLightIntensity: 6
   impactLightFadeTime: 0.3
-  impactLightFadeExponent: 4
+  impactLightFadeExponent: 3.56
   playOnEnable: 1
   autoDestroyTime: 1
   showGizmos: 1

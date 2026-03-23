@@ -139,4 +139,4 @@ MonoBehaviour:
     maxDuration: 0.1
   dofFocusDistance: 2
   vignetteIntensity: 0.3
-  pauseOnApply: 1
+  pauseOnApply: 0

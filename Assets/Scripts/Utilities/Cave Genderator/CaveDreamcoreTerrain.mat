@@ -12,7 +12,7 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _DEBUGVIEW_NONE
+  - _DEBUGVIEW_INDIRECTGI
   m_InvalidKeywords:
   - _ENABLECUSTOMPOINTLIGHT_ON
   - _ENABLESAFEPOM_ON
@@ -54,11 +54,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtMask:
-        m_Texture: {fileID: 2800000, guid: 628377c9da453f842a25fdd6bc2fa582, type: 3}
+        m_Texture: {fileID: 2800000, guid: ed2aa48bce7d4474e9f579832f03c08b, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtNormal:
-        m_Texture: {fileID: 2800000, guid: 345889a4c3c2e8f44bfe2b73bfcd0fa0, type: 3}
+        m_Texture: {fileID: 2800000, guid: 2a60a2582c03c984fb51fabdd0bcc022, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
@@ -78,15 +78,15 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossAlbedo:
-        m_Texture: {fileID: 2800000, guid: 0e2898828a1829748adb5f9cfafb2e10, type: 3}
+        m_Texture: {fileID: 2800000, guid: 0e617e80151f2504bb9402dec144c839, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossMask:
-        m_Texture: {fileID: 2800000, guid: 628377c9da453f842a25fdd6bc2fa582, type: 3}
+        m_Texture: {fileID: 2800000, guid: ed2aa48bce7d4474e9f579832f03c08b, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MossNormal:
-        m_Texture: {fileID: 2800000, guid: 345889a4c3c2e8f44bfe2b73bfcd0fa0, type: 3}
+        m_Texture: {fileID: 2800000, guid: 2a60a2582c03c984fb51fabdd0bcc022, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
@@ -137,14 +137,14 @@ Material:
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
     - _BumpScale: 1
-    - _CaveLightFalloff: 0.001
+    - _CaveLightFalloff: 0.033
     - _CaveLightQuad: 0.0633
     - _CaveSunPenetration: 0
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _Cull: 2
     - _Cutoff: 0.5
-    - _DebugView: 0
+    - _DebugView: 4
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
@@ -187,7 +187,7 @@ Material:
     - _Surface: 0
     - _Tiling: 1
     - _WorkflowMode: 1
-    - _WrapDiffuse: 0.5
+    - _WrapDiffuse: 0.015
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
