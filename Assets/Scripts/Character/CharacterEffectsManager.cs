@@ -5,9 +5,6 @@ using TDA.Core.Events;
 
 namespace TDA.Character
 {
-    /// <summary>
-    /// [P4] Enum 기반 이펙트 트리거 매핑 구조체
-    /// </summary>
     [Serializable]
     public struct EffectTriggerMapping
     {
@@ -17,10 +14,6 @@ namespace TDA.Character
         public InstantCharacterEffect effectSO;
     }
 
-    /// <summary>
-    /// [L4 Event] 캐릭터의 시각적 이펙트를 처리하는 자율 수신자입니다.
-    /// [오류 정정] 기존에 선언되어 있던 3가지 상태 이펙트(인스턴트, 타임드, 스태틱) 처리 로직을 100% 복구했습니다.
-    /// </summary>
     public class CharacterEffectsManager : MonoBehaviour, IAnimationEventListener
     {
         protected CharacterManager character;
@@ -30,7 +23,13 @@ namespace TDA.Character
         [SerializeField] GameObject bloodSplatterVFX;
         [SerializeField] GameObject hitsparkVFX;
 
-        // Cache variables for animation events routing
+        // ─────────────────────────────────────────────────────────────────────
+        // [수정 1] lastAttackerPosition 활성화
+        //   이전: 선언만 되어 있고 어디서도 읽지 않았음
+        //         deflectDir 계산에 공격자 위치가 전혀 반영되지 않은 원인
+        //   수정: TakeDamageEffect(또는 ProcessInstantEffects 경로)에서
+        //         이 값을 세팅하고, OnAnimationEventReceived 에서 활용
+        // ─────────────────────────────────────────────────────────────────────
         [HideInInspector] public Vector3 lastContactPoint;
         [HideInInspector] public Vector3 lastAttackerPosition;
 
@@ -38,9 +37,6 @@ namespace TDA.Character
         [Tooltip("애니메이션 이벤트 신호에 맞춰 자율적으로 실행될 이펙트 매핑입니다.")]
         public List<EffectTriggerMapping> effectMappings = new List<EffectTriggerMapping>();
 
-        // =========================================================================================
-        // [이펙트 보관 리스트 100% 복구]
-        // =========================================================================================
         [Header("Active Effects (Status)")]
         [Tooltip("현재 캐릭터가 받고 있는 틱(Tick) 데미지, 버프, 상태 이상 효과 리스트입니다.")]
         public List<InstantCharacterEffect> activeTimedEffects = new List<InstantCharacterEffect>();
@@ -48,7 +44,7 @@ namespace TDA.Character
 
         protected virtual void Awake()
         {
-            character = GetComponent<CharacterManager>();
+            character  = GetComponent<CharacterManager>();
             eventManager = GetComponent<CharacterEventManager>();
         }
 
@@ -62,95 +58,105 @@ namespace TDA.Character
             if (eventManager != null) eventManager.OnAnimationEventTriggered -= OnAnimationEventReceived;
         }
 
-        /// <summary>
-        /// [P4] Enum 신호를 수신하여 매핑된 이펙트를 자율 실행합니다.
-        /// </summary>
         public virtual void OnAnimationEventReceived(global::AnimationEventType eventType)
         {
-            // 1. 매핑된 이펙트 SO가 있다면 실행
             foreach (var mapping in effectMappings)
             {
                 if (mapping.triggerType == eventType && mapping.effectSO != null)
-                {
                     ProcessInstantEffects(mapping.effectSO);
-                }
             }
 
             if (eventType == global::AnimationEventType.Damage_Calculated)
             {
-                // Retrieve cached valid hit position or generate fallback fake position
                 Vector3 cachedContactPoint = lastContactPoint;
                 Vector3 dynamicContactPoint = (cachedContactPoint != Vector3.zero)
-                                              ? cachedContactPoint
-                                              : transform.position + new Vector3(0, 1.2f, 0);
+                    ? cachedContactPoint
+                    : transform.position + new Vector3(0, 1.2f, 0);
 
                 PlayBloodSplatterVFX(dynamicContactPoint);
 
-                // Fire spark toward outside of character bounds
-                Vector3 deflectDir = (dynamicContactPoint - transform.position).normalized;
+                // ─────────────────────────────────────────────────────────────
+                // [수정 2] deflectDir 계산 방식 변경 — 핵심 수정
+                //   이전: (dynamicContactPoint - transform.position).normalized
+                //         → 피격 캐릭터의 발(pivot)에서 접촉점을 향하는 방향
+                //         → 공격자 위치나 타격 방향과 완전히 무관
+                //         → 파티클이 항상 캐릭터 위쪽이나 측면으로 엉뚱하게 비산
+                //
+                //   수정: (transform.position - lastAttackerPosition).normalized
+                //         → '공격자 → 피격자' 방향 = 충격이 진행된 방향
+                //         → 파티클이 타격 방향의 연장선(반대편)으로 튀어나감
+                //         → 금속 표면에 총알이 맞았을 때처럼 현실적인 비산
+                //
+                //   fallback: 공격자 위치 미확인 시
+                //         접촉점에서 캐릭터 중심 방향의 반대(표면 법선 근사)로 대체
+                // ─────────────────────────────────────────────────────────────
+                Vector3 deflectDir;
+
+                if (lastAttackerPosition != Vector3.zero)
+                {
+                    // 공격자 → 피격자 방향 = 충격 진행 방향 = 파티클이 뻗어나가는 방향
+                    deflectDir = (transform.position - lastAttackerPosition).normalized;
+                }
+                else
+                {
+                    // fallback: 표면 법선 근사 (접촉점 → 캐릭터 중심 반대)
+                    deflectDir = (dynamicContactPoint - transform.position).normalized;
+                }
+
                 PlayHitSparkVFX(dynamicContactPoint, deflectDir);
 
-                // Reset cache
-                lastContactPoint = Vector3.zero;
+                // 캐시 초기화
+                lastContactPoint     = Vector3.zero;
+                lastAttackerPosition = Vector3.zero;
             }
         }
 
-        // =========================================================================================
-        // [이펙트 처리 다형성 로직 100% 복구]
-        // 기존 주석에만 있던 3가지(인스턴트, 시간차, 스태틱) 처리 뼈대를 실체화했습니다.
-        // =========================================================================================
+        // ─────────────────────────────────────────────────────────────────────
+        // [수정 3] CacheAttackerInfo() 공개 메서드 추가
+        //   TakeDamageEffect.ProcessEffect() 또는 PlayDamageVFX() 내에서
+        //   이 메서드를 호출해 공격자 위치를 캐싱합니다.
+        //   호출 예시 (TakeDamageEffect.cs 내):
+        //
+        //     character.characterEffectsManager.lastContactPoint     = contactPoint;
+        //     character.characterEffectsManager.lastAttackerPosition
+        //         = (characterCausingDamage != null)
+        //         ? characterCausingDamage.transform.position
+        //         : contactPoint - character.transform.forward;
+        //
+        //   또는 아래 헬퍼 메서드를 직접 호출:
+        //     character.characterEffectsManager.CacheAttackerInfo(contactPoint, attackerPos);
+        // ─────────────────────────────────────────────────────────────────────
+        public void CacheAttackerInfo(Vector3 contactPoint, Vector3 attackerPosition)
+        {
+            lastContactPoint     = contactPoint;
+            lastAttackerPosition = attackerPosition;
+        }
 
-        /// <summary>
-        /// 인스턴트 이펙트 (테이크 데미지, 즉시 힐링 등 1회성 적용)
-        /// </summary>
         public virtual void ProcessInstantEffects(InstantCharacterEffect effect)
         {
-            if (effect != null)
-            {
-                effect.ProcessEffect(character);
-            }
+            if (effect != null) effect.ProcessEffect(character);
         }
 
-        /// <summary>
-        /// 시간차 이펙트 (독, 출혈 빌드업 등 시간에 따라 틱 데미지를 주는 효과)
-        /// </summary>
         public virtual void ProcessTimedEffects(InstantCharacterEffect effect)
         {
             if (effect != null && !activeTimedEffects.Contains(effect))
-            {
                 activeTimedEffects.Add(effect);
-                // 향후 틱 타이머 코루틴이나 Update 문에서 ProcessEffect를 반복 호출하는 로직 추가
-            }
         }
 
-        /// <summary>
-        /// 스태틱 이펙트 (장신구 버프, 오라 등 지속적으로 유지되는 효과)
-        /// </summary>
         public virtual void ProcessStaticEffects(InstantCharacterEffect effect)
         {
             if (effect != null && !activeStaticEffects.Contains(effect))
-            {
                 activeStaticEffects.Add(effect);
-                // 추가 능력치 부여(Add) 로직 수행
-            }
         }
 
         public void PlayBloodSplatterVFX(Vector3 contactPoint)
         {
-            // 만약 우리가 수동적으로 vfx 모델을 배치했을시, 해당 버전을 플레이.
             if (bloodSplatterVFX != null)
-            {
                 Instantiate(bloodSplatterVFX, contactPoint, Quaternion.identity);
-            }
-            // 그렇지 않으면, 디폴트 버전을 사용함.
-            // 여러 적을 구현할때 반복적으로 인스팩터 사용해야하는 수고로움 방지용.
             else if (WorldCharacterEffectsManager.Instance != null && WorldCharacterEffectsManager.Instance.bloodSplatterVFX != null)
-            {
                 Instantiate(WorldCharacterEffectsManager.Instance.bloodSplatterVFX, contactPoint, Quaternion.identity);
-            }
         }
 
-        // New VFX Call mapping for GPU Sparks
         public void PlayHitSparkVFX(Vector3 contactPoint, Vector3 deflectDirection)
         {
             if (deflectDirection == Vector3.zero) deflectDirection = transform.forward;

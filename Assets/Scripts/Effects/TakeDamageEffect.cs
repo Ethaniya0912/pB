@@ -104,10 +104,13 @@ public class TakeDamageEffect : InstantCharacterEffect
         character.characterEffectsManager.PlayHitSparkVFX(contactPoint, deflectDirection);
 
         // [핵심] 나중에 애니메이션 이벤트에서 쓰기 위해 타격 지점과 공격자 위치를 저장(캐싱)해 둠
-        character.characterEffectsManager.lastContactPoint = this.contactPoint;
-        character.characterEffectsManager.lastAttackerPosition = character.transform.position; // 또는 공격자의 포지션
+        character.characterEffectsManager.lastContactPoint     = contactPoint;
+        character.characterEffectsManager.lastAttackerPosition
+            = (characterCausingDamage != null)
+            ? characterCausingDamage.transform.position
+            : contactPoint - character.transform.forward;
 
-        
+
         // onanimationreceived때문에 위에 있는 코드가 레거시화된 느낌이 있음.
         // (참고) 애니메이션을 기다리지 않고 즉시 스파크를 터뜨리고 싶다면 여기서 바로 호출하셔도 됩니다.
         // Vector3 deflectDir = (contactPoint - character.transform.position).normalized;

@@ -11,6 +11,10 @@ public class AICharacterManager : CharacterManager
     [Header("Navmesh Agent")]
     public NavMeshAgent navMeshAgent;
 
+    [Header("Locomotion Manager (Extension)")]
+    // [신규 확장] 물리적 이동과 애니메이션 동기화를 담당할 중개자
+    public AICharacterLocomotionManager aiCharacterLocomotionManager { get; private set; }
+
     [Header("State Machine")]
     [SerializeField] private AIState initialState; // 시작할 때 진입할 초기 상태 (인스펙터에서 IdleState 할당)
     [SerializeField] private AIState currentState; // 현재 진행 중인 상태
@@ -21,6 +25,20 @@ public class AICharacterManager : CharacterManager
 
         aiCharacterCombatManager = GetComponent<AICharacterCombatManager>();
         navMeshAgent = GetComponentInChildren<NavMeshAgent>();
+
+        // [신규 확장] 로코모션 매니저 캐싱 및 동적 부착
+        aiCharacterLocomotionManager = GetComponent<AICharacterLocomotionManager>();
+        if (aiCharacterLocomotionManager == null)
+        {
+            aiCharacterLocomotionManager = gameObject.AddComponent<AICharacterLocomotionManager>();
+        }
+
+        // [신규 확장 핵심] 루트 모션 사용을 위해 NavMeshAgent의 강제 트랜스폼 제어권을 뺏어옵니다.
+        if (navMeshAgent != null)
+        {
+            navMeshAgent.updatePosition = false;
+            navMeshAgent.updateRotation = false;
+        }
 
         // =========================================================================================
         // 🚨 [치명적 버그 수정] 스태미나 리젠 고장 원인 해결
@@ -65,6 +83,12 @@ public class AICharacterManager : CharacterManager
         {
             characterStatsManager.RegenerateStamina();
         }
+
+        // [신규 확장] 판단(상태 머신)과 스태미나 처리가 끝난 후, 최종적으로 루트모션 기반 이동을 실행합니다.
+        if (aiCharacterLocomotionManager != null)
+        {
+            aiCharacterLocomotionManager.HandleAILocomotion();
+        }
     }
 
     protected override void FixedUpdate()
@@ -102,7 +126,7 @@ public class AICharacterManager : CharacterManager
             }
         }
 
-        // 2. 현재 상태의 로직(Tick)을 실행하고 다음에 진행할 상태를 받아옴
+        // 2. 현재 상태의 로직(Tick)을 실행하고 다음에 진행할 상태를 받아옴 (단일 매개변수 구조 유지)
         AIState nextState = currentState.Tick(this);
 
         // 3. 반환받은 상태가 기존 상태와 다르다면 상태를 교체(Transition)

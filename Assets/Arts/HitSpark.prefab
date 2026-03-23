@@ -47,7 +47,53 @@ MonoBehaviour:
   physicsCompute: {fileID: 7200000, guid: ccbdcd30fd447fc46b2917ee3128b511, type: 3}
   renderMaterial: {fileID: 2100000, guid: 97f6f1de32d7d6b4681ea302c261e50a, type: 2}
   maxSparks: 1000
-  particleBaseSize: {x: 0.1, y: 0.3}
+  directionMode: 0
+  upwardBias: 0.15
+  primaryLayer:
+    count: 200
+    lifeMin: 0.4
+    lifeMax: 0.9
+    slowFraction: 0.166
+    speedMin: 20
+    speedMax: 40
+    sizeWidth: 0.012
+    sizeHeight: 0.06
+    sizeVariance: 0.755
+    spreadAmount: 0.35
+    useCameraPlaneSpread: 1
+  secondaryLayer:
+    count: 500
+    lifeMin: 0.15
+    lifeMax: 0.55
+    slowFraction: 0.318
+    speedMin: 1.5
+    speedMax: 8
+    sizeWidth: 0.018
+    sizeHeight: 0.018
+    sizeVariance: 0.5
+    spreadAmount: 0.85
+    useCameraPlaneSpread: 1
+  enableTertiaryLayer: 1
+  tertiaryLayer:
+    count: 1
+    lifeMin: 2
+    lifeMax: 2
+    slowFraction: 0
+    speedMin: 6
+    speedMax: 6
+    sizeWidth: 0.008
+    sizeHeight: 0.3
+    sizeVariance: 0
+    spreadAmount: 0
+    useCameraPlaneSpread: 0
+  enableImpactLight: 1
+  impactLightColor: {r: 1, g: 0.70018905, b: 0.3915094, a: 1}
+  impactLightRange: 4
+  impactLightIntensity: 6
+  impactLightFadeTime: 0.3
   playOnEnable: 1
-  autoBurstCount: 100
-  autoDestroyTime: 2
+  autoDestroyTime: 1
+  showGizmos: 1
+  gizmoLineCount: 12
+  gizmoLength: 0.8
+  enableDebugLog: 1

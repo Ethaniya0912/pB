@@ -1,41 +1,60 @@
 #pragma kernel UpdateSparks
 
-// 16-byte (float4) structure to prevent alignment breakdown
 struct SparkData
 {
-    float4 positionAge; // xyz = position, w = age
-    float4 velocityLife; // xyz = velocity, w = lifetime
-    float4 baseSize; // x = width, y = height, zw = padding
+    float4 positionAge;   // xyz=위치, w=나이
+    float4 velocityLife;  // xyz=속도, w=수명
+    float4 baseSize;      // x=폭, y=높이, z=타입(0=주/1=2차/2=단일줄기), w=미사용
 };
 
 RWStructuredBuffer<SparkData> _SparkBuffer;
 
-// Safely pass values directly
-float _DeltaTime;
-uint _MaxSparks;
+float deltaTime;
+int   maxSparks;
 
 [numthreads(64, 1, 1)]
 void UpdateSparks(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= _MaxSparks)
-        return;
+    if ((int)id.x >= maxSparks) return;
 
     SparkData spark = _SparkBuffer[id.x];
+    if (spark.positionAge.w >= spark.velocityLife.w) return;
 
-    if (spark.positionAge.w >= spark.velocityLife.w)
-        return;
+    spark.positionAge.w += deltaTime;
 
-    // 1. Increase age
-    spark.positionAge.w += _DeltaTime;
+    float sparkType = spark.baseSize.z;
+    float spd       = length(spark.velocityLife.xyz);
 
-    // 2. Safe Exponential Decay (Drag)
-    spark.velocityLife.xyz *= exp(-5.0 * _DeltaTime);
+    // ─────────────────────────────────────────────────────────────────────
+    // 중력: 속도 크기에 비례 스케일 — 잔존형(느린) 파티클은 중력 영향 최소
+    // ─────────────────────────────────────────────────────────────────────
+    float gravScale = saturate(spd / 6.0);
+    spark.velocityLife.y -= 9.81 * gravScale * deltaTime;
 
-    // 3. Gravity (-Y)
-    spark.velocityLife.y -= 9.81 * _DeltaTime;
+    // ─────────────────────────────────────────────────────────────────────
+    // 공기 저항: 타입별 계수
+    //   0 (주 줄기)     : -1.8
+    //   1 (2차 스파크)  : -3.0
+    //   2 (단일 줄기)   : -0.6  — 거의 감속 없이 멀리 뻗음
+    // ─────────────────────────────────────────────────────────────────────
+    float drag;
+    if      (sparkType < 0.5) drag = -1.8;
+    else if (sparkType < 1.5) drag = -3.0;
+    else                      drag = -0.6;  // 타입 2: 단일 줄기
 
-    // 4. Update Position
-    spark.positionAge.xyz += spark.velocityLife.xyz * _DeltaTime;
+    spark.velocityLife.xyz *= exp(drag * deltaTime);
 
+    // ─────────────────────────────────────────────────────────────────────
+    // 주 줄기만: 반경 방향 추가 감쇠 (중앙 집중 효과)
+    // ─────────────────────────────────────────────────────────────────────
+    if (sparkType < 0.5 && spd > 0.05)
+    {
+        float3 axisDir = spark.velocityLife.xyz / spd;
+        float3 axialV  = dot(spark.velocityLife.xyz, axisDir) * axisDir;
+        float3 radialV = spark.velocityLife.xyz - axialV;
+        spark.velocityLife.xyz = axialV + radialV * (1.0 - 0.3 * deltaTime);
+    }
+
+    spark.positionAge.xyz += spark.velocityLife.xyz * deltaTime;
     _SparkBuffer[id.x] = spark;
 }
