@@ -88,9 +88,10 @@ MonoBehaviour:
     useCameraPlaneSpread: 0
   enableImpactLight: 1
   impactLightColor: {r: 1, g: 0.70018905, b: 0.3915094, a: 1}
-  impactLightRange: 4
+  impactLightRange: 30
   impactLightIntensity: 6
   impactLightFadeTime: 0.3
+  impactLightFadeExponent: 4
   playOnEnable: 1
   autoDestroyTime: 1
   showGizmos: 1
