@@ -1,2 +1,13 @@
 fileFormatVersion: 2
 guid: b37aa90097c277245af7fada77ab477a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - globalRampTexture: {instanceID: 0}
+  - blueNoise: {fileID: 2800000, guid: 278f676d98a507e4c9c2bcc135455f38, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

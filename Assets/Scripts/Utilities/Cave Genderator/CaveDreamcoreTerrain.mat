@@ -12,7 +12,7 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _DEBUGVIEW_INDIRECTGI
+  - _DEBUGVIEW_NONE
   m_InvalidKeywords:
   - _ENABLECUSTOMPOINTLIGHT_ON
   - _ENABLESAFEPOM_ON
@@ -144,7 +144,7 @@ Material:
     - _ClearCoatSmoothness: 0
     - _Cull: 2
     - _Cutoff: 0.5
-    - _DebugView: 4
+    - _DebugView: 0
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
@@ -163,7 +163,7 @@ Material:
     - _HeightScale: 0.3
     - _Metallic: 0
     - _MetallicScale: 0
-    - _NormalScale: 1
+    - _NormalScale: 0.5
     - _OcclusionScale: 0.8
     - _OcclusionStrength: 1
     - _Parallax: 0.005

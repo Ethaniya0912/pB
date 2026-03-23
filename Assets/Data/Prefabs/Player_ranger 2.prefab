@@ -1769,6 +1769,7 @@ GameObject:
   - component: {fileID: 4084987415979659578}
   - component: {fileID: 4763399256367094428}
   - component: {fileID: 3824280903865820914}
+  - component: {fileID: -1996388080673649413}
   m_Layer: 6
   m_Name: Player_ranger 2
   m_TagString: Untagged
@@ -1830,7 +1831,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 200123567
+  GlobalObjectIdHash: 3529753785
   InScenePlacedSourceGlobalObjectIdHash: 1034646365
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1915,6 +1916,7 @@ MonoBehaviour:
   currentWeaponBeingUsed: {fileID: 0}
   canComboWithMainHandWeapon: 0
   canComboWithOffHandWeapon: 0
+  lockOnStanceSO: {fileID: 0}
   lockOn_Input: 0
   lockOn_Left_Input: 0
   lockOn_Right_Input: 0
@@ -2425,6 +2427,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bloodSplatterVFX: {fileID: 0}
+  hitsparkVFX: {fileID: 0}
+  lastContactPoint: {x: 0, y: 0, z: 0}
+  lastAttackerPosition: {x: 0, y: 0, z: 0}
   effectMappings: []
   activeTimedEffects: []
   activeStaticEffects: []
@@ -2726,6 +2731,12 @@ MonoBehaviour:
   showConsoleLogs: 1
   showEventGizmo: 1
   eventGizmoDuration: 1
+  lightShakeStance: {fileID: 0}
+  heavyShakeStance: {fileID: 0}
+  rollShakeStance: {fileID: 0}
+  fumblePenaltySequence: {fileID: 0}
+  hitVignetteSequence: {fileID: 0}
+  footstepKickSequence: {fileID: 0}
 --- !u!114 &4084987415979659578
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2792,6 +2803,24 @@ MonoBehaviour:
   leftHandTestWeapon: {fileID: 11400000, guid: e43da9c27983eb04cbb14465059c8633, type: 2}
   leftHandTestShield: {fileID: 11400000, guid: f6ef535891cce2d43ae15f55266aaa80, type: 2}
   testBackpack: {fileID: 11400000, guid: 58ab2de8bdce20647823bdd634f13413, type: 2}
+--- !u!114 &-1996388080673649413
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c3c23125b27bd47b5fa33c2e7ff115, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AvatarAutoWeightBaker
+  globalIntensity: 1
+  armBias: 0.65
+  legBias: 0.75
+  spineCap: 0.35
+  headScale: 0.15
+  debugLog: 0
 --- !u!1 &8382764279090399444
 GameObject:
   m_ObjectHideFlags: 0
