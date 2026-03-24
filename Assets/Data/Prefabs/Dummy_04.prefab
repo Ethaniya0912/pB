@@ -153,7 +153,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 731833ca894198e4e8976440acfdd225, type: 2}
+  - {fileID: 2100000, guid: a55c9de0605eac545b5adabf2e284ed7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -658,6 +658,7 @@ GameObject:
   - component: {fileID: 1778917036455899257}
   - component: {fileID: 6808503888121520632}
   - component: {fileID: -9004815254328650616}
+  - component: {fileID: -282261469178741356}
   m_Layer: 8
   m_Name: Dummy_04
   m_TagString: Untagged
@@ -1487,6 +1488,25 @@ MonoBehaviour:
   spineCap: 0.35
   headScale: 0.15
   debugLog: 1
+--- !u!114 &-282261469178741356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d5c43464041c714cb7824d31061a5f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
+  targetRenderer: {fileID: 0}
+  blurIntensity: 1
+  maxBlurLength: 0.04
+  minBlurFloor: 0.005
+  currentState: 0
+  isLockedOn: 0
+  lockOnShutterMultiplier: 1.4
 --- !u!1 &4595707506124031444
 GameObject:
   m_ObjectHideFlags: 0

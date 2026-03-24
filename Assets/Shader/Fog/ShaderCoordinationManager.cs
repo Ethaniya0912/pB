@@ -147,10 +147,67 @@ public class ShaderCoordinationManager : MonoBehaviour
         {
             DestroyImmediate(gameObject);
         }
+
+        // Rigidbody/CharacterController 자동 탐색
+        // 우선순위: 1) Inspector 직접 연결 → 2) "Player" 태그 → 3) "Player" 레이어
+        if (playerRigidbody == null && playerCharacterController == null)
+        {
+            GameObject playerObj = null;
+
+            // 1차: Tag 기반 탐색
+            try { playerObj = GameObject.FindWithTag("Player"); } catch { }
+
+            // 2차: Tag 실패 시 Layer 기반 탐색
+            if (playerObj == null)
+            {
+                int playerLayer = LayerMask.NameToLayer("Player");
+                if (playerLayer >= 0)
+                {
+                    foreach (var go in FindObjectsByType<GameObject>(
+                        FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                    {
+                        if (go.layer == playerLayer &&
+                            (go.GetComponent<Rigidbody>() != null ||
+                             go.GetComponent<CharacterController>() != null))
+                        {
+                            playerObj = go;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 결과 처리
+            if (playerObj != null)
+            {
+                playerRigidbody           = playerObj.GetComponent<Rigidbody>();
+                playerCharacterController = playerObj.GetComponent<CharacterController>();
+
+                if (playerRigidbody != null)
+                    Debug.Log($"[SCM] Player Rigidbody 자동 탐색 성공: {playerObj.name}");
+                else if (playerCharacterController != null)
+                    Debug.Log($"[SCM] Player CharacterController 자동 탐색 성공: {playerObj.name}");
+                else
+                    Debug.LogWarning($"[SCM] '{playerObj.name}' 에 Rigidbody/CharacterController가 없습니다. " +
+                                     "Inspector의 Player Rigidbody 슬롯에 직접 연결하세요.");
+            }
+            else
+            {
+                Debug.LogWarning("[SCM] 플레이어를 자동으로 찾을 수 없습니다.\n" +
+                                 "다음 중 하나를 설정하세요:\n" +
+                                 "  1) 플레이어에 'Player' Tag 설정\n" +
+                                 "  2) 플레이어에 'Player' Layer + Rigidbody 보유\n" +
+                                 "  3) Inspector의 Player Rigidbody 슬롯에 직접 연결");
+            }
+        }
     }
 
     // 기존 기능: Update에서 LUT/Fog 등 정적 파라미터 동기화
-    private void Update() => SyncGlobalVariables();
+    private void Update()
+    {
+        SyncGlobalVariables();
+        UpdateLockOnBlur(); // ← 추가
+    }
 
     // 신규: LateUpdate에서 VP 행렬 처리
     // LateUpdate를 사용하는 이유:
@@ -255,5 +312,85 @@ public class ShaderCoordinationManager : MonoBehaviour
 
         // 다음 프레임을 위해 현재 행렬 저장
         _prevVPMatrix = currVP;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // [Phase 3 추가] Lock-On Blur 인프라
+    // ─────────────────────────────────────────────────────────────
+    [Header("6. Lock-On Blur (Phase 3)")]
+    [Range(0f, 1f)] public float lockOnSSMBScale = 0.25f;
+    [Range(0.1f, 1f)] public float lockOnFadeIn = 0.4f;
+    [Range(0.1f, 1f)] public float lockOnFadeOut = 0.5f;
+    [Range(0f, 1f)] public float lockOnMoveSSMBScale = 0.7f;
+    [Range(0.01f, 0.3f)] public float moveFadeIn = 0.08f;
+    [Range(0.1f, 0.5f)] public float moveStopFadeOut = 0.2f;
+    [Range(0.1f, 3f)] public float moveSpeedThreshold = 0.5f;
+
+    [Tooltip("비워두면 Start()에서 씬의 Rigidbody/CharacterController를 자동 탐색합니다.")]
+    public Rigidbody playerRigidbody;
+    public CharacterController playerCharacterController;
+
+    [Header("6. Lock-On Debug (ReadOnly)")]
+    [HideInInspector] // Inspector에서만 보임 — 코드로 수정 불가
+                                      // ↓ 아래 세 줄이 런타임 상태를 Inspector에 노출합니다
+    [SerializeField] private bool _dbgIsLockedOn;
+    [SerializeField] private float _dbgCurrentSSMBScale = 1f;
+    [SerializeField] private float _dbgPlayerSpeed;
+
+    private bool _isLockedOn = false;
+    private bool _isMoving = false;
+    private float _currentSSMBScale = 1f;
+    private float _targetSSMBScale = 1f;
+    private float _ssmbLerpSpeed = 1f;
+
+    private static readonly int SSMBScaleID = Shader.PropertyToID("_SSMBIntensityScale");
+
+    // 락온 시스템에서 호출
+    public void SetLockOn(bool locked)
+    {
+        _isLockedOn = locked;
+        _isMoving = false;
+        _targetSSMBScale = locked ? lockOnSSMBScale : 1f;
+        _ssmbLerpSpeed = 1f / (locked ? lockOnFadeIn : lockOnFadeOut);
+    }
+
+    private void UpdateLockOnBlur()
+    {
+        if (_isLockedOn)
+        {
+            float speed = GetPlayerSpeed();
+            bool moving = speed > moveSpeedThreshold;
+
+            if (moving && !_isMoving)
+            {
+                _targetSSMBScale = lockOnMoveSSMBScale;
+                _ssmbLerpSpeed = 1f / moveFadeIn;
+                _isMoving = true;
+            }
+            else if (!moving && _isMoving)
+            {
+                _targetSSMBScale = lockOnSSMBScale;
+                _ssmbLerpSpeed = 1f / moveStopFadeOut;
+                _isMoving = false;
+            }
+        }
+
+        _currentSSMBScale = Mathf.MoveTowards(
+            _currentSSMBScale, _targetSSMBScale,
+            _ssmbLerpSpeed * Time.deltaTime);
+
+        Shader.SetGlobalFloat(SSMBScaleID, _currentSSMBScale);
+
+        // ── Inspector 디버그 값 동기화 ──────────────────────────
+        _dbgIsLockedOn = _isLockedOn;
+        _dbgCurrentSSMBScale = _currentSSMBScale;
+        _dbgPlayerSpeed = GetPlayerSpeed();
+    }
+
+    private float GetPlayerSpeed()
+    {
+        if (playerRigidbody != null) return playerRigidbody.linearVelocity.magnitude;
+        if (playerCharacterController != null) return playerCharacterController.velocity.magnitude;
+        return 0f;
     }
 }

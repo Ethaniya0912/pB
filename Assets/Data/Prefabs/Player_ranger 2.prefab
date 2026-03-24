@@ -1770,6 +1770,7 @@ GameObject:
   - component: {fileID: 4763399256367094428}
   - component: {fileID: 3824280903865820914}
   - component: {fileID: -1996388080673649413}
+  - component: {fileID: -7656529080104652357}
   m_Layer: 6
   m_Name: Player_ranger 2
   m_TagString: Untagged
@@ -2824,6 +2825,25 @@ MonoBehaviour:
   spineCap: 0.35
   headScale: 0.15
   debugLog: 0
+--- !u!114 &-7656529080104652357
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d5c43464041c714cb7824d31061a5f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
+  targetRenderer: {fileID: 0}
+  blurIntensity: 1
+  maxBlurLength: 0.04
+  minBlurFloor: 0.005
+  currentState: 0
+  isLockedOn: 0
+  lockOnShutterMultiplier: 1.4
 --- !u!1 &8382764279090399444
 GameObject:
   m_ObjectHideFlags: 0
@@ -2913,7 +2933,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 3f71639195581c9459f3b555f8e6ba9f, type: 2}
+  - {fileID: 2100000, guid: fc4dc860f2d737c4bb7d78461810718e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
