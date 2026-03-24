@@ -147,6 +147,10 @@ namespace TDA.World
                 dynamicFOVOffset = 0f;
                 dynamicZOffset = 0f;
             }
+
+            // [Implementation Spec] 매 프레임 FocusTargets를 씬 Transform으로 갱신
+            // TargetIdentifier enum → 실제 씬 Transform 변환 (요구사항 2)
+            ResolveFocusTargetsToWorld();
         }
 
         public void SetLocalCamera(PlayerCamera camera)
@@ -167,6 +171,77 @@ namespace TDA.World
         /// <summary>
         /// 상태 전환 시 호출하여 관제탑에 기록을 남기는 함수
         /// </summary>
+        // =============================================================================
+        // [Implementation Spec 신규] 다중 타겟 FocusTargets 해석기 — 요구사항 2
+        // SO의 TargetIdentifier enum을 씬의 실제 Transform으로 변환합니다.
+        // Update()에서 매 프레임 호출됩니다.
+        // =============================================================================
+        private void ResolveFocusTargetsToWorld()
+        {
+            if (currentStanceSO == null
+                || currentStanceSO.focusTargets == null
+                || currentStanceSO.focusTargets.Count == 0)
+            {
+                currentFocusTargets = null;
+                return;
+            }
+
+            // 배열 크기가 다를 때만 재할당 (GC 압력 최소화)
+            if (currentFocusTargets == null
+                || currentFocusTargets.Length != currentStanceSO.focusTargets.Count)
+            {
+                currentFocusTargets = new Transform[currentStanceSO.focusTargets.Count];
+            }
+
+            for (int i = 0; i < currentStanceSO.focusTargets.Count; i++)
+            {
+                currentFocusTargets[i] = ResolveIdentifier(currentStanceSO.focusTargets[i].target);
+            }
+        }
+
+        /// <summary>
+        /// TargetIdentifier enum → 씬 실제 Transform 변환
+        /// </summary>
+        private Transform ResolveIdentifier(TargetIdentifier id)
+        {
+            if (localPlayerCamera == null) return null;
+            TDA.Character.Player.PlayerManager playerMgr = localPlayerCamera.player;
+            if (playerMgr == null) return null;
+
+            switch (id)
+            {
+                case TargetIdentifier.PlayerRoot:
+                    return playerMgr.transform;
+
+                case TargetIdentifier.PlayerChest:
+                    // lockOnTransform이 있으면 그것을, 없으면 루트
+                    return playerMgr.playerCombatManager?.lockOnTransform
+                           ?? playerMgr.transform;
+
+                case TargetIdentifier.PlayerWeaponTip:
+                    // 무기 끝 Transform이 있으면 반환, 없으면 루트
+                    return playerMgr.transform; // TODO: weaponTipTransform 레퍼런스 확보 후 교체
+
+                case TargetIdentifier.PlayerShield:
+                    return playerMgr.transform; // TODO: shieldTransform 레퍼런스 확보 후 교체
+
+                case TargetIdentifier.LockedOnEnemyRoot:
+                    return playerMgr.playerCombatManager?.currentTarget?.transform;
+
+                case TargetIdentifier.LockedOnEnemyChest:
+                    return playerMgr.playerCombatManager?.currentTarget
+                           ?.characterCombatManager?.lockOnTransform;
+
+                case TargetIdentifier.InteractableObject:
+                    // 현재 상호작용 오브젝트 — 향후 InteractionManager 구현 후 교체
+                    return null;
+
+                default:
+                    return null;
+            }
+        }
+        // =============================================================================
+
         public void RecordCameraState(string caller, CameraSequencePresetSO seqSO, CameraStancePresetSO stanceSO)
         {
             CameraStateRecord record = new CameraStateRecord
@@ -205,18 +280,30 @@ namespace TDA.World
         {
             if (sequenceSO == null) return;
 
-            // [우선순위 지배 (Last Call Wins)] 
+            // [v3.9 Fix] 동일 시퀀스가 이미 재생 중이면 재시작 방지
+            // BaseActionBehaviour가 공격 애니메이션마다 Seq_LockOn을 반복 호출할 때
+            // 매번 BlendToStanceRoutine이 재시작되며 velocity가 누적/폭발하는 현상 차단
+            if (IsSequencePlaying && currentSequenceSO == sequenceSO)
+            {
+                // 완전히 동일한 시퀀스 재호출 → 무시
+                return;
+            }
+
+            // [우선순위 지배 (Last Call Wins)]
             if (activeSequenceCoroutine != null)
             {
                 StopCoroutine(activeSequenceCoroutine);
+                // [v3.9 Fix] 이전 시퀀스 중단 시 velocity 리셋 (중단 직후 새 시퀀스 시작 전)
+                if (localPlayerCamera != null) localPlayerCamera.ResetVelocities();
             }
 
-            // 🚨 [Phase 3 고도화] 시퀀스 진입 시 이전 각도 스냅샷 캐싱 (복귀용)
+            // [Implementation Spec] 시퀀스 진입 시 이전 각도 스냅샷 캐싱 (복귀용)
+            // [요구사항 4] Reflection 제거 → GetCurrentAngles() public 메서드 직접 호출
             if (sequenceSO.restorePreviousAngle && localPlayerCamera != null)
             {
-                // Reflection을 통해 PlayerCamera 내부에 저장된 현재의 실제 회전 각도를 읽어옴
-                storedPitch = localPlayerCamera.GetType().GetField("upAndDownLookAngle", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(localPlayerCamera) as float? ?? 0f;
-                storedYaw = localPlayerCamera.GetType().GetField("leftAndRightLookAngle", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(localPlayerCamera) as float? ?? 0f;
+                var angles = localPlayerCamera.GetCurrentAngles();
+                storedYaw = angles.yaw;
+                storedPitch = angles.pitch;
                 shouldRestorePreviousAngle = true;
             }
             else
@@ -377,6 +464,12 @@ namespace TDA.World
         /// </summary>
         private IEnumerator BlendToStanceRoutine(SequenceStep step)
         {
+            // [v3.9] 보간 시작 직전 velocity 리셋 — 이전 velocity 누적으로 인한 발산 방지
+            if (localPlayerCamera != null)
+            {
+                localPlayerCamera.ResetVelocities();
+            }
+
             float timer = 0f;
             float totalDuration = step.blendDuration + step.holdDuration;
             CameraStancePresetSO targetStance = step.targetStance;
@@ -439,6 +532,13 @@ namespace TDA.World
                     currentZTilt = Mathf.LerpUnclamped(startZTilt, targetZTilt, curveT);
                     currentBaseOffset = Vector3.LerpUnclamped(startBaseOffset, targetBaseOffset, curveT);
                     currentBaseYawOffset = Mathf.LerpUnclamped(startBaseYawOffset, targetBaseYawOffsetGoal, curveT);
+
+                    // [v3.9 안전장치] 발산 감지 시 강제 스냅
+                    if (float.IsNaN(currentBaseYawOffset) || Mathf.Abs(currentBaseYawOffset) > 360f)
+                    {
+                        currentBaseYawOffset = targetBaseYawOffsetGoal;
+                        Debug.LogWarning("[WorldCameraManager] currentBaseYawOffset 발산 감지 — 강제 스냅");
+                    }
                 }
 
                 yield return null;
@@ -469,6 +569,15 @@ namespace TDA.World
             if (stance.focusTargets != null && stance.focusTargets.Count > 0)
             {
                 currentTargetBiasWeight = stance.focusTargets[stance.focusTargets.Count - 1].weight;
+            }
+
+            // [v3.9 핵심 버그 수정] SmoothDamp velocity 전부 리셋
+            // 락온 진입처럼 카메라 상태가 급격히 바뀔 때 이전에 쌓인 cameraVelocity /
+            // framingVelocity가 새 desiredPos 방향과 충돌하여 카메라가 수천만m 날아가는
+            // 폭발(SmoothDamp divergence) 현상을 원천 차단합니다.
+            if (localPlayerCamera != null)
+            {
+                localPlayerCamera.ResetVelocities();
             }
 
             // 상태 즉시 적용 시 히스토리 기록 (객체 레퍼런스 전달)

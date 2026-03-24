@@ -66,10 +66,12 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    actionPositionDamping: 0.001
-    actionRotationDamping: 0.02
-  canBeInterruptedByInput: 0
+    actionPositionDamping: 0.12
+    actionRotationDamping: 0.12
+  canBeInterruptedByInput: 1
   canBeInterruptedByDamage: 0
   restoreToDefaultStanceOnFinish: 1
-  restoreBlendDuration: 0.3
+  restorePreviousAngle: 1
+  restoreBlendDuration: 0.5
+  restoreAngleSpeed: 3
   pauseOnApply: 0

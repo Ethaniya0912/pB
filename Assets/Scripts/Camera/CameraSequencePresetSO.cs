@@ -75,6 +75,9 @@ namespace TDA.Cameras
         [Tooltip("시퀀스 진입 직전의 절대 앵글(Pitch, Yaw)을 기억했다가 종료 시 원래 각도로 되돌립니다. (공격 후 엉뚱한 곳을 바라보는 시점 틀어짐 방지)")]
         public bool restorePreviousAngle = false;
 
+        [Tooltip("restorePreviousAngle 사용 시, 이전 각도로 복귀하는 보간 속도입니다. 클수록 빠르고 작을수록 부드럽습니다. (기본 3.0 → 약 0.8초에 95% 수렴)")]
+        [Range(0.5f, 15f)] public float restoreAngleSpeed = 3.0f;
+
         [Header("Debug Control (Safe-net)")]
         [Tooltip("디버그 모드일 때, 이 시퀀스가 시작되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
         public bool pauseOnApply = false;

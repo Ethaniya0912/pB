@@ -48,23 +48,73 @@ MonoBehaviour:
   cameraObject: {fileID: 8182103954360668382}
   player: {fileID: 0}
   cameraPivotTransform: {fileID: 441261574821470970}
+  defaultCameraDistance: 2.5
+  mouseSensitivity: 1
   leftAndRightRotationSpeed: 22
   upAndDownRotationSpeed: 44
   minimumPivot: -30
   maximumPivot: 60
+  cameraRotationDampTime: 0.05
+  maxViewAngle: 60
+  enableAutoCenterOnMove: 1
+  enableAutoCenterOnIdle: 1
+  idleAutoCenterDelay: 5
+  autoCenterSpeed: 2
+  showViewAngleGizmos: 1
+  showDebugLogs: 1
+  bypassCollisionForDebug: 0
+  lastCallerReason: "System Init (\uCD5C\uCD08 \uC2E4\uD589)"
+  debugRawZ: 0
+  debugTargetZ: 0
+  debugActualZ: 0
+  lastCollisionObjectName: None
+  dbg_isLockedOn: 0
+  dbg_isTargetEscaped: 0
+  dbg_isMagneticActive: 0
+  dbg_magneticPullStrength: 0
+  dbg_isStrafeRight: 0
+  dbg_yawFrozen: 0
+  dbg_leftAndRightLookAngle: 0
+  dbg_finalRenderYaw: 0
+  dbg_playerBodyYaw: 0
+  dbg_bodyToCamDiff: 0
+  dbg_currentFramingOffsetX: 0
+  dbg_currentFramingYawOffset: 0
+  dbg_trackingWeight: 0
+  dbg_noInputTimer: 0
+  dbg_mouseViewport: {x: 0, y: 0}
+  dbg_mouseAtEdgeX: 0
+  dbg_mouseAtEdgeY: 0
+  dbg_edgeThreshold: 0.08
+  dbg_targetViewportPos: {x: 0, y: 0, z: 0}
+  dbg_lockOnState: UNLOCKED
+  dbg_framingState: IDLE
+  dbg_magneticState: INACTIVE
+  dbg_targetDist: 0
+  dbg_softCorrectionSpeed: 0
+  dbg_edgePanActive: 0
+  dbg_edgePanReturnProgress: 0
+  dbg_smoothedEdgeInputX: 0
+  dbg_smoothedEdgeInputY: 0
+  targetCameraFPS: 24
+  enableFrameDecoupling: 0
+  staminaExhaustionMultiplier: 2.5
+  movementBobbingAmount: 1.2
+  deadzoneRadius: {x: 0.25, y: 0.25}
+  magneticPullSpeed: 5
+  cameraSmoothSpeed: 0.1
   cameraCollisionRadius: 0.5
+  minimumCollisionOffset: 0.2
+  bodyAvoidanceOffset: {x: 0.4, y: 0.2}
+  avoidanceThreshold: 1.2
   collideWithLayers:
     serializedVersion: 2
     m_Bits: 1
-  leftAndRightLookAngle: 0
-  upAndDownLookAngle: 0
+  characterCollisionLayers:
+    serializedVersion: 2
+    m_Bits: 0
   lockOnRadius: 20
-  minimumViewableAngle: -50
   maximumViewableAngle: 50
-  lockOnTargetFollowSpeed: 0.2
-  setCameraHeightSpeed: 1
-  unlockedCameraHeight: 1.65
-  lockedCameraHeight: 2
   nearestLockOnTarget: {fileID: 0}
   leftLockOnTarget: {fileID: 0}
   rightLockOnTarget: {fileID: 0}

@@ -991,6 +991,8 @@ MonoBehaviour:
   backward_Medium_Damage_Hashes: 
   left_Medium_Damage_Hashes: 
   right_Medium_Damage_Hashes: 
+  enableAnimationFramerateLimit: 0
+  targetAnimationFPS: 30
 --- !u!114 &287085065434700163
 MonoBehaviour:
   m_ObjectHideFlags: 0

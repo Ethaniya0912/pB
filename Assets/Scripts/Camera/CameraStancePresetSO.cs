@@ -152,6 +152,16 @@ namespace TDA.Cameras
 
         [Tooltip("락온 중 마우스/스틱 조작 시 무시할 입력의 크기 (일반 회전 억제용)")]
         public float lockOnInputDeadzone;
+
+        // ── [v4.0 신규] 엣지 패닝 부드러움 & 복귀 파라미터 ──────────────────
+
+        [Tooltip("[v4.0] 엣지 발동 중 카메라 입력이 부드럽게 보간되는 시간입니다. " +
+                 "값이 클수록 시선 이동이 완만해집니다. (기본 0.12s, 문제4 대응)")]
+        [Range(0.02f, 0.8f)] public float edgePanSmoothTime;
+
+        [Tooltip("[v4.0] 마우스가 엣지 구역을 벗어났을 때 카메라가 원래 시점으로 " +
+                 "천천히 복귀하는 데 걸리는 시간입니다. (기본 0.8s, 문제3 대응)")]
+        [Range(0.1f, 3.0f)] public float edgePanReturnTime;
     }
 
     [Serializable]
@@ -184,8 +194,40 @@ namespace TDA.Cameras
 
         [Tooltip("[A/D조작 페널티 극복] 유저 이동 입력에 의해 앵글이 꺾이며 회복되는 강도 (기본 1.0)")]
         public float strafeRecoveryWeight;
+
+        // ── [Implementation Spec] 신규 파라미터 ─────────────────────────────
+
+        [Tooltip("[소프트 보정] 타겟 화면 복귀 시 보간 기본 속도. 클수록 빠르게 보정됩니다. (기본 2.0)")]
+        [Range(0.1f, 15f)] public float softRecoverySpeed;
+
+        [Tooltip("[Hysteresis] 타겟이 화면 안으로 들어와도 이 시간(초) 동안 escape 상태를 유지합니다. 경계 펄럭임 방지용. (기본 0.25s)")]
+        [Range(0f, 2f)] public float escapePersistTime;
+
+        [Tooltip("[수직 복귀] 위아래 엣지패닝 후 이동 중 기본 Pitch(fixedPitchAngle)로 복귀하는 속도. 0이면 복귀 없음. (기본 1.0)")]
+        [Range(0f, 5f)] public float pitchReturnSpeed;
+        // ─────────────────────────────────────────────────────────────────────
     }
 
+
+    // ============================================================
+    // [Implementation Spec 신규] 다중 타겟 동적 프레이밍 파라미터
+    // ============================================================
+    [Serializable]
+    public struct MultiTargetFramingData
+    {
+        [Tooltip("플레이어 기준 이 반경(m) 안에 있는 적만 동적 포커싱 가산 대상으로 포함합니다. (기본 12m)")]
+        [Range(1f, 50f)] public float focusDetectionRadius;
+
+        [Tooltip("뷰포트 안에 있는 주변 적 1명당 포커싱 중심에 기여하는 가중치. 락온 타겟 weight와 합산됩니다. (기본 0.2)")]
+        [Range(0f, 1f)] public float proximityEnemyWeight;
+
+        [Tooltip("포커싱 피벗 이동의 SmoothDamp 완충 시간. 클수록 부드럽고 느린 전환이 됩니다. (기본 0.35s)")]
+        [Range(0.05f, 3f)] public float focusDampTime;
+
+        [Tooltip("SO focusTargets 고정 타겟들의 weight 스케일 배수. 1.0이면 SO 설정값 그대로, 0이면 고정 타겟 무시. (기본 1.0)")]
+        [Range(0f, 1f)] public float staticTargetWeightScale;
+    }
+    // ============================================================
 
     /// <summary>
     /// [1계층 SO] 특정 찰나(Shot)에 카메라가 머물러야 할 시각적, 공간적, 감각적 설정값을 담는 순수 데이터 컨테이너입니다.
@@ -250,6 +292,15 @@ namespace TDA.Cameras
         [Tooltip("화면에 담을 여러 타겟(플레이어, 보스 등)과 각 타겟별 개별 가중치(Weight)를 리스트로 관리합니다.")]
         public List<TargetWeightInfo> focusTargets = new List<TargetWeightInfo>();
 
+        [Tooltip("다중 타겟 동적 프레이밍의 탐지 반경, 가중치, 보간 속도 파라미터 모음입니다.")]
+        public MultiTargetFramingData multiTargetFraming = new MultiTargetFramingData
+        {
+            focusDetectionRadius = 12f,
+            proximityEnemyWeight = 0.2f,
+            focusDampTime = 0.35f,
+            staticTargetWeightScale = 1.0f
+        };
+
         // =========================================================================================
         // 🚨 [고도화 시스템 데이터 세팅] 
         // =========================================================================================
@@ -260,7 +311,9 @@ namespace TDA.Cameras
         {
             useEdgePanning = false,
             edgePanThreshold = 0.1f,
-            lockOnInputDeadzone = 0.5f
+            lockOnInputDeadzone = 0.5f,
+            edgePanSmoothTime = 0.12f,
+            edgePanReturnTime = 0.8f
         };
 
         [Header("시야 이탈 페널티 (Target Escape Penalty)")]
@@ -270,7 +323,10 @@ namespace TDA.Cameras
             enableTargetEscapePenalty = false,
             targetEscapeViewportThreshold = 0.1f,
             useHardCorrection = false,
-            strafeRecoveryWeight = 1.0f
+            strafeRecoveryWeight = 1.0f,
+            softRecoverySpeed = 2.0f,
+            escapePersistTime = 0.25f,
+            pitchReturnSpeed = 1.0f
         };
 
         [Header("이동 입력 동기화 (Dynamic Input Modifier)")]

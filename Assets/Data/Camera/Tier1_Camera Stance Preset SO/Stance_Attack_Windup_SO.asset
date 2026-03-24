@@ -32,7 +32,7 @@ MonoBehaviour:
     rightStrafeMaxOffset: -1
     holdLeftStrafe: 1
     holdRightStrafe: 1
-    leftStrafeYaw: -20
+    leftStrafeYaw: -21.600037
     rightStrafeYaw: 0
     dynamicYawWeight: 1
     leftFramingDelay: 1
@@ -44,11 +44,48 @@ MonoBehaviour:
     weight: 0.3
   - target: 4
     weight: 0.7
+  multiTargetFraming:
+    focusDetectionRadius: 12
+    proximityEnemyWeight: 0.2
+    focusDampTime: 0.35
+    staticTargetWeightScale: 1
+  edgePanningData:
+    useEdgePanning: 1
+    edgePanThreshold: 0.12106681
+    lockOnInputDeadzone: 0.5
+  lockOnPenaltyData:
+    enableTargetEscapePenalty: 0
+    targetEscapeViewportThreshold: 0.1
+    useHardCorrection: 0
+    softCorrectionDistanceCurve:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    strafeRecoveryWeight: 1
+    softRecoverySpeed: 2
+    escapePersistTime: 0.25
+    pitchReturnSpeed: 1
+  dynamicInputModifier:
+    enableDynamicInputModifier: 0
+    fovModifierCurve:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    offsetZModifierCurve:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
   handheldEffect:
     enableHandheldEffect: 1
-    swayAmount: 10
+    swayAmount: 2
     swaySpeed: 1
-    bobbingAmount: 10
+    bobbingAmount: 0.5
   impactShake:
     enableShake: 0
     shakeIntensity: 0.5

@@ -19,7 +19,7 @@ MonoBehaviour:
   itemSizeWidth: 1
   itemSizeHeight: 1
   itemDescription: Old rusted broken great sword
-  weaponModel: {fileID: 449641753450697265, guid: e0c514489434548419a042ee047aa824,
+  weaponModel: {fileID: 449641753450697265, guid: 75a46e906b41ccb4ca6680b43e198472,
     type: 3}
   muscleReq: 0
   physicalDamage: 20

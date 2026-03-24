@@ -1916,7 +1916,8 @@ MonoBehaviour:
   currentWeaponBeingUsed: {fileID: 0}
   canComboWithMainHandWeapon: 0
   canComboWithOffHandWeapon: 0
-  lockOnStanceSO: {fileID: 0}
+  lockOnStanceSO: {fileID: 11400000, guid: 0f74c45d6a07c614c8c922e29ddec1a5, type: 2}
+  lockOnSequenceSO: {fileID: 11400000, guid: 5f4371b7b9d8ff246ab2f27da706dfdb, type: 2}
   lockOn_Input: 0
   lockOn_Left_Input: 0
   lockOn_Right_Input: 0
@@ -2166,6 +2167,8 @@ MonoBehaviour:
   backward_Medium_Damage_Hashes: 
   left_Medium_Damage_Hashes: 
   right_Medium_Damage_Hashes: 
+  enableAnimationFramerateLimit: 0
+  targetAnimationFPS: 30
   cameraTurnCompensationWeight: 0.6
 --- !u!114 &-3670508617966345933
 MonoBehaviour:
