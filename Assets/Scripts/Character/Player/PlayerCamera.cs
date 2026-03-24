@@ -1624,12 +1624,40 @@ namespace TDA.Character.Player
 
             float moveAmount = player.playerNetworkManager != null ? player.playerNetworkManager.animatorMoveAmountMovement.Value : 0f;
             float bobSpeed = 12f;
-            float bobX = Mathf.Sin(Time.time * bobSpeed) * movementBobbingAmount * moveAmount * bodycamWeight;
-            float bobY = Mathf.Abs(Mathf.Cos(Time.time * bobSpeed)) * movementBobbingAmount * moveAmount * bodycamWeight;
 
+            // ── [v4.1 버그 수정] Bobbing 계산 오류 2가지 ─────────────────────────────
+            //
+            // 버그 1 — bobY를 Pitch(x회전)에 빼고 있었음
+            //   Quaternion.Euler(swayX - bobY, ...)에서 x = Pitch(상하 기울기)
+            //   보빙은 "카메라 위치의 위아래 이동"이어야 하는데
+            //   Pitch 회전으로 적용되면 "카메라가 발쪽을 바라보는 방향으로 꺾임"
+            //   → 플레이어가 좌측에 있으면 Pitch+Yaw 합성으로 대각선 방향으로 꺾임 (증상 1)
+            //   → 플레이어가 중앙에 있으면 발쪽으로 위아래로 꺾임 (증상 2)
+            //
+            // 버그 2 — Mathf.Abs(Mathf.Cos(...)) → 항상 양수(0~1)
+            //   아래 방향으로만 당겨지고 위아래 대칭이 없음 → 발쪽 침강 현상
+            //
+            // 수정:
+            //   bobX: Pitch 회전에서 제거 → 좌우 흔들림은 Y축 위치로
+            //   bobY: cameraPivotTransform.localPosition의 Y 오프셋으로 이관
+            //         (Pitch 회전 대신 카메라 피벗 위치가 위아래로 움직임)
+            //   bobY 계산: Abs(Cos) → Sin 기반으로 교체하여 위아래 대칭 보빙
+            // ─────────────────────────────────────────────────────────────────────────
+
+            // bobX: 좌우 머리 흔들림 → Y축(Yaw 방향) 회전에만 사용 (기존 유지)
+            float bobX = Mathf.Sin(Time.time * bobSpeed)
+                         * movementBobbingAmount * moveAmount * bodycamWeight;
+
+            // bobY: 위아래 보빙 → Pitch 회전이 아닌 localPosition.y 오프셋으로 사용
+            // Sin을 사용해 위아래 대칭 보빙 (기존 Abs(Cos)는 항상 양수라 발쪽으로만 쏠렸음)
+            float bobY = Mathf.Sin(Time.time * bobSpeed * 2f)
+                         * movementBobbingAmount * 0.5f * moveAmount * bodycamWeight;
+
+            // bodycamRot: Pitch(X) 회전에서 bobY 완전 제거
+            // swayX(핸드헬드 수전증 Pitch)만 남기고 bobY는 아래에서 위치로 처리
             Quaternion bodycamRot = Quaternion.Euler(
-                swayX - bobY,
-                swayY + bobX,
+                swayX,                         // ← bobY 제거 (버그 수정)
+                swayY + bobX * 0.5f,           // 좌우 흔들림은 소폭 Yaw에만
                 swayZ + (bobX * 0.3f) + zTilt
             );
 
@@ -1652,7 +1680,13 @@ namespace TDA.Character.Player
             }
 
             transform.rotation = baseRotation * bodycamRot;
-            cameraPivotTransform.localPosition = shakeOffset;
+
+            // bobY를 cameraPivotTransform.localPosition.y 오프셋으로 적용
+            // → 카메라 피벗 자체가 위아래로 이동 (Pitch 회전 없이 순수한 위치 보빙)
+            // shakeOffset.y 와 합산하여 Shake와 Bobbing이 함께 작동
+            Vector3 pivotOffset = shakeOffset;
+            pivotOffset.y += bobY;
+            cameraPivotTransform.localPosition = pivotOffset;
         }
         #endregion
 
@@ -2087,7 +2121,7 @@ namespace TDA.Character.Player
             GUI.color = Color.white;
 
             GUI.Label(new Rect(radarX + radarSize + 6f, radarY, 200f, lineH * 4f),
-                "■ 빨간영역: 엣지 발동 구간 ● 도트: 현재 커서 위치 (초록: 엣지 발동 중) (청색: 일반 구역)", labelStyle);
+                "■ 빨간영역: 엣지 발동 구간● 도트: 현재 커서 위치(초록: 엣지 발동 중)(청색: 일반 구역)", labelStyle);
 
             y += radarSize + 8f + sectionGap;
 

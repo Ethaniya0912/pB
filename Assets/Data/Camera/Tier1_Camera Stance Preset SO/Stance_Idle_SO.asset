@@ -29,21 +29,28 @@ MonoBehaviour:
   inheritDynamicFraming: 1
   dynamicFraming:
     leftStrafeMaxOffset: 1
-    rightStrafeMaxOffset: -1
+    rightStrafeMaxOffset: 0
     holdLeftStrafe: 1
     holdRightStrafe: 1
     leftStrafeYaw: -15
-    rightStrafeYaw: 10
+    rightStrafeYaw: 0
     dynamicYawWeight: 1
     leftFramingDelay: 1
     rightFramingDelay: 1
     centerReturnDelay: 10
     forwardBackwardReturnTime: 5
   focusTargets: []
+  multiTargetFraming:
+    focusDetectionRadius: 12
+    proximityEnemyWeight: 0.2
+    focusDampTime: 0.35
+    staticTargetWeightScale: 1
   edgePanningData:
     useEdgePanning: 0
     edgePanThreshold: 0.1
     lockOnInputDeadzone: 0.5
+    edgePanSmoothTime: 0.12
+    edgePanReturnTime: 0.8
   lockOnPenaltyData:
     enableTargetEscapePenalty: 0
     targetEscapeViewportThreshold: 0.1
@@ -73,6 +80,9 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
     strafeRecoveryWeight: 1
+    softRecoverySpeed: 2
+    escapePersistTime: 0.25
+    pitchReturnSpeed: 1
   dynamicInputModifier:
     enableDynamicInputModifier: 0
     fovModifierCurve:

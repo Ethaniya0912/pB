@@ -49,35 +49,35 @@ namespace TDA.Character
         [HideInInspector] public List<int> right_Medium_Damage_Hashes = new List<int>();
 
         // =========================================================================================
-        // 스톱모션(스파이더버스) 프레임 제한 — 수정된 구현
+        // 애니메이션 프레임 제한 (Animation Framerate Limiter)
         //
-        // ❌ 기존 문제점 3가지:
-        //   1. animator.enabled = false → 모든 Animator API(SetTrigger, CrossFade 등) 무효화.
-        //      PlayTargetActionFunnel / HitReactionFunnel 이 아예 동작하지 않는다.
-        //   2. animator.Update(animationFrameTimer) — 누적 시간을 넘겨서 한 번에 큰 값이 들어감.
-        //      animator.Update()는 '이 스텝에서 진행할 델타'를 받아야 한다.
-        //   3. enabled=false 상태에서 Update() 호출 → Unity 버전에 따라 무시되거나 에러 발생.
+        // 구현 원리 — speed 0/1 토글 방식:
+        //   animator.speed = 0f : 이 프레임은 애니메이션 진행 안 함 (정지)
+        //   animator.speed = 1f : 이 프레임은 정상 속도로 한 스텝 진행
         //
-        // ✅ 올바른 방법:
-        //   - animator.enabled 는 절대 건드리지 않는다.
-        //   - animator.speed = 0f 로 자동 진행을 멈춘다.
-        //     → SetFloat / SetTrigger / CrossFade 등은 speed=0에서도 정상 동작.
-        //     → NGO NetworkAnimator 동기화도 유지된다.
-        //   - 목표 간격(frameInterval)마다 animator.Update(frameInterval)을 수동 호출.
-        //     → 넘기는 값이 항상 일정해서 모션 속도가 균일하게 끊긴다.
+        //   매 프레임 타이머 += deltaTime
+        //   타이머 >= frameInterval(1/targetFPS) → speed=1, 타이머 -= frameInterval
+        //   그 외 → speed=0
+        //
+        //   → 게임 FPS와 무관하게 목표 FPS로만 애니메이션이 스텝됨
+        //   → speed=1 구간에서 SetTrigger/CrossFade 등 모든 Animator API 정상 동작
+        //   → NGO NetworkAnimator 동기화 유지
+        //
+        // ❌ 이전 버그 (animator.speed=0 + animator.Update() 조합):
+        //   Unity Animator.Update(dt)의 실제 진행량 = dt * animator.speed
+        //   speed=0이면 dt를 얼마를 넘겨도 진행량 = 0 → 캐릭터 완전 정지
         // =========================================================================================
-        [Header("Animation Framerate Limiter (Stop-motion Effect)")]
-        [Tooltip("애니메이션 프레임을 강제 제한하여 스톱모션 효과를 낼지 여부입니다.\n" +
-                 "물리·이동은 부드럽게 유지되고 팔다리 모션만 끊깁니다.")]
-        public bool enableAnimationFramerateLimit = false;
+        [Header("애니메이션 프레임 제한 (Framerate Limiter)")]
+        [Tooltip("켜면 애니메이션이 targetAnimationFPS로 끊겨 재생됩니다.물리·이동은 부드럽게 유지되고 모션만 제한됩니다.")]
+        public bool enableAnimationFramerateLimit = true;
 
-        [Tooltip("목표 애니메이션 FPS (예: 8=극단적 스톱모션, 12=스파이더버스, 24=필름)")]
+        [Tooltip("목표 애니메이션 FPS. 낮을수록 더 많이 끊겨 보입니다.(예: 8 = 극단적, 15 = 역동적, 30 = 기본)")]
         [Range(1, 60)]
         public int targetAnimationFPS = 30;
 
         // ── 내부 상태 ───────────────────────────────────────────────────────────────────
-        private float animationFrameTimer = 0f;   // 다음 수동 Update까지 남은 시간
-        private bool wasFramerateLimitEnabled = false; // 이전 프레임 활성화 여부 (전환 감지)
+        private float animationFrameTimer = 0f;
+        private bool wasFramerateLimitEnabled = false;
 
         // =========================================================================================
 
@@ -110,25 +110,25 @@ namespace TDA.Character
 
         // ─────────────────────────────────────────────────────────────────────────────────
         /// <summary>
-        /// 스톱모션 프레임 제한을 처리합니다.
+        /// 애니메이션 프레임 제한을 처리합니다.
         ///
-        /// 핵심 원리:
-        ///   - animator.speed = 0f  : Unity가 매 프레임 자동으로 애니메이션을 진행하는 것을 멈춤.
-        ///   - animator.Update(dt)  : 우리가 원하는 간격마다 정확히 frameInterval만큼 수동 진행.
-        ///   - 결과: 게임 FPS와 완전히 독립된 일정한 스텝으로 애니메이션이 끊긴다.
+        /// 구현 원리 — animator.speed 0/1 토글:
+        ///   타이머 >= frameInterval(1/targetFPS) 인 프레임에만 speed=1 로 세팅.
+        ///   그 외 프레임은 speed=0 으로 세팅.
+        ///   Unity가 이 프레임의 Animator를 자동 업데이트할 때
+        ///   speed=1이면 정상 진행, speed=0이면 정지되므로
+        ///   결과적으로 targetAnimationFPS 간격으로만 한 스텝씩 진행됩니다.
         ///
-        /// 주의: animator.enabled 는 절대 false로 바꾸지 않는다.
-        ///   → false가 되면 SetTrigger/SetFloat 등 모든 파라미터 API가 무효화된다.
+        /// 이전 버그 원인 (speed=0 + animator.Update() 조합):
+        ///   Animator.Update(dt)의 실제 진행량 = dt × animator.speed
+        ///   speed=0 상태에서는 dt를 얼마를 넘겨도 진행량이 0이므로 캐릭터가 완전 정지.
         /// </summary>
         private void HandleAnimationFramerateLimit()
         {
             if (enableAnimationFramerateLimit)
             {
-                // 방금 활성화됐을 때만 초기화
                 if (!wasFramerateLimitEnabled)
                 {
-                    // ✅ speed=0: 자동 진행 멈춤. enabled는 true 유지 → API 정상 동작
-                    character.animator.speed = 0f;
                     animationFrameTimer = 0f;
                     wasFramerateLimitEnabled = true;
                 }
@@ -139,26 +139,23 @@ namespace TDA.Character
 
                 if (animationFrameTimer >= frameInterval)
                 {
-                    // ✅ Update()에는 '이 스텝에서 진행할 정확한 델타'를 넘긴다.
-                    //    frameInterval로 고정해야 모션 속도가 균일하게 유지된다.
-                    //    (animationFrameTimer를 넘기면 누적값이 들어가 속도가 불균일해진다.)
-                    character.animator.Update(frameInterval);
-
-                    // 자투리 시간을 보존해 다음 스텝 타이밍이 밀리지 않도록 처리
+                    // 이 프레임에서 한 스텝 진행
+                    character.animator.speed = 1f;
                     animationFrameTimer -= frameInterval;
 
-                    // 만약 한 프레임에 여러 스텝이 쌓였다면 (예: 히치로 deltaTime이 매우 큼)
-                    // 누적 스텝을 모두 소화한다 (드롭 없이 처리)
-                    while (animationFrameTimer >= frameInterval)
-                    {
-                        character.animator.Update(frameInterval);
-                        animationFrameTimer -= frameInterval;
-                    }
+                    // 큰 deltaTime으로 타이머가 쌓여도 한 프레임에 한 스텝만 허용.
+                    // 초과분은 다음 프레임 타이머로 자연스럽게 이월됩니다.
+                    if (animationFrameTimer >= frameInterval)
+                        animationFrameTimer = frameInterval - 0.0001f;
+                }
+                else
+                {
+                    // 아직 간격 미도달 → 이 프레임은 정지
+                    character.animator.speed = 0f;
                 }
             }
             else
             {
-                // 비활성화 전환 시 speed를 1로 복원
                 if (wasFramerateLimitEnabled)
                 {
                     character.animator.speed = 1f;
