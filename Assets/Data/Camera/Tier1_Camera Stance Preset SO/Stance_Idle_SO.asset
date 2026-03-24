@@ -134,7 +134,7 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
   handheldEffect:
-    enableHandheldEffect: 1
+    enableHandheldEffect: 0
     swayAmount: 0.3
     swaySpeed: 1
     bobbingAmount: 0.3

@@ -53,6 +53,10 @@ MonoBehaviour:
     useEdgePanning: 1
     edgePanThreshold: 0.08
     lockOnInputDeadzone: 0.04
+    edgePanSmoothTime: 0.12
+    edgePanReturnTime: 0.8
+    lockOnInitialFramingOffset: 0.8
+    lockOnInitialFramingBlendTime: 0.3
   lockOnPenaltyData:
     enableTargetEscapePenalty: 1
     targetEscapeViewportThreshold: 0.08
@@ -109,7 +113,7 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
   handheldEffect:
-    enableHandheldEffect: 1
+    enableHandheldEffect: 0
     swayAmount: 0.1
     swaySpeed: 0.5
     bobbingAmount: 1.2

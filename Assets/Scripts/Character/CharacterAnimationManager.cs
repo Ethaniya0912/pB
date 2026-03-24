@@ -68,8 +68,8 @@ namespace TDA.Character
         //   speed=0이면 dt를 얼마를 넘겨도 진행량 = 0 → 캐릭터 완전 정지
         // =========================================================================================
         [Header("애니메이션 프레임 제한 (Framerate Limiter)")]
-        [Tooltip("켜면 애니메이션이 targetAnimationFPS로 끊겨 재생됩니다.물리·이동은 부드럽게 유지되고 모션만 제한됩니다.")]
-        public bool enableAnimationFramerateLimit = true;
+        [Tooltip("켜면 애니메이션이 targetAnimationFPS로 끊겨 재생됩니다. 물리·이동은 부드럽게 유지되고 모션만 제한됩니다.")]
+        public bool enableAnimationFramerateLimit = false;
 
         [Tooltip("목표 애니메이션 FPS. 낮을수록 더 많이 끊겨 보입니다.(예: 8 = 극단적, 15 = 역동적, 30 = 기본)")]
         [Range(1, 60)]
@@ -112,16 +112,20 @@ namespace TDA.Character
         /// <summary>
         /// 애니메이션 프레임 제한을 처리합니다.
         ///
-        /// 구현 원리 — animator.speed 0/1 토글:
-        ///   타이머 >= frameInterval(1/targetFPS) 인 프레임에만 speed=1 로 세팅.
-        ///   그 외 프레임은 speed=0 으로 세팅.
-        ///   Unity가 이 프레임의 Animator를 자동 업데이트할 때
-        ///   speed=1이면 정상 진행, speed=0이면 정지되므로
-        ///   결과적으로 targetAnimationFPS 간격으로만 한 스텝씩 진행됩니다.
+        /// 구현 원리 — speed 보정 토글 방식:
         ///
-        /// 이전 버그 원인 (speed=0 + animator.Update() 조합):
-        ///   Animator.Update(dt)의 실제 진행량 = dt × animator.speed
-        ///   speed=0 상태에서는 dt를 얼마를 넘겨도 진행량이 0이므로 캐릭터가 완전 정지.
+        ///   [정지 프레임] speed = 0  → 이 프레임은 애니메이션 진행 없음
+        ///   [진행 프레임] speed = frameInterval / Time.deltaTime  (재생속도 보정)
+        ///
+        ///   보정 계산 이유:
+        ///     Unity Animator는 speed=1일 때 매 프레임 Time.deltaTime 만큼 진행합니다.
+        ///     60fps(dt≈0.0167s), targetFPS=30(frameInterval=0.0333s)이면
+        ///     speed=1로 세팅해도 실제 진행량 = 0.0167s (frameInterval의 절반만 진행 → 느려짐).
+        ///
+        ///     speed = frameInterval / dt = 0.0333 / 0.0167 ≈ 2.0 으로 세팅하면
+        ///     실제 진행량 = dt × speed = 0.0167 × 2.0 = 0.0333s (= 1/targetFPS, 정확히 한 스텝).
+        ///
+        ///     → 게임 FPS와 무관하게 재생 속도가 항상 원본과 동일하게 유지됩니다.
         /// </summary>
         private void HandleAnimationFramerateLimit()
         {
@@ -131,6 +135,7 @@ namespace TDA.Character
                 {
                     animationFrameTimer = 0f;
                     wasFramerateLimitEnabled = true;
+                    character.animator.speed = 0f;
                 }
 
                 animationFrameTimer += Time.deltaTime;
@@ -139,12 +144,17 @@ namespace TDA.Character
 
                 if (animationFrameTimer >= frameInterval)
                 {
-                    // 이 프레임에서 한 스텝 진행
-                    character.animator.speed = 1f;
+                    // 재생속도 보정: 이 한 프레임에 정확히 frameInterval만큼 진행되도록 speed 조정
+                    // dt가 작으면 speed를 높이고, dt가 크면 낮춰서 항상 정확한 스텝 크기 유지
+                    float compensatedSpeed = (Time.deltaTime > 0.0001f)
+                        ? frameInterval / Time.deltaTime
+                        : 1f;
+                    character.animator.speed = compensatedSpeed;
+
                     animationFrameTimer -= frameInterval;
 
-                    // 큰 deltaTime으로 타이머가 쌓여도 한 프레임에 한 스텝만 허용.
-                    // 초과분은 다음 프레임 타이머로 자연스럽게 이월됩니다.
+                    // 히치 등으로 타이머가 쌓인 경우 한 프레임에 한 스텝만 처리.
+                    // 남은 초과분은 다음 프레임으로 이월 (누적 드롭 방지)
                     if (animationFrameTimer >= frameInterval)
                         animationFrameTimer = frameInterval - 0.0001f;
                 }

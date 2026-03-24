@@ -162,6 +162,17 @@ namespace TDA.Cameras
         [Tooltip("[v4.0] 마우스가 엣지 구역을 벗어났을 때 카메라가 원래 시점으로 " +
                  "천천히 복귀하는 데 걸리는 시간입니다. (기본 0.8s, 문제3 대응)")]
         [Range(0.1f, 3.0f)] public float edgePanReturnTime;
+
+        // ── [v4.4 신규] 락온 진입 시 초기 프레이밍 ─────────────────────────────────
+
+        [Tooltip("[v4.4] 락온 진입 순간 카메라가 자동으로 잡아주는 초기 X축 프레이밍 오프셋입니다.\n" +
+                 "양수 = 플레이어가 화면 좌측, 타겟이 중앙~우측 구도 (기본 0 = 변경 없음)\n" +
+                 "예: 0.6 이면 플레이어가 좌측으로 밀리고 우측에 공간이 생깁니다.")]
+        public float lockOnInitialFramingOffset;
+
+        [Tooltip("[v4.4] 락온 진입 시 초기 프레이밍이 목표값까지 도달하는 보간 시간(초)입니다.\n" +
+                 "0이면 즉시 스냅, 0.3~0.6이면 자연스럽게 슬라이드 됩니다. (기본 0.3s)")]
+        [Range(0f, 2f)] public float lockOnInitialFramingBlendTime;
     }
 
     [Serializable]
@@ -313,7 +324,9 @@ namespace TDA.Cameras
             edgePanThreshold = 0.1f,
             lockOnInputDeadzone = 0.5f,
             edgePanSmoothTime = 0.12f,
-            edgePanReturnTime = 0.8f
+            edgePanReturnTime = 0.8f,
+            lockOnInitialFramingOffset = 0f,    // [v4.4] 기본 0 = 진입 시 프레이밍 변경 없음
+            lockOnInitialFramingBlendTime = 0.3f   // [v4.4] 0.3s 보간
         };
 
         [Header("시야 이탈 페널티 (Target Escape Penalty)")]

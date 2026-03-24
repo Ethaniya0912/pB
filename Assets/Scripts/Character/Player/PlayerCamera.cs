@@ -203,8 +203,13 @@ namespace TDA.Character.Player
         private bool isEscapedStable = false;   // 단순 threshold 대신 Hysteresis가 적용된 안정적 이탈 상태
         private float escapeHoldTimer = 0f;      // 타겟 재진입 후 escaped 유지 카운트다운 타이머
 
-        // [요구사항 2] 다중 타겟 포커싱 SmoothDamp velocity
-        private Vector3 focusPivotVelocity = Vector3.zero;
+        // [요구사항 2] 다중 타겟 포커싱 — Yaw 방향 보정 방식으로 재설계 (v4.4)
+        // 기존: desiredPos(카메라 위치)를 finalCenter(적 중간 위치)로 SmoothDamp
+        //       → 카메라가 플레이어에서 떨어지고 매 프레임 리셋되며 충돌 → 4.3m/s 진동
+        // 신규: leftAndRightLookAngle(Yaw)만 finalCenter 방향으로 SmoothDamp
+        //       → 위치는 건드리지 않고 바라보는 방향만 조정 → 루프 없음
+        private Vector3 focusPivotVelocity = Vector3.zero; // 레거시 (더 이상 desiredPos 이동에 쓰지 않음)
+        private float focusYawVelocity = 0f;           // [v4.4] Yaw 보정 SmoothDamp velocity
 
         // ── [v4.1] MagneticSoftLock 진동 방지용 변수 ─────────────────────────────
         // 원인 1: pullStrength가 데드존 경계 근처에서 0↔0.03으로 진동 → Hysteresis로 안정화
@@ -222,6 +227,17 @@ namespace TDA.Character.Player
         // 문제 1+2: 엣지 발동 여부를 명확히 추적 → 비발동 시 입력 완전 차단
         private bool isEdgePanActive = false;  // 현재 엣지 패닝 발동 중 여부
         private bool isEdgeReturning = false;  // 엣지 해제 후 복귀 진행 중 플래그 (HandleRotation 협조용)
+        // ── [v4.2 버그 수정] 게임 시작 시 복귀 오작동 방지 ─────────────────────────────
+        // 한 번이라도 엣지에 진입했다가 나온 경우에만 복귀를 허용.
+        // 초기값 false → 엣지 진입(false→true) 시 true로 설정.
+        // 이 플래그 없이는 게임 시작 직후 edgePanReturnTimer(0) < returnTime(0.8s) 조건이
+        // 참이 되어 isEdgeReturning=true가 되고, edgePanReturnYaw/Pitch=0을 목표로
+        // 카메라를 당겨서 걸을 때 위아래 떨림이 발생함.
+        private bool hadEdgePanEverActive = false;
+
+        // ── [v4.4 신규] 락온 진입 초기 프레이밍 ─────────────────────────────────────
+        private bool isLockOnInitialFramingActive = false; // 초기 프레이밍 진행 중 여부
+        private float lockOnInitialFramingTimer = 0f;    // 진행 타이머
 
         // 문제 3: 엣지 해제 후 카메라가 원래 시점으로 부드럽게 복귀
         private float edgePanReturnTimer = 0f;     // 복귀 진행 타이머 (0=완료)
@@ -580,7 +596,19 @@ namespace TDA.Character.Player
                     // 문제 1+2: 마우스가 엣지 구역에 있을 때만 카메라 이동. 비발동 시 입력 완전 차단.
                     // 문제 3:   엣지 구역 벗어났을 때 카메라가 진입 전 시점으로 부드럽게 복귀.
                     // 문제 4:   엣지 발동 중 입력을 SmoothDamp로 보간하여 시선 이동을 완만하게.
+                    //
+                    // [v4.4 문제 1 수정] useEdgePanning=false인 Stance에서도 락온 시 입력을 완전 차단.
+                    // 기존: useEdgePanning=false → else if 블록 자체가 실행 안 됨 → 마우스 입력 그대로 통과.
+                    // 수정: 락온 상태이면 useEdgePanning=false여도 기본적으로 입력 차단.
+                    //       useEdgePanning=true인 경우에만 엣지 구역에서 선택적 회전 허용.
                     // =========================================================================================
+                    else if (!stance.edgePanningData.useEdgePanning)
+                    {
+                        // useEdgePanning 꺼짐 + 락온 상태 → 마우스 입력 완전 차단
+                        // (락온 중 카메라는 Magnetic/AutoCenter가 제어하므로 유저 입력 불필요)
+                        finalMouseX = 0f;
+                        finalMouseY = 0f;
+                    }
                     else if (stance.edgePanningData.useEdgePanning)
                     {
                         Vector2 mouseViewport = cameraObject.ScreenToViewportPoint(Input.mousePosition);
@@ -589,8 +617,46 @@ namespace TDA.Character.Player
                         float returnTime = Mathf.Max(stance.edgePanningData.edgePanReturnTime, 0.1f);
 
                         // ── 엣지 발동 여부 판정 ─────────────────────────────────────────────
-                        bool isAtEdgeX = mouseViewport.x <= edgeThr || mouseViewport.x >= (1f - edgeThr);
-                        bool isAtEdgeY = mouseViewport.y <= edgeThr || mouseViewport.y >= (1f - edgeThr);
+                        // [v4.2] 마우스 화면 안/밖 처리 원칙:
+                        //
+                        //  ① 화면 안 일반구역 (0+thr ~ 1-thr):
+                        //     → 엣지 비발동, 복귀 허용
+                        //
+                        //  ② 화면 안 엣지구역 (0~thr 또는 1-thr~1):
+                        //     → 엣지 발동 (ACTIVE)
+                        //
+                        //  ③ 화면 밖 (x<0, x>1, y<0, y>1):
+                        //     → 해당 축 방향 엣지가 발동된 것으로 간주 (ACTIVE 유지)
+                        //     → "마우스를 더 세게 밀었을 뿐" = 여전히 이동 의도 있음
+                        //     → 이 경우 복귀하면 안 됨!
+                        //
+                        //  단, 게임 시작 직후(hadEdgePanEverActive=false)에 화면 밖인 경우는
+                        //  엣지 진입 이력이 없으므로 활성화하지 않음 (초기 오작동 방지)
+
+                        bool mouseOutLeft = mouseViewport.x < 0f;
+                        bool mouseOutRight = mouseViewport.x > 1f;
+                        bool mouseOutDown = mouseViewport.y < 0f;
+                        bool mouseOutUp = mouseViewport.y > 1f;
+                        bool mouseOutside = mouseOutLeft || mouseOutRight || mouseOutDown || mouseOutUp;
+
+                        // 화면 밖일 때: 이전에 엣지 진입 이력이 있으면 해당 방향 엣지 유지
+                        // (초기 오작동 방지: hadEdgePanEverActive가 false이면 화면 밖도 비활성)
+                        bool isAtEdgeX, isAtEdgeY;
+                        if (mouseOutside && hadEdgePanEverActive)
+                        {
+                            // 화면 밖 = 해당 방향 엣지 발동 유지
+                            isAtEdgeX = mouseOutLeft || mouseOutRight;
+                            isAtEdgeY = mouseOutDown || mouseOutUp;
+                            // 화면 밖인 경우 X/Y 중 실제로 넘어간 축만 true
+                            // (예: x=1.08 → isAtEdgeX=true, isAtEdgeY=false)
+                        }
+                        else
+                        {
+                            // 화면 안 또는 초기 상태: 일반 엣지 범위 체크
+                            bool mouseInScreen = !mouseOutside;
+                            isAtEdgeX = mouseInScreen && (mouseViewport.x <= edgeThr || mouseViewport.x >= (1f - edgeThr));
+                            isAtEdgeY = mouseInScreen && (mouseViewport.y <= edgeThr || mouseViewport.y >= (1f - edgeThr));
+                        }
                         bool newEdgeActive = isAtEdgeX || isAtEdgeY;
 
                         // ── 엣지 진입 직전 시점 스냅샷 ─────────────────────────────────────
@@ -603,6 +669,7 @@ namespace TDA.Character.Player
                             edgePanReturnVelYaw = 0f;
                             edgePanReturnVelPitch = 0f;
                             isEdgeReturning = false; // 엣지 재진입 시 복귀 취소
+                            hadEdgePanEverActive = true;  // 최초 진입 기록 → 이후 복귀 허용
                         }
 
                         isEdgePanActive = newEdgeActive;
@@ -648,15 +715,13 @@ namespace TDA.Character.Player
                                 smoothedEdgeInputY, 0f, ref edgePanInputVelY, smoothTime * 0.5f, 999f);
 
                             // ── [문제 3] 복귀 — HandleRotation()에 위임 ──────────────────────
-                            // 복귀 타이머가 아직 완료 전이라면 isEdgeReturning=true를 세팅.
-                            // HandleRotation()이 이 플래그를 보고 SmoothDampAngle로 처리.
-                            // (직접 각도를 쓰면 HandleRotation이 같은 프레임에 덮어쓰기 때문에 위임)
-                            if (edgePanReturnTimer < returnTime)
+                            // hadEdgePanEverActive: 한 번이라도 엣지에 진입한 적이 있어야만
+                            // 복귀 로직을 활성화합니다.
+                            // 게임 시작 직후에는 이 플래그가 false이므로 복귀가 발동되지 않습니다.
+                            if (hadEdgePanEverActive && edgePanReturnTimer < returnTime)
                             {
                                 edgePanReturnTimer += Time.deltaTime;
                                 isEdgeReturning = true;
-
-                                // 복귀 완료 판정 (각도 수렴 체크는 HandleRotation에서)
                             }
                             else
                             {
@@ -710,9 +775,52 @@ namespace TDA.Character.Player
             float currentYawDelayTime = 0.1f;
 
             // =========================================================================================
-            // 🚨 [패치 핵심] 다이내믹 프레이밍 보간 연산 (통합 및 상속 논리 개선)
+            // [v4.4] 락온 진입 초기 프레이밍 처리
+            // SO의 lockOnInitialFramingOffset 값으로 락온 진입 시 구도를 자동 설정합니다.
+            // 예: lockOnInitialFramingOffset=0.6 → 플레이어 좌측, 타겟 중앙~우측 구도
             // =========================================================================================
             CameraStancePresetSO activeStance = WorldCameraManager.Instance.currentStanceSO;
+
+            bool isLockedOnNow_framing = player.playerNetworkManager != null
+                                      && player.playerNetworkManager.isLockedOn.Value;
+
+            if (isLockedOnNow_framing && activeStance != null)
+            {
+                float initOffset = activeStance.edgePanningData.lockOnInitialFramingOffset;
+                float blendTime = activeStance.edgePanningData.lockOnInitialFramingBlendTime;
+
+                if (!isLockOnInitialFramingActive && Mathf.Abs(initOffset) > 0.001f)
+                {
+                    // 락온 진입 감지 → 초기 프레이밍 시작
+                    isLockOnInitialFramingActive = true;
+                    lockOnInitialFramingTimer = 0f;
+                }
+
+                if (isLockOnInitialFramingActive)
+                {
+                    if (blendTime < 0.001f)
+                    {
+                        // blendTime=0: 즉시 스냅
+                        currentFramingOffsetX = initOffset;
+                        framingVelocity = 0f;
+                        isLockOnInitialFramingActive = false;
+                    }
+                    else
+                    {
+                        lockOnInitialFramingTimer += Time.deltaTime;
+                        float t = Mathf.Clamp01(lockOnInitialFramingTimer / blendTime);
+                        currentFramingOffsetX = Mathf.Lerp(currentFramingOffsetX, initOffset, t);
+                        if (t >= 1f) isLockOnInitialFramingActive = false;
+                    }
+                }
+            }
+            else if (!isLockedOnNow_framing)
+            {
+                // 락온 해제 시 초기 프레이밍 상태 초기화
+                isLockOnInitialFramingActive = false;
+                lockOnInitialFramingTimer = 0f;
+            }
+            // =========================================================================================
 
             if (activeStance != null)
             {
@@ -919,7 +1027,17 @@ namespace TDA.Character.Player
             currentDynamicHeight = Mathf.SmoothDamp(currentDynamicHeight, targetVerticalOffset, ref dynamicHeightVelocity, heightSmoothTime);
 
             // =========================================================================================
-            // 캐릭터 몸통 축(Player Right) -> 카메라 시선 축(Camera Right)으로 오르빗 기준 변경
+            // 카메라 오르빗 위치(desiredPos) 계산
+            //
+            // [v4.3 루프A 차단] cameraRight를 leftAndRightLookAngle 기반으로 계산하면
+            // HandleMagneticSoftLock이 leftAndRightLookAngle을 수정할 때마다
+            // 다음 프레임 desiredPos가 바뀌어 FocusPivot velocity가 흔들리는
+            // FocusPivot ↔ Magnetic 무한 피드백 루프가 발생합니다.
+            //
+            // 해결: cameraRight를 이 프레임의 leftAndRightLookAngle(Magnetic이 수정하기 전 값)로
+            //       계산합니다. Magnetic의 각도 수정은 다음 프레임 ApplyDynamicYawAndClamp를
+            //       통해 렌더에만 반영되므로 desiredPos가 매 프레임 안정적으로 유지됩니다.
+            //       (이미 이 시점의 leftAndRightLookAngle = HandleRotation 직후 값 = 안정적)
             // =========================================================================================
             Quaternion cameraYawRot = Quaternion.Euler(0, leftAndRightLookAngle, 0);
             Vector3 cameraRight = cameraYawRot * Vector3.right;
@@ -988,14 +1106,57 @@ namespace TDA.Character.Player
                     }
                 }
 
-                // ③ 가중 평균 계산 후 SmoothDamp로 부드럽게 이동
+                // ③ [v4.4 재설계] FocusPivot — 위치 이동 → Yaw 방향 보정으로 완전 변경
+                //
+                // 기존 방식의 근본 설계 버그:
+                //   desiredPos(카메라 피벗 위치)를 finalCenter(적들의 월드 중간 지점)로 SmoothDamp
+                //   → 카메라 위치가 플레이어에서 멀어짐
+                //   → 다음 프레임 ①에서 desiredPos = massCenter + offset으로 다시 리셋
+                //   → SmoothDamp target(적 중간)과 source(리셋된 플레이어 옆)가 충돌
+                //   → velocity 4.3m/s가 영원히 수렴하지 않음 → 진동!
+                //
+                // 새 방식:
+                //   finalCenter 방향으로 Yaw(수평 각도)만 SmoothDamp로 보정
+                //   → 카메라 위치(transform.position, desiredPos)는 일절 건드리지 않음
+                //   → Yaw가 수렴하면 focusYawVelocity → 0 → 완전 정지
+                //   → 피드백 루프 없음
                 if (totalWeight > 0.001f)
                 {
                     Vector3 finalCenter = weightedCenter / totalWeight;
-                    float dampTime = Mathf.Max(mf.focusDampTime, 0.05f);
-                    desiredPos = Vector3.SmoothDamp(
-                        desiredPos, finalCenter,
-                        ref focusPivotVelocity, dampTime, 30f);
+                    finalCenter.y = desiredPos.y; // Y축 제외 (수평 방향만)
+
+                    // 카메라에서 finalCenter를 향하는 수평 방향 Yaw 계산
+                    // transform.position 대신 desiredPos 기준 (이 프레임의 목표 위치)
+                    Vector3 dirToCenter = finalCenter - desiredPos;
+                    dirToCenter.y = 0f;
+
+                    if (dirToCenter.sqrMagnitude > 0.01f) // 너무 가까우면 무시
+                    {
+                        float focusYawTarget = Mathf.Atan2(dirToCenter.x, dirToCenter.z) * Mathf.Rad2Deg;
+                        float focusDampTime = Mathf.Max(mf.focusDampTime, 0.3f);
+
+                        // Yaw를 finalCenter 방향으로 부드럽게 보정
+                        // Magnetic이 비활성 상태일 때만 적용 (Magnetic과 간섭 방지)
+                        bool magneticOff = !isMagneticActive;
+                        if (magneticOff)
+                        {
+                            leftAndRightLookAngle = Mathf.SmoothDampAngle(
+                                leftAndRightLookAngle, focusYawTarget,
+                                ref focusYawVelocity, focusDampTime);
+                        }
+                        else
+                        {
+                            // Magnetic 활성 중: Yaw는 Magnetic에 맡기고 velocity만 감쇠
+                            focusYawVelocity = Mathf.Lerp(focusYawVelocity, 0f, Time.deltaTime * 5f);
+                        }
+                    }
+                    else
+                    {
+                        focusYawVelocity = Mathf.Lerp(focusYawVelocity, 0f, Time.deltaTime * 10f);
+                    }
+
+                    // 레거시 velocity 초기화 (위치 이동 방식 제거됨)
+                    focusPivotVelocity = Vector3.zero;
                 }
             }
             else
@@ -1195,15 +1356,24 @@ namespace TDA.Character.Player
 
             bool isMoving = player.playerNetworkManager != null && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f;
 
-            // ── [v4.1 수정A+D] 락온 + 엣지패닝 모드에서 AutoCenter 차단 ──────────────────
-            // 문제 1 근본 원인: enableAutoCenterOnMove가 락온 상태에서도 작동해
-            // 플레이어 몸통 방향으로 카메라가 서서히 회전하는 현상 차단.
-            // 조건: 락온 중 + useEdgePanning ON + (엣지 비발동 OR 복귀 중)
+            // ── [v4.3 루프B 차단] AutoCenter — 락온 + Magnetic ACTIVE 시 완전 차단 ──────────
+            // [루프B] HandleRotation AutoCenter(각도→0)와 HandleMagneticSoftLock(각도→targetYaw)이
+            // 매 프레임 서로 반대 방향으로 당겨 각도가 진동합니다.
+            //
+            // 조건 확장:
+            //   - 기존: 락온 + useEdgePanning ON + 엣지 비발동
+            //   - 신규: 락온 + Magnetic ACTIVE 상태이면 useEdgePanning 여부와 무관하게 차단
+            //     → Magnetic이 이미 각도를 제어하므로 AutoCenter가 간섭하면 안 됩니다.
             CameraStancePresetSO stanceForAutoCenter = WorldCameraManager.Instance?.currentStanceSO;
-            bool blockAutoCenter = isLockedOnNow
-                                   && stanceForAutoCenter != null
-                                   && stanceForAutoCenter.edgePanningData.useEdgePanning
-                                   && (!isEdgePanActive || isEdgeReturning);
+            bool blockAutoCenter =
+                // 기존 조건: 락온 + 엣지패닝 모드
+                (isLockedOnNow
+                 && stanceForAutoCenter != null
+                 && stanceForAutoCenter.edgePanningData.useEdgePanning
+                 && (!isEdgePanActive || isEdgeReturning))
+                ||
+                // 신규 조건: 락온 + Magnetic ACTIVE (루프B 차단 핵심)
+                (isLockedOnNow && isMagneticActive);
 
             if (!blockAutoCenter)
             {
@@ -1482,7 +1652,12 @@ namespace TDA.Character.Player
             //         이 진동이 Pitch 자석을 통해 upAndDownLookAngle에 전달되어 줌인/아웃처럼 보임.
             // 수정: FocusPivot이 빠르게 움직이는 동안은 Pitch 자석 개입을 차단합니다.
             //       Yaw는 좌우 추적에 필수이므로 유지합니다.
-            bool focusPivotMoving = focusPivotVelocity.sqrMagnitude > 0.5f; // 0.7m/s 이상이면 이동 중
+            // [v4.3] FocusPivot 이동 중 판정 임계값 조정
+            // 기존 0.5(0.7m/s)는 너무 낮아 4.3m/s에서도 간헐적으로 Pitch 차단을 놓침.
+            // 실제 안정 상태(desiredPos 수렴 완료)에서 velocity≈0이므로
+            // 1.0(1.0m/s) 이상이면 이동 중으로 간주하여 확실히 차단합니다.
+            // [v4.4] FocusPivot 이동 중 판정 — Yaw velocity 기반
+            bool focusPivotMoving = Mathf.Abs(focusYawVelocity) > 2.0f;
 
             if (!focusPivotMoving)
             {
@@ -1498,13 +1673,12 @@ namespace TDA.Character.Player
             }
             // ─────────────────────────────────────────────────────────────────────
 
-            float playerBodyYaw = player.transform.eulerAngles.y;
-            float effectiveMaxViewAngle = Mathf.Lerp(179.9f, maxViewAngle, trackingWeight);
-
-            float angleDiff = Mathf.DeltaAngle(playerBodyYaw, leftAndRightLookAngle);
-            angleDiff = Mathf.Clamp(angleDiff, -effectiveMaxViewAngle, effectiveMaxViewAngle);
-            leftAndRightLookAngle = playerBodyYaw + angleDiff;
-
+            // [v4.3 루프C 차단] 이 함수 내부의 Yaw Clamp를 제거합니다.
+            // HandleRotation에서 이미 currentDiff = Clamp(currentDiff, ±maxViewAngle)을 수행하고,
+            // ApplyDynamicYawAndClamp에서 최종 렌더 Yaw를 다시 Clamp합니다.
+            // 여기서 세 번째로 Clamp하면 각도가 매 프레임 playerBodyYaw 기준으로 재계산되면서
+            // Magnetic의 SmoothDamp 결과가 덮어쓰여 잔류 오차가 발생합니다.
+            // Clamp 책임은 ApplyDynamicYawAndClamp 단독으로 위임합니다.
             return Quaternion.Euler(upAndDownLookAngle, leftAndRightLookAngle, 0);
         }
 
@@ -1644,14 +1818,16 @@ namespace TDA.Character.Player
             //   bobY 계산: Abs(Cos) → Sin 기반으로 교체하여 위아래 대칭 보빙
             // ─────────────────────────────────────────────────────────────────────────
 
-            // bobX: 좌우 머리 흔들림 → Y축(Yaw 방향) 회전에만 사용 (기존 유지)
+            // [v4.2 버그 2 수정] bobX/bobY 모두 bobbingAmount(SO 핸드헬드 값)을 사용.
+            // 기존에 movementBobbingAmount(SerializeField 고정값 1.2)를 직접 써서
+            // enableHandheldEffect=false여도 Bobbing이 항상 발생하던 문제 수정.
+            // bobbingAmount는 enableHandheldEffect=false이면 0이 들어오므로
+            // 핸드헬드 꺼짐 시 bobX/bobY 모두 0이 됩니다.
             float bobX = Mathf.Sin(Time.time * bobSpeed)
-                         * movementBobbingAmount * moveAmount * bodycamWeight;
+                         * bobbingAmount * moveAmount * bodycamWeight;
 
-            // bobY: 위아래 보빙 → Pitch 회전이 아닌 localPosition.y 오프셋으로 사용
-            // Sin을 사용해 위아래 대칭 보빙 (기존 Abs(Cos)는 항상 양수라 발쪽으로만 쏠렸음)
             float bobY = Mathf.Sin(Time.time * bobSpeed * 2f)
-                         * movementBobbingAmount * 0.5f * moveAmount * bodycamWeight;
+                         * bobbingAmount * 0.5f * moveAmount * bodycamWeight;
 
             // bodycamRot: Pitch(X) 회전에서 bobY 완전 제거
             // swayX(핸드헬드 수전증 Pitch)만 남기고 bobY는 아래에서 위치로 처리
@@ -1876,6 +2052,8 @@ namespace TDA.Character.Player
             // velocity ref 전부 초기화
             cameraVelocity = Vector3.zero;
             framingVelocity = 0f;
+            focusPivotVelocity = Vector3.zero;
+            focusYawVelocity = 0f;  // [v4.4]
             framingYawVelocity = 0f;
             playerYVelocity = 0f;
             dynamicHeightVelocity = 0f;
@@ -1895,6 +2073,9 @@ namespace TDA.Character.Player
             // [v4.0] 엣지 패닝 전용 velocity 및 상태 리셋
             isEdgePanActive = false;
             isEdgeReturning = false;
+            hadEdgePanEverActive = false; // 락온 해제·스탠스 전환 시 복귀 이력 초기화
+            isLockOnInitialFramingActive = false;
+            lockOnInitialFramingTimer = 0f;
             isMagneticActive = false;
             magneticYawVelocity = 0f;
             magneticPitchVelocity = 0f;
@@ -1964,7 +2145,7 @@ namespace TDA.Character.Player
             float panelW = 360f;
             float panelX = Screen.width - panelW - 8f;
             float y = 8f;
-            float lineH = 16f;
+            float lineH = 19f; // 한글 폰트 높이 보정 (기존 16f → 밑부분 잘림)
             float sectionGap = 6f;
 
             // ── [1] 락온 & 카메라 앵글 ────────────────────────────────────────
@@ -2050,8 +2231,10 @@ namespace TDA.Character.Player
                 isEscapedStable ? warnStyle : labelStyle); y += lineH;
 
             // [Implementation Spec] 다중 타겟 포커싱 상태
-            string focusStr = (focusPivotVelocity.sqrMagnitude > 0.001f)
-                ? $"  FocusPivot: ACTIVE (spd:{focusPivotVelocity.magnitude:F1}m/s)"
+            // [v4.4] FocusPivot은 이제 Yaw velocity 기준으로 표시
+            bool focusYawActive = Mathf.Abs(focusYawVelocity) > 0.1f;
+            string focusStr = focusYawActive
+                ? $"  FocusPivot: ACTIVE (yawVel:{focusYawVelocity:F2}°/s)"
                 : "  FocusPivot: IDLE";
             GUI.Label(new Rect(panelX, y, panelW, lineH), focusStr, labelStyle); y += lineH;
 
@@ -2083,16 +2266,20 @@ namespace TDA.Character.Player
                 ? "  ▶ EdgePan ACTIVE  (카메라 이동 중)"
                 : isEdgeReturning
                     ? "  ↩ EdgePan RETURNING (원래 시점 복귀 중)"
-                    : "  ■ EdgePan INACTIVE (카메라 잠금)";
+                    : hadEdgePanEverActive
+                        ? "  ■ EdgePan INACTIVE (잠금 / 진입 이력 있음)"
+                        : "  ■ EdgePan INACTIVE (잠금 / 미진입)";
             GUI.Label(new Rect(panelX, y, panelW, lineH), epActiveStr,
                 isEdgePanActive ? okStyle : isEdgeReturning ? warnStyle : neutralStyle); y += lineH;
 
-            if (!isEdgePanActive && edgePanReturnTimer < Mathf.Max(
-                WorldCameraManager.Instance?.currentStanceSO?.edgePanningData.edgePanReturnTime ?? 0f, 0f))
+            // 복귀중 표시: isEdgeReturning 플래그에만 의존 (타이머 조건 이중 체크 제거)
+            // 이전에 타이머 조건(!isEdgePanActive && timer < returnTime)을 따로 썼더니
+            // isEdgeReturning=false여도 타이머가 남아있으면 항상 "복귀 중" 표시됐던 문제 수정
+            if (isEdgeReturning)
             {
+                float epRT = WorldCameraManager.Instance?.currentStanceSO?.edgePanningData.edgePanReturnTime ?? 0.8f;
                 GUI.Label(new Rect(panelX, y, panelW, lineH),
-                    $"  ↩ 복귀 중... ({edgePanReturnTimer:F2}s / " +
-                    $"{(WorldCameraManager.Instance?.currentStanceSO?.edgePanningData.edgePanReturnTime ?? 0f):F2}s)",
+                    $"  ↩ 복귀 중... ({edgePanReturnTimer:F2}s / {epRT:F2}s)",
                     warnStyle); y += lineH;
             }
             GUI.Label(new Rect(panelX, y, panelW, lineH),
@@ -2121,7 +2308,8 @@ namespace TDA.Character.Player
             GUI.color = Color.white;
 
             GUI.Label(new Rect(radarX + radarSize + 6f, radarY, 200f, lineH * 4f),
-                "■ 빨간영역: 엣지 발동 구간● 도트: 현재 커서 위치(초록: 엣지 발동 중)(청색: 일반 구역)", labelStyle);
+                "■ 빨간영역: 엣지 발동 구간\n● 도트: 현재 커서 위치\n(초록: 엣지 발동 중)\n(청색: 일반 구역)",
+                new GUIStyle(labelStyle) { wordWrap = true });
 
             y += radarSize + 8f + sectionGap;
 
