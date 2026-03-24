@@ -1598,6 +1598,9 @@ MonoBehaviour:
   characterLocomotionManager: {fileID: 0}
   characterInventoryManager: {fileID: 0}
   characterIKController: {fileID: 0}
+  characterStatsManager: {fileID: 0}
+  characterEventManager: {fileID: 0}
+  characterDefenseManager: {fileID: 0}
   characterGroup: 0
   isPerformingAction: 0
   applyRootMotion: 0
@@ -1613,7 +1616,12 @@ MonoBehaviour:
   playerEquipmentManager: {fileID: 0}
   playerCombatManager: {fileID: 0}
   playerInteractionManager: {fileID: 0}
+  playerEventManager: {fileID: 0}
+  playerDefenseManager: {fileID: 0}
+  playerGestureManager: {fileID: 0}
   playerCamera: {fileID: 0}
+  isHoldingCloseGrip: 0
+  isHoldingFarGrip: 0
 --- !u!114 &7301172757607828420
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1639,6 +1647,8 @@ MonoBehaviour:
   currentWeaponBeingUsed: {fileID: 0}
   canComboWithMainHandWeapon: 0
   canComboWithOffHandWeapon: 0
+  lockOnStanceSO: {fileID: 0}
+  lockOnSequenceSO: {fileID: 0}
   lockOn_Input: 0
   lockOn_Left_Input: 0
   lockOn_Right_Input: 0
@@ -1671,6 +1681,13 @@ MonoBehaviour:
   inAirControl: 2
   isRolling: 0
   isRotationLockedByEvent: 0
+  animVerticalMovement: 0
+  animHorizontalMovement: 0
+  steeringSensitivity: 50
+  invertSteeringOnBackward: 1
+  alwaysFaceCameraForward: 1
+  groundCheckLeniency: 0.2
+  obstacleCheckDistance: 0.5
 --- !u!114 &5448602584735429050
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1881,6 +1898,9 @@ MonoBehaviour:
   backward_Medium_Damage_Hashes: 
   left_Medium_Damage_Hashes: 
   right_Medium_Damage_Hashes: 
+  enableAnimationFramerateLimit: 0
+  targetAnimationFPS: 30
+  cameraTurnCompensationWeight: 0.6
 --- !u!114 &-3670508617966345933
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1893,6 +1913,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dfb1fd88d119640478b790ff60df8d53, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rootAudioSource: {fileID: 0}
+  leftFootAudioSource: {fileID: 0}
+  rightFootAudioSource: {fileID: 0}
+  currentWeaponAudioSource: {fileID: 0}
   soundMappings: []
   globalMinInterval: 0.05
   breathingAudioSource: {fileID: 0}
@@ -2007,6 +2031,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bloodSplatterVFX: {fileID: 0}
+  hitsparkVFX: {fileID: 0}
+  lastContactPoint: {x: 0, y: 0, z: 0}
+  lastAttackerPosition: {x: 0, y: 0, z: 0}
   effectMappings: []
   activeTimedEffects: []
   activeStaticEffects: []
@@ -2245,6 +2272,14 @@ MonoBehaviour:
   debugMode: 0
   debugHandWeight: 1
   debugLookWeight: 1
+  leftFootBone: {fileID: 0}
+  rightFootBone: {fileID: 0}
+  groundHeightThreshold: 0.15
+  liftHeightThreshold: 0.25
+  plantVelocityThreshold: 0.5
+  stepCooldown: 0.2
+  enableAutoCalibration: 1
+  debugCalibrationLogs: 1
   targetHandWeight: 0
   targetLookWeight: 0
   freeLookDistance: 15
@@ -2255,6 +2290,7 @@ MonoBehaviour:
   turnRight90StateName: Turn_Right_90
   turnLeft180StateName: Turn_Left_180
   turnRight180StateName: Turn_Right_180
+  locomotionStateName: Locomotion 1H
   isTurningDebug: 0
   currentTurnAngle: 0
   rawAngleDifference: 0
@@ -2323,6 +2359,12 @@ MonoBehaviour:
   showConsoleLogs: 1
   showEventGizmo: 1
   eventGizmoDuration: 1
+  lightShakeStance: {fileID: 0}
+  heavyShakeStance: {fileID: 0}
+  rollShakeStance: {fileID: 0}
+  fumblePenaltySequence: {fileID: 0}
+  hitVignetteSequence: {fileID: 0}
+  footstepKickSequence: {fileID: 0}
 --- !u!1 &8448457891489326826
 GameObject:
   m_ObjectHideFlags: 0

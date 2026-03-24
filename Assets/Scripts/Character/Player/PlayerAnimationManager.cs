@@ -14,6 +14,10 @@ namespace TDA.Character
     /// 2. 레거시 청소 완료: 기존에 존재하던 EnableCanDoCombo, DisableCanDoCombo 등의 이벤트 수신 콜백 함수들은
     ///    [P1] Pub-Sub 이벤트 통신망 개편에 따라 모두 제거되었으며, 제어권은 PlayerCombatManager로 완전히 이관되었습니다.
     /// 3. [보강] 유니티 애니메이터의 Root Motion을 직접 스크립트로 제어(OnAnimatorMove)하여 캐릭터 컨트롤러와 물리적 충돌을 방지합니다.
+    /// 4. [v3.9 수정] 공격(isPerformingAction) 중 루트모션 회전을 카메라에 전달하지 않아
+    ///    베기 동작 시 카메라가 함께 꺾이는 현상을 방지합니다.
+    ///    PlayerCamera.HandleRotation()의 bodyYaw 동결과 이 수정이 함께 작용하여
+    ///    루트모션 회전이 카메라에 이중으로 전달(160%)되던 문제를 완전히 해결합니다.
     /// </summary>
     public class PlayerAnimationManager : CharacterAnimationManager
     {
@@ -22,7 +26,7 @@ namespace TDA.Character
         private PlayerManager player;
 
         [Header("Camera & Turn Compensation")]
-        [Tooltip("제자리 회전(Turn) 등 루트 모션으로 몸이 회전할 때, 카메라 시야를 얼마나 함께 돌릴지 보간하는 가중치입니다. (0 = 고정, 1 = 100% 따라감). 턴 직후의 애매한 시야각 루프 현상을 방지합니다.")]
+        [Tooltip("제자리 Turn 등 이동 루트모션 회전 시 카메라 Yaw를 보정하는 가중치입니다.\n(0=고정, 1=100% 따라감)\n※ 공격(isPerformingAction) 중에는 v3.9 패치에 의해 자동으로 0으로 억제됩니다.")]
         [Range(0f, 1f)] public float cameraTurnCompensationWeight = 0.6f;
 
         protected override void Awake()
@@ -64,20 +68,35 @@ namespace TDA.Character
                 player.transform.rotation *= deltaRotation;
 
                 // =========================================================================================
-                // 🚨 [턴 앵글 보정 완벽판] 회전 시 카메라 시야 동기화
-                // (마우스 조작과 싸우던 중앙 정렬 자력(Centering Force) 로직은 삭제되었습니다)
+                // 🚨 [v3.9 수정] Turn 보정 시 카메라 Yaw 동기화
+                //
+                // 변경 전: isPerformingAction 여부를 체크하지 않아
+                //          베기 루트모션 회전이 카메라 Yaw 에 직접 누적되었음.
+                //          + HandleRotation()의 bodyYaw 추적까지 더해져
+                //            루트모션 회전의 160%가 카메라에 전달되는 이중 꺾임 발생.
+                //
+                // 변경 후: 공격(isPerformingAction) 중에는 AdjustCameraYaw() 호출을 차단.
+                //          PlayerCamera.AdjustCameraYaw() 내부에서도 동일하게 차단하여
+                //          이중 안전망을 구성한다.
+                //          Turn 애니메이션(이동 중 방향 전환)은 isPerformingAction=false 이므로
+                //          기존과 동일하게 정상 작동한다.
                 // =========================================================================================
-                if (cameraTurnCompensationWeight > 0f && player.playerCamera != null)
+                bool isCameraCompensationAllowed =
+                    cameraTurnCompensationWeight > 0f
+                    && player.playerCamera != null
+                    && !player.isPerformingAction; // [v3.9] 공격 중 차단 — 이중 꺾임 방지
+
+                if (isCameraCompensationAllowed)
                 {
-                    // 1. 애니메이션 자체의 루트 모션 회전량
                     float deltaY = deltaRotation.eulerAngles.y;
                     if (deltaY > 180f) deltaY -= 360f;
 
-                    // 루트모션 회전량만 카메라에 반영합니다. (마우스 조작 우선)
                     float finalCameraAdjust = deltaY * cameraTurnCompensationWeight;
 
                     if (Mathf.Abs(finalCameraAdjust) > 0.001f)
                     {
+                        // PlayerCamera.AdjustCameraYaw() 내부에서도 isPerformingAction 을 체크하므로
+                        // 혹시 타이밍이 어긋나더라도 이중으로 보호된다.
                         player.playerCamera.AdjustCameraYaw(finalCameraAdjust);
                     }
                 }

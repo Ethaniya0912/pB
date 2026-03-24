@@ -125,9 +125,9 @@ MonoBehaviour:
       m_RotationOrder: 4
   handheldEffect:
     enableHandheldEffect: 1
-    swayAmount: 0.5
+    swayAmount: 0.3
     swaySpeed: 1
-    bobbingAmount: 1.2
+    bobbingAmount: 0.3
   impactShake:
     enableShake: 0
     shakeIntensity: 0.5

@@ -37,8 +37,12 @@ namespace TDA.Character
         // 🚨 [Phase 1 고도화] 카메라 연동 데이터
         // =========================================================================================
         [Header("Camera & UI (Phase 1)")]
-        [Tooltip("락온 시 카메라를 좌측(또는 우측) 숄더뷰로 고정하기 위한 락온 전용 스탠스 SO")]
+        [Tooltip("락온 시 카메라를 좌측 숄더뷰로 고정하기 위한 락온 전용 스탠스 SO")]
         public CameraStancePresetSO lockOnStanceSO;
+
+        // [신규 추가] Seq SO — restorePreviousAngle 등 전체 시퀀스 설정을 담은 Tier2 에셋
+        [Tooltip("락온 진입 시 재생할 카메라 시퀀스 SO (Seq_LockOn_Humanoid_SO를 여기에 연결)")]
+        public CameraSequencePresetSO lockOnSequenceSO;
 
         [Header("Lock On Input")]
         [SerializeField] bool lockOn_Input;
@@ -397,16 +401,22 @@ namespace TDA.Character
 
                 if (player.playerCamera.nearestLockOnTarget != null)
                 {
-                    Debug.Log($"<color=green>[LockOn]</color> 타겟 포착 성공: {player.playerCamera.nearestLockOnTarget.name}");
                     SetTarget(player.playerCamera.nearestLockOnTarget);
-                    // 가장 가까운 타겟이 널이 아니면 현재 대상으로 락온
                     player.playerNetworkManager.isLockedOn.Value = true;
 
-                    // 🚨 [Phase 1 고도화] 락온 성공 시 락온 전용 스탠스(좌측 구도)로 즉시 전환
-                    if (lockOnStanceSO != null && WorldCameraManager.Instance != null)
+                    if (WorldCameraManager.Instance != null)
                     {
-                        WorldCameraManager.Instance.ChangeCameraStance(lockOnStanceSO, "LockOn Enabled");
-                        Debug.Log($"<color=cyan>[PlayerCombatManager]</color> 락온 성공! <b>{lockOnStanceSO.name}</b> 스탠스로 전환합니다.");
+                        // Sequence SO가 연결되어 있으면 PlayCameraSequence로 호출
+                        // → restorePreviousAngle, damping, canBeInterruptedByInput 등 모두 작동
+                        if (lockOnSequenceSO != null)
+                        {
+                            WorldCameraManager.Instance.PlayCameraSequence(lockOnSequenceSO, "LockOn Enabled");
+                        }
+                        // fallback: Sequence SO 미연결 시 기존 방식 유지
+                        else if (lockOnStanceSO != null)
+                        {
+                            WorldCameraManager.Instance.ChangeCameraStance(lockOnStanceSO, "LockOn Enabled");
+                        }
                     }
                 }
                 else

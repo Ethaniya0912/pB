@@ -1262,8 +1262,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 09d2da7f2c208fc4ba3fd4249c8259b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gravityForce: -5.55
+  verticalMovement: 0
+  horizontalMovement: 0
+  moveAmount: 0
+  useRootMotionForLocomotion: 1
+  walkingSpeed: 2.2
+  runningSpeed: 5.5
+  rotationSpeed: 15
+  dodgeStaminaCost: 10
+  gravity: -20
+  groundedGravity: -5
+  jumpForwardSpeed: 4
+  inAirControl: 2
   isRolling: 0
+  isRotationLockedByEvent: 0
 --- !u!114 &2851853831134315020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1346,8 +1358,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ecf2a1e35592aab41bf65a4b019193cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  baseAnimationSet: {fileID: 0}
   lastAnimationPlayedHash: 0
   locomotionDampTime: 0.1
+  debugHorizontalValue: 0
+  debugVerticalValue: 0
+  debugMoveAmountValue: 0
   hit_Forward_Medium_01: Hit_Forward_Medium_01
   hit_Forward_Medium_02: Hit_Forward_Medium_02
   hit_Backward_Medium_01: Hit_Backward_Medium_01
@@ -1360,6 +1376,8 @@ MonoBehaviour:
   backward_Medium_Damage_Hashes: 
   left_Medium_Damage_Hashes: 
   right_Medium_Damage_Hashes: 
+  enableAnimationFramerateLimit: 0
+  targetAnimationFPS: 30
 --- !u!114 &7890223221855082097
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1372,6 +1390,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa7b97b9965e0694dbfb383a7ed23433, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rootAudioSource: {fileID: 0}
+  leftFootAudioSource: {fileID: 0}
+  rightFootAudioSource: {fileID: 0}
+  currentWeaponAudioSource: {fileID: 0}
   soundMappings: []
   globalMinInterval: 0.05
 --- !u!114 &9130006063949914706
@@ -1387,6 +1409,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bloodSplatterVFX: {fileID: 0}
+  hitsparkVFX: {fileID: 0}
+  lastContactPoint: {x: 0, y: 0, z: 0}
+  lastAttackerPosition: {x: 0, y: 0, z: 0}
   effectMappings: []
   activeTimedEffects: []
   activeStaticEffects: []
@@ -1465,6 +1490,9 @@ MonoBehaviour:
   characterLocomotionManager: {fileID: 0}
   characterInventoryManager: {fileID: 0}
   characterIKController: {fileID: 0}
+  characterStatsManager: {fileID: 0}
+  characterEventManager: {fileID: 0}
+  characterDefenseManager: {fileID: 0}
   characterGroup: 1
   isPerformingAction: 0
   applyRootMotion: 0

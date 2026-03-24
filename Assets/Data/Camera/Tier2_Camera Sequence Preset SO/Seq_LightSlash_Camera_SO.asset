@@ -14,43 +14,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraSequencePresetSO
   steps:
   - targetStance: {fileID: 11400000, guid: 3ddfdcc050103bd4eba20ee19c136adb, type: 2}
-    blendDuration: 0.05
+    blendDuration: 0.08
     blendCurve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: -0.99053955
-        value: 0.0037231445
+        time: 0
+        value: 0
         inSlope: 0
         outSlope: 0
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      - serializedVersion: 3
-        time: -0.6962343
-        value: -0.010944121
-        inSlope: 0.24430573
-        outSlope: 0.24430573
-        tangentMode: 0
+        tangentMode: 136
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: -0.10217911
-        value: -0.0407471
+        time: 1
+        value: 1
         inSlope: 0
         outSlope: 0
-        tangentMode: 0
+        tangentMode: 136
         weightedMode: 0
-        inWeight: 0
-        outWeight: 0
+        inWeight: 0.33333334
+        outWeight: 0.33333334
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    holdDuration: 0.1
-    trackingStartTime: 0
-    trackingEndTime: 1
+    holdDuration: 1.3
+    trackingStartTime: 0.03
+    trackingEndTime: 0.40
     trackingWeightCurve:
       serializedVersion: 2
       m_Curve:
@@ -75,11 +66,11 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    actionPositionDamping: 0.1
-    actionRotationDamping: 0.1
+    actionPositionDamping: 0.18
+    actionRotationDamping: 0.18
   canBeInterruptedByInput: 0
   canBeInterruptedByDamage: 0
-  restoreToDefaultStanceOnFinish: 0
-  restoreBlendDuration: 0.1
+  restoreToDefaultStanceOnFinish: 1
+  restoreBlendDuration: 0.25
   restorePreviousAngle: 0
   pauseOnApply: 0

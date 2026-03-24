@@ -20,12 +20,16 @@ MonoBehaviour:
   canMove: 0
   cameraSequence: {fileID: 11400000, guid: c5f86b780752ff542aad26f7d0666a8f, type: 2}
   eventPoints:
+  - triggerTime: 0
+    eventType: 14
+  - triggerTime: 0
+    eventType: 2
   - triggerTime: 0.1
     eventType: 310
   - triggerTime: 0.35
     eventType: 0
-  - triggerTime: 0
-    eventType: 2
+  - triggerTime: 0.38
+    eventType: 15
   - triggerTime: 1
     eventType: 3
   warpStartTime: 0.1
