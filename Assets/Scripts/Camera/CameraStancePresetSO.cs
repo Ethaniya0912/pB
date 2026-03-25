@@ -121,6 +121,46 @@ namespace TDA.Cameras
         public float bobbingAmount;
     }
 
+    // =========================================================================================
+    // [v4.4 신규] 몸통 Yaw 추적 제어 데이터
+    // 공격 루트모션처럼 캐릭터 몸통이 급격히 회전할 때
+    // 카메라가 얼마나, 얼마나 부드럽게 따라갈지를 제어합니다.
+    // =========================================================================================
+    // =========================================================================================
+    // [v4.4] BodyYawTrackingData — 공격 중 카메라 고정 제어
+    // bodyYawFollowWeight=0 + lockOnActionStart=true 조합이 핵심 전투 카메라 설정입니다.
+    // =========================================================================================
+    [Serializable]
+    public struct BodyYawTrackingData
+    {
+        [Tooltip("캐릭터 몸통 Yaw 회전을 카메라에 반영하는 비율입니다.\n" +
+                 "1.0 = 즉각 100% 추적 (기본 동작)\n" +
+                 "0.0 = 완전 차단 (공격 루트모션이 카메라에 전달되지 않음, 어지러움 방지)\n" +
+                 "권장 전투 설정: 0.0")]
+        [Range(0f, 1f)] public float bodyYawFollowWeight;
+
+        [Tooltip("몸통 Yaw를 따라갈 때 SmoothDamp 보간 시간(초)입니다.\n" +
+                 "0 = 즉각 / 0.1~0.3 = 부드럽게 흡수\n" +
+                 "bodyYawFollowWeight=0이면 이 값은 무관합니다.")]
+        [Range(0f, 1f)] public float bodyYawFollowSmoothTime;
+
+        // ── [v4.4 신규] 공격 시작 시 카메라 각도 고정 ─────────────────────────────
+
+        [Tooltip("[v4.4] 이 Stance가 공격 Stance일 때, isPerformingAction=true 진입 순간의\n" +
+                 "카메라 각도(Yaw/Pitch)를 스냅샷으로 저장하고 공격이 끝날 때까지 유지합니다.\n" +
+                 "루트모션 회전, FocusPivot, Magnetic 등 모든 외부 시스템의 각도 개입을 차단합니다.\n" +
+                 "비락온/락온 모두 작동합니다. 공격 스탠스에는 true를 권장합니다.\n" +
+                 "기본값: false (기존 동작 유지)")]
+        public bool lockCameraOnActionStart;
+
+        [Tooltip("[v4.4] lockCameraOnActionStart=true일 때 마우스/스틱 입력을 얼마나 허용할지입니다.\n" +
+                 "0.0 = 완전 고정 (마우스로도 카메라 이동 불가)\n" +
+                 "1.0 = 마우스 입력 전량 허용 (고정 기준점만 스냅샷, 이후 자유 회전)\n" +
+                 "권장: 0.3~0.5 (약간의 시선 조작은 허용하되 루트모션 흔들림은 차단)")]
+        [Range(0f, 1f)] public float lockCameraMouseInfluence;
+    }
+    // =========================================================================================
+
     [Serializable]
     public struct CameraShakeData
     {
@@ -346,6 +386,19 @@ namespace TDA.Cameras
         [Tooltip("유저의 실제 컨트롤러/마우스 이동 입력 크기에 따라 FOV나 거리가 유동적으로 줌인/줌아웃되는 세팅")]
         public DynamicInputModifierData dynamicInputModifier;
 
+        // =========================================================================================
+
+        // =========================================================================================
+        [Header("몸통 Yaw 추적 제어 (Body Yaw Tracking)")]
+        [Tooltip("캐릭터 몸통 회전을 카메라에 반영하는 비율과 부드러움을 제어합니다.\n" +
+                 "공격 루트모션으로 인한 어지러운 카메라 회전을 억제하는 데 사용합니다.")]
+        public BodyYawTrackingData bodyYawTracking = new BodyYawTrackingData
+        {
+            bodyYawFollowWeight = 1.0f,  // 기본값: 100% 즉각 추적 (기존 동작 유지)
+            bodyYawFollowSmoothTime = 0f,    // 기본값: 보간 없음
+            lockCameraOnActionStart = false, // [v4.4] 기본값: 고정 비활성 (기존 동작 유지)
+            lockCameraMouseInfluence = 0.5f   // [v4.4] 기본값: 마우스 50% 허용
+        };
         // =========================================================================================
 
         [Header("카메라 감각 피드백 (Camera Feel)")]

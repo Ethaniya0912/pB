@@ -1,4 +1,15 @@
 using System;
+// =============================================================================
+// PlayerCamera.cs — 단일 파일 버전 (호환성 유지용)
+//
+// ⚠️  이 파일은 분리된 partial class 버전과 함께 사용 시 충돌합니다.
+//     Unity 프로젝트에서는 아래 4개 파일만 사용하고 이 파일은 삭제하세요:
+//
+//     PlayerCameraCore.cs     — 변수, 생명주기, 공개 API
+//     PlayerCameraRotation.cs — 각도 연산 (HandleRotation, Magnetic, Snapshot)
+//     PlayerCameraFollow.cs   — 위치 연산 (DynamicFraming, Collision, Bodycam)
+//     PlayerCameraInput.cs    — 입력/엣지패닝/타겟팅/OnGUI 디버그
+// =============================================================================
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -239,6 +250,15 @@ namespace TDA.Character.Player
         private bool isLockOnInitialFramingActive = false; // 초기 프레이밍 진행 중 여부
         private float lockOnInitialFramingTimer = 0f;    // 진행 타이머
 
+        // ── [v4.4 신규] 시퀀스 종료 후 프레이밍 복원 (restorePreviousFraming) ──────
+        // WorldCameraManager.PlayCameraSequence()에서 스냅샷 저장,
+        // CameraSequenceRoutine 종료 시 SetFramingOffset()으로 복원됩니다.
+        private bool isPendingFramingRestore = false;  // 복원 대기 중 여부
+        private float pendingFramingTarget = 0f;     // 복원 목표값
+        private float pendingFramingBlendTime = 0.3f;   // 복원 보간 시간
+        private float pendingFramingTimer = 0f;     // 복원 진행 타이머
+        private float pendingFramingStartValue = 0f;     // 복원 시작값 (보간 기준)
+
         // 문제 3: 엣지 해제 후 카메라가 원래 시점으로 부드럽게 복귀
         private float edgePanReturnTimer = 0f;     // 복귀 진행 타이머 (0=완료)
         private float edgePanReturnYaw = 0f;     // 복귀 목표 Yaw (엣지 진입 시 스냅샷)
@@ -282,6 +302,18 @@ namespace TDA.Character.Player
 
         private float smoothedPlayerY;
         private float playerYVelocity;
+
+        // ── [v4.4 신규] 몸통 Yaw 부드러운 추적용 변수 ───────────────────────────────
+        private float smoothedPlayerBodyYaw = 0f;   // SmoothDamp 적용된 playerBodyYaw
+        private float smoothedPlayerBodyYawVelocity = 0f;   // SmoothDamp velocity ref
+
+        // ── [v4.4 신규] 공격 시작 순간 카메라 각도 스냅샷 ───────────────────────────
+        // isPerformingAction false→true 전환 시 leftAndRightLookAngle을 저장.
+        // 공격 중 HandleRotation이 이 값으로 카메라를 고정하여
+        // 루트모션 회전/FocusPivot/Magnetic 등 모든 외부 개입을 차단합니다.
+        private float actionStartYaw = 0f;    // 공격 시작 시 Yaw 스냅샷
+        private float actionStartPitch = 0f;    // 공격 시작 시 Pitch 스냅샷
+        private bool wasPerformingAction = false; // 이전 프레임 상태 (전환 감지)
 
         private float currentDynamicHeight = 0f;
         private float dynamicHeightVelocity = 0f;
@@ -339,7 +371,11 @@ namespace TDA.Character.Player
                 WorldCameraManager.Instance.SetLocalCamera(this);
             }
 
-            if (player != null) smoothedPlayerY = player.transform.position.y;
+            if (player != null)
+            {
+                smoothedPlayerY = player.transform.position.y;
+                smoothedPlayerBodyYaw = player.transform.eulerAngles.y; // [v4.4] 초기값 스냅
+            }
 
             continuousPosition = transform.position;
             continuousRotation = transform.rotation;
@@ -611,7 +647,11 @@ namespace TDA.Character.Player
                     }
                     else if (stance.edgePanningData.useEdgePanning)
                     {
-                        Vector2 mouseViewport = cameraObject.ScreenToViewportPoint(Input.mousePosition);
+                        // [v4.4] 제스처 입력(IsDragging) 중에는 마우스 커서 위치를 화면 중앙으로 고정.
+                        bool isGestureDragging = playerGestureManager != null && playerGestureManager.IsDragging;
+                        Vector2 mouseViewport = isGestureDragging
+                            ? new Vector2(0.5f, 0.5f)
+                            : (Vector2)cameraObject.ScreenToViewportPoint(Input.mousePosition);
                         float edgeThr = stance.edgePanningData.edgePanThreshold;
                         float smoothTime = Mathf.Max(stance.edgePanningData.edgePanSmoothTime, 0.02f);
                         float returnTime = Mathf.Max(stance.edgePanningData.edgePanReturnTime, 0.1f);
@@ -819,6 +859,37 @@ namespace TDA.Character.Player
                 // 락온 해제 시 초기 프레이밍 상태 초기화
                 isLockOnInitialFramingActive = false;
                 lockOnInitialFramingTimer = 0f;
+            }
+            // =========================================================================================
+
+            // =========================================================================================
+            // [v4.4] 시퀀스 종료 후 프레이밍 오프셋 복원 처리 (restorePreviousFraming)
+            //
+            // WorldCameraManager가 CameraSequenceRoutine 종료 시 SetFramingOffset()을 호출하면
+            // isPendingFramingRestore=true로 설정됩니다.
+            // 이 블록이 매 프레임 pendingFramingTimer를 진행시켜 currentFramingOffsetX를
+            // 저장된 스냅샷 값으로 부드럽게 복원합니다.
+            //
+            // 이 처리가 HandleFollowTarget 내부에 있는 이유:
+            //   currentFramingOffsetX는 이 함수의 targetFraming 계산에서도 쓰이므로
+            //   같은 스코프 안에서 처리해야 한 프레임 내 덮어쓰기 충돌을 피할 수 있습니다.
+            // =========================================================================================
+            if (isPendingFramingRestore)
+            {
+                pendingFramingTimer += Time.deltaTime;
+                float t = Mathf.Clamp01(pendingFramingTimer / Mathf.Max(pendingFramingBlendTime, 0.001f));
+
+                // SmoothStep으로 부드러운 가감속 (EaseInOut)
+                float smoothT = t * t * (3f - 2f * t);
+                currentFramingOffsetX = Mathf.Lerp(pendingFramingStartValue, pendingFramingTarget, smoothT);
+
+                if (t >= 1f)
+                {
+                    currentFramingOffsetX = pendingFramingTarget;
+                    framingVelocity = 0f;
+                    isPendingFramingRestore = false;
+                    if (showDebugLogs) Debug.Log($"[PlayerCamera] 프레이밍 복원 완료: {pendingFramingTarget:F3}");
+                }
             }
             // =========================================================================================
 
@@ -1135,10 +1206,28 @@ namespace TDA.Character.Player
                         float focusYawTarget = Mathf.Atan2(dirToCenter.x, dirToCenter.z) * Mathf.Rad2Deg;
                         float focusDampTime = Mathf.Max(mf.focusDampTime, 0.3f);
 
-                        // Yaw를 finalCenter 방향으로 부드럽게 보정
-                        // Magnetic이 비활성 상태일 때만 적용 (Magnetic과 간섭 방지)
+                        // ── [v4.4 수정] FocusPivot Yaw — 공격(isPerformingAction) 중 억제 ──
+                        // 문제: 공격 루트모션으로 플레이어 위치가 이동하면 finalCenter 방향이
+                        //       매 프레임 변하고, SmoothDampAngle이 leftAndRightLookAngle을
+                        //       계속 당겨서 bodyYawFollowWeight=0이어도 카메라가 휘둘림.
+                        // 수정: isPerformingAction=true이면 FocusPivot Yaw 수정을 억제하고
+                        //       velocity만 부드럽게 감쇠합니다.
+                        //       (bodyYawTracking 파라미터와 연동: weight가 낮을수록 더 강하게 억제)
+                        CameraStancePresetSO stanceForFocusYaw = WorldCameraManager.Instance?.currentStanceSO;
+                        float bodyW = stanceForFocusYaw != null
+                            ? stanceForFocusYaw.bodyYawTracking.bodyYawFollowWeight : 1.0f;
+
+                        // 공격 중이고 bodyWeight가 낮으면 FocusPivot Yaw도 억제
+                        // (bodyWeight=1이면 기존 동작 유지, bodyWeight=0이면 완전 차단)
+                        // lockCameraToSnapshot 상태에서는 FocusPivot도 완전 억제
+                        // (HandleRotation에서 카메라를 스냅샷으로 덮어쓰므로
+                        //  FocusPivot이 leftAndRightLookAngle을 수정해도 의미 없지만,
+                        //  HandleFollowTarget→HandleRotation 순서상 여기서 차단하는 게 더 명확)
+                        bool suppressFocusYaw = player.isPerformingAction && bodyW < 0.99f;
+
+                        // Magnetic 비활성 + 억제 없음 + 수렴하지 않은 경우에만 수정
                         bool magneticOff = !isMagneticActive;
-                        if (magneticOff)
+                        if (magneticOff && !suppressFocusYaw)
                         {
                             leftAndRightLookAngle = Mathf.SmoothDampAngle(
                                 leftAndRightLookAngle, focusYawTarget,
@@ -1146,9 +1235,11 @@ namespace TDA.Character.Player
                         }
                         else
                         {
-                            // Magnetic 활성 중: Yaw는 Magnetic에 맡기고 velocity만 감쇠
-                            focusYawVelocity = Mathf.Lerp(focusYawVelocity, 0f, Time.deltaTime * 5f);
+                            // Magnetic 활성 또는 공격 억제 중: velocity만 감쇠
+                            float decayRate = suppressFocusYaw ? 8f : 5f; // 공격 중 더 빠르게 수렴
+                            focusYawVelocity = Mathf.Lerp(focusYawVelocity, 0f, Time.deltaTime * decayRate);
                         }
+                        // ────────────────────────────────────────────────────────────────
                     }
                     else
                     {
@@ -1276,22 +1367,13 @@ namespace TDA.Character.Player
             bool isLockedOnNow = player.playerNetworkManager != null
                                  && player.playerNetworkManager.isLockedOn.Value;
 
-            if (player.isPerformingAction && !isLockedOnNow)
-            {
-                leftAndRightLookAngle += mouseYaw;
-
-                if (leftAndRightLookAngle > 360f) leftAndRightLookAngle -= 360f;
-                if (leftAndRightLookAngle < -360f) leftAndRightLookAngle += 360f;
-
-                float fixedPitchAction = upAndDownLookAngle;
-                CameraStancePresetSO activeStanceAction = WorldCameraManager.Instance?.currentStanceSO;
-                if (activeStanceAction != null
-                    && activeStanceAction.verticalBehavior.behaviorType == CameraVerticalBehavior.ElevationOnly)
-                    fixedPitchAction = activeStanceAction.verticalBehavior.fixedPitchAngle;
-
-                dbg_yawFrozen = true; dbg_isStrafeRight = false;
-                return Quaternion.Euler(fixedPitchAction, leftAndRightLookAngle, 0);
-            }
+            // [v4.4 재설계] isPerformingAction && !isLockedOnNow 의 early return 제거.
+            // 기존: 비락온 공격 → 마우스만 반영 후 early return
+            //       → actionJustStarted/lockCameraToSnapshot 코드에 도달 불가 → 스냅샷 무효
+            // 수정: 스냅샷 고정 로직(lockCameraToSnapshot)이 비락온/락온 모두 처리.
+            //       bodyWeight=1인 Stance(기본 스탠스)에서 비락온 공격 시에는
+            //       기존 동작(마우스만 반영)과 동일하게 effBodyYaw 경로를 통과.
+            // 이 블록은 의도적으로 제거됨 — 아래 스냅샷 로직이 대체.
 
             // =====================================================================
             // [v3.9] 락온 D키 우측 이동 중 Yaw 동결 — 요구사항 2
@@ -1327,10 +1409,135 @@ namespace TDA.Character.Player
 
             float playerBodyYaw = player.transform.eulerAngles.y;
 
-            // 1. 현재 캐릭터 몸통과 카메라가 얼마나 벌어져 있는지(차이)를 안전하게 산출합니다.
-            float currentDiff = Mathf.DeltaAngle(playerBodyYaw, leftAndRightLookAngle);
+            // =========================================================================================
+            // [v4.4 재설계] 공격 중 카메라 완전 고정 시스템
+            //
+            // SO 파라미터:
+            //   bodyYawTracking.lockCameraOnActionStart — true이면 이 Stance에서 공격 중 고정
+            //   bodyYawTracking.lockCameraMouseInfluence — 마우스 입력 허용 비율 (0=완전고정/1=자유)
+            //   bodyYawTracking.bodyYawFollowWeight — 0이면 몸통 추적 차단 (고정 보조)
+            //
+            // 작동 조건: lockCameraOnActionStart=true + isPerformingAction=true
+            //            비락온 / 락온 모두 동일하게 적용 (isLockedOnNow 무관)
+            //
+            // 고정 메커니즘:
+            //   공격 시작(false→true 전환) 시 현재 Yaw/Pitch를 스냅샷으로 저장.
+            //   공격 중 매 프레임 leftAndRightLookAngle을 스냅샷으로 덮어쓰고 early return.
+            //   → FocusPivot/Magnetic/bodyYaw/AutoCenter 등 어떤 시스템도 이 이후로는 각도를 바꿀 수 없음.
+            //   mouseInfluence 비율로 마우스/스틱 입력을 선택적으로 허용.
+            // =========================================================================================
+            CameraStancePresetSO stanceForBodyCheck = WorldCameraManager.Instance?.currentStanceSO;
+            float bodyWeightCheck = stanceForBodyCheck != null
+                ? stanceForBodyCheck.bodyYawTracking.bodyYawFollowWeight : 1.0f;
+            bool lockOnStart = stanceForBodyCheck != null
+                && stanceForBodyCheck.bodyYawTracking.lockCameraOnActionStart;
+            float mouseInfluence = stanceForBodyCheck != null
+                ? stanceForBodyCheck.bodyYawTracking.lockCameraMouseInfluence : 0.5f;
 
-            // 2. 이 '차이 공간' 안에서 유저의 마우스 입력을 더합니다. 
+            // ── 공격 시작 감지: isPerformingAction false→true 전환 시 스냅샷 저장 ──
+            // lockCameraOnActionStart=true인 Stance에서만 저장
+            // (bodyWeight<1 조건은 lockOnStart가 더 명시적이므로 lockOnStart로 대체)
+            bool actionJustStarted = player.isPerformingAction && !wasPerformingAction
+                && (lockOnStart || bodyWeightCheck < 0.99f);
+            if (actionJustStarted)
+            {
+                actionStartYaw = leftAndRightLookAngle;
+                actionStartPitch = upAndDownLookAngle;
+                if (showDebugLogs)
+                    Debug.Log($"[PlayerCamera] 공격 시작 스냅샷 저장: Yaw={actionStartYaw:F1}° Pitch={actionStartPitch:F1}° lockOnStart={lockOnStart}");
+            }
+            wasPerformingAction = player.isPerformingAction;
+
+            // ── 카메라 고정 실행 ─────────────────────────────────────────────────────
+            // lockCameraOnActionStart=true이면 isLockedOnNow 무관하게 비락온/락온 모두 고정
+            // bodyWeight<1 폴백: lockOnStart가 꺼져 있어도 weight<1이면 기존 동작 유지
+            bool lockCameraToSnapshot = player.isPerformingAction
+                && (lockOnStart || bodyWeightCheck < 0.99f);
+
+            if (lockCameraToSnapshot)
+            {
+                // 스냅샷으로 덮어쓰기 — 이전 프레임에서 FocusPivot/Magnetic이 수정한 값을 무효화
+                leftAndRightLookAngle = actionStartYaw;
+                upAndDownLookAngle = Mathf.Clamp(actionStartPitch, minimumPivot, maximumPivot);
+
+                // 마우스/스틱 입력은 mouseInfluence 비율로 허용
+                float scaledMouseYaw = mouseYaw * mouseInfluence;
+                float scaledMousePitch = mousePitch * mouseInfluence;
+                leftAndRightLookAngle += scaledMouseYaw;
+                upAndDownLookAngle -= scaledMousePitch;
+                upAndDownLookAngle = Mathf.Clamp(upAndDownLookAngle, minimumPivot, maximumPivot);
+
+                // 허용된 마우스 입력을 스냅샷에 누적 (다음 프레임 기준점 갱신)
+                actionStartYaw = leftAndRightLookAngle;
+                actionStartPitch = upAndDownLookAngle;
+
+                CameraStancePresetSO activeStanceLock = WorldCameraManager.Instance?.currentStanceSO;
+                float lockedPitch = upAndDownLookAngle;
+                if (activeStanceLock != null
+                    && activeStanceLock.verticalBehavior.behaviorType == CameraVerticalBehavior.ElevationOnly)
+                    lockedPitch = activeStanceLock.verticalBehavior.fixedPitchAngle;
+
+                dbg_yawFrozen = true;
+                return Quaternion.Euler(lockedPitch, leftAndRightLookAngle, 0);
+            }
+            // =========================================================================================
+
+            // =========================================================================================
+            // [v4.4 신규] 몸통 Yaw 추적 제어 — bodyYawFollowWeight / bodyYawFollowSmoothTime
+            //
+            // 문제: 락온 공격(루트모션) 중 playerBodyYaw가 급변하면 leftAndRightLookAngle도
+            //       같이 급변하여 카메라가 어지럽게 회전합니다.
+            //
+            // 해결:
+            //   1. SmoothDamp로 playerBodyYaw를 부드럽게 추적하는 smoothedPlayerBodyYaw 계산
+            //      → bodyYawFollowSmoothTime이 클수록 느리게 따라감
+            //   2. 실제 계산에 사용하는 effBodyYaw = Lerp(고정값, smoothed, weight)
+            //      → bodyYawFollowWeight=0이면 몸통 회전을 완전히 무시
+            //      → bodyYawFollowWeight=1이면 기존과 동일
+            // =========================================================================================
+            CameraStancePresetSO stanceForBodyYaw = WorldCameraManager.Instance?.currentStanceSO;
+            float bodyWeight = stanceForBodyYaw != null
+                ? stanceForBodyYaw.bodyYawTracking.bodyYawFollowWeight : 1.0f;
+            float bodySmoothTime = stanceForBodyYaw != null
+                ? stanceForBodyYaw.bodyYawTracking.bodyYawFollowSmoothTime : 0f;
+
+            // [v4.4 버그 수정] smoothedBodyYaw 초기화 — weight가 낮을 때만
+            // bodyWeight < 1이면 smoothedBodyYaw가 이전 값(구 각도)을 기준으로 보간 시작.
+            // 공격 시작 직전 playerBodyYaw를 즉시 스냅하여 보간 시작점을 올바르게 설정합니다.
+            // 이렇게 하면 weight>0일 때도 공격 시작 시 smoothedBodyYaw가 현재 몸통 위치에서 출발합니다.
+            if (bodyWeight < 0.99f && !player.isPerformingAction)
+            {
+                // 공격이 아닌 동안은 실제 playerBodyYaw와 동기화 유지
+                smoothedPlayerBodyYaw = playerBodyYaw;
+                smoothedPlayerBodyYawVelocity = 0f;
+            }
+
+            // smoothedPlayerBodyYaw: SmoothDamp로 실제 몸통 Yaw를 추적 (공격 중에만 의미 있음)
+            if (bodySmoothTime < 0.005f)
+            {
+                // smoothTime이 0에 가까우면 즉각 추적 (기존 동작, SmoothDamp 오버헤드 없음)
+                smoothedPlayerBodyYaw = playerBodyYaw;
+            }
+            else
+            {
+                // 각도 랩어라운드(360↔0) 안전 처리를 위해 SmoothDampAngle 사용
+                smoothedPlayerBodyYaw = Mathf.SmoothDampAngle(
+                    smoothedPlayerBodyYaw, playerBodyYaw,
+                    ref smoothedPlayerBodyYawVelocity, bodySmoothTime);
+            }
+
+            // effBodyYaw: weight=0이면 이전 프레임의 smoothedBodyYaw를 고정 (회전 차단)
+            //             weight=1이면 smoothedBodyYaw 그대로 (기존 동작)
+            float effBodyYaw = (bodyWeight >= 0.999f)
+                ? smoothedPlayerBodyYaw
+                : Mathf.LerpAngle(leftAndRightLookAngle, smoothedPlayerBodyYaw, bodyWeight);
+            // =========================================================================================
+
+            // 1. 현재 캐릭터 몸통과 카메라가 얼마나 벌어져 있는지(차이)를 안전하게 산출합니다.
+            // effBodyYaw를 기준으로 사용하여 weight/smoothTime이 반영된 몸통 방향 기준으로 diff 계산
+            float currentDiff = Mathf.DeltaAngle(effBodyYaw, leftAndRightLookAngle);
+
+            // 2. 이 '차이 공간' 안에서 유저의 마우스 입력을 더합니다.
             currentDiff += mouseYaw;
 
             // 3. 멀미 방어 구간일 때는 한계각을 180도(자유 시점)까지 넓혀줍니다.
@@ -1395,7 +1602,8 @@ namespace TDA.Character.Player
             // ─────────────────────────────────────────────────────────────────────────────
 
             // 5. 철벽을 거친 '안전한 차이값'을 다시 실제 글로벌 앵글로 변환해 줍니다.
-            leftAndRightLookAngle = playerBodyYaw + currentDiff;
+            // effBodyYaw 기준으로 계산하여 weight/smoothTime이 반영됩니다.
+            leftAndRightLookAngle = effBodyYaw + currentDiff;
 
             // ── [v4.1 수정E] 엣지 복귀 처리 — HandleRotation 단일 권위 ────────────────────
             // OnCameraInputReceived에서 각도를 직접 쓰면 이 줄(playerBodyYaw+currentDiff)이
@@ -1455,7 +1663,8 @@ namespace TDA.Character.Player
 
             // ── [v3.9 Debug] Rotation 상태 기록 ──────────────────────────────────
             dbg_leftAndRightLookAngle = leftAndRightLookAngle;
-            dbg_playerBodyYaw = playerBodyYaw;
+            dbg_playerBodyYaw = playerBodyYaw; // 실제 몸통 (원본)
+            // effBodyYaw = weight/smooth 적용된 기준값 (OnGUI에서 확인 가능)
             dbg_bodyToCamDiff = currentDiff;
             dbg_trackingWeight = trackingWeight;
             dbg_noInputTimer = noInputTimer;
@@ -2023,6 +2232,40 @@ namespace TDA.Character.Player
         }
         // =====================================================================
 
+        // =========================================================================================
+        // [v4.4 신규] 프레이밍 오프셋 외부 접근 메서드 — restorePreviousFraming 지원
+        // =========================================================================================
+
+        /// <summary>
+        /// 현재 Dynamic Framing X 오프셋을 반환합니다.
+        /// WorldCameraManager.PlayCameraSequence()에서 시퀀스 진입 시 스냅샷 저장에 사용됩니다.
+        /// </summary>
+        public float GetCurrentFramingOffset() => currentFramingOffsetX;
+
+        /// <summary>
+        /// Dynamic Framing X 오프셋을 지정값으로 복원합니다.
+        /// blendTime=0이면 즉시 스냅.
+        /// blendTime>0이면 HandleFollowTarget 내부에서 매 프레임 Lerp 보간합니다.
+        /// </summary>
+        public void SetFramingOffset(float offsetX, float blendTime = 0f)
+        {
+            if (blendTime < 0.001f)
+            {
+                currentFramingOffsetX = offsetX;
+                framingVelocity = 0f;
+                isPendingFramingRestore = false;
+            }
+            else
+            {
+                pendingFramingTarget = offsetX;
+                pendingFramingBlendTime = blendTime;
+                pendingFramingStartValue = currentFramingOffsetX;
+                pendingFramingTimer = 0f;
+                isPendingFramingRestore = true;
+            }
+        }
+        // =========================================================================================
+
         /// <summary>
         /// [v3.9 수정] 공격(isPerformingAction) 중에는 카메라 Yaw 보정을 차단합니다.
         /// <br/>OnAnimatorMove()의 Turn 보정이 HandleRotation()의 bodyYaw 동결과 함께
@@ -2047,13 +2290,19 @@ namespace TDA.Character.Player
         /// 해결: 전환 직전 velocity 전부 Vector3/float.zero 리셋.
         ///       WorldCameraManager.ApplyStanceInstantly() 에서 호출합니다.
         /// </summary>
-        public void ResetVelocities()
+        /// <summary>
+        /// SmoothDamp velocity를 전부 초기화합니다.
+        /// preserveFraming=true이면 currentFramingOffsetX를 초기화하지 않습니다.
+        /// 시퀀스 복귀 시 공격 전 구도를 유지하기 위해 WorldCameraManager가 이 옵션을 사용합니다.
+        /// </summary>
+        public void ResetVelocities(bool preserveFraming = false)
         {
             // velocity ref 전부 초기화
             cameraVelocity = Vector3.zero;
             framingVelocity = 0f;
             focusPivotVelocity = Vector3.zero;
             focusYawVelocity = 0f;  // [v4.4]
+            smoothedPlayerBodyYawVelocity = 0f; // [v4.4] 몸통 추적 velocity 리셋
             framingYawVelocity = 0f;
             playerYVelocity = 0f;
             dynamicHeightVelocity = 0f;
@@ -2064,10 +2313,15 @@ namespace TDA.Character.Player
             // [v3.9 Fix] framing 상태값도 중립으로 리셋
             // velocity만 0으로 해도 currentFramingOffsetX/YawOffset이 극단값에 있으면
             // 다음 SmoothDamp에서 초기 속도가 폭발하므로 상태값도 함께 초기화
-            currentFramingOffsetX = 0f;
-            currentFramingYawOffset = 0f;
-            lastTargetFraming = 0f;
-            lastTargetFramingYaw = 0f;
+            // [v4.4] preserveFraming=true이면 framing 수치를 유지 (공격 후 구도 복원용)
+            // preserveFraming=false(기본)이면 기존과 동일하게 0으로 초기화
+            if (!preserveFraming)
+            {
+                currentFramingOffsetX = 0f;
+                currentFramingYawOffset = 0f;
+                lastTargetFraming = 0f;
+                lastTargetFramingYaw = 0f;
+            }
             currentDynamicHeight = 0f;
 
             // [v4.0] 엣지 패닝 전용 velocity 및 상태 리셋
@@ -2076,6 +2330,8 @@ namespace TDA.Character.Player
             hadEdgePanEverActive = false; // 락온 해제·스탠스 전환 시 복귀 이력 초기화
             isLockOnInitialFramingActive = false;
             lockOnInitialFramingTimer = 0f;
+            isPendingFramingRestore = false; // [v4.4] 강제 리셋 시 복원 대기도 취소
+            wasPerformingAction = false; // [v4.4] 공격 상태 추적 초기화
             isMagneticActive = false;
             magneticYawVelocity = 0f;
             magneticPitchVelocity = 0f;
@@ -2166,6 +2422,26 @@ namespace TDA.Character.Player
 
             GUI.Label(new Rect(panelX, y, panelW, lineH),
                 $"  Player Body: {dbg_playerBodyYaw:F1}°   Cam-Body Δ: {dbg_bodyToCamDiff:F1}°", labelStyle); y += lineH;
+            // [v4.4] 몸통 추적 설정 표시
+            var stanceForDbgBody = WorldCameraManager.Instance?.currentStanceSO;
+            if (stanceForDbgBody != null)
+            {
+                float dbgW = stanceForDbgBody.bodyYawTracking.bodyYawFollowWeight;
+                float dbgST = stanceForDbgBody.bodyYawTracking.bodyYawFollowSmoothTime;
+                bool lockOnStartDbg = stanceForDbgBody.bodyYawTracking.lockCameraOnActionStart;
+                float mouseInflDbg = stanceForDbgBody.bodyYawTracking.lockCameraMouseInfluence;
+                bool isActuallyLocked = player != null && player.isPerformingAction
+                    && (lockOnStartDbg || dbgW < 0.99f);
+                if (dbgW < 0.999f || dbgST > 0.005f || lockOnStartDbg)
+                {
+                    string bodyLockStr = isActuallyLocked
+                        ? $"  🔒 카메라 고정 (snap={actionStartYaw:F1}°  mouse×{mouseInflDbg:F2})"
+                        : (lockOnStartDbg ? "  ⚡ lockOnStart=ON (대기 중)" : "");
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  BodyYaw: w={dbgW:F2} sm={dbgST:F2}s lockStart={lockOnStartDbg}{bodyLockStr}",
+                        warnStyle); y += lineH;
+                }
+            }
 
             GUI.Label(new Rect(panelX, y, panelW, lineH),
                 $"  TrackingWeight: {dbg_trackingWeight:F3}   NoInputTimer: {dbg_noInputTimer:F1}s", labelStyle); y += lineH;
