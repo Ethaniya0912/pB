@@ -61,7 +61,10 @@ namespace TDA.Character.Player.Editor
         private Vector3 editBaseOffset;
         private float editZTilt;
         private float editBaseYawOffset;
-        private CameraVerticalBehavior editBehaviorType;
+
+        // [컴파일 에러 수정] 명시적 네임스페이스 지정
+        private TDA.Cameras.CameraVerticalBehavior editBehaviorType;
+
         private float editElevationSpeed, editMaxElevationHeight, editMinElevationHeight;
         private float editFixedPitchAngle, editPitchForMaxHeight, editMaxDynamicHeight, editHeightSmoothTime;
         private bool editUseDynamicFraming, editInheritDynamicFraming;
@@ -817,8 +820,11 @@ namespace TDA.Character.Player.Editor
 
             EditorGUILayout.Space(5);
             EditorGUILayout.LabelField("↕️ 수직 시점 방식", EditorStyles.miniBoldLabel);
-            editBehaviorType = (CameraVerticalBehavior)EditorGUILayout.EnumPopup("Behavior Type", editBehaviorType);
-            if (editBehaviorType == CameraVerticalBehavior.DynamicOverShoulder)
+
+            // [컴파일 에러 수정] 명시적 네임스페이스 적용
+            editBehaviorType = (TDA.Cameras.CameraVerticalBehavior)EditorGUILayout.EnumPopup("Behavior Type", editBehaviorType);
+
+            if (editBehaviorType == TDA.Cameras.CameraVerticalBehavior.DynamicOverShoulder)
             {
                 EditorGUI.indentLevel++;
                 editPitchForMaxHeight = EditorGUILayout.FloatField("Pitch For Max Height", editPitchForMaxHeight);
@@ -826,7 +832,7 @@ namespace TDA.Character.Player.Editor
                 editHeightSmoothTime = EditorGUILayout.FloatField("Height Smooth Time", editHeightSmoothTime);
                 EditorGUI.indentLevel--;
             }
-            else if (editBehaviorType == CameraVerticalBehavior.ElevationOnly)
+            else if (editBehaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
             {
                 EditorGUI.indentLevel++;
                 editElevationSpeed = EditorGUILayout.FloatField("Elevation Speed", editElevationSpeed);

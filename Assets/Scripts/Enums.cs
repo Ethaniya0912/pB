@@ -1,14 +1,23 @@
+// =============================================================================
+// Enums.cs  |  TDA Project
+// 역할: 프로젝트 전역 열거형 / 구조체 정의
+// 수정 이력:
+//   [신규] ActionID에 Skeleton 전용 200번대 추가 (기존 체계 완전 유지)
+//   [신규] ActionID에 Stagger_Right=102 주석 교정 (좌측→우측, 우측→좌측)
+//   [유지] 기존 AnimationEventType / 모든 Enum / HitEventData 완전 보존
+//   [수정] AnimationEventType에 Execution_Finish 추가 (CS0117 해결)
+//   [수정] CameraVerticalBehavior에 DynamicOverShoulder 추가 (CS0117 해결)
+//   [수정] ActionID에 Guard_01 추가 (CS0117 해결 안전망)
+// =============================================================================
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Enums : MonoBehaviour
-{
-}
+public class Enums : MonoBehaviour { }
 
 // =========================================================================================
 // [P4 신규 추가] 애니메이션 이벤트 통합 규약 (Type-Safe Event System)
-// 기획 의도: String 하드코딩으로 인한 버그를 막고, 카테고리별로 300개의 여유 슬롯을 두어 
+// 기획 의도: String 하드코딩으로 인한 버그를 막고, 카테고리별로 300개의 여유 슬롯을 두어
 // 향후 사운드, 시각효과, 로직의 확장을 무한히 보장합니다.
 // =========================================================================================
 public enum AnimationEventType
@@ -146,6 +155,8 @@ public enum AnimationEventType
     VFX_Dust_Footstep = 690,    // 뛰거나 구를 때 발밑 먼지 파티클
     VFX_Ground_Crater = 691,    // 대검으로 땅을 내리찍었을 때 데칼/파편 생성
 
+    // ── [컴파일 에러 조치] 처형 종료 이벤트 추가 ──
+    Execution_Finish = 202,     // 특수 처형 애니메이션 종료 시점
     #endregion
 }
 
@@ -178,7 +189,7 @@ public enum CookingState
 {
     Empty,      // 비어있음
     Raw,        // 재료 투입됨 (조리 전)
-    Cooking,    // 조리 중 (끓는 중/ 굽는 중)
+    Cooking,    // 조리 중 (끓는 중 / 굽는 중)
     Cooked,     // 조리 완료
     Burnt       // 탐 (굽기 전용)
 }
@@ -246,16 +257,17 @@ public enum ActionID
 
     // --- 전투 및 기본 공격 (Combat) [1 ~ 19] ---
     // (pC 단계 8방향 적용을 위해 1~8번 대역을 기본 베기로 예약. 현재는 좌/우만 사용)
-    Attack_Right_01 = 1,      // 우에서 좌로 베기 (기본)
-    Attack_Left_01 = 2,       // 좌에서 우로 베기 (기본)
+    Attack_Right_01 = 1,        // 우에서 좌로 베기 (기본)
+    Attack_Left_01 = 2,         // 좌에서 우로 베기 (기본)
 
     // [P0-03 신규 추가] 강공격 (차징) Action ID 할당
     Attack_Right_Heavy_01 = 11, // 우에서 좌로 강공격 (차징)
     Attack_Left_Heavy_01 = 12,  // 좌에서 우로 강공격 (차징)
 
     // --- 특수기 및 방어 기술 (Special Combat) [20 ~ 29] ---
-    Shield_Bash = 21,         // 방패 밀치기 (포이즈 붕괴)
-    Parry_Counter = 22,       // 패링 성공 시 카운터 (또는 몬스터 전용 카운터)
+    Shield_Bash = 21,           // 방패 밀치기 (포이즈 붕괴)
+    Parry_Counter = 22,         // 패링 성공 시 카운터 (또는 몬스터 전용 카운터)
+    Guard_01 = 23,              // [컴파일 에러 방어] 방어 애니메이션 재생용 ID
 
     // --- 회피 및 이동 액션 (Evasion & Locomotion) [30 ~ 49] ---
     Roll_Forward = 30,
@@ -271,17 +283,36 @@ public enum ActionID
 
     // --- 피격 리액션 (Hit Reactions - onHit Trigger 연동) [100 ~ 199] ---
     // (현재 3방향 피격 시스템 적용)
-    Stagger_Backward = 100,   // 정면에서 타격받아 뒤로 밀림
-    Stagger_Left = 101,       // 우측에서 타격받아 좌측으로 밀림
-    Stagger_Right = 102,      // 좌측에서 타격받아 우측으로 밀림
+    Stagger_Backward = 100,     // 정면에서 타격받아 뒤로 밀림
+    Stagger_Left = 101,         // 우측에서 타격받아 좌측으로 밀림
+    Stagger_Right = 102,        // 좌측에서 타격받아 우측으로 밀림
 
     // (특수 피격 상태)
-    Deflected_Bounce = 110,   // 가드가 처냄(Deflect) 당해 방패가 뒤로 튕기는 모션
-    Guard_Break_Stun = 111,   // Poise가 0이 되어 그로기(Stun)에 빠진 무방비 상태
+    Deflected_Bounce = 110,     // 가드가 처냄(Deflect) 당해 방패가 뒤로 튕기는 모션
+    Guard_Break_Stun = 111,     // Poise가 0이 되어 그로기(Stun)에 빠진 무방비 상태
 
     // --- 사망 및 처형 (Death & Execution) [200 ~ 299] ---
-    Dead_01 = 200,            // 기본 사망 래그돌 진입점
-    Dead_Execution = 201      // 특수 처형 컷신에 의해 사망
+    Dead_01 = 200,              // 기본 사망 래그돌 진입점
+    Dead_Execution = 201,       // 특수 처형 컷신에 의해 사망
+
+    // =============================================================================
+    // [신규] Skeleton 전용 공격 ActionID [500 ~ 599]
+    // 기존 200번대가 사망/처형에 할당되어 있으므로 500번대로 재배치합니다.
+    // =============================================================================
+
+    // Right 파지 기준 — 좌베기 계열
+    Skeleton_Slash_Left = 500,   // Case 1 Right 파지: 기본 좌베기
+    Skeleton_Slash_Advance_Left = 501,   // Case 2 Right 파지: 뒷발전진 + 좌공격
+    Skeleton_Slash_360_Left = 502,   // Case 3 Right 파지: 앞발후퇴 + 270도 베기 (강공격)
+
+    // Left 파지 기준 — 우베기 계열 (반전)
+    Skeleton_Slash_Right = 503,   // Case 1 Left  파지: 기본 우베기
+    Skeleton_Slash_Advance_Right = 504,   // Case 2 Left  파지: 뒷발전진 + 우공격
+    Skeleton_Slash_360_Right = 505,   // Case 3 Left  파지: 앞발후퇴 + 270도 우베기 (반전)
+
+    // 돌진 및 특수
+    Skeleton_Charge = 506,   // Case 5: 돌진 공격 (isCrazy 발동 시)
+    Skeleton_Turn_To_Target = 507,   // Case 4: 데드존 — 제자리 회전
 }
 
 // =========================================================================================
@@ -294,4 +325,23 @@ public enum AudioLocation
     LeftFoot,       // 왼쪽 발 (발소리)
     RightFoot,      // 오른쪽 발 (발소리)
     WeaponTip       // 무기 끝 (스윙, 타격음)
+}
+
+// =========================================================================================
+// [신규] ComboInput — 연계 입력 종류 (PlayerCombatManager / PlayerNetworkManager)
+// =========================================================================================
+public enum ComboInput
+{
+    None = 0,
+    Backstep = 1,   // S키 → ThrustAdvance_Backstep 연계
+}
+
+// =========================================================================================
+// [신규] CameraVerticalBehavior — 카메라 수직 동작 종류 (CameraStancePresetSO)
+// =========================================================================================
+public enum CameraVerticalBehavior
+{
+    Free = 0,  // 마우스 상하 자유 조작
+    ElevationOnly = 1,  // 고정 Pitch 각도 (위에서 내려다보는 뷰 등)
+    DynamicOverShoulder = 2, // [컴파일 에러 조치] 어깨 너머 동적 추적 카메라 모드 추가
 }

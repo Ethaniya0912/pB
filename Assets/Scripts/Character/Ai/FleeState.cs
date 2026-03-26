@@ -1,136 +1,120 @@
 using TDA.Character;
 using TDA.Character.AI;
-using TDA.Character.Player;
 using UnityEngine;
 
+/// <summary>
+/// [L3 Domain — FleeState]
+/// 책임: 도주 목적지 판단 및 NavMeshAgent 목적지/속도 설정.
+/// Animator 파라미터 직접 조작 금지 — LocomotionManager에 위임.
+/// </summary>
 [CreateAssetMenu(menuName = "AI/States/Flee")]
 public class FleeState : AIState
 {
-    [Header("Next State")]
-    public PatrolState patrolState; // 도망 성공 시 돌아갈 상태
-    public CombatStanceState combatStanceState; // [🔥 추가] 막다른 길에 몰렸을 때 반격할 상태
+    [Header("Next States")]
+    public PatrolState patrolState;
+    public CombatStanceState combatStanceState;
 
     [Header("Flee Settings")]
     public float safeDistance = 20f;
+    public float corneredDistance = 8f;
 
-    [Tooltip("도망갈 수 있는 최대 경로의 끝점이 타겟으로부터 이 거리보다 짧으면 막다른 길로 간주하고 반격합니다.")]
-    public float corneredDistance = 8f; // [🔥 추가] 궁지 판별 거리 임계값
+    [Header("Locomotion Speed")]
+    [Tooltip("전력질주 NavMeshAgent 속도. Blend Tree Sprint 임계값과 맞추세요.")]
+    public float fleeSprintSpeed = 6.0f;
 
     public override AIState Tick(AICharacterManager aiCharacter)
     {
         if (aiCharacter.aiCharacterCombatManager.currentTarget == null ||
             aiCharacter.aiCharacterCombatManager.currentTarget.characterNetworkManager.isDead.Value)
-        {
-            aiCharacter.aiCharacterCombatManager.DebugLog("타겟이 없거나 죽어서 Patrol 상태로 돌아갑니다.");
             return SwitchState(aiCharacter, patrolState);
-        }
 
-        float distanceFromTarget = Vector3.Distance(aiCharacter.transform.position, aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
+        float distToTarget = Vector3.Distance(
+            aiCharacter.transform.position,
+            aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
 
-        // 충분히 멀어지면 도망 성공
-        if (distanceFromTarget > safeDistance)
-        {
-            aiCharacter.aiCharacterCombatManager.DebugLog("안전하게 도망쳤습니다. Patrol 상태로 돌아갑니다.");
+        if (distToTarget > safeDistance)
             return SwitchState(aiCharacter, patrolState);
-        }
 
-        Vector3 fleePosition = Vector3.zero;
-        AICharacterCombatManager combatInfo = aiCharacter.aiCharacterCombatManager;
+        // 도주 목적지 계산
+        Vector3 fleePosition = CalculateFleePosition(aiCharacter);
 
-        // 1. 지능이 높을 경우 주변 아군(지원군)을 찾아 그쪽으로 도망
-        if (combatInfo.aiIntelligenceLevel >= combatInfo.intelligenceToCallHelp)
-        {
-            AICharacterManager ally = combatInfo.FindNearestPeacefulAlly();
-            if (ally != null)
-            {
-                fleePosition = ally.transform.position;
-                if (Vector3.Distance(aiCharacter.transform.position, ally.transform.position) < 5f)
-                {
-                    ally.aiCharacterCombatManager.currentTarget = combatInfo.currentTarget;
-                    aiCharacter.aiCharacterCombatManager.DebugLog("아군에게 헬프를 요청했습니다!");
-                }
-            }
-        }
-
-        // 2. 아군이 없으면 타겟 반대 방향으로 도망
-        if (fleePosition == Vector3.zero)
-        {
-            Vector3 directionAwayFromTarget = aiCharacter.transform.position - aiCharacter.aiCharacterCombatManager.currentTarget.transform.position;
-            directionAwayFromTarget.y = 0;
-            directionAwayFromTarget.Normalize();
-
-            // 타겟 반대 방향으로 safeDistance만큼 떨어진 목표 지점 설정
-            Vector3 desiredFleePos = aiCharacter.transform.position + (directionAwayFromTarget * safeDistance);
-
-            // 해당 지점 근처에 갈 수 있는 NavMesh가 있는지 샘플링
-            UnityEngine.AI.NavMeshHit hit;
-            if (UnityEngine.AI.NavMesh.SamplePosition(desiredFleePos, out hit, 10f, UnityEngine.AI.NavMesh.AllAreas))
-            {
-                fleePosition = hit.position;
-            }
-            else
-            {
-                fleePosition = desiredFleePos;
-            }
-        }
-
-        // [근본 원인 해결] 에이전트가 안전하게 바닥(NavMesh)에 있을 때만 이동 및 경로 검사 수행
         if (aiCharacter.navMeshAgent != null && aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
         {
+            // [변경] navMeshAgent.speed로 전력질주 표현.
+            // LocomotionManager.SyncAnimatorParameters()가 isSprinting 판단을 자동 처리합니다.
+            aiCharacter.navMeshAgent.speed = fleeSprintSpeed;
             aiCharacter.navMeshAgent.SetDestination(fleePosition);
 
-            // ---------------------------------------------------------
-            // [🔥 핵심 추가: 막다른 길(Cornered) 판별 로직]
-            // 에이전트가 정상 작동 중일 때만 path 상태를 물어보아야 안전합니다.
-            // ---------------------------------------------------------
+            // 막다른 길 판별
             if (!aiCharacter.navMeshAgent.pathPending)
             {
-                // 경로가 끊겨있거나(PathPartial) 아예 유효하지 않은(PathInvalid) 경우 = 벽에 막혔음
                 if (aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathPartial ||
                     aiCharacter.navMeshAgent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid)
                 {
-                    // 막힌 경로의 최종 도착 예정지와 플레이어(타겟) 간의 거리를 잽니다.
-                    float distFromEndToTarget = Vector3.Distance(aiCharacter.navMeshAgent.pathEndPosition, aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
+                    float distEndToTarget = Vector3.Distance(
+                        aiCharacter.navMeshAgent.pathEndPosition,
+                        aiCharacter.aiCharacterCombatManager.currentTarget.transform.position);
 
-                    // 최대로 도망가봐야 플레이어와 가까운 상태(막다른 길)라면, 도망을 포기하고 반격합니다.
-                    if (distFromEndToTarget < corneredDistance)
+                    if (distEndToTarget < corneredDistance && combatStanceState != null)
                     {
-                        aiCharacter.aiCharacterCombatManager.DebugLog($"🚨 막다른 길에 몰렸습니다! (예상 도착지 여유 공간: {distFromEndToTarget:F1}m) 쥐가 고양이를 뭅니다.");
-                        if (combatStanceState != null)
-                        {
-                            return SwitchState(aiCharacter, combatStanceState);
-                        }
+                        aiCharacter.aiCharacterCombatManager.DebugLog("막다른 길 → 반격 (CombatStance)");
+                        return SwitchState(aiCharacter, combatStanceState);
                     }
                 }
             }
         }
 
-        // 3. 이동 및 회전 처리
-        Vector3 lookDirection = fleePosition - aiCharacter.transform.position;
-        lookDirection.y = 0;
-        if (lookDirection != Vector3.zero)
+        // 도주 방향 주시 회전
+        Vector3 lookDir = fleePosition - aiCharacter.transform.position;
+        lookDir.y = 0f;
+        if (lookDir.sqrMagnitude > 0.01f)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
-            aiCharacter.transform.rotation = Quaternion.Slerp(aiCharacter.transform.rotation, targetRotation, Time.deltaTime * 10f);
+            aiCharacter.transform.rotation = Quaternion.Slerp(
+                aiCharacter.transform.rotation,
+                Quaternion.LookRotation(lookDir),
+                Time.deltaTime * 10f);
         }
 
-        // 도망가는 전력질주 모션 재생 (이동 수치 X:0, Y:2)
-        aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(0, 2f, true);
-
         return this;
+    }
+
+    private Vector3 CalculateFleePosition(AICharacterManager aiCharacter)
+    {
+        AICharacterCombatManager combatInfo = aiCharacter.aiCharacterCombatManager;
+
+        // 지능이 높으면 아군 쪽으로 도주
+        if (combatInfo.aiIntelligenceLevel >= combatInfo.intelligenceToCallHelp)
+        {
+            AICharacterManager ally = combatInfo.FindNearestPeacefulAlly();
+            if (ally != null)
+            {
+                if (Vector3.Distance(aiCharacter.transform.position, ally.transform.position) < 5f)
+                {
+                    ally.aiCharacterCombatManager.currentTarget = combatInfo.currentTarget;
+                    combatInfo.DebugLog("아군에게 도움 요청");
+                }
+                return ally.transform.position;
+            }
+        }
+
+        // 타겟 반대 방향으로 도주
+        Vector3 awayDir = aiCharacter.transform.position - combatInfo.currentTarget.transform.position;
+        awayDir.y = 0f;
+        awayDir.Normalize();
+
+        Vector3 desired = aiCharacter.transform.position + awayDir * safeDistance;
+
+        if (UnityEngine.AI.NavMesh.SamplePosition(desired, out UnityEngine.AI.NavMeshHit hit, 10f, UnityEngine.AI.NavMesh.AllAreas))
+            return hit.position;
+
+        return desired;
     }
 
     protected override void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
         base.ResetStateFlags(aiCharacterManager);
-
-        // 1. 다른 상태로 넘어갈 때 뛰던 애니메이션 초기화 (NavMesh 상태와 무관하게 항상 실행)
-        aiCharacterManager.characterAnimationManager.UpdateAnimatorMovementParameters(0, 0, false);
-
-        // 2. [오류 수정 완료] 플래그 초기화 시 경로를 끊을 때 에러가 나지 않도록 안전망 추가
-        if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.isActiveAndEnabled && aiCharacterManager.navMeshAgent.isOnNavMesh)
-        {
-            aiCharacterManager.navMeshAgent.ResetPath();
-        }
+        // [변경] UpdateAnimatorMovementParameters(0,0) 제거.
+        // base.ResetStateFlags()의 navMeshAgent.ResetPath() + applyRootMotion=false로 충분합니다.
+        // LocomotionManager가 다음 프레임에 파라미터를 0으로 수렴시킵니다.
     }
 }

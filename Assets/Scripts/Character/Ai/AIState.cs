@@ -1,38 +1,45 @@
-using System.Collections;
-using System.Collections.Generic;
 using TDA.Character.AI;
 using UnityEngine;
-using UnityEngine.TextCore.Text;
 
+/// <summary>
+/// [L3 Domain — State Base] 모든 AI 상태의 기반 클래스입니다.
+/// 상태(State)는 오직 '판단'만 수행합니다.
+/// 물리적 이동(transform.position), Animator 파라미터 직접 조작은 이 계층의 책임이 아닙니다.
+/// </summary>
 public class AIState : ScriptableObject
 {
     public virtual AIState Tick(AICharacterManager aiCharacter)
     {
-        // 커스텀 디버그 로그 활용 (자식 클래스 이름 출력)
-        aiCharacter.aiCharacterCombatManager.DebugLog($"현재 실행 중인 상태: {this.GetType().Name}");
-
-        // 플레이어를 찾는 로직 구현
-        // 플레이어를 찾는다면, pursue target state 를 대신 반환.
-        // 그게 아니라면, 계속해서 idle 상태를 반환.
+        aiCharacter.aiCharacterCombatManager.DebugLog($"현재 상태: {this.GetType().Name}");
         return this;
     }
 
-    // 스테이트가 바뀔 때마다, 현재 스테이트를 청소(Reset)하고 새로운 스테이트를 반환
     protected virtual AIState SwitchState(AICharacterManager aiCharacter, AIState newState)
     {
-        aiCharacter.aiCharacterCombatManager.DebugLog($"상태 전환: <color=yellow>{this.GetType().Name} -> {newState.GetType().Name}</color>");
-        ResetStateFlags(aiCharacter); // 현재 스테이트의 찌꺼기를 지워 백지 상태로 만듦
+        aiCharacter.aiCharacterCombatManager.DebugLog($"상태 전환: <color=yellow>{this.GetType().Name} → {newState.GetType().Name}</color>");
+        ResetStateFlags(aiCharacter);
         return newState;
     }
 
-    // 스테이트 플래그를 리셋해서 스테이트로 복귀 시 다시 백지 상태가 되게 해줌
+    /// <summary>
+    /// 상태 전환 시 이전 상태의 찌꺼기를 정리합니다.
+    /// 하위 State가 Override하여 추가 정리를 수행할 수 있습니다.
+    /// </summary>
     protected virtual void ResetStateFlags(AICharacterManager aiCharacterManager)
     {
-        // [근본 원인 해결] NavMeshAgent가 활성화되어 있고 바닥에 안착했을 때만 경로 초기화
-        if (aiCharacterManager.navMeshAgent != null && aiCharacterManager.navMeshAgent.isActiveAndEnabled && aiCharacterManager.navMeshAgent.isOnNavMesh)
+        // NavMesh 경로 초기화 (안전 조건 확인 후)
+        if (aiCharacterManager.navMeshAgent != null
+            && aiCharacterManager.navMeshAgent.isActiveAndEnabled
+            && aiCharacterManager.navMeshAgent.isOnNavMesh)
         {
             aiCharacterManager.navMeshAgent.ResetPath();
         }
 
+        // [변경] 상태 전환 타이밍에 applyRootMotion을 즉시 비활성화합니다.
+        // 다음 프레임에 AICharacterLocomotionManager.Update()가 올바른 값으로 재설정합니다.
+        if (aiCharacterManager.animator != null)
+        {
+            aiCharacterManager.animator.applyRootMotion = false;
+        }
     }
 }

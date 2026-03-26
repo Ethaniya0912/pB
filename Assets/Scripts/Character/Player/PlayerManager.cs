@@ -83,7 +83,7 @@ namespace TDA.Character.Player
             // characterInteractionManager = playerInteractionManager;
         }
 
-        protected override void Update()
+        private void Update()
         {
             base.Update();
 
@@ -96,7 +96,7 @@ namespace TDA.Character.Player
             playerStatsManager.RegenerateStamina();
         }
 
-        protected override void LateUpdate()
+        private void LateUpdate()
         {
             if (!IsOwner) return;
             base.LateUpdate();

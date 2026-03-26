@@ -641,7 +641,6 @@ GameObject:
   - component: {fileID: 2187960731613901782}
   - component: {fileID: 212227040432806844}
   - component: {fileID: 1947142874346906517}
-  - component: {fileID: 371804580769071371}
   - component: {fileID: 2851853831134315020}
   - component: {fileID: 7609067749574553744}
   - component: {fileID: 287085065434700163}
@@ -659,6 +658,7 @@ GameObject:
   - component: {fileID: 6808503888121520632}
   - component: {fileID: -9004815254328650616}
   - component: {fileID: -282261469178741356}
+  - component: {fileID: 5004160217070974246}
   m_Layer: 8
   m_Name: Dummy_04
   m_TagString: Untagged
@@ -880,32 +880,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &371804580769071371
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 09d2da7f2c208fc4ba3fd4249c8259b7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  verticalMovement: 0
-  horizontalMovement: 0
-  moveAmount: 0
-  useRootMotionForLocomotion: 1
-  walkingSpeed: 1
-  runningSpeed: 1
-  rotationSpeed: 1
-  dodgeStaminaCost: 10
-  gravity: -20
-  groundedGravity: -5
-  jumpForwardSpeed: 4
-  inAirControl: 2
-  isRolling: 0
-  isRotationLockedByEvent: 0
 --- !u!114 &2851853831134315020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1507,6 +1481,35 @@ MonoBehaviour:
   currentState: 0
   isLockedOn: 0
   lockOnShutterMultiplier: 1.4
+  _dbgWeightBufConnected: 0
+  _dbgRendererName: None
+--- !u!114 &5004160217070974246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd2711f3982f6764fb24ca656eb94a5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AICharacterLocomotionManager
+  verticalMovement: 0
+  horizontalMovement: 0
+  moveAmount: 0
+  useRootMotionForLocomotion: 1
+  walkingSpeed: 2.2
+  runningSpeed: 5.5
+  rotationSpeed: 15
+  dodgeStaminaCost: 10
+  gravity: -20
+  groundedGravity: -5
+  jumpForwardSpeed: 4
+  inAirControl: 2
+  isRolling: 0
+  isRotationLockedByEvent: 0
+  rotationSpeed: 5
 --- !u!1 &4595707506124031444
 GameObject:
   m_ObjectHideFlags: 0

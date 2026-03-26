@@ -254,9 +254,9 @@ namespace TDA.Character.Player
         // WorldCameraManager.PlayCameraSequence()에서 스냅샷 저장,
         // CameraSequenceRoutine 종료 시 SetFramingOffset()으로 복원됩니다.
         private bool isPendingFramingRestore = false;  // 복원 대기 중 여부
-        private float pendingFramingTarget = 0f;     // 복원 목표값
+        private float pendingFramingTarget = 0f;      // 복원 목표값
         private float pendingFramingBlendTime = 0.3f;   // 복원 보간 시간
-        private float pendingFramingTimer = 0f;     // 복원 진행 타이머
+        private float pendingFramingTimer = 0f;      // 복원 진행 타이머
         private float pendingFramingStartValue = 0f;     // 복원 시작값 (보간 기준)
 
         // 문제 3: 엣지 해제 후 카메라가 원래 시점으로 부드럽게 복귀
@@ -1077,13 +1077,14 @@ namespace TDA.Character.Player
             if (activeStance != null)
             {
                 var vBehavior = activeStance.verticalBehavior;
-                if (vBehavior.behaviorType == CameraVerticalBehavior.ElevationOnly)
+                // 컴파일 에러 수정: 명시적 네임스페이스 적용 (TDA.Cameras.CameraVerticalBehavior)
+                if (vBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                 {
                     float t = Mathf.InverseLerp(minimumPivot, maximumPivot, upAndDownLookAngle);
                     targetVerticalOffset = Mathf.Lerp(vBehavior.maxElevationHeight, vBehavior.minElevationHeight, t);
                     heightSmoothTime = 1f / Mathf.Max(vBehavior.elevationSpeed, 0.1f);
                 }
-                else if (vBehavior.behaviorType == CameraVerticalBehavior.DynamicOverShoulder)
+                else if (vBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.DynamicOverShoulder)
                 {
                     if (Mathf.Abs(vBehavior.pitchForMaxHeight) > 0.1f)
                     {
@@ -1345,7 +1346,8 @@ namespace TDA.Character.Player
 
                 float fixedPitchWeightZero = upAndDownLookAngle;
                 CameraStancePresetSO activeStanceZero = WorldCameraManager.Instance?.currentStanceSO;
-                if (activeStanceZero != null && activeStanceZero.verticalBehavior.behaviorType == CameraVerticalBehavior.ElevationOnly)
+                // 컴파일 에러 수정: 명시적 네임스페이스 적용
+                if (activeStanceZero != null && activeStanceZero.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                     fixedPitchWeightZero = activeStanceZero.verticalBehavior.fixedPitchAngle;
 
                 return Quaternion.Euler(fixedPitchWeightZero, leftAndRightLookAngle, 0);
@@ -1396,7 +1398,8 @@ namespace TDA.Character.Player
 
                 float fixedPitchStrafe = upAndDownLookAngle;
                 CameraStancePresetSO stanceStrafe = WorldCameraManager.Instance?.currentStanceSO;
-                if (stanceStrafe != null && stanceStrafe.verticalBehavior.behaviorType == CameraVerticalBehavior.ElevationOnly)
+                // 컴파일 에러 수정: 명시적 네임스페이스 적용
+                if (stanceStrafe != null && stanceStrafe.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                     fixedPitchStrafe = stanceStrafe.verticalBehavior.fixedPitchAngle;
 
                 dbg_isStrafeRight = true; dbg_yawFrozen = true;
@@ -1473,8 +1476,9 @@ namespace TDA.Character.Player
 
                 CameraStancePresetSO activeStanceLock = WorldCameraManager.Instance?.currentStanceSO;
                 float lockedPitch = upAndDownLookAngle;
+                // 컴파일 에러 수정: 명시적 네임스페이스 적용
                 if (activeStanceLock != null
-                    && activeStanceLock.verticalBehavior.behaviorType == CameraVerticalBehavior.ElevationOnly)
+                    && activeStanceLock.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                     lockedPitch = activeStanceLock.verticalBehavior.fixedPitchAngle;
 
                 dbg_yawFrozen = true;
@@ -1678,7 +1682,8 @@ namespace TDA.Character.Player
             CameraStancePresetSO activeStance = WorldCameraManager.Instance?.currentStanceSO;
             float actualPitch = upAndDownLookAngle;
 
-            if (activeStance != null && activeStance.verticalBehavior.behaviorType == CameraVerticalBehavior.ElevationOnly)
+            // 컴파일 에러 수정: 명시적 네임스페이스 적용
+            if (activeStance != null && activeStance.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
             {
                 actualPitch = activeStance.verticalBehavior.fixedPitchAngle;
             }

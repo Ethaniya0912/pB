@@ -4,6 +4,33 @@ using System.Collections.Generic;
 
 namespace TDA.Cameras
 {
+
+    // =========================================================================================
+    // [QTE 시스템] CameraQTEPhaseData — QTE 단계별 카메라·입력·성공/실패 데이터
+    // CharacterQTEManager.StartQTE(), PlayerExecutionManager, PlayerQTEManager에서 사용됩니다.
+    // =========================================================================================
+    [Serializable]
+    public class CameraQTEPhaseData
+    {
+        [Tooltip("이 단계에서 재생할 카메라 시퀀스 SO입니다. null이면 카메라 변화 없음.")]
+        public CameraSequencePresetSO cameraSequence;
+
+        [Tooltip("플레이어 입력 허용 시간(초). 0 이하이면 입력 창 없이 자동 진행합니다.")]
+        public float inputWindowDuration = 2.0f;
+
+        [Tooltip("이 단계에서 사용할 입력 키코드입니다. (None이면 PlayerQTEManager의 기본 키 사용)")]
+        public KeyCode inputKey = KeyCode.None;
+
+        [Tooltip("이 단계 성공 시 재생할 히트스탑 강도입니다. (0이면 없음)")]
+        public float successHitstopIntensity = 0f;
+
+        [Tooltip("이 단계 실패 시 플레이어에게 가할 데미지 배율입니다. (1=100%)")]
+        public float failureDamageMultiplier = 1.0f;
+
+        [Tooltip("이 단계에서 AI가 역공격하는 ActionID입니다. (-1이면 없음)")]
+        public int failureCounterAttackID = -1;
+    }
+
     [Serializable]
     public struct SequenceStep
     {
@@ -78,6 +105,25 @@ namespace TDA.Cameras
         [Tooltip("restorePreviousAngle 사용 시, 이전 각도로 복귀하는 보간 속도입니다. 클수록 빠르고 작을수록 부드럽습니다. (기본 3.0 → 약 0.8초에 95% 수렴)")]
         [Range(0.5f, 15f)] public float restoreAngleSpeed = 3.0f;
 
+        // =========================================================================================
+        // [v4.4 신규] 공격 후 복귀 구도 — 프레이밍 오프셋 복원
+        // =========================================================================================
+        [Tooltip("[v4.4] 시퀀스 진입 직전의 Dynamic Framing X 오프셋(숄더뷰 구도)을 기억했다가\n" +
+                 "종료 시 그 값으로 부드럽게 복원합니다.\n" +
+                 "공격 후 돌아왔을 때 공격 전의 구도(예: 플레이어 좌측 구도)가 유지됩니다.")]
+        public bool restorePreviousFraming = false;
+
+        [Tooltip("[v4.4] 프레이밍 복원 시 보간 시간(초)입니다.\n" +
+                 "0이면 즉시 스냅, 0.2~0.5이면 자연스럽게 슬라이드됩니다. (기본 0.3s)")]
+        [Range(0f, 2f)] public float restoreFramingBlendTime = 0.3f;
+
+        [Tooltip("[v4.4] restoreToDefaultStanceOnFinish=true 복귀 시 발생하는\n" +
+                 "FOV/baseOffset/baseYawOffset 플리커 문제를 해결합니다.\n" +
+                 "true이면 시퀀스 진입 직전의 렌즈·구도 값을 저장해두었다가\n" +
+                 "defaultRestStance 복귀 Blend의 시작값으로 사용합니다.\n" +
+                 "Seq_LockOn처럼 restoreToDefaultStanceOnFinish=true인 시퀀스에 권장합니다.")]
+        public bool restorePreviousStanceValues = false;
+
         [Header("Debug Control (Safe-net)")]
         [Tooltip("디버그 모드일 때, 이 시퀀스가 시작되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
         public bool pauseOnApply = false;
@@ -91,21 +137,15 @@ namespace TDA.Cameras
                 {
                     SequenceStep step = steps[i];
 
-                    // 커브가 비어있거나 키프레임이 없다면 부드러운 기본 Ease-In-Out 커브로 초기화해 줍니다.
                     if (step.blendCurve == null || step.blendCurve.length == 0)
-                    {
                         step.blendCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-                    }
 
-                    // 멀미 방지용 가중치 곡선 기본값 자동 초기화
                     if (step.trackingWeightCurve == null || step.trackingWeightCurve.length == 0)
                     {
-                        step.trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f); // 기본 100% 추적
-                        step.trackingEndTime = 1f; // 기본 끝까지 추적
+                        step.trackingWeightCurve = AnimationCurve.Constant(0f, 1f, 1f);
+                        step.trackingEndTime = 1f;
                     }
 
-                    // 🚨 [v3.0 고도화] 신규 스텝 생성 시 Damping Override 값이 0이면 기본값(0.1)으로 보호 처리합니다.
-                    // 0으로 설정될 경우 카메라가 노이즈를 필터링하지 못하고 극심하게 떨리는 것을 미연에 방지합니다.
                     if (step.actionPositionDamping <= 0f) step.actionPositionDamping = 0.1f;
                     if (step.actionRotationDamping <= 0f) step.actionRotationDamping = 0.1f;
 

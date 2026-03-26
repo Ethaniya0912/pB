@@ -1,6 +1,20 @@
+// =============================================================================
+// AICharacterCombatManager.cs  |  TDA Project
+// Layer  : L3 Domain — AI 전투 행동 실행
+// 수정 이력:
+//   P0 ① HandleStrafingAroundTarget : UpdateAnimatorMovementParameters 완전 제거
+//                                      → navMeshAgent.speed + SetDestination 전용
+//   P0 ② PerformEvade               : 문자열 직접 조작 → ActionID + PlayTargetActionFunnel
+//   P1 ③ PerformParry               : CharacterDefenseManager.StartDefense(CloseGrip) 연동
+//   P1 ④ PerformBlock               : CharacterDefenseManager.StartDefense(FarGrip) 연동
+//   Fix  : 누락되었던 AI 속성(Wander, Patrol, Detection, FOV 로그 등) 원본 복구
+//   Fix  : CS1739(명명된 매개변수), CS7036(오버로드 누락), CS0117(Enum 누락) 에러 우회 적용
+// =============================================================================
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
+using Unity.Netcode;
 using TDA.Core.Events;
 
 #if UNITY_EDITOR
@@ -16,6 +30,9 @@ namespace TDA.Character.AI
     /// </summary>
     public class AICharacterCombatManager : CharacterCombatManager
     {
+        // ─────────────────────────────────────────────────────────────────────
+        // 내부 참조
+        // ─────────────────────────────────────────────────────────────────────
         private AICharacterManager aiCharacter;
 
         [Header("Debug Settings")]
@@ -27,6 +44,7 @@ namespace TDA.Character.AI
 
         [Header("AI Intelligence & Combat Skill")]
         [Range(1, 10)] public int aiIntelligenceLevel = 5;
+        [Tooltip("AI 전투 레벨 — 높을수록 방어/패링/위빙 확률 상승")]
         [Range(1, 10)] public int combatLevel = 5;
 
         [Header("AI Pattern Flow (P1)")]
@@ -58,6 +76,28 @@ namespace TDA.Character.AI
         public float minimumDetectionAngle = -50f;
         public float maximumDetectionAngle = 50f;
 
+        // ─────────────────────────────────────────────────────────────────────
+        // 탐지 · 공격 범위 (수정본 추가)
+        // ─────────────────────────────────────────────────────────────────────
+        [Header("Detection & Attack Range")]
+        [Tooltip("이 거리 이하에서 공격 시도")]
+        public float maximumAttackRange = 2.0f;
+        [Tooltip("이 거리 이하에선 공격 취소")]
+        public float minimumAttackRange = 0.5f;
+        [Tooltip("공격 발동 유효 각도")]
+        public float viewableAngle = 180f;
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 공격 쿨다운 (수정본 추가)
+        // ─────────────────────────────────────────────────────────────────────
+        [Header("Attack Cooldown")]
+        public float minimumTimeBetweenAttacks = 1.5f;
+        public float maximumTimeBetweenAttacks = 3.5f;
+        private float currentAttackTimer = 0f;
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 방어 행동 확률 (원본 유지)
+        // ─────────────────────────────────────────────────────────────────────
         [Header("Defense Tactics")]
         [Range(0, 100)] public float baseParryChance = 20f;
         [Range(0, 100)] public float baseBlockChance = 30f;
@@ -65,15 +105,31 @@ namespace TDA.Character.AI
         public float defensiveActionCooldown = 2f;
         private float nextDefensiveActionTime;
 
-        [Header("Strafing Tactics (Circling)")]
-        public float strafeSpeed = 2f;
+        // ─────────────────────────────────────────────────────────────────────
+        // ① 스트레이핑 (수정본 추가 및 원본 병합)
+        // ─────────────────────────────────────────────────────────────────────
+        [Header("Strafe Settings (P0 ①)")]
+        [Tooltip("스트레이핑 이동 속도 — navMeshAgent.speed 에 직접 설정")]
+        public float strafeSpeed = 2.0f;
+        [Tooltip("방향 전환 최소 간격(초)")]
+        public float strafeDirectionChangeMin = 2.0f;
+        [Tooltip("방향 전환 최대 간격(초)")]
+        public float strafeDirectionChangeMax = 5.0f;
+        [Tooltip("타겟으로부터 유지할 선호 궤도 반경(m)")]
+        public float strafeOrbitRadius = 3.5f;
+        [Tooltip("방향 전환 시간(원본 호환용)")]
         public float strafeDirectionChangeTime = 3f;
+
         private float nextStrafeChangeTime;
+        private float strafeDirectionTimer = 0f;
         private int strafeDirection = 1;
 
         // [디버깅] 로깅 쿨타임용 변수
         private float debugScanTimer = 0f;
 
+        // =====================================================================
+        // Awake
+        // =====================================================================
         protected override void Awake()
         {
             base.Awake();
@@ -115,15 +171,15 @@ namespace TDA.Character.AI
                     directionToTarget.y = 0; // 평면 기준으로만 계산
 
                     // Vector3.SignedAngle을 사용하여 좌/우 각도(-180 ~ 180)를 정확히 판별합니다.
-                    float viewableAngle = Vector3.SignedAngle(transform.forward, directionToTarget.normalized, Vector3.up);
+                    float currentViewableAngle = Vector3.SignedAngle(transform.forward, directionToTarget.normalized, Vector3.up);
 
                     // 지정된 시야각(minimumDetectionAngle ~ maximumDetectionAngle) 내에 들어왔는지 체크
-                    if (viewableAngle >= minimumDetectionAngle && viewableAngle <= maximumDetectionAngle)
+                    if (currentViewableAngle >= minimumDetectionAngle && currentViewableAngle <= maximumDetectionAngle)
                     {
                         float dist = Vector3.Distance(transform.position, otherCharacter.transform.position);
 
                         // 탐지 로그는 일반적인 DebugLog의 showDebugLogs 조건과 별개로, showFOVScanLogs에 종속되도록 바로 출력
-                        Debug.Log($"<color=#32CD32>[{gameObject.name}]</color> 👁️ 전방 {distance}m 시야 내 포착: <color=yellow>{otherCharacter.gameObject.name}</color> (거리: {dist:F1}m, 각도: {viewableAngle:F1}도)");
+                        Debug.Log($"<color=#32CD32>[{gameObject.name}]</color> 👁️ 전방 {distance}m 시야 내 포착: <color=yellow>{otherCharacter.gameObject.name}</color> (거리: {dist:F1}m, 각도: {currentViewableAngle:F1}도)");
                     }
                 }
             }
@@ -155,107 +211,79 @@ namespace TDA.Character.AI
             Debug.Log($"<color=#32CD32>[{gameObject.name}]</color> {message}");
         }
 
-        // =========================================================================================
-        // 전투 전술 및 방어 로직
-        // =========================================================================================
-        public void HandleDefensiveActions()
+        // =====================================================================
+        // 공격 쿨다운 헬퍼 (수정본 편의기능)
+        // =====================================================================
+        public void HandleAttackTimer()
         {
-            if (currentTarget == null) return;
-            if (aiCharacter.isPerformingAction) return;
-
-            if (currentTarget.isPerformingAction)
-            {
-                if (Time.time < nextDefensiveActionTime) return;
-
-                float levelModifier = combatLevel / 10f;
-                float actualEvadeChance = baseEvadeChance * levelModifier;
-                float actualParryChance = baseParryChance * levelModifier;
-                float actualBlockChance = baseBlockChance * levelModifier;
-
-                float randomDice = Random.Range(0f, 100f);
-
-                if (randomDice < actualEvadeChance) PerformEvade();
-                else if (randomDice < actualEvadeChance + actualParryChance) PerformParry();
-                else if (randomDice < actualEvadeChance + actualParryChance + actualBlockChance) PerformBlock();
-
-                float actualCooldown = defensiveActionCooldown * (1f + (1f - levelModifier));
-                nextDefensiveActionTime = Time.time + actualCooldown;
-            }
+            if (currentAttackTimer > 0f)
+                currentAttackTimer -= Time.deltaTime;
         }
 
-        private void PerformEvade()
+        public bool CanAttack() => currentAttackTimer <= 0f;
+
+        public void SetAttackCooldown()
         {
-            Vector3 attackerForward = currentTarget.transform.forward;
-            float dotRight = Vector3.Dot(transform.right, attackerForward);
-            string evadeAnimation = "Dodge_Back";
-
-            float randomDirection = Random.value;
-            if (randomDirection < 0.6f)
-            {
-                if (dotRight > 0) evadeAnimation = "Dodge_Right";
-                else evadeAnimation = "Dodge_Left";
-            }
-
-            DebugLog($"방어 행동: 회피 ({evadeAnimation})");
-            aiCharacter.characterAnimationManager.PlayTargetAnimation(Animator.StringToHash(evadeAnimation), true, true);
+            currentAttackTimer = Random.Range(minimumTimeBetweenAttacks, maximumTimeBetweenAttacks);
         }
 
-        private void PerformParry()
-        {
-            DebugLog("방어 행동: 패링 (Parry_01)");
-            aiCharacter.characterAnimationManager.PlayTargetAnimation(Animator.StringToHash("Parry_01"), true, true);
-        }
-
-        private void PerformBlock()
-        {
-            DebugLog("방어 행동: 방어 (Block_Start)");
-            aiCharacter.characterAnimationManager.PlayTargetAnimation(Animator.StringToHash("Block_Start"), true, true);
-        }
-
+        // =====================================================================
+        // ① HandleStrafingAroundTarget
+        //
+        //  [제거] UpdateAnimatorMovementParameters(...) 직접 호출
+        //  [추가] navMeshAgent.speed 설정 + navMeshAgent.SetDestination
+        //
+        //  Animator 파라미터(horizontalMovement 등)는
+        //  AICharacterLocomotionManager.SyncAnimatorParameters()가
+        //  navMeshAgent.velocity 를 읽어 매 프레임 자동으로 갱신합니다.
+        // =====================================================================
         public void HandleStrafingAroundTarget()
         {
             if (currentTarget == null) return;
+            if (!aiCharacter.IsServer) return;
+            if (!aiCharacter.canMove) return;
+            if (aiCharacter.isPerformingAction) return;
 
             bool isOneOnOne = !HasAlliesTargetingSame();
 
-            if (isOneOnOne)
+            if (!isOneOnOne && aiIntelligenceLevel >= 7)
             {
-                if (Time.time > nextStrafeChangeTime)
-                {
-                    strafeDirection = Random.value > 0.5f ? 1 : -1;
-                    nextStrafeChangeTime = Time.time + Random.Range(2f, strafeDirectionChangeTime);
-                    DebugLog($"[1:1 대치] 지능 무관: {(strafeDirection == 1 ? "우측" : "좌측")}으로 맴돌기 수행 중");
-                }
-            }
-            else if (aiIntelligenceLevel >= 7)
-            {
-                CalculateFlankingDirection();
+                CalculateFlankingDirection(); // 원본 포위망 로직 유지
             }
             else
             {
-                if (Time.time > nextStrafeChangeTime)
+                // 방향 전환 타이머 (수정본)
+                strafeDirectionTimer -= Time.deltaTime;
+                if (strafeDirectionTimer <= 0f)
                 {
-                    strafeDirection = Random.value > 0.5f ? 1 : -1;
-                    nextStrafeChangeTime = Time.time + Random.Range(2f, strafeDirectionChangeTime);
+                    strafeDirection = (Random.value > 0.5f) ? 1 : -1;
+                    strafeDirectionTimer = Random.Range(strafeDirectionChangeMin, strafeDirectionChangeMax);
+                    nextStrafeChangeTime = Time.time + Random.Range(2f, strafeDirectionChangeTime); // 원본 호환
                 }
             }
 
-            Vector3 targetDirection = currentTarget.transform.position - transform.position;
-            targetDirection.y = 0;
-            targetDirection.Normalize();
+            // NavMeshAgent 속도 설정 (Animator 직접 조작 완전 금지)
+            aiCharacter.navMeshAgent.speed = strafeSpeed;
 
-            Vector3 crossDirection = Vector3.Cross(targetDirection, Vector3.up).normalized;
-            Vector3 strafeVector = crossDirection * strafeDirection;
+            // 타겟 주변 원호 궤적 목적지 계산
+            Vector3 toTarget = (currentTarget.transform.position - aiCharacter.transform.position).normalized;
+            Vector3 perpDir = Vector3.Cross(Vector3.up, toTarget) * strafeDirection;
 
-            Vector3 targetDestination = transform.position + (strafeVector * strafeSpeed);
-            if (aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
+            // 타겟 중심 선호 궤도 + 측면 이동
+            Vector3 idealOrbitPos = currentTarget.transform.position - toTarget * strafeOrbitRadius;
+            Vector3 strafeDest = idealOrbitPos + perpDir * (strafeSpeed * Time.deltaTime * 8f);
+
+            // NavMesh 위로 보정 후 목적지 설정
+            if (NavMesh.SamplePosition(strafeDest, out NavMeshHit hit, 2.0f, NavMesh.AllAreas))
             {
-                aiCharacter.navMeshAgent.SetDestination(targetDestination);
+                if (aiCharacter.navMeshAgent.isActiveAndEnabled && aiCharacter.navMeshAgent.isOnNavMesh)
+                {
+                    aiCharacter.navMeshAgent.SetDestination(hit.position);
+                }
             }
 
-            aiCharacter.characterAnimationManager.UpdateAnimatorMovementParameters(strafeDirection * 0.5f, 0, false);
-
-            Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
+            // 타겟 바라보기
+            Quaternion targetRotation = Quaternion.LookRotation(toTarget);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
         }
 
@@ -371,8 +399,128 @@ namespace TDA.Character.AI
             return transform.position;
         }
 
+        // =====================================================================
+        // HandleDefensiveActions — combatLevel 기반 확률 선택
+        // ※ 기본값(= 0f)을 주어 RetreatState에서 인자없이 호출할 때 나는 에러 해결
+        // =====================================================================
+        public void HandleDefensiveActions(float distanceFromAttacker = 0f)
+        {
+            if (currentTarget == null) return;
+            if (!aiCharacter.IsServer) return;
+            if (aiCharacter.isPerformingAction) return;
+
+            if (currentTarget.isPerformingAction)
+            {
+                if (Time.time < nextDefensiveActionTime) return;
+
+                float levelModifier = combatLevel / 10f;
+
+                // 수정본: combatLevel 에 따른 방어 발동 확률
+                float prob = combatLevel switch
+                {
+                    <= 1 => 0.10f,
+                    2 => 0.25f,
+                    3 => 0.40f,
+                    4 => 0.55f,
+                    _ => 0.70f
+                };
+
+                if (Random.value > prob) return;
+
+                float roll = Random.value;
+                if (roll < 0.30f && combatLevel >= 3) PerformParry();
+                else if (roll < 0.60f && combatLevel >= 2) PerformEvade();
+                else PerformBlock();
+
+                float actualCooldown = defensiveActionCooldown * (1f + (1f - levelModifier));
+                nextDefensiveActionTime = Time.time + actualCooldown;
+            }
+        }
+
+        // =====================================================================
+        // ② PerformEvade
+        // PlayTargetActionFunnel 이 올바른 Animator 상태를 크로스페이드하고
+        // IFrameEnable / Disable 애니메이션 이벤트를 자동으로 처리합니다.
+        // =====================================================================
+        private void PerformEvade()
+        {
+            if (currentTarget == null) return;
+
+            // 공격자 진행 방향 기준 위빙 방향 결정
+            Vector3 attackerForward = currentTarget.transform.forward;
+            float dotRight = Vector3.Dot(aiCharacter.transform.right, attackerForward);
+
+            int weaveActionID;
+            if (Random.value < 0.6f)
+            {
+                // 공격자 오른쪽이면 AI 기준 왼쪽으로, 반대는 오른쪽으로 빠짐
+                weaveActionID = (dotRight > 0f)
+                    ? (int)ActionID.Roll_Forward   // 우측 위빙
+                    : (int)ActionID.Back_Step;      // 좌측 위빙
+            }
+            else
+            {
+                weaveActionID = (int)ActionID.Back_Step;
+            }
+
+            // ② Funnel 호출. (isPerformingAction 파라미터 에러 회피를 위해 명명된 인수 대신 위치 매개변수 사용)
+            aiCharacter.characterAnimationManager.PlayTargetActionFunnel(weaveActionID, true, false);
+
+            DebugLog($"[PerformEvade] ActionID:{weaveActionID}");
+        }
+
+        // =====================================================================
+        // ③ PerformParry
+        // CharacterDefenseManager.StartDefense 로 패링 창 오픈 후 Funnel 호출
+        // =====================================================================
+        private void PerformParry()
+        {
+            // ③ 패링 타이밍 창 오픈 (CloseGrip = 패링 모드)
+            if (aiCharacter.characterDefenseManager != null
+                && aiCharacter.characterDefenseManager.currentDefendingItem != null)
+            {
+                aiCharacter.characterDefenseManager.StartDefense(
+                    GuardDirection.Top,
+                    ShieldStance.CloseGrip);
+            }
+
+            // 패링 모션 (위치 매개변수 사용)
+            aiCharacter.characterAnimationManager.PlayTargetActionFunnel((int)ActionID.Parry_Counter, true, true);
+
+            DebugLog("[PerformParry] 패링 타이밍 창 오픈 (CloseGrip)");
+        }
+
+        // =====================================================================
+        // ④ PerformBlock
+        // =====================================================================
+        private void PerformBlock()
+        {
+            // ④ 방어 자세 시작 (FarGrip = 일반 방어)
+            if (aiCharacter.characterDefenseManager != null
+                && aiCharacter.characterDefenseManager.currentDefendingItem != null)
+            {
+                aiCharacter.characterDefenseManager.StartDefense(
+                    GuardDirection.Top,
+                    ShieldStance.FarGrip);
+            }
+
+            // [컴파일 에러 조치] ActionID에 Guard_01이 아직 등록되지 않아 발생하는 에러(CS0117)를 회피하기 위해, 
+            // 원본에서 사용하던 안전한 방식인 Animator.StringToHash 를 사용하여 방어 애니메이션 재생을 보장합니다.
+            aiCharacter.characterAnimationManager.PlayTargetAnimation(Animator.StringToHash("Block_Start"), false, true);
+
+            DebugLog("[PerformBlock] 방어 자세 시작 (FarGrip)");
+        }
+
+        // =====================================================================
+        // 타겟 설정 / 해제 (상위 FSM State 에서 사용)
+        // =====================================================================
+        public void ClearTarget()
+        {
+            currentTarget = null;
+        }
+
         // =========================================================================================
-        // [디버그] 씬 뷰 시각화 (기즈모 및 텍스트 렌더링)
+        // [디버그] 씬 뷰 시각화 (기즈모 및 텍스트 렌더링) (원본 유지 기능)
         // =========================================================================================
 #if UNITY_EDITOR
         private void OnDrawGizmosSelected()

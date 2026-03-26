@@ -44,10 +44,19 @@ MonoBehaviour:
     weight: 0.3
   - target: 4
     weight: 0.7
+  multiTargetFraming:
+    focusDetectionRadius: 12
+    proximityEnemyWeight: 0.2
+    focusDampTime: 0.35
+    staticTargetWeightScale: 1
   edgePanningData:
     useEdgePanning: 0
     edgePanThreshold: 0.1
     lockOnInputDeadzone: 0.5
+    edgePanSmoothTime: 0.12
+    edgePanReturnTime: 0.8
+    lockOnInitialFramingOffset: 0
+    lockOnInitialFramingBlendTime: 0.3
   lockOnPenaltyData:
     enableTargetEscapePenalty: 0
     targetEscapeViewportThreshold: 0.1
@@ -77,6 +86,9 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
     strafeRecoveryWeight: 1
+    softRecoverySpeed: 2
+    escapePersistTime: 0.25
+    pitchReturnSpeed: 1
   dynamicInputModifier:
     enableDynamicInputModifier: 0
     fovModifierCurve:
@@ -127,6 +139,11 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
+  bodyYawTracking:
+    bodyYawFollowWeight: 0
+    bodyYawFollowSmoothTime: 1
+    lockCameraOnActionStart: 0
+    lockCameraMouseInfluence: 0
   handheldEffect:
     enableHandheldEffect: 0
     swayAmount: 10

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using TDA.Cameras;
 using TDA.Character.Player;
-
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -62,6 +61,20 @@ namespace TDA.World
         [HideInInspector] public float storedYaw;
         [HideInInspector] public bool shouldRestorePreviousAngle = false;
 
+        // [v4.4 신규] 연출 진입 전 Dynamic Framing X 오프셋 스냅샷 저장 데이터
+        // PlayCameraSequence에서 저장, CameraSequenceRoutine 종료 시 SetFramingOffset으로 복원
+        [HideInInspector] public float storedFramingOffsetX = 0f;
+        [HideInInspector] public bool shouldRestorePreviousFraming = false;
+
+        // [v4.4 신규] 연출 진입 전 렌즈/구도 스냅샷 저장 데이터
+        // restorePreviousStanceValues=true인 시퀀스에서 사용.
+        // 시퀀스 종료 후 BlendToStanceRoutine의 startFOV/startBaseYawOffset 등이
+        // defaultRestStance 값으로 보간되어 화면에 보이는 문제를 해결합니다.
+        [HideInInspector] public float storedFOV = 60f;
+        [HideInInspector] public float storedBaseYawOffset = 0f;
+        [HideInInspector] public Vector3 storedBaseOffset = new Vector3(0.5f, 1.5f, -2.5f);
+        [HideInInspector] public bool shouldRestorePreviousStanceValues = false;
+
         // 🚨 [Tracking Window] 멀미 방지용 실시간 추적 가중치 프로퍼티
         public float CurrentTrackingWeight { get; private set; } = 1f;
 
@@ -107,6 +120,8 @@ namespace TDA.World
         [Header("History Tracking")]
         [Tooltip("메모리 낭비를 막기 위해 유지할 최대 히스토리 개수")]
         [SerializeField] private int maxHistoryCount = 15;
+
+
 
         private void Awake()
         {
@@ -311,6 +326,35 @@ namespace TDA.World
                 shouldRestorePreviousAngle = false;
             }
 
+            // [v4.4 신규] 시퀀스 진입 시 Dynamic Framing X 오프셋 스냅샷 저장
+            if (sequenceSO.restorePreviousFraming && localPlayerCamera != null)
+            {
+                storedFramingOffsetX = localPlayerCamera.GetCurrentFramingOffset();
+                shouldRestorePreviousFraming = true;
+                Debug.Log($"[WorldCameraManager] 프레이밍 스냅샷 저장: {storedFramingOffsetX:F3}");
+            }
+            else
+            {
+                shouldRestorePreviousFraming = false;
+            }
+
+            // [v4.4 신규] 시퀀스 진입 시 렌즈·구도 값 스냅샷 저장
+            // restorePreviousStanceValues=true이면 현재 FOV/baseOffset/baseYawOffset을 저장.
+            // 시퀀스 종료 후 defaultRestStance로 복귀하는 BlendToStanceRoutine의
+            // 시작값(startFOV 등)을 이 스냅샷으로 교체하여 화면 플리커를 방지합니다.
+            if (sequenceSO.restorePreviousStanceValues)
+            {
+                storedFOV = currentFOV;
+                storedBaseOffset = currentBaseOffset;
+                storedBaseYawOffset = currentBaseYawOffset;
+                shouldRestorePreviousStanceValues = true;
+                Debug.Log($"[WorldCameraManager] 렌즈·구도 스냅샷 저장: FOV={storedFOV:F1} YawOff={storedBaseYawOffset:F1}");
+            }
+            else
+            {
+                shouldRestorePreviousStanceValues = false;
+            }
+
             currentSequenceSO = sequenceSO;
             IsSequencePlaying = true;
             Debug.Log($"<color=magenta>[WorldCameraManager]</color> 🎬 새로운 카메라 시퀀스 재생 시작: <b>{sequenceSO.name}</b>");
@@ -440,6 +484,26 @@ namespace TDA.World
                 }
             }
 
+            // =================================================================
+            // [v4.4] 시퀀스 종료 후 프레이밍 오프셋 복원
+            // restorePreviousFraming=true이고 스냅샷이 저장된 경우에만 복원합니다.
+            // SetFramingOffset(blendTime>0)을 호출하면 PlayerCamera.HandleFollowTarget이
+            // 매 프레임 SmoothStep으로 부드럽게 목표값까지 보간합니다.
+            // =================================================================
+            if (shouldRestorePreviousFraming && localPlayerCamera != null)
+            {
+                float blendT = (currentSequenceSO != null)
+                    ? currentSequenceSO.restoreFramingBlendTime
+                    : 0.3f;
+                // blendT를 sequence에서 읽어야 하는데 이미 null이 될 수 있으므로
+                // 아래에서 null 처리 후 복원
+                blendT = sequence.restoreFramingBlendTime;
+                localPlayerCamera.SetFramingOffset(storedFramingOffsetX, blendT);
+                shouldRestorePreviousFraming = false;
+                Debug.Log($"[WorldCameraManager] 프레이밍 복원 요청: {storedFramingOffsetX:F3} (blend:{blendT:F2}s)");
+            }
+            // =================================================================
+
             IsSequencePlaying = false;
             currentSequenceSO = null;
             activeSequenceCoroutine = null;
@@ -448,6 +512,8 @@ namespace TDA.World
             CurrentPositionDamping = 0.1f;
             CurrentRotationDamping = 0.1f;
             shouldRestorePreviousAngle = false;
+            shouldRestorePreviousFraming = false;
+            shouldRestorePreviousStanceValues = false;
         }
 
         private IEnumerator DelayedShakeRoutine(CameraShakeData shakeData)
@@ -465,19 +531,33 @@ namespace TDA.World
         private IEnumerator BlendToStanceRoutine(SequenceStep step)
         {
             // [v3.9] 보간 시작 직전 velocity 리셋 — 이전 velocity 누적으로 인한 발산 방지
+            // [v4.4] shouldRestorePreviousFraming=true이면 framing 수치를 보존 (공격 후 구도 유지)
             if (localPlayerCamera != null)
             {
-                localPlayerCamera.ResetVelocities();
+                localPlayerCamera.ResetVelocities(preserveFraming: shouldRestorePreviousFraming);
             }
 
             float timer = 0f;
             float totalDuration = step.blendDuration + step.holdDuration;
             CameraStancePresetSO targetStance = step.targetStance;
 
-            float startFOV = currentFOV;
+            // [v4.4] shouldRestorePreviousStanceValues=true이면 startFOV 등을 스냅샷 값으로 교체.
+            // defaultRestStance로 복귀하는 BlendToStanceRoutine에서 currentFOV(=Stance_Combat)에서
+            // defaultRestStance.fov로 보간되는 대신, 스냅샷(시퀀스 진입 전 값)에서
+            // targetStance.fov로 보간하여 화면에 불필요한 FOV/YawOffset 변화가 생기지 않게 합니다.
+            float startFOV = shouldRestorePreviousStanceValues ? storedFOV : currentFOV;
             float startZTilt = currentZTilt;
-            Vector3 startBaseOffset = currentBaseOffset;
-            float startBaseYawOffset = currentBaseYawOffset;
+            Vector3 startBaseOffset = shouldRestorePreviousStanceValues ? storedBaseOffset : currentBaseOffset;
+            float startBaseYawOffset = shouldRestorePreviousStanceValues ? storedBaseYawOffset : currentBaseYawOffset;
+
+            // 스냅샷을 사용했으면 현재 렌더 값도 즉시 스냅샷으로 덮어써서 시각적 점프를 방지합니다.
+            if (shouldRestorePreviousStanceValues)
+            {
+                currentFOV = storedFOV;
+                currentBaseOffset = storedBaseOffset;
+                currentBaseYawOffset = storedBaseYawOffset;
+                shouldRestorePreviousStanceValues = false; // 한 번만 적용
+            }
 
             float targetFOV = targetStance.fov;
             float targetZTilt = targetStance.zTilt;
@@ -575,9 +655,10 @@ namespace TDA.World
             // 락온 진입처럼 카메라 상태가 급격히 바뀔 때 이전에 쌓인 cameraVelocity /
             // framingVelocity가 새 desiredPos 방향과 충돌하여 카메라가 수천만m 날아가는
             // 폭발(SmoothDamp divergence) 현상을 원천 차단합니다.
+            // [v4.4] shouldRestorePreviousFraming=true이면 framing 수치를 보존
             if (localPlayerCamera != null)
             {
-                localPlayerCamera.ResetVelocities();
+                localPlayerCamera.ResetVelocities(preserveFraming: shouldRestorePreviousFraming);
             }
 
             // 상태 즉시 적용 시 히스토리 기록 (객체 레퍼런스 전달)
@@ -678,6 +759,44 @@ namespace TDA.World
             Gizmos.matrix = Matrix4x4.TRS(desiredPos, localPlayerCamera.transform.rotation, Vector3.one);
             Gizmos.DrawFrustum(Vector3.zero, currentFOV, 2f, 0.1f, 1.0f);
         }
+
+        // =====================================================================
+        // QTE (Quick Time Event) 카메라 제어
+        // CharacterQTEManager에서 StartQTE(phases) 호출 → 카메라 연출 분기
+        // =====================================================================
+
+        /// <summary>
+        /// QTE를 시작하고 첫 번째 단계의 카메라 시퀀스를 재생합니다.
+        /// CharacterQTEManager.StartQTE()에서 호출됩니다.
+        /// </summary>
+        public void StartQTE(System.Collections.Generic.List<TDA.Cameras.CameraQTEPhaseData> phases)
+        {
+            if (phases == null || phases.Count == 0) return;
+            var firstPhase = phases[0];
+            if (firstPhase.cameraSequence != null)
+                PlayCameraSequence(firstPhase.cameraSequence, "QTE_Start");
+        }
+
+        /// <summary>
+        /// 현재 QTE 단계의 성공/실패를 처리하고 다음 단계 카메라를 재생합니다.
+        /// CharacterQTEManager.AdvanceToPhase()에서 호출됩니다.
+        /// </summary>
+        public void ResolveQTEPhase(bool success)
+        {
+            if (!success)
+                StopSequenceAndRestore(0.3f, "QTE_Fail");
+        }
+
+        /// <summary>
+        /// QTE를 완전히 종료하고 카메라를 기본 상태로 복귀시킵니다.
+        /// CharacterQTEManager.CleanUpQTE()에서 호출됩니다.
+        /// </summary>
+        public void EndQTE(bool success)
+        {
+            StopSequenceAndRestore(success ? 0.5f : 0.2f, success ? "QTE_Success" : "QTE_Fail");
+        }
+
+
     }
 
 #if UNITY_EDITOR
@@ -699,7 +818,8 @@ namespace TDA.World
         private float editZTilt;
         private float editBaseYawOffset;
 
-        private CameraVerticalBehavior editBehaviorType;
+        // 컴파일 에러 해결 (CS0266, CS0117): 명시적 네임스페이스 지정
+        private TDA.Cameras.CameraVerticalBehavior editBehaviorType;
         private float editElevationSpeed;
         private float editMaxElevationHeight;
         private float editMinElevationHeight;
@@ -869,16 +989,18 @@ namespace TDA.World
 
                 // [수직 시점 조작 패널]
                 EditorGUILayout.LabelField("↕️ 수직(상하) 시점 조작 (Vertical Behavior)", EditorStyles.miniBoldLabel);
-                editBehaviorType = (CameraVerticalBehavior)EditorGUILayout.EnumPopup("Behavior Type", editBehaviorType);
+                // 컴파일 에러 해결 (CS0266): 명시적 네임스페이스 캐스팅
+                editBehaviorType = (TDA.Cameras.CameraVerticalBehavior)EditorGUILayout.EnumPopup("Behavior Type", editBehaviorType);
 
-                if (editBehaviorType == CameraVerticalBehavior.ElevationOnly)
+                // 컴파일 에러 해결: Enum 비교 시 명시적 네임스페이스 사용
+                if (editBehaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                 {
                     editElevationSpeed = EditorGUILayout.FloatField("Elevation Speed", editElevationSpeed);
                     editMaxElevationHeight = EditorGUILayout.FloatField("Max Elevation Height", editMaxElevationHeight);
                     editMinElevationHeight = EditorGUILayout.FloatField("Min Elevation Height", editMinElevationHeight);
                     editFixedPitchAngle = EditorGUILayout.FloatField("Fixed Pitch Angle", editFixedPitchAngle);
                 }
-                else if (editBehaviorType == CameraVerticalBehavior.DynamicOverShoulder)
+                else if (editBehaviorType == TDA.Cameras.CameraVerticalBehavior.DynamicOverShoulder)
                 {
                     editPitchForMaxHeight = EditorGUILayout.FloatField("Pitch For Max Height", editPitchForMaxHeight);
                     editMaxDynamicHeight = EditorGUILayout.FloatField("Max Dynamic Height", editMaxDynamicHeight);
