@@ -661,6 +661,8 @@ GameObject:
   - component: {fileID: 5062653150551271864}
   - component: {fileID: 5717506456705042142}
   - component: {fileID: 7072069649473977397}
+  - component: {fileID: 5927218572841699087}
+  - component: {fileID: 6110909180561247536}
   m_Layer: 8
   m_Name: Dummy_04
   m_TagString: Untagged
@@ -720,7 +722,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1723572614
+  GlobalObjectIdHash: 1383825015
   InScenePlacedSourceGlobalObjectIdHash: 1383825015
   DeferredDespawnTick: 0
   Ownership: 1
@@ -925,7 +927,7 @@ MonoBehaviour:
   aiCharacterInventoryManager: {fileID: 0}
   aiCharacterIKController: {fileID: 0}
   navMeshAgent: {fileID: 5062653150551271864}
-  aiExecutionManager: {fileID: 0}
+  aiCharacterExecutionManager: {fileID: 0}
   currentState: {fileID: 11400000, guid: 7caaae16eea16ca4eaf9fa0ee52c4b81, type: 2}
   defaultState: {fileID: 0}
 --- !u!114 &4105687166604391429
@@ -1267,12 +1269,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c40a38d70150fcb49b273db06e5b4bbf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.EditorTools.AICharacterManagerDebugger
+  hudWidth: 300
+  hudHeight: 520
+  fontSize: 11
+  sectionFontSize: 11
   showDebugHUD: 0
-  lockSelection: 0
+  showSectionFlags: 1
+  showSectionStats: 1
+  showSectionCombat: 1
+  showSectionExecution: 1
+  showSectionQTE: 1
+  showSectionTargetInfo: 1
+  showSectionTargetPanorama: 1
+  showActionIDEnumName: 1
+  fallbackToAnimEventEnum: 0
   pauseOnDeath: 0
   pauseOnPoiseBreak: 0
   pauseOnEventTypes: 
   maxHistoryCount: 50
+  showSectionFSM: 1
+  showSectionPoise: 1
+  showSectionNavMesh: 1
+  showSectionAIExec: 1
   pauseOnGroggy: 0
   pauseOnExecutionStart: 0
   pauseOnStateEnter: {fileID: 0}
@@ -1329,14 +1347,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
+  debugForceIdleStretch: 0
+  shutterAngle: 180
+  targetFPS: 60
+  globalIntensity: 1
   blurIntensity: 1
   maxBlurLength: 0.04
   minBlurFloor: 0.005
   currentState: 0
   isLockedOn: 0
   lockOnShutterMultiplier: 1.4
+  hysteresisHigh: 0.15
+  hysteresisLow: 0.05
+  smoothDecayIdle: 0.8
+  smoothDecayStrafe: 0.88
+  smoothDecayAttack: 0.96
+  smoothDecayHeavy: 0.98
+  _dbgRawSpeed: 0
+  _dbgSmoothedSpeed: 0
+  _dbgEffMult: 0
+  _dbgStretchEst: 0
+  _dbgExpTime: 0
   _dbgWeightBufConnected: 0
   _dbgRendererName: None
+  _dbgBlurState: Idle
+  _dbgShutterMult: 0.5
+  _dbgEffectiveMult: 0
 --- !u!114 &-9004815254328650616
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1354,6 +1390,7 @@ MonoBehaviour:
   legBias: 0.75
   spineCap: 0.35
   headScale: 0.15
+  shoulderScale: 0.7
   debugLog: 1
 --- !u!114 &6808503888121520632
 MonoBehaviour:
@@ -1469,8 +1506,86 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   isBeingExecuted:
     m_InternalValue: 0
+  showDebugLogs: 0
   isExecutable:
     m_InternalValue: 0
+--- !u!114 &5927218572841699087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 231a6ad896455da4d920b46d10003b28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
+  skinningCacheShader: {fileID: 0}
+  targetSMR: {fileID: 0}
+  _dbgStatus: Initializing
+  _dbgVertexCount: 0
+  _dbgReady: 0
+--- !u!114 &6110909180561247536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aedec43775d172f42b69946aae29b692, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::P4_WeaponBlurStateController
+  blurController: {fileID: 0}
+  characterEventManager: {fileID: 0}
+  characterControllerOverride: {fileID: 0}
+  attackBlurMultiplier: 3
+  heavyBlurMultiplier: 1.5
+  blurAttackRampUp: 8
+  blurAttackRampDown: 3
+  enableSlashWindupAsAim: 1
+  aimMaxDuration: 0.2
+  attackEndDelay: 0.08
+  strafeSpeedThreshold: 0.5
+  enableBodyPartAnalysis: 0
+  analysisInterval: 3
+  _dbgCurrentState: Idle
+  _dbgShutterMult: 0.5
+  _dbgAnimState: "\u2014"
+  _dbgPlayerSpeed: 0
+  _dbgIsWindup: 0
+  _dbgSubscribed: 0
+  _dbgBlurCtrlFound: 0
+  _dbgEventMgrFound: 0
+  _dbgCCFound: 0
+  _dbgLastEventReceived: "\u2014"
+  _dbgLastEventTime: -1
+  _dbgTotalEventCount: 0
+  _dbgLastTriggerEvent: "\u2014"
+  _dbgEventHistory_0: "\u2014"
+  _dbgEventHistory_1: "\u2014"
+  _dbgEventHistory_2: "\u2014"
+  _dbgEventHistory_3: "\u2014"
+  _dbgEventHistory_4: "\u2014"
+  _dbgEventHistory_5: "\u2014"
+  _dbgPredictedMax: "\u2014"
+  _dbgPredictedAttack: "\u2014"
+  _dbgPredictedHeavy: "\u2014"
+  _dbgPart_HandTip: "\u2014"
+  _dbgPart_Hand: "\u2014"
+  _dbgPart_Forearm: "\u2014"
+  _dbgPart_UpperArm: "\u2014"
+  _dbgPart_Shoulder: "\u2014"
+  _dbgPart_Foot: "\u2014"
+  _dbgPart_Shin: "\u2014"
+  _dbgPart_Thigh: "\u2014"
+  _dbgPart_Head: "\u2014"
+  _dbgPart_Spine: "\u2014"
+  _dbgPart_Hips: "\u2014"
+  _dbgPart_Overall: "\u2014"
+  _dbgMaxLengthUsage: "\u2014"
 --- !u!1 &4595707506124031444
 GameObject:
   m_ObjectHideFlags: 0

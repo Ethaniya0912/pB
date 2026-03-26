@@ -36,18 +36,6 @@ Shader "Dreamcore/ObjectMotionBlur"
         [Toggle(_OMB_ENABLED)]
         _OMBEnabled     ("Enable Object Motion Blur", Float) = 1
 
-        // MPB 주입 실패 시 폴백 기본값 — 0이면 블러가 완전히 꺼지므로 반드시 필요
-        // ObjectMotionBlurController가 정상 작동 중이면 이 값은 덮어씌워집니다
-        [HideInInspector] _OMBIntensity    ("OMB Intensity (MPB fallback)",    Float) = 1.0
-        [HideInInspector] _OMBMaxLength    ("OMB Max Length (MPB fallback)",   Float) = 0.04
-        [HideInInspector] _OMBMinBlur      ("OMB Min Blur (MPB fallback)",     Float) = 0.005
-        [HideInInspector] _OMBShutterMult  ("OMB Shutter Mult (MPB fallback)", Float) = 1.0
-        // _ShutterAngle, _TargetFPS, _OMBIntensityGlobal 은 전역값이므로
-        // ShaderCoordinationManager가 주입하지 않으면 아래 값이 사용됩니다
-        [HideInInspector] _ShutterAngle    ("Shutter Angle (SCM fallback)",    Float) = 180.0
-        [HideInInspector] _TargetFPS       ("Target FPS (SCM fallback)",       Float) = 60.0
-        [HideInInspector] _OMBIntensityGlobal("OMB Global Intensity fallback", Float) = 1.0
-
         // ── 디버그 ────────────────────────────────────────────────────
         [Header(Debug)]
         [KeywordEnum(Off, Weight, Velocity, BlurAmount)]
@@ -97,12 +85,17 @@ Shader "Dreamcore/ObjectMotionBlur"
             #pragma shader_feature_local _OMB_ENABLED
             #pragma multi_compile _OMBDEBUG_OFF _OMBDEBUG_WEIGHT _OMBDEBUG_VELOCITY _OMBDEBUG_BLURAMOUNT
 
-            // URP 필수 include
+            // URP 필수 include — CaveDreamcoreTerrain.shader 동일 패턴
             #pragma multi_compile_instancing
             #pragma multi_compile _ LIGHTMAP_ON
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            // Forward+ 핵심: 이 pragma 없으면 LIGHT_LOOP_BEGIN/END 매크로가
+            // Forward+ 클러스터 경로를 타지 않아 포인트 라이트가 사라짐
+            #pragma multi_compile _ _FORWARD_PLUS
+            #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -126,35 +119,33 @@ Shader "Dreamcore/ObjectMotionBlur"
                 float  _Metallic;
                 float  _Smoothness;
                 float  _OcclusionStrength;
-                // MPB 주입 실패 시 폴백 기본값 (Properties에서 초기화됨)
-                // MPB가 정상 주입되면 이 값들은 덮어씌워집니다
-                float  _OMBIntensity;
-                float  _OMBMaxLength;
-                float  _OMBMinBlur;
-                float  _OMBShutterMult;
-                float  _ShutterAngle;
-                float  _TargetFPS;
-                float  _OMBIntensityGlobal;
             CBUFFER_END
 
             // =============================================================
             // 섹션 C: 모션 블러 파라미터
             //
-            // 전역/인스턴스별 파라미터는 CBUFFER에 폴백값으로 선언되어 있습니다.
-            // ShaderCoordinationManager → Shader.SetGlobalXxx 로 전역값 주입 시
-            // 전역 선언이 CBUFFER 값을 우선합니다.
+            // 속도 계산 전략:
+            //   UNITY_PREV_MATRIX_M은 이 URP 버전에서 신뢰할 수 없으므로
+            //   C#(ObjectMotionBlurController)에서 루트 Transform의 이동 벡터를
+            //   _OMBVelocityWS로 직접 주입합니다.
             //
-            // _ShutterAngle, _TargetFPS, _OMBIntensityGlobal 은
-            // Shader.SetGlobalFloat으로 주입되므로 CBUFFER 밖에서도 읽힙니다.
-            // 단, 전역값이 없으면 CBUFFER의 폴백값(180, 60, 1.0)을 사용합니다.
+            //   블러 방향 = 오브젝트 이동 방향
+            //   블러 강도 = AvatarAutoWeightBaker 가중치로 부위별 차등 적용
+            //   (손끝/발끝 강, 루트/척추 약)
             // =============================================================
+            float _ShutterAngle;
+            float _TargetFPS;
+            float _OMBIntensityGlobal;
 
-            // _PrevObjectToWorld 는 MPB 전용 — CBUFFER에 넣으면 인스턴싱 충돌
-            float4x4 _PrevObjectToWorld;
+            // ObjectMotionBlurController → MPB 주입
+            float3 _OMBVelocityWS;   // 루트의 1프레임 이동 벡터 (월드 공간)
+            float  _OMBIntensity;
+            float  _OMBMaxLength;
+            float  _OMBMinBlur;
+            float  _OMBShutterMult;
 
-            // 버텍스 가중치 버퍼 (AvatarAutoWeightBaker 주입)
-            // StructuredBuffer는 #ifdef로 보호 — 버퍼 미연결 시 컴파일 에러 방지
-            #if defined(UNITY_INSTANCING_ENABLED) || defined(_OMB_ENABLED)
+            // AvatarAutoWeightBaker → MPB 주입
+            #if defined(_OMB_ENABLED)
             StructuredBuffer<float> _BlurWeightBuffer;
             #endif
 
@@ -174,16 +165,15 @@ Shader "Dreamcore/ObjectMotionBlur"
 
             struct Varyings
             {
-                float4 positionCS   : SV_POSITION;
-                float2 uv           : TEXCOORD0;
-                float3 positionWS   : TEXCOORD1;
-                float3 normalWS     : TEXCOORD2;
-                float4 tangentWS    : TEXCOORD3;
-                float4 shadowCoord  : TEXCOORD4;
-                // 디버그용 데이터 전달
-                float  dbgWeight    : TEXCOORD5;
-                float  dbgBlurAmt   : TEXCOORD6;
-                float3 dbgVelocity  : TEXCOORD7;
+                float4 positionCS        : SV_POSITION;
+                float2 uv                : TEXCOORD0;
+                float3 positionWS        : TEXCOORD1;
+                float3 normalWS          : TEXCOORD2;
+                float4 tangentWS         : TEXCOORD3;
+                float4 positionCSOriginal: TEXCOORD4;
+                float  dbgWeight         : TEXCOORD5;
+                float  dbgBlurAmt        : TEXCOORD6;
+                float3 dbgVelocity       : TEXCOORD7;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -205,18 +195,19 @@ Shader "Dreamcore/ObjectMotionBlur"
                 // ── E-1. 현재 월드 위치 ───────────────────────────────
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
 
-                // ── E-2. 이전 프레임 월드 위치 ───────────────────────
-                // _PrevObjectToWorld: ObjectMotionBlurController가 MPB로 주입
-                // 첫 프레임은 현재 행렬과 같으므로 속도=0, 블러=0 (자연스러운 초기화)
-                float3 posPrevWS = mul(_PrevObjectToWorld, float4(input.positionOS.xyz, 1.0)).xyz;
+                // ── E-2/E-3. 속도 벡터 ───────────────────────────────
+                float3 vel     = _OMBVelocityWS;
 
-                // ── E-3. 속도 벡터 및 방향 계산 ──────────────────────
-                // vel = 이번 프레임에 이동한 월드 거리 (1프레임 이동량)
-                // 이것을 deltaTime으로 나누면 m/s 속도가 되지만,
-                // 블러 공식에서 다시 deltaTime을 곱하므로 나누지 않아도 동일한 결과
-                float3 vel      = posWS - posPrevWS;
-                float  speed    = length(vel);
-                float3 blurDir  = speed > 0.0001 ? vel / speed : float3(0, 1, 0);
+                // 속도 스파이크 방지: 방향 전환 시 1프레임 동안 극단적으로 큰 값이
+                // 들어와 버텍스가 과도하게 오프셋되어 번쩍임 발생.
+                // 최대 허용 속도를 maxBlurLength 기준으로 클램프.
+                float  velLen   = length(vel);
+                float  maxVel   = max(_OMBMaxLength * 2.0, 0.01); // maxLen의 2배로 여유
+                if (velLen > maxVel)
+                    vel = vel * (maxVel / velLen);
+
+                float  speed   = length(vel);
+                float3 blurDir = speed > 0.001 ? vel / speed : float3(0, 1, 0);
 
                 // ── E-4. 셔터앵글 블러 길이 계산 ─────────────────────
                 // 물리 공식: 노출시간 = ShutterAngle(도) / 360 / FPS
@@ -252,33 +243,52 @@ Shader "Dreamcore/ObjectMotionBlur"
                     boneWeight = saturate(boneWeight);
                 #endif
 
-                // ── E-6. 최소 블러 적용 ──────────────────────────────
-                // _OMBMinBlur: 정지 시에도 유지할 최소값 (팝인 방지)
-                // max 연산으로 계산값과 최솟값 중 큰 것을 사용
-                float finalStretch = max(stretchLen * boneWeight, _OMBMinBlur * boneWeight);
+                // ── E-6. 최종 블러 길이 계산 ─────────────────────────
+                // 핵심 수정: speed가 0(정지)이면 버텍스 오프셋도 0이어야 함
+                // minBlurFloor는 '블러 강도 시각화'에만 사용하고
+                // 실제 버텍스 오프셋에는 사용하지 않음
+                //
+                // 이전 방식의 문제:
+                //   finalStretch = max(stretchLen × boneWeight, minBlur × boneWeight)
+                //   → 정지 시 finalStretch = minBlur × boneWeight (0이 아님!)
+                //   → blurDir = (0,1,0) 폴백 방향으로 버텍스가 위로 오프셋
+                //   → 메시 변형 → 라이팅 기준 틀어짐 → 검정으로 보임
+                //
+                // 수정 방식:
+                //   speed가 임계값 이상일 때만 버텍스 오프셋 적용
+                //   정지 시 오프셋 = 0 → 메시 변형 없음 → 라이팅 정상
+                float finalStretch = 0.0;
+                if (speed > 0.001)
+                {
+                    finalStretch = stretchLen * boneWeight;
+                    // 최소 블러: 이동 중일 때만 하한값 보장 (정지 시엔 0)
+                    float minStretch = _OMBMinBlur * boneWeight;
+                    finalStretch = max(finalStretch, minStretch);
+                }
 
                 // ── E-7. 버텍스 오프셋 적용 ──────────────────────────
-                // 버텍스를 속도 방향으로 finalStretch만큼 이동
-                // 블러 비활성화 시 원래 위치 그대로
+                // 정지 시 finalStretch=0 이므로 posWS 그대로 → 메시 변형 없음
                 float3 finalPosWS = posWS;
                 #if defined(_OMB_ENABLED)
                     finalPosWS = posWS + blurDir * finalStretch;
                 #endif
 
                 // ── E-8. 일반 변환 ───────────────────────────────────
-                output.positionCS  = TransformWorldToHClip(finalPosWS);
-                output.uv          = TRANSFORM_TEX(input.uv, _BaseMap);
-                output.positionWS  = posWS; // 라이팅은 원래 위치 기준
+                output.positionCS         = TransformWorldToHClip(finalPosWS);
+                // 원래 위치의 클립 좌표 — Forward+ 조명 클러스터 조회 정확도 보장
+                // positionCS(오프셋)로 GetNormalizedScreenSpaceUV를 하면 잘못된
+                // 타일/클러스터를 조회하여 포인트 라이트가 사라지는 문제 발생
+                output.positionCSOriginal = TransformWorldToHClip(posWS);
+                output.uv                 = TRANSFORM_TEX(input.uv, _BaseMap);
+                output.positionWS         = posWS;
 
-                // 노멀/탄젠트 변환
+                // 노멀/탄젠트 변환 — 원래 오브젝트 공간 기준 유지
                 VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
                 output.normalWS   = normalInput.normalWS;
                 output.tangentWS  = float4(normalInput.tangentWS, input.tangentOS.w *
                                    GetOddNegativeScale());
 
-                // 그림자 좌표
-                VertexPositionInputs posInput = GetVertexPositionInputs(input.positionOS.xyz);
-                output.shadowCoord = GetShadowCoord(posInput);
+                // shadowCoord는 프래그먼트에서 재계산 — 버텍스 오프셋과 독립
 
                 // 디버그 데이터 전달
                 output.dbgWeight   = boneWeight;
@@ -338,33 +348,100 @@ Shader "Dreamcore/ObjectMotionBlur"
                     return float4(blurViz, blurViz * 0.5, 0.0, 1.0); // 주황색 계열
                 #endif
 
-                // ── F-4. URP PBR 라이팅 ──────────────────────────────
-                InputData lightingInput = (InputData)0;
-                lightingInput.positionWS        = input.positionWS;
-                lightingInput.normalWS          = normalWS;
-                lightingInput.viewDirectionWS   = GetWorldSpaceNormalizeViewDir(input.positionWS);
-                lightingInput.shadowCoord       = input.shadowCoord;
-                lightingInput.fogCoord          = ComputeFogFactor(input.positionCS.z);
-                lightingInput.vertexLighting    = half3(0,0,0);
-                // bakedGI: 앰비언트 라이팅 포함 — 0이면 직접광만 계산되어 매우 어두워짐
-                lightingInput.bakedGI           = SampleSH(normalWS);
-                lightingInput.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
-                lightingInput.shadowMask        = half4(1,1,1,1);
+                // ── F-4. 직접 라이팅 (CaveDreamcoreTerrain 패턴) ─────
+                // CaveDreamcoreTerrain.shader와 동일한 구조:
+                //   1. #pragma multi_compile _ _FORWARD_PLUS 추가
+                //   2. InputData에 positionCS + normalizedScreenSpaceUV 세팅
+                //   3. LIGHT_LOOP_BEGIN/END 매크로로 Forward+ 클러스터 조회
+                //
+                // 핵심: _FORWARD_PLUS pragma 없이 GetAdditionalLight()만 호출하면
+                // Forward+ 렌더링에서 클러스터 경로를 타지 않아 포인트 라이트가 0을 반환함.
 
-                SurfaceData surfaceData = (SurfaceData)0;
-                surfaceData.albedo              = albedo.rgb;
-                surfaceData.alpha               = albedo.a;
-                surfaceData.metallic            = metallic;
-                surfaceData.smoothness          = smoothness;
-                surfaceData.normalTS            = normalTS;
-                surfaceData.emission            = half3(0,0,0);
-                surfaceData.occlusion           = occlusion;
-                surfaceData.specular            = half3(0,0,0);
+                float3 posWS3     = input.positionWS;
+                float3 viewDirWS3 = GetWorldSpaceNormalizeViewDir(posWS3);
 
-                float4 finalColor = UniversalFragmentPBR(lightingInput, surfaceData);
+                // CaveDreamcoreTerrain과 동일: InputData 세팅
+                InputData inputData = (InputData)0;
+                inputData.positionWS        = posWS3;
+                // positionCS: SV_POSITION 사용 (CaveDreamcoreTerrain과 동일)
+                // TEXCOORD 복사본을 positionCS에 넣으면 컴파일 에러 발생
+                // ★ 핵심 수정: positionCS는 반드시 오프셋 전 원래 위치 기준
+                // LIGHT_LOOP_BEGIN 매크로가 inputData.positionCS로 normalizedScreenSpaceUV를
+                // 내부 재계산함. 오프셋된 SV_POSITION(input.positionCS)을 넣으면
+                // Forward+ 클러스터 조회가 틀려 포인트 라이트 = 0 → 검정 발생
+                // positionCSOriginal = TransformWorldToHClip(posWS) = 오프셋 전 위치
+                inputData.positionCS        = input.positionCSOriginal;
+                inputData.normalWS          = normalWS;
+                inputData.viewDirectionWS   = viewDirWS3;
+
+                #if defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+                    inputData.shadowCoord = TransformWorldToShadowCoord(posWS3);
+                #else
+                    inputData.shadowCoord = float4(0, 0, 0, 1);
+                #endif
+
+                #if defined(_FORWARD_PLUS)
+                    inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCSOriginal);
+                #endif
+
+                half4 shadowMask3 = half4(1, 1, 1, 1);
+
+                // 앰비언트
+                float3 indirectDiffuse3 = SampleSH(normalWS);
+                float3 result3 = indirectDiffuse3 * albedo.rgb;
+
+                // 메인 라이트
+                Light mainLight3 = GetMainLight(inputData.shadowCoord, posWS3, shadowMask3);
+                float mainNdotL3 = saturate(dot(normalWS, mainLight3.direction));
+                result3 += albedo.rgb * mainLight3.color
+                         * mainNdotL3
+                         * mainLight3.distanceAttenuation
+                         * mainLight3.shadowAttenuation;
+
+                // 스페큘러
+                if (smoothness > 0.01)
+                {
+                    float3 mh = normalize(mainLight3.direction + viewDirWS3);
+                    float  mnh = saturate(dot(normalWS, mh));
+                    float  msp = pow(mnh, exp2(10.0 * smoothness + 1.0));
+                    result3 += msp * lerp(float3(0.04,0.04,0.04), albedo.rgb, metallic)
+                             * mainLight3.color * mainLight3.distanceAttenuation * mainLight3.shadowAttenuation;
+                }
+
+                // ── Additional Lights: positionWS 직접 루프 ─────────
+                // LIGHT_LOOP_BEGIN 완전 제거 — normalizedScreenSpaceUV/클러스터 조회 없음
+                // GetAdditionalLight(i, posWS)는 월드 거리 기반 → 버텍스 오프셋 무관
+                // Forward+ 포함 모든 경로에서 정확하게 작동
+                #if defined(_ADDITIONAL_LIGHTS) || defined(_FORWARD_PLUS)
+                {
+                    uint addCount = GetAdditionalLightsCount();
+                    for (uint li = 0u; li < addCount; ++li)
+                    {
+                        Light addLight = GetAdditionalLight(li, posWS3, shadowMask3);
+                        float NdotL    = saturate(dot(normalWS, addLight.direction));
+                        result3 += albedo.rgb * addLight.color
+                                 * NdotL
+                                 * addLight.distanceAttenuation;
+
+                        if (smoothness > 0.01)
+                        {
+                            float3 h  = normalize(addLight.direction + viewDirWS3);
+                            float  nh = saturate(dot(normalWS, h));
+                            float  sp = pow(nh, exp2(10.0 * smoothness + 1.0));
+                            result3  += sp * lerp(float3(0.04,0.04,0.04), albedo.rgb, metallic)
+                                      * addLight.color * addLight.distanceAttenuation;
+                        }
+                    }
+                }
+                #endif
+
+                result3 *= occlusion;
+
+                float fogFactor3  = ComputeFogFactor(input.positionCSOriginal.z);
+                float4 finalColor = float4(result3, albedo.a);
 
                 // ── F-5. 포그 적용 ────────────────────────────────────
-                finalColor.rgb = MixFog(finalColor.rgb, lightingInput.fogCoord);
+                finalColor.rgb = MixFog(finalColor.rgb, fogFactor3);
 
                 return finalColor;
             }
@@ -397,7 +474,7 @@ Shader "Dreamcore/ObjectMotionBlur"
             float _ShutterAngle;
             float _TargetFPS;
             float _OMBIntensityGlobal;
-            float4x4 _PrevObjectToWorld;
+            float3 _OMBVelocityWS;
             float    _OMBIntensity;
             float    _OMBMaxLength;
             float    _OMBShutterMult;
@@ -426,16 +503,15 @@ Shader "Dreamcore/ObjectMotionBlur"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-                float3 posWS     = TransformObjectToWorld(input.positionOS.xyz);
-                float3 posPrevWS = mul(_PrevObjectToWorld, float4(input.positionOS.xyz, 1.0)).xyz;
-                float3 vel       = posWS - posPrevWS;
-                float  speed     = length(vel);
-                float3 blurDir   = speed > 0.0001 ? vel / speed : float3(0,1,0);
+                float3 posWS  = TransformObjectToWorld(input.positionOS.xyz);
+                float3 vel    = _OMBVelocityWS;
+                float  speed  = length(vel);
+                float3 blurDir = speed > 0.001 ? vel / speed : float3(0,1,0);
 
                 float safeFPS   = max(_TargetFPS, 1.0);
                 float expTime   = (max(_ShutterAngle, 1.0) / 360.0) / safeFPS;
                 float mult      = _OMBShutterMult * _OMBIntensity * _OMBIntensityGlobal;
-                float stretch   = speed * safeFPS * expTime * mult;
+                float stretch   = (speed > 0.001) ? speed * safeFPS * expTime * mult : 0.0;
                 stretch = min(stretch, max(_OMBMaxLength, 0.001));
 
                 float boneWeight = 1.0;
@@ -494,7 +570,7 @@ Shader "Dreamcore/ObjectMotionBlur"
             float _ShutterAngle;
             float _TargetFPS;
             float _OMBIntensityGlobal;
-            float4x4 _PrevObjectToWorld;
+            float3 _OMBVelocityWS;
             float    _OMBIntensity;
             float    _OMBMaxLength;
             float    _OMBShutterMult;
@@ -522,16 +598,15 @@ Shader "Dreamcore/ObjectMotionBlur"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-                float3 posWS     = TransformObjectToWorld(input.positionOS.xyz);
-                float3 posPrevWS = mul(_PrevObjectToWorld, float4(input.positionOS.xyz, 1.0)).xyz;
-                float3 vel       = posWS - posPrevWS;
-                float  speed     = length(vel);
-                float3 blurDir   = speed > 0.0001 ? vel / speed : float3(0,1,0);
+                float3 posWS  = TransformObjectToWorld(input.positionOS.xyz);
+                float3 vel    = _OMBVelocityWS;
+                float  speed  = length(vel);
+                float3 blurDir = speed > 0.001 ? vel / speed : float3(0,1,0);
 
                 float safeFPS   = max(_TargetFPS, 1.0);
                 float expTime   = (max(_ShutterAngle, 1.0) / 360.0) / safeFPS;
                 float mult      = _OMBShutterMult * _OMBIntensity * _OMBIntensityGlobal;
-                float stretch   = speed * safeFPS * expTime * mult;
+                float stretch   = (speed > 0.001) ? speed * safeFPS * expTime * mult : 0.0;
                 stretch = min(stretch, max(_OMBMaxLength, 0.001));
 
                 float boneWeight = 1.0;
@@ -572,7 +647,7 @@ Shader "Dreamcore/ObjectMotionBlur"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-            float4x4 _PrevObjectToWorld;
+            float3 _OMBVelocityWS;
 
             struct MotionAttributes
             {
@@ -583,8 +658,8 @@ Shader "Dreamcore/ObjectMotionBlur"
             struct MotionVaryings
             {
                 float4 positionCS     : SV_POSITION;
-                float4 positionCSCurr : TEXCOORD0;  // 현재 프레임 클립 좌표
-                float4 positionCSPrev : TEXCOORD1;  // 이전 프레임 클립 좌표
+                float4 positionCSCurr : TEXCOORD0;
+                float4 positionCSPrev : TEXCOORD1;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -595,7 +670,8 @@ Shader "Dreamcore/ObjectMotionBlur"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
                 float3 posWS     = TransformObjectToWorld(input.positionOS.xyz);
-                float3 posPrevWS = mul(_PrevObjectToWorld, float4(input.positionOS.xyz, 1.0)).xyz;
+                // 이전 위치 = 현재 위치 - 이동 벡터
+                float3 posPrevWS = posWS - _OMBVelocityWS;
 
                 output.positionCS     = TransformWorldToHClip(posWS);
                 output.positionCSCurr = output.positionCS;

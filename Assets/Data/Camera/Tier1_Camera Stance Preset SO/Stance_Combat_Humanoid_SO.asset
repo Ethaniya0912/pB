@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d17dac28cd585794bb7e26f7852976fb, type: 3}
   m_Name: Stance_Combat_Humanoid_SO
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
-  fov: 62
+  fov: 42
   zTilt: 0
-  baseYawOffset: -30
-  baseOffset: {x: 0.55, y: 1.3, z: -2.5}
+  baseYawOffset: 0
+  baseOffset: {x: 0.5, y: 1.3, z: -3}
   verticalBehavior:
     behaviorType: 2
     elevationSpeed: 5
@@ -112,11 +112,16 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
+  bodyYawTracking:
+    bodyYawFollowWeight: 1
+    bodyYawFollowSmoothTime: 0
+    lockCameraOnActionStart: 0
+    lockCameraMouseInfluence: 0.5
   handheldEffect:
-    enableHandheldEffect: 0
-    swayAmount: 0.1
-    swaySpeed: 0.5
-    bobbingAmount: 1.2
+    enableHandheldEffect: 1
+    swayAmount: 0.01
+    swaySpeed: 0.001
+    bobbingAmount: 0.001
   impactShake:
     enableShake: 0
     shakeIntensity: 0.5

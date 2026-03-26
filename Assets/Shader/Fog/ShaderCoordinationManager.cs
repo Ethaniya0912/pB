@@ -1,4 +1,6 @@
 using UnityEngine;
+using TDA.Character.Player;
+using TDA.Character; // CharacterManager (락온 타겟 접근)
 
 /// <summary>
 /// [Global Manager — Dreamcore v2.0]
@@ -150,63 +152,104 @@ public class ShaderCoordinationManager : MonoBehaviour
 
         // Rigidbody/CharacterController 자동 탐색
         // 우선순위: 1) Inspector 직접 연결 → 2) "Player" 태그 → 3) "Player" 레이어
+        // 씬 시작 시 플레이어가 없으면 경고만 출력 — Update에서 재탐색
         if (playerRigidbody == null && playerCharacterController == null)
         {
-            GameObject playerObj = null;
-
-            // 1차: Tag 기반 탐색
-            try { playerObj = GameObject.FindWithTag("Player"); } catch { }
-
-            // 2차: Tag 실패 시 Layer 기반 탐색
-            if (playerObj == null)
-            {
-                int playerLayer = LayerMask.NameToLayer("Player");
-                if (playerLayer >= 0)
-                {
-                    foreach (var go in FindObjectsByType<GameObject>(
-                        FindObjectsInactive.Exclude, FindObjectsSortMode.None))
-                    {
-                        if (go.layer == playerLayer &&
-                            (go.GetComponent<Rigidbody>() != null ||
-                             go.GetComponent<CharacterController>() != null))
-                        {
-                            playerObj = go;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // 결과 처리
-            if (playerObj != null)
-            {
-                playerRigidbody           = playerObj.GetComponent<Rigidbody>();
-                playerCharacterController = playerObj.GetComponent<CharacterController>();
-
-                if (playerRigidbody != null)
-                    Debug.Log($"[SCM] Player Rigidbody 자동 탐색 성공: {playerObj.name}");
-                else if (playerCharacterController != null)
-                    Debug.Log($"[SCM] Player CharacterController 자동 탐색 성공: {playerObj.name}");
-                else
-                    Debug.LogWarning($"[SCM] '{playerObj.name}' 에 Rigidbody/CharacterController가 없습니다. " +
-                                     "Inspector의 Player Rigidbody 슬롯에 직접 연결하세요.");
-            }
-            else
-            {
-                Debug.LogWarning("[SCM] 플레이어를 자동으로 찾을 수 없습니다.\n" +
-                                 "다음 중 하나를 설정하세요:\n" +
-                                 "  1) 플레이어에 'Player' Tag 설정\n" +
-                                 "  2) 플레이어에 'Player' Layer + Rigidbody 보유\n" +
-                                 "  3) Inspector의 Player Rigidbody 슬롯에 직접 연결");
-            }
+            TryFindPlayer();
         }
     }
 
     // 기존 기능: Update에서 LUT/Fog 등 정적 파라미터 동기화
     private void Update()
     {
+        // 플레이어가 아직 없으면 매 초마다 재탐색 (런타임 스폰 대응)
+        if (playerRigidbody == null && playerCharacterController == null)
+        {
+            _playerSearchTimer -= Time.deltaTime;
+            if (_playerSearchTimer <= 0f)
+            {
+                TryFindPlayer();
+                _playerSearchTimer = 1f; // 1초마다 재탐색
+            }
+        }
+
+        PollLockOnAnimator();
         SyncGlobalVariables();
-        UpdateLockOnBlur(); // ← 추가
+        UpdateLockOnBlur();
+    }
+
+    private float _playerSearchTimer = 0f;
+
+    /// <summary>
+    /// 씬에서 플레이어를 탐색합니다.
+    /// 탐색 우선순위: Tag "Player" → Layer "Player" + Rigidbody
+    /// Awake와 Update(1초마다)에서 호출됩니다.
+    /// </summary>
+    private void TryFindPlayer()
+    {
+        GameObject playerObj = null;
+
+        // Layer 기반 탐색 (Tag 미사용 — Inspector에서 레이어 이름 설정)
+        int playerLayer = LayerMask.NameToLayer(playerLayerName);
+        if (playerLayer >= 0)
+        {
+            foreach (var go in FindObjectsByType<GameObject>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (go.layer == playerLayer &&
+                    (go.GetComponent<Rigidbody>() != null ||
+                     go.GetComponent<CharacterController>() != null))
+                {
+                    playerObj = go;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[SCM] '{playerLayerName}' 레이어를 찾을 수 없습니다. " +
+                             "Inspector의 Player Layer Name을 확인하세요.");
+        }
+
+        if (playerObj != null)
+        {
+            // 멀티플레이어: IsOwner인 로컬 플레이어만 추적
+            // IsOwner가 아닌 플레이어를 추적하면 다른 클라이언트의 이동이 SSMB에 반영됨
+            var netObj = playerObj.GetComponent<Unity.Netcode.NetworkObject>();
+            if (netObj != null && !netObj.IsOwner)
+            {
+                // 씬의 모든 NetworkObject 중 IsOwner인 것 탐색
+                foreach (var no in FindObjectsByType<Unity.Netcode.NetworkObject>(
+                    FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                {
+                    if (no.IsOwner && no.GetComponent<Rigidbody>() != null)
+                    {
+                        playerObj = no.gameObject;
+                        break;
+                    }
+                }
+            }
+
+            playerRigidbody           = playerObj.GetComponent<Rigidbody>();
+            playerCharacterController = playerObj.GetComponent<CharacterController>();
+
+            // PlayerNetworkManager 자동 탐색 (락온 직접 읽기용)
+            if (playerNetworkManager == null)
+            {
+                // TDA.Character.Player 네임스페이스의 PlayerNetworkManager
+                var pnm = playerObj.GetComponent<TDA.Character.Player.PlayerNetworkManager>();
+                if (pnm != null)
+                {
+                    playerNetworkManager = pnm;
+                    _animSearched = false; // 재탐색 허용
+                }
+            }
+
+            _dbgPlayerName = playerObj.name;
+            Debug.Log($"[SCM] Player 탐색 성공: {playerObj.name}" +
+                      $" | PNM: {(playerNetworkManager != null ? "연결됨" : "없음")}");
+        }
+        // 탐색 실패 시 조용히 넘어감 — 다음 Update 주기에 재시도
     }
 
     // 신규: LateUpdate에서 VP 행렬 처리
@@ -216,6 +259,7 @@ public class ShaderCoordinationManager : MonoBehaviour
     //   Update() 순서 의존성 없이 항상 "이 프레임의 최종 카메라 위치"를 보장합니다.
     private void LateUpdate()
     {
+        _speedCached = false; // 매 프레임 속도 캐시 초기화
         SyncMotionBlurInfrastructure();
     }
 
@@ -326,16 +370,20 @@ public class ShaderCoordinationManager : MonoBehaviour
     [Range(0.1f, 0.5f)] public float moveStopFadeOut = 0.2f;
     [Range(0.1f, 3f)] public float moveSpeedThreshold = 0.5f;
 
+    [Tooltip("플레이어 오브젝트가 속한 레이어 이름. Tag 대신 레이어로 탐색합니다.")]
+    public string playerLayerName = "Player";
+
     [Tooltip("비워두면 Start()에서 씬의 Rigidbody/CharacterController를 자동 탐색합니다.")]
     public Rigidbody playerRigidbody;
     public CharacterController playerCharacterController;
 
-    [Header("6. Lock-On Debug (ReadOnly)")]
-    [HideInInspector] // Inspector에서만 보임 — 코드로 수정 불가
-                                      // ↓ 아래 세 줄이 런타임 상태를 Inspector에 노출합니다
+    [Header("6. Lock-On Debug (ReadOnly — Inspector에서 확인)")]
     [SerializeField] private bool _dbgIsLockedOn;
+    [SerializeField] private string _dbgLockOnSource = "None";  // 어떤 경로로 락온 감지했는지
     [SerializeField] private float _dbgCurrentSSMBScale = 1f;
     [SerializeField] private float _dbgPlayerSpeed;
+    [SerializeField] private string _dbgPlayerName     = "None";
+    [SerializeField] private string _dbgLockOnTargetName = "None"; // 현재 락온 타겟 이름
 
     private bool _isLockedOn = false;
     private bool _isMoving = false;
@@ -343,9 +391,35 @@ public class ShaderCoordinationManager : MonoBehaviour
     private float _targetSSMBScale = 1f;
     private float _ssmbLerpSpeed = 1f;
 
-    private static readonly int SSMBScaleID = Shader.PropertyToID("_SSMBIntensityScale");
+    private static readonly int SSMBScaleID      = Shader.PropertyToID("_SSMBIntensityScale");
+    // DepthBlur 보호 반경 — 락온 시 NearDist를 lockOnGizmoRadius로 설정
+    private static readonly int NearDistID              = Shader.PropertyToID("_NearDist");
+    private static readonly int LockOnActiveID          = Shader.PropertyToID("_LockOnActive");
+    private static readonly int LockOnPlayerPosID       = Shader.PropertyToID("_LockOnPlayerPosWS");
+    private static readonly int LockOnTargetPosID       = Shader.PropertyToID("_LockOnTargetPosWS");
+    private static readonly int PlayerProtectRadiusID   = Shader.PropertyToID("_PlayerProtectRadius");
+    private static readonly int TargetProtectRadiusID   = Shader.PropertyToID("_TargetProtectRadius");
+
+    [Header("Lock-On Source")]
+    [Tooltip("직접 연결: PlayerNetworkManager (isLockedOn.Value 직접 읽기)\n" +
+             "비워두면 Animator 파라미터 폴백 사용.")]
+    public PlayerNetworkManager playerNetworkManager;
+
+    [Tooltip("Animator 폴백용 파라미터 이름. playerNetworkManager 미연결 시 사용.")]
+    public string lockOnAnimParamName = "isLockedOn";
+
+    // Animator 폴백 관련
+    public Animator playerAnimator;
+    private bool _animSearched   = false;
+    private bool _hasLockOnParam = false;
 
     // 락온 시스템에서 호출
+    /// <summary>
+    /// 외부(PlayerCombatManager 등)에서 락온 타겟 Transform을 주입합니다.
+    /// 락온 시 이 타겟 주변 targetProtectRadius 이내는 DepthBlur에서 제외됩니다.
+    /// </summary>
+    public void SetLockOnTarget(Transform target) { lockOnTarget = target; }
+
     public void SetLockOn(bool locked)
     {
         _isLockedOn = locked;
@@ -381,16 +455,280 @@ public class ShaderCoordinationManager : MonoBehaviour
 
         Shader.SetGlobalFloat(SSMBScaleID, _currentSSMBScale);
 
+        // 락온 시 DepthBlur 보호 반경 주입
+        // lockOnGizmoRadius 이내 = NearDist로 설정 → 거리 블러 없음
+        // 락온 해제 시 원래 NearDist(7.0)로 복귀
+        if (_isLockedOn)
+        {
+            // 플레이어 보호 반경 → NearDist
+            Shader.SetGlobalFloat(NearDistID,            playerProtectRadius);
+            Shader.SetGlobalFloat(LockOnActiveID,        1f);
+            Shader.SetGlobalFloat(PlayerProtectRadiusID, playerProtectRadius);
+            Shader.SetGlobalFloat(TargetProtectRadiusID, targetProtectRadius);
+
+            // 플레이어 월드 위치
+            Vector3 playerPos = playerRigidbody != null
+                ? playerRigidbody.transform.position
+                : (playerCharacterController != null
+                    ? playerCharacterController.transform.position
+                    : Vector3.zero);
+            Shader.SetGlobalVector(LockOnPlayerPosID, playerPos);
+
+            // 타겟 월드 위치
+            Vector3 targetPos = lockOnTarget != null ? lockOnTarget.position : playerPos;
+            Shader.SetGlobalVector(LockOnTargetPosID, targetPos);
+        }
+        else
+        {
+            Shader.SetGlobalFloat(NearDistID,     defaultNearDist);
+            Shader.SetGlobalFloat(LockOnActiveID, 0f);
+        }
+
         // ── Inspector 디버그 값 동기화 ──────────────────────────
-        _dbgIsLockedOn = _isLockedOn;
+        _dbgIsLockedOn       = _isLockedOn;
         _dbgCurrentSSMBScale = _currentSSMBScale;
-        _dbgPlayerSpeed = GetPlayerSpeed();
+        _dbgPlayerSpeed      = GetPlayerSpeed();
     }
+
+    private Vector3 _prevPlayerPos;
+    private bool    _hasPrevPlayerPos = false;
+
+    private float _cachedSpeed   = 0f;
+    private bool  _speedCached   = false;
+    private Vector3 _prevPlrPos;
+    private bool    _hasPrevPlrPos = false;
 
     private float GetPlayerSpeed()
     {
-        if (playerRigidbody != null) return playerRigidbody.linearVelocity.magnitude;
-        if (playerCharacterController != null) return playerCharacterController.velocity.magnitude;
+        if (_speedCached) return _cachedSpeed;
+        _speedCached = true;
+
+        if (playerRigidbody != null)
+        {
+            float rbSpeed = playerRigidbody.linearVelocity.magnitude;
+            if (rbSpeed > 0.001f) { _cachedSpeed = rbSpeed; return rbSpeed; }
+        }
+
+        // 2. CharacterController velocity
+        if (playerCharacterController != null)
+        {
+            float ccSpeed = playerCharacterController.velocity.magnitude;
+            if (ccSpeed > 0.001f) return ccSpeed;
+        }
+
+        // 3. Transform 위치 델타 폴백
+        // Kinematic Rigidbody / 커스텀 이동 방식 모두 대응
+        Transform playerTransform = playerCharacterController != null
+            ? playerCharacterController.transform
+            : (playerRigidbody != null ? playerRigidbody.transform : null);
+
+        if (playerTransform != null)
+        {
+            Vector3 cur = playerTransform.position;
+            if (_hasPrevPlrPos)
+            {
+                float spd = Mathf.Min(
+                    Vector3.Distance(cur, _prevPlrPos) / Mathf.Max(Time.deltaTime, 0.01f),
+                    50f);
+                _prevPlrPos  = cur;
+                _cachedSpeed = spd;
+                return spd;
+            }
+            _prevPlrPos    = cur;
+            _hasPrevPlrPos = true;
+        }
+
+        _cachedSpeed = 0f;
         return 0f;
+    }
+
+    private void PollLockOnAnimator()
+    {
+        // ── Lock-On Target 자동 탐색 ─────────────────────────────
+        // PlayerCombatManager.currentTarget은 부모클래스(CharacterCombatManager)에 있음
+        // Reflection으로 접근하거나 PlayerManager를 통해 접근
+        if (_isLockedOn && lockOnTarget == null && playerNetworkManager != null)
+        {
+            // playerNetworkManager가 있으면 같은 오브젝트에 PlayerManager가 있음
+            var pm = playerNetworkManager.GetComponent<TDA.Character.Player.PlayerManager>();
+            if (pm != null)
+            {
+                // CharacterCombatManager.currentTarget 접근
+                var combatMgr = pm.playerCombatManager;
+                if (combatMgr != null)
+                {
+                    // currentTarget은 CharacterCombatManager 베이스에 있으므로 reflection
+                    var field = combatMgr.GetType().GetField("currentTarget",
+                        System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic |
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.FlattenHierarchy);
+                    if (field != null)
+                    {
+                        var target = field.GetValue(combatMgr) as UnityEngine.MonoBehaviour;
+                        if (target != null)
+                        {
+                            lockOnTarget = target.transform;
+                            _dbgLockOnSource += " | Target:" + target.name;
+                        }
+                    }
+                }
+            }
+        }
+        // 락온 해제 시 타겟 초기화
+        if (!_isLockedOn && lockOnTarget != null)
+            lockOnTarget = null;
+
+        // ── 경로 1: PlayerNetworkManager.isLockedOn.Value 직접 읽기 (권장) ──
+        // PlayerNetworkManager를 Inspector에서 연결하면 이 경로 사용.
+        // 네트워크 변수 값을 직접 읽으므로 Animator 파라미터 동기화 지연 없음.
+        if (playerNetworkManager != null)
+        {
+            bool locked = playerNetworkManager.isLockedOn.Value;
+            if (locked != _isLockedOn)
+            {
+                SetLockOn(locked);
+                _dbgLockOnSource = locked ? "PNM.isLockedOn=true" : "PNM.isLockedOn=false";
+            }
+            else
+            {
+                _dbgLockOnSource = locked ? "PNM (locked)" : "PNM (unlocked)";
+            }
+            return;
+        }
+
+        // ── 경로 2: Animator 파라미터 폴백 ──────────────────────────
+        // playerNetworkManager 미연결 시 Animator bool 파라미터 폴링.
+        if (!_animSearched)
+        {
+            _animSearched = true;
+            if (playerAnimator == null && playerRigidbody != null)
+                playerAnimator = playerRigidbody.GetComponentInChildren<Animator>();
+            if (playerAnimator == null && playerCharacterController != null)
+                playerAnimator = playerCharacterController.GetComponentInChildren<Animator>();
+
+            if (playerAnimator != null)
+            {
+                foreach (var param in playerAnimator.parameters)
+                {
+                    if (param.name == lockOnAnimParamName)
+                    { _hasLockOnParam = true; break; }
+                }
+            }
+        }
+
+        if (playerAnimator != null && _hasLockOnParam)
+        {
+            bool locked = playerAnimator.GetBool(lockOnAnimParamName);
+            if (locked != _isLockedOn)
+                SetLockOn(locked);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 기즈모 — 씬 뷰에서 락온 SSMB 영향 범위 시각화
+    // ─────────────────────────────────────────────────────────────
+    [Header("7. Lock-On Depth Blur Protection")]
+    [Tooltip("락온된 타겟 Transform. PlayerCombatManager 등에서 런타임에 SetLockOnTarget()으로 주입하거나\n" +
+             "Inspector에서 직접 연결합니다.")]
+    public Transform lockOnTarget;
+
+    [Tooltip("플레이어 주변 보호 반경 (m). 이 반경 이내는 DepthBlur 없음.")]
+    [Range(0.5f, 10f)] public float playerProtectRadius = 1.5f;
+
+    [Tooltip("타겟 주변 보호 반경 (m). 타겟과의 거리가 이 이내면 DepthBlur 없음.")]
+    [Range(0.5f, 10f)] public float targetProtectRadius = 1.5f;
+
+    [Header("7. Lock-On Depth Blur Protection")]
+    [Tooltip("락온 해제 시 복원할 DepthBlur NearDist 기본값.\n" +
+             "DepthBlur 머티리얼의 Near Distance 값과 일치시켜야 합니다.")]
+    public float defaultNearDist = 7f;
+
+    [Header("7. Lock-On Gizmo (Scene View)")]
+    [Tooltip("씬 뷰에서 락온 SSMB 영향 범위 기즈모를 표시합니다.")]
+    public bool showLockOnGizmo = true;
+
+    [Tooltip("기즈모 원의 반지름 (월드 단위). 락온 시 SSMB가 억제되는 체감 범위 표시용.")]
+    [Range(1f, 30f)] public float lockOnGizmoRadius = 8f;
+
+    [Tooltip("기즈모 색상 — 락온 중")]
+    public Color gizmoColorLocked   = new Color(1f, 0.3f, 0.0f, 0.5f);
+    [Tooltip("기즈모 색상 — 락온 해제")]
+    public Color gizmoColorUnlocked = new Color(0f, 0.8f, 1f, 0.2f);
+
+    private void OnDrawGizmos()
+    {
+        if (!showLockOnGizmo) return;
+
+        Vector3 center = transform.position;
+        if (playerRigidbody               != null) center = playerRigidbody.transform.position;
+        else if (playerCharacterController != null) center = playerCharacterController.transform.position;
+
+        bool locked = Application.isPlaying ? _isLockedOn : false;
+
+        if (locked)
+        {
+            // ── 보호 가시 반경 (내원) ────────────────────────────
+            // 이 반경 이내는 DepthBlur가 적용되지 않음 (NearDist = lockOnGizmoRadius)
+            // 기즈모 크기 = 실제 블러 보호 반경과 1:1 연동
+            Gizmos.color = gizmoColorLocked;
+            DrawGizmoCircle(center, lockOnGizmoRadius, Vector3.up);
+            DrawGizmoCircle(center, lockOnGizmoRadius, Vector3.forward);
+
+            // ── 외부 블러 시작 경계 (외원, 내원의 1.5배) ─────────
+            // 보호 반경 바깥부터 DepthBlur가 시작되는 시각적 가이드
+            Color outerColor = gizmoColorLocked;
+            outerColor.a *= 0.3f;
+            Gizmos.color = outerColor;
+            DrawGizmoCircle(center, lockOnGizmoRadius * 1.5f, Vector3.up);
+        }
+        else
+        {
+            // 락온 해제: 기본 NearDist(defaultNearDist) 범위 표시
+            Gizmos.color = gizmoColorUnlocked;
+            DrawGizmoCircle(center, defaultNearDist, Vector3.up);
+        }
+
+#if UNITY_EDITOR
+        if (Application.isPlaying && locked)
+        {
+            UnityEditor.Handles.color = gizmoColorLocked;
+            UnityEditor.Handles.Label(
+                center + Vector3.up * (lockOnGizmoRadius + 1.5f),
+                $"[Lock-On]  보호반경:{lockOnGizmoRadius:F1}m  SSMB x{_currentSSMBScale:F2}  Speed:{_cachedSpeed:F2}");
+        }
+        else if (Application.isPlaying)
+        {
+            UnityEditor.Handles.color = gizmoColorUnlocked;
+            UnityEditor.Handles.Label(
+                center + Vector3.up * (defaultNearDist + 1f),
+                $"[Unlocked]  NearDist:{defaultNearDist:F1}m  SSMB x{_currentSSMBScale:F2}");
+        }
+        else
+        {
+            // 에디터 정지 상태에서는 기본값 표시
+            UnityEditor.Handles.color = Color.cyan;
+            UnityEditor.Handles.Label(
+                center + Vector3.up * (defaultNearDist + 1f),
+                $"[Edit Mode]  기본 NearDist:{defaultNearDist:F1}m | 락온 보호반경:{lockOnGizmoRadius:F1}m");
+        }
+#endif
+    }
+
+    private void DrawGizmoCircle(Vector3 center, float radius, Vector3 normal)
+    {
+        Vector3 tangent = Vector3.Cross(normal, Vector3.forward);
+        if (tangent.sqrMagnitude < 0.001f) tangent = Vector3.Cross(normal, Vector3.right);
+        tangent.Normalize();
+
+        const int SEGMENTS = 40;
+        float angleStep = 360f / SEGMENTS;
+        Vector3 prev = center + Quaternion.AngleAxis(0f, normal) * tangent * radius;
+        for (int i = 1; i <= SEGMENTS; i++)
+        {
+            Vector3 next = center + Quaternion.AngleAxis(angleStep * i, normal) * tangent * radius;
+            Gizmos.DrawLine(prev, next);
+            prev = next;
+        }
     }
 }

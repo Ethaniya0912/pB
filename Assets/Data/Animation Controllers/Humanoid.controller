@@ -256,7 +256,7 @@ AnimatorStateTransition:
   m_ExitTime: 1
   m_HasExitTime: 1
   m_HasFixedDuration: 1
-  m_InterruptionSource: 0
+  m_InterruptionSource: 1
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 1
 --- !u!114 &-7237402213764469073
@@ -318,7 +318,7 @@ AnimatorStateTransition:
   m_ExitTime: 1
   m_HasExitTime: 1
   m_HasFixedDuration: 1
-  m_InterruptionSource: 0
+  m_InterruptionSource: 1
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 1
 --- !u!1101 &-6905087001915079562
@@ -949,12 +949,12 @@ AnimatorStateTransition:
   m_Mute: 0
   m_IsExit: 0
   serializedVersion: 3
-  m_TransitionDuration: 0.25
+  m_TransitionDuration: 0.1
   m_TransitionOffset: 0
   m_ExitTime: 1
   m_HasExitTime: 1
   m_HasFixedDuration: 1
-  m_InterruptionSource: 0
+  m_InterruptionSource: 1
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 1
 --- !u!1101 &-1889706262474639398
@@ -1277,12 +1277,12 @@ AnimatorStateTransition:
   m_Mute: 0
   m_IsExit: 0
   serializedVersion: 3
-  m_TransitionDuration: 0.25
+  m_TransitionDuration: 0.1
   m_TransitionOffset: 0
   m_ExitTime: 0.75
   m_HasExitTime: 0
   m_HasFixedDuration: 1
-  m_InterruptionSource: 0
+  m_InterruptionSource: 1
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 1
 --- !u!1101 &820233461553655830
@@ -1410,7 +1410,7 @@ AnimatorState:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Swap_Weapon_01
-  m_Speed: 1
+  m_Speed: 3
   m_CycleOffset: 0
   m_Transitions:
   - {fileID: -2111195152794332261}
@@ -2368,7 +2368,7 @@ BlendTree:
     m_DirectBlendParameter: Horizontal
     m_Mirror: 0
   - serializedVersion: 2
-    m_Motion: {fileID: -660067687145172394, guid: 3310e6c8b470b154588f58e33dc80699,
+    m_Motion: {fileID: 7871585978157193852, guid: c1ae82103d233994586365c7512d4f31,
       type: 3}
     m_Threshold: 0.037037045
     m_Position: {x: 0, y: 1}
@@ -2393,7 +2393,7 @@ BlendTree:
     m_DirectBlendParameter: Horizontal
     m_Mirror: 0
   - serializedVersion: 2
-    m_Motion: {fileID: -5115632057054389881, guid: d01c792b8cedeb345bd27bc6cece2733,
+    m_Motion: {fileID: 8530655917288091532, guid: cf20b5767b50ea0458953d52e20f787e,
       type: 3}
     m_Threshold: 0.14814818
     m_Position: {x: -1, y: 0}
@@ -2402,7 +2402,7 @@ BlendTree:
     m_DirectBlendParameter: Horizontal
     m_Mirror: 0
   - serializedVersion: 2
-    m_Motion: {fileID: -2164515636399661429, guid: da20013a671f5c7459ad5f52f816a475,
+    m_Motion: {fileID: -797777971211537434, guid: 315fb61a9decdc44391806a6ee1fd890,
       type: 3}
     m_Threshold: 0.18518521
     m_Position: {x: 1, y: 0}
@@ -2550,7 +2550,7 @@ AnimatorStateTransition:
   m_Mute: 0
   m_IsExit: 0
   serializedVersion: 3
-  m_TransitionDuration: 0.25
+  m_TransitionDuration: 0.1
   m_TransitionOffset: 0
   m_ExitTime: 0.70125794
   m_HasExitTime: 0

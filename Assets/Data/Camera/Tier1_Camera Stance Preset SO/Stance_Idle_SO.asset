@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d17dac28cd585794bb7e26f7852976fb, type: 3}
   m_Name: Stance_Idle_SO
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
-  fov: 60
+  fov: 42
   zTilt: 0
   baseYawOffset: 0
-  baseOffset: {x: 0.55, y: 1.3, z: -2.5}
+  baseOffset: {x: 0.5, y: 1.3, z: -3}
   verticalBehavior:
     behaviorType: 2
     elevationSpeed: 5
@@ -141,7 +141,7 @@ MonoBehaviour:
     lockCameraOnActionStart: 0
     lockCameraMouseInfluence: 0.5
   handheldEffect:
-    enableHandheldEffect: 0
+    enableHandheldEffect: 1
     swayAmount: 0.3
     swaySpeed: 1
     bobbingAmount: 0.3

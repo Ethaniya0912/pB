@@ -40,6 +40,12 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
         _DreamHaze ("Dream Haze", Range(0.0, 1.0)) = 0.5
         _DreamChroma ("Dream Chromatic", Range(0.0, 5.0)) = 1.5
 
+        [Header(LockOn Focus Blur)]
+        _PlayerProtectRadius ("Player Protect Radius (m)", Range(0.5, 10.0)) = 1.5
+        _TargetProtectRadius ("Target Protect Radius (m)", Range(0.5, 10.0)) = 1.5
+        _FocusBlurStrength ("Focus Blur Strength", Range(0.0, 5.0)) = 1.5
+        _FocusBlurFalloff ("Focus Blur Falloff", Range(0.5, 5.0)) = 2.0
+
         // SECTION 3: Speed Response
         [Header(Phase 2 Speed Response)]
         _VignetteIntensity ("Vignette Intensity", Range(0.0, 1.0)) = 0.8
@@ -103,8 +109,14 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
             float _PixelScale, _FarPixelScale, _PixelCurve, _MoireReduction;
             float _DreamHaze, _DreamChroma;
 
-            float _GlobalSpeedFactor;    
-            float _GlobalMovementPulse;  
+            float _GlobalSpeedFactor;
+            float _GlobalMovementPulse;
+            // Lock-On Focus Blur — SCM이 Shader.SetGlobalFloat으로 주입
+            float _LockOnActive;
+            float _PlayerProtectRadius;
+            float _TargetProtectRadius;
+            float _FocusBlurStrength;
+            float _FocusBlurFalloff;
             float _VignetteIntensity, _VignetteRadiusShrink, _SpeedChromaIntensity;
             
             float _IdleLensDistortion, _SpeedLensDistortion, _ZoomAutoFitScale;
@@ -425,6 +437,33 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                     mixWeight *= centerSuppress;
 
                     strength *= (1.0 + (vignetteMask * _GlobalSpeedFactor * 1.5));
+
+                    // ── Lock-On Focus Blur ────────────────────────────
+                    // 락온 중: 플레이어/타겟 보호 반경 내부 → 블러 억제
+                    //          보호 반경 외부 → 약한 상시 블러 추가
+                    if (_LockOnActive > 0.5)
+                    {
+                        // 화면 중심(플레이어 기준)에서의 거리 계산
+                        // _LockOnPlayerPosWS, _LockOnTargetPosWS는 SCM이 주입
+                        // 뎁스 기반 선형 깊이를 보호 반경과 비교
+                        float playerProtect = max(_PlayerProtectRadius, 0.1);
+                        float targetProtect = max(_TargetProtectRadius, 0.1);
+
+                        // 플레이어 보호: NearDist 이내면 무조건 블러 없음 (SCM이 NearDist=playerProtect 주입)
+                        // 타겟 보호: 타겟 거리로부터 targetProtect 이내면 블러 억제
+                        // 보호 반경 바깥 ~ MidDist 사이: 약한 focusBlur 추가
+                        float protectedDepth = min(playerProtect, targetProtect);
+                        if (linearDepth > protectedDepth && linearDepth < _MidDist)
+                        {
+                            // 보호 반경 외곽부터 MidDist까지 약한 상시 블러
+                            float focusFactor = pow(
+                                saturate((linearDepth - protectedDepth) / max(_MidDist - protectedDepth, 0.1)),
+                                _FocusBlurFalloff);
+                            float focusStrength  = focusFactor * _FocusBlurStrength;
+                            strength   = max(strength, focusStrength);
+                            mixWeight  = max(mixWeight, focusFactor * saturate(_FocusBlurStrength / 5.0));
+                        }
+                    }
                 #endif
 
                 // 8. Final Mix

@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d17dac28cd585794bb7e26f7852976fb, type: 3}
   m_Name: Stance_Light_Impact_SO
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
-  fov: 62
-  zTilt: 0
-  baseYawOffset: -30
-  baseOffset: {x: 0.55, y: 1.3, z: -2.5}
+  fov: 42
+  zTilt: 8.2
+  baseYawOffset: 0
+  baseOffset: {x: 0.5, y: 1.3, z: -3}
   verticalBehavior:
     behaviorType: 2
     elevationSpeed: 5
@@ -23,7 +23,7 @@ MonoBehaviour:
     minElevationHeight: 5
     fixedPitchAngle: 25
     pitchForMaxHeight: 45
-    maxDynamicHeight: 1.5
+    maxDynamicHeight: 0.5
     heightSmoothTime: 0.15
   useDynamicFraming: 1
   inheritDynamicFraming: 1
@@ -145,7 +145,7 @@ MonoBehaviour:
     lockCameraOnActionStart: 1
     lockCameraMouseInfluence: 0
   handheldEffect:
-    enableHandheldEffect: 0
+    enableHandheldEffect: 1
     swayAmount: 10
     swaySpeed: 1
     bobbingAmount: 10

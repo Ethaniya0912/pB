@@ -8,12 +8,13 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: ranger_motionblur
-  m_Shader: {fileID: 4800000, guid: 443f3b3fe1e08e54294cd7d00b23202d, type: 3}
+  m_Shader: {fileID: 4800000, guid: 2facd0fa8982da340b278aef14c7c273, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _OMBDEBUG_BLURAMOUNT
+  - _OMBDEBUG_OFF
   - _OMB_ENABLED
+  - _OMB_TRANSPARENT
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -98,18 +99,27 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
+    - _DstBlendOMB: 0
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
     - _Metallic: 0
-    - _OMBDebug: 3
+    - _OMBDebug: 0
+    - _OMBDirStrength: 0.088
+    - _OMBDitherClip: 0
     - _OMBEnabled: 1
+    - _OMBFadeExponent: 0.3
+    - _OMBFadeWeightThreshold: 0.05
+    - _OMBHysteresisHigh: 0.145
+    - _OMBHysteresisLow: 0.05
     - _OMBIntensity: 1
     - _OMBIntensityGlobal: 1
     - _OMBMaxLength: 0.04
     - _OMBMinBlur: 0.005
     - _OMBShutterMult: 1
+    - _OMBTrailOpacity: 0.504
+    - _OMBTransparent: 1
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _QueueOffset: 0
@@ -120,15 +130,19 @@ Material:
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
+    - _SrcBlendOMB: 1
     - _Surface: 0
     - _TargetFPS: 60
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
+    - _ZWriteOMB: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _CaveAmbientMin: {r: 0.11320752, g: 0.11320752, b: 0.11320752, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OMBTrailColor: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

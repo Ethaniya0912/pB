@@ -60,6 +60,15 @@ Shader "Hidden/Dreamcore/ScreenSpaceMotionBlur"
             float _SSBlurDepthFade;
             float _ObjMotionThreshold;
 
+            // 전역 파라미터 (ShaderCoordinationManager 주입)
+            // 락온 시 배경 블러 강도 배율 (1.0=정상, 0.25=락온 중 억제)
+            // UpdateLockOnBlur()에서 Shader.SetGlobalFloat("_SSMBIntensityScale") 주입
+            float _SSMBIntensityScale;
+            // P5: 거리별 블러 배율 (P5_DistanceBlurCurveInjector 주입)
+            float _SSMBDistanceScale;
+            // P7: Budget 배율 (P7_BlurBudgetManager 주입)
+            float _SSMBBudgetScale;
+
             struct Attributes { uint vertexID : SV_VertexID; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings   { float4 positionCS : SV_POSITION; float2 texcoord : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
 
@@ -110,9 +119,17 @@ Shader "Hidden/Dreamcore/ScreenSpaceMotionBlur"
                     return original;
 
                 // ── 3. 블러 벡터 계산 — expTime 없이 직접 스케일 ──────────
-                // [핵심 수정] expTime = ShutterAngle/360/FPS 공식 제거
-                // mv는 이미 UV 단위 1프레임 이동량. 직접 스케일이 더 직관적이고 강함
-                float2 blurVec = mv * _BlurScale;
+                // _SSMBIntensityScale: 락온 시 배경 블러 억제 (SCM 주입)
+                // 기본값 1.0 — CBUFFER 밖 전역이므로 주입 안 되면 자동으로 1.0
+                float  intensityScale = max(_SSMBIntensityScale, 0.0);
+                // 전역값이 0으로 초기화될 경우 폴백 (미주입 방지)
+                if (intensityScale < 0.001) intensityScale = 1.0;
+                // P5 거리 배율, P7 Budget 배율 적용 (미주입 시 0 → 1.0 폴백)
+                float distScale   = max(_SSMBDistanceScale,  0.001) < 0.001 ? 1.0 : max(_SSMBDistanceScale,  0.0);
+                float budgetScale = max(_SSMBBudgetScale,    0.001) < 0.001 ? 1.0 : max(_SSMBBudgetScale,    0.0);
+                if (distScale   < 0.001) distScale   = 1.0;
+                if (budgetScale < 0.001) budgetScale = 1.0;
+                float2 blurVec = mv * _BlurScale * intensityScale * distScale * budgetScale;
 
                 // ── 4. 방사형 가중치 적용 ──────────────────────────────────
                 // 직진 이동 시 화면 중심=소실점, 엣지일수록 실제 시각적 이동이 크므로

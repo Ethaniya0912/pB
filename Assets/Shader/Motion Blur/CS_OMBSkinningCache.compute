@@ -1,0 +1,41 @@
+// CS_OMBSkinningCache.compute — GetVertexBuffer 경로
+// GetVertexBuffer()는 위치+노멀+UV가 합쳐진 버퍼를 반환할 수 있음
+// _VertexStride로 버텍스당 float 수를 전달하여 위치(첫 3 float)만 추출
+//
+// [Fix] ByteAddressBuffer → StructuredBuffer<float>
+//   ByteAddressBuffer는 D3D11에서 Raw Buffer SRV(GraphicsBuffer.Target.Raw)가 필요.
+//   GetVertexBuffer()가 반환하는 GraphicsBuffer는 Target.Vertex만 설정되어 있어
+//   ByteAddressBuffer 바인딩 시 SRV 생성 실패 → 읽기값 전부 0 → velocity = 0.
+//   StructuredBuffer<float>는 Target.Vertex만으로 정상 바인딩됨.
+//   읽기 방식: buf[vid * _VertexStride + 0/1/2] 로 첫 3 float(position) 추출.
+
+#pragma kernel ComputeVelocityDirect
+
+// GetVertexBuffer 결과: 버텍스 전체 데이터를 float 배열로 접근
+// (position(3) + normal(3) + uv(2) + ... — stride는 _VertexStride로 전달)
+StructuredBuffer<float>    _CurrSkinBuffer;
+StructuredBuffer<float>    _PrevSkinBuffer;
+RWStructuredBuffer<float3> _OMBVelocityBuffer;
+
+uint _VertexCount;
+uint _VertexStride; // 버텍스당 float 수 (stride바이트 / 4). 예: 40B → 10
+
+float3 ReadPosition(StructuredBuffer<float> buf, uint vid)
+{
+    // 위치는 항상 버텍스 데이터의 첫 3 float
+    uint base = vid * _VertexStride;
+    return float3(buf[base], buf[base + 1], buf[base + 2]);
+}
+
+[numthreads(64, 1, 1)]
+void ComputeVelocityDirect(uint3 id : SV_DispatchThreadID)
+{
+    uint vid = id.x;
+    if (vid >= _VertexCount) return;
+
+    float3 curr = ReadPosition(_CurrSkinBuffer, vid);
+    float3 prev = ReadPosition(_PrevSkinBuffer, vid);
+
+    // vel = 현재 - 이전 = 1프레임 이동 벡터
+    _OMBVelocityBuffer[vid] = curr - prev;
+}

@@ -33,13 +33,15 @@ public class AvatarAutoWeightBaker : MonoBehaviour
     [Range(0.3f, 1.5f)] public float armBias = 0.65f;
 
     [Tooltip("다리 계열 말단 강조 지수.")]
-    [Range(0.3f, 1.5f)] public float legBias = 0.75f;
+    [Range(0.3f, 1.5f)] public float legBias = 0.5f;  // 다리도 더 강하게
 
     [Tooltip("척추/흉부 최대 가중치 상한. 0.35 이하 권장.")]
     [Range(0f, 0.5f)] public float spineCap = 0.35f;
 
     [Tooltip("머리 가중치 배율. 0이면 머리 블러 없음.")]
-    [Range(0f, 0.5f)] public float headScale = 0.15f;
+    [Range(0f, 1.0f)] public float headScale     = 0.6f;  // 머리/목도 가시적으로 블러
+    [Tooltip("어깨/쇄골 가중치 스케일.")]
+    [Range(0f, 1.0f)] public float shoulderScale = 0.7f;  // 어깨 파라미터화
 
     [Header("Debug")]
     [Tooltip("true: 베이킹 완료 시 가중치 통계를 콘솔에 출력합니다.")]
@@ -51,6 +53,7 @@ public class AvatarAutoWeightBaker : MonoBehaviour
     private SkinnedMeshRenderer     _smr;
     private Animator                _anim;
     private ComputeBuffer           _weightBuffer;
+    private float[]                 _cachedWeights;   // P6_AimWeightOverride용 캐시
     private ObjectMotionBlurController _controller; // 루트의 Controller 캐시
 
     private static readonly int PropBlurWeightBuffer = Shader.PropertyToID("_BlurWeightBuffer");
@@ -165,6 +168,7 @@ public class AvatarAutoWeightBaker : MonoBehaviour
         // Step 3: GPU 버퍼 생성
         _weightBuffer = new ComputeBuffer(vertWeights.Length, sizeof(float));
         _weightBuffer.SetData(vertWeights);
+        _cachedWeights = vertWeights; // P6_AimWeightOverride용 캐시
 
         // Step 4: 버퍼 전달
         // ─────────────────────────────────────────────────────────
@@ -175,10 +179,10 @@ public class AvatarAutoWeightBaker : MonoBehaviour
         if (_controller != null)
         {
             _controller.InjectWeightBuffer(_weightBuffer);
-            if (debugLog)
-                Debug.Log(
-                    $"[AvatarAutoWeightBaker] '{name}': WeightBuffer → " +
-                    $"'{_controller.name}' 주입 완료");
+            // 주입 완료는 debugLog 관계없이 항상 출력 — 연결 확인용
+            Debug.Log(
+                $"[AvatarAutoWeightBaker] '{name}': WeightBuffer → " +
+                $"'{_controller.name}' 주입 완료 (버텍스 {vertWeights.Length}개)");
         }
         else
         {
@@ -213,10 +217,17 @@ public class AvatarAutoWeightBaker : MonoBehaviour
         else if (n.Contains("head") || n.Contains("neck"))
             t *= headScale;
         else if (n.Contains("shoulder") || n.Contains("clavicle"))
-            t *= 0.5f;
+            t *= shoulderScale;
 
         return Mathf.Clamp01(t);
     }
+
+    /// <summary>
+    /// P6_AimWeightOverride에서 호출합니다.
+    /// BakeWeights() 완료 후 캐시된 가중치 배열을 반환합니다.
+    /// 베이킹 전에는 null을 반환합니다.
+    /// </summary>
+    public float[] GetCachedWeights() => _cachedWeights;
 
     private int CalcDepthFromRoot(Transform bone, Transform root)
     {
