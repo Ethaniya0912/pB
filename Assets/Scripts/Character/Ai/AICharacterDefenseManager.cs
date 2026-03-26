@@ -7,7 +7,7 @@ namespace TDA.Character.AI
     /// [L3 Domain Layer] 몬스터/NPC 전용 방어 매니저입니다.
     /// 스태미나가 없는 AI 몬스터들의 특성에 맞춰, 확률적 패링이나 딜레이 가드 등을 확장할 수 있습니다.
     /// </summary>
-    public class AIDefenseManager : CharacterDefenseManager
+    public class AICharacterDefenseManager : CharacterDefenseManager
     {
         // 추후 AICharacterManager 등 AI 전용 스크립트 연결을 위해 자리 보존
         // private AICharacterManager aiCharacter;

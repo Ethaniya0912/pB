@@ -82,6 +82,13 @@ public enum AnimationEventType
     Detach_Torso = 95,          // 몸통 반갈죽 (세로/가로)
     Ragdoll_Enable = 96,        // 애니메이션 강제 종료 및 전신 래그돌 물리 전환
 
+    // --- 포이즈 파괴 및 그로기 (Poise Break & Groggy) ---
+    Groggy_Enter = 97,          // 포이즈가 0이 되어 그로기(무방비) 상태에 진입하는 순간
+                                // → AICharacterEffectsManager: 그로기 임팩트+루프 VFX
+                                // → AICharacterSoundFxManager: 그로기 보이스
+    Groggy_Exit = 98,           // 그로기 타이머 만료, 전투 복귀 직전
+                                // → AICharacterEffectsManager: 루프 VFX 제거
+
     #endregion
 
     #region [300 ~ 599] 오디오 및 사운드 피드백 (Audio / SFX)

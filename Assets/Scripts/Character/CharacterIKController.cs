@@ -141,7 +141,8 @@ namespace TDA.Character
 
         protected virtual void ApplyIKTransforms()
         {
-            if (currentHandTargetTransform != null && rightHandIK.weight > 0.01f)
+            // [수정/추가] rightHandIK 및 rightHandTarget 등에 대한 Null 체크 추가
+            if (currentHandTargetTransform != null && rightHandIK != null && rightHandTarget != null && rightHandIK.weight > 0.01f)
             {
                 rightHandTarget.position = currentHandTargetTransform.position;
 
@@ -153,7 +154,8 @@ namespace TDA.Character
                 );
             }
 
-            if (currentLookTargetTransform != null && headLookIK.weight > 0.01f)
+            // [수정/추가] headLookIK 및 headTarget 등에 대한 Null 체크 추가 (156번 줄 에러 방지)
+            if (currentLookTargetTransform != null && headLookIK != null && headTarget != null && headLookIK.weight > 0.01f)
             {
                 headTarget.position = currentLookTargetTransform.position;
             }

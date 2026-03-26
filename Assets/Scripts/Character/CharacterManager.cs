@@ -34,7 +34,7 @@ public class CharacterManager : NetworkBehaviour
     [HideInInspector] public CharacterEventManager characterEventManager;
     [HideInInspector] public CharacterDefenseManager characterDefenseManager;
 
-    // ── [신규] 처형 매니저 공통 참조 (PlayerExecutionManager / AIExecutionManager 업캐스팅용) ──
+    // ── [신규] 처형 매니저 공통 참조 (PlayerExecutionManager / AICharacterExecutionManager 업캐스팅용) ──
     // PlayerManager.Awake() 또는 AICharacterManager.Awake()에서 할당합니다.
     [HideInInspector] public CharacterExecutionManager characterExecutionManager;
     // ───────────────────────────────────────────────────────────────────────────

@@ -189,8 +189,6 @@ public class WorldSaveGameManager : MonoBehaviour
         SpawnDroppedItems();
     }
 
-
-
     public string DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(CharacterSlots characterSlots)
     {
         string fileName = "";
@@ -262,7 +260,7 @@ public class WorldSaveGameManager : MonoBehaviour
             return;
         }
 
-        // ?먯쑀 ?щ’???놁쓣?? ?뚮젅?댁뼱???명떚?뚯씠
+        // ?먯쑀 ?щ'???놁쓣?? ?뚮젅?댁뼱???명떚?뚯씠
         TitleScreenManager.Instance.DisplayNofreeCharacterSlotPopUp();
 
     }
@@ -346,10 +344,31 @@ public class WorldSaveGameManager : MonoBehaviour
         characterSlots05 = saveFileDataWriter.LoadSaveFile();
     }
 
+    // --[슬롯 조회 유틸리티]--
+
+    /// <summary>
+    /// 특정 슬롯의 캐시된 CharacterSaveData를 반환합니다.
+    /// TitleScreenManager에서 슬롯 선택 시 currentCharacterData를 세팅하는 용도로 사용합니다.
+    /// 해당 슬롯에 파일이 없으면 null을 반환합니다.
+    /// </summary>
+    public CharacterSaveData GetCharacterDataForSlot(CharacterSlots slot)
+    {
+        switch (slot)
+        {
+            case CharacterSlots.CharacterSlots_01: return characterSlots01;
+            case CharacterSlots.CharacterSlots_02: return characterSlots02;
+            case CharacterSlots.CharacterSlots_03: return characterSlots03;
+            case CharacterSlots.CharacterSlots_04: return characterSlots04;
+            case CharacterSlots.CharacterSlots_05: return characterSlots05;
+            default:
+                Debug.LogWarning($"[WorldSaveGameManager][GetCharacterDataForSlot] 알 수 없는 슬롯: {slot}");
+                return null;
+        }
+    }
+
     // --[런타임 로직]--
 
     // 1. 제거 등록 (루팅)
-
     public void AddRemovedObject(int id)
     {
         if (!currentWorldData.removedInteractableIDs.Contains(id))
@@ -497,6 +516,108 @@ public class WorldSaveGameManager : MonoBehaviour
             Debug.Log($"[Debug Warp] 오프라인 상태로 {targetSceneName} 이동");
             SceneManager.LoadScene(targetIndex);
         }
+    }
+
+    // --[로비 전용 슬롯 준비 로직]--
+
+    /// <summary>
+    /// 로비에서 슬롯 선택 없이 방을 만들 때 호출.
+    /// 이미 슬롯이 선택되어 있으면 그대로 통과하고,
+    /// 슬롯이 없으면 빈 슬롯을 자동으로 찾아 새 캐릭터 데이터를 생성하고 저장합니다.
+    /// 슬롯을 성공적으로 준비했으면 true, 빈 슬롯이 없으면 false를 반환합니다.
+    ///
+    /// ※ 주의: 로비 씬에서는 PlayerManager(player)가 아직 존재하지 않습니다.
+    ///   따라서 SaveGame()을 직접 호출하면 player.SaveGameDataToCurrentCharacterData()에서
+    ///   NullReferenceException이 발생해 함수 전체가 조용히 실패합니다.
+    ///   이 메서드는 player를 전혀 사용하지 않고 SaveFileDataWriter로 파일을 직접 기록합니다.
+    /// </summary>
+    public bool PrepareOrCreateSlotForLobby()
+    {
+        Debug.Log($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] ▶ 호출됨. " +
+                  $"현재 슬롯={currentCharacterSlotBeingUsed}, " +
+                  $"currentCharacterData={(currentCharacterData == null ? "NULL" : "존재함")}, " +
+                  $"player={(player == null ? "NULL (정상 - 로비에는 없음)" : "존재함")}");
+
+        // 이미 슬롯이 선택되어 있고 데이터도 있으면 그냥 통과
+        if (currentCharacterSlotBeingUsed != CharacterSlots.No_Slot
+            && currentCharacterData != null)
+        {
+            Debug.Log("[WorldSaveGameManager][PrepareOrCreateSlotForLobby] ✔ 이미 유효한 슬롯이 선택되어 있습니다. 통과합니다.");
+            return true;
+        }
+
+        Debug.Log("[WorldSaveGameManager][PrepareOrCreateSlotForLobby] 슬롯 미지정 또는 데이터 없음. 빈 슬롯 탐색 시작...");
+        Debug.Log($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] 저장 경로: \"{Application.persistentDataPath}\"");
+
+        SaveFileDataWriter lobbyWriter = new SaveFileDataWriter();
+        lobbyWriter.saveDataDirectoryPath = Application.persistentDataPath;
+
+        // 슬롯 01~05 순서로 빈 슬롯 탐색
+        CharacterSlots[] allSlots = {
+            CharacterSlots.CharacterSlots_01,
+            CharacterSlots.CharacterSlots_02,
+            CharacterSlots.CharacterSlots_03,
+            CharacterSlots.CharacterSlots_04,
+            CharacterSlots.CharacterSlots_05
+        };
+
+        foreach (var slot in allSlots)
+        {
+            lobbyWriter.saveFileName = DecideCharacterFileNameBasedOnCharacterSlotBeingUsed(slot);
+            bool fileExists = lobbyWriter.CheckToSeeIfFileExists();
+            Debug.Log($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] 슬롯 {slot} → 파일명=\"{lobbyWriter.saveFileName}\", 파일 존재={fileExists}");
+
+            if (!fileExists)
+            {
+                Debug.Log($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] ✔ 빈 슬롯 발견: {slot}. 새 캐릭터 데이터 생성 시작...");
+
+                // 빈 슬롯 발견 → 새 CharacterSaveData 생성
+                currentCharacterSlotBeingUsed = slot;
+                currentCharacterData = new CharacterSaveData();
+
+                // 기본 스탯을 데이터 오브젝트에 직접 기록합니다.
+                // 로비 씬에서는 player가 null이므로 player를 통하지 않고
+                // currentCharacterData 필드를 직접 설정한 뒤 파일로 씁니다.
+                // (실제 플레이어 NetworkVariable에 반영은 월드 씬 로드 후
+                //  LoadGameDataFromCurrentCharacterData()가 담당합니다.)
+                currentCharacterData.vitality = 15;
+                currentCharacterData.endurance = 10;
+
+                Debug.Log($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] 기본 스탯 설정 완료. " +
+                          $"vitality={currentCharacterData.vitality}, endurance={currentCharacterData.endurance}");
+
+                // SaveGame() 대신 Writer로 직접 파일 저장
+                // → SaveGame()은 내부에서 player.SaveGameDataToCurrentCharacterData()를 호출하므로
+                //   player가 없는 로비 환경에서 사용하면 NullReferenceException이 발생합니다.
+                try
+                {
+                    lobbyWriter.CreateCharacterSaveFile(currentCharacterData);
+                    Debug.Log($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] ✔ 파일 저장 성공: \"{lobbyWriter.saveFileName}\"");
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] ✖ 파일 저장 중 예외 발생 → {e.GetType().Name}: {e.Message}\n{e.StackTrace}");
+                    return false;
+                }
+
+                // 로비 슬롯 목록 캐시도 갱신해 UI에 반영될 수 있도록 합니다.
+                switch (slot)
+                {
+                    case CharacterSlots.CharacterSlots_01: characterSlots01 = currentCharacterData; break;
+                    case CharacterSlots.CharacterSlots_02: characterSlots02 = currentCharacterData; break;
+                    case CharacterSlots.CharacterSlots_03: characterSlots03 = currentCharacterData; break;
+                    case CharacterSlots.CharacterSlots_04: characterSlots04 = currentCharacterData; break;
+                    case CharacterSlots.CharacterSlots_05: characterSlots05 = currentCharacterData; break;
+                }
+
+                Debug.Log($"[WorldSaveGameManager][PrepareOrCreateSlotForLobby] ✔ 슬롯 캐시 갱신 완료. 최종 결과: 슬롯={slot}, 데이터 준비 완료. true 반환.");
+                return true;
+            }
+        }
+
+        // 모든 슬롯이 꽉 찬 경우
+        Debug.LogWarning("[WorldSaveGameManager][PrepareOrCreateSlotForLobby] ✖ 슬롯 01~05 모두 파일이 존재합니다. 사용 가능한 빈 슬롯이 없습니다! false 반환.");
+        return false;
     }
 }
 

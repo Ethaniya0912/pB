@@ -44,6 +44,14 @@ namespace TDA.Character
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Owner);
 
+        // [누락 복구] isUsingLeftHand — SetCharacterActionHand() / PlayerEquipmentManager /
+        // LightAttackWeaponItemAction / HeavyAttackWeaponItemAction / PlayerCombatManager 에서
+        // 참조하는 필드. isUsingRightHand 와 쌍으로 항상 함께 존재해야 합니다.
+        public NetworkVariable<bool> isUsingLeftHand = new NetworkVariable<bool>(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
         [Header("Position & Rotation")]
         public NetworkVariable<Vector3> networkPosition = new NetworkVariable<Vector3>(
             Vector3.zero,

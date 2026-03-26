@@ -284,6 +284,11 @@ namespace TDA.Character
             character.animator.SetInteger(AnimatorParameterHash.ActionState, targetActionIndex);
             character.animator.ResetTrigger(AnimatorParameterHash.onAction);
             character.animator.SetTrigger(AnimatorParameterHash.onAction);
+#if UNITY_EDITOR
+            character.GetComponent<TDA.EditorTools.CharacterManagerDebugger>()
+                ?.RecordAnimationPlay(targetActionIndex,
+                    $"Funnel  rm:{applyRootMotion}  mv:{canMove}", isPerformAction);
+#endif
         }
 
         public virtual void PlayTargetHitReactionFunnel(int targetHitIndex)
@@ -298,6 +303,10 @@ namespace TDA.Character
             character.animator.SetInteger(AnimatorParameterHash.ActionState, targetHitIndex);
             character.animator.ResetTrigger(AnimatorParameterHash.onHit);
             character.animator.SetTrigger(AnimatorParameterHash.onHit);
+#if UNITY_EDITOR
+            character.GetComponent<TDA.EditorTools.CharacterManagerDebugger>()
+                ?.RecordAnimationPlay(targetHitIndex, "HitReaction", true);
+#endif
         }
 
         // =========================================================================================
@@ -324,6 +333,11 @@ namespace TDA.Character
                     targetAnimHash,
                     applyRootMotion);
             }
+#if UNITY_EDITOR
+            character.GetComponent<TDA.EditorTools.CharacterManagerDebugger>()
+                ?.RecordAnimationPlay(targetAnimHash,
+                    $"Legacy  rm:{applyRootMotion}  mv:{canMove}", isPerformingAction);
+#endif
         }
 
         public virtual void PlayTargetAttackActionAnimation(

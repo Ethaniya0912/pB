@@ -246,6 +246,18 @@ namespace TDA.Character.Player
         // 카메라를 당겨서 걸을 때 위아래 떨림이 발생함.
         private bool hadEdgePanEverActive = false;
 
+        // ── [버그수정] 가상 커서 위치 추적 (CursorLockMode.Locked 대응) ─────────────
+        // 문제: CursorLockMode.Locked 상태에서 Input.mousePosition은 화면 중앙 고정값을 반환.
+        //       게임뷰 포커스 시 dbg_mouseViewport가 항상 (0.5, 0.5)로 고정되는 원인.
+        // 해결: Input.GetAxis("Mouse X/Y") 델타를 매 프레임 누적하여
+        //       커서 잠금 여부와 무관하게 실제 마우스 이동을 반영하는 가상 위치를 계산.
+        //       커서 잠금 해제 상태(Esc)에서는 실제 Input.mousePosition을 사용.
+        private Vector2 virtualCursorPos = new Vector2(0.5f, 0.5f); // 0~1 뷰포트 좌표 (초기: 중앙)
+        private float virtualCursorSensX = 0.002f; // GetAxis 누적 감도 X (픽셀→뷰포트 비율)
+        private float virtualCursorSensY = 0.002f; // GetAxis 누적 감도 Y
+        // ─────────────────────────────────────────────────────────────────────────
+
+
         // ── [v4.4 신규] 락온 진입 초기 프레이밍 ─────────────────────────────────────
         private bool isLockOnInitialFramingActive = false; // 초기 프레이밍 진행 중 여부
         private float lockOnInitialFramingTimer = 0f;    // 진행 타이머
@@ -254,9 +266,9 @@ namespace TDA.Character.Player
         // WorldCameraManager.PlayCameraSequence()에서 스냅샷 저장,
         // CameraSequenceRoutine 종료 시 SetFramingOffset()으로 복원됩니다.
         private bool isPendingFramingRestore = false;  // 복원 대기 중 여부
-        private float pendingFramingTarget = 0f;      // 복원 목표값
+        private float pendingFramingTarget = 0f;     // 복원 목표값
         private float pendingFramingBlendTime = 0.3f;   // 복원 보간 시간
-        private float pendingFramingTimer = 0f;      // 복원 진행 타이머
+        private float pendingFramingTimer = 0f;     // 복원 진행 타이머
         private float pendingFramingStartValue = 0f;     // 복원 시작값 (보간 기준)
 
         // 문제 3: 엣지 해제 후 카메라가 원래 시점으로 부드럽게 복귀
@@ -439,6 +451,7 @@ namespace TDA.Character.Player
                 dbg_magneticState = "INACTIVE";
             }
 
+            UpdateVirtualCursor();
             HandleFollowTarget();
             Quaternion baseRotation = HandleRotation();
             baseRotation = HandleMagneticSoftLock(baseRotation);
@@ -581,7 +594,8 @@ namespace TDA.Character.Player
                     // ─── 페널티 상황: 소프트/하드 보정 ───────────────────────────────────
                     if (isEscapedStable && targetPos != Vector3.zero)
                     {
-                        Vector2 mouseViewport = cameraObject.ScreenToViewportPoint(Input.mousePosition);
+                        // [버그수정] 가상 커서 사용 (CursorLock 대응)
+                        Vector2 mouseViewport = virtualCursorPos;
                         float edgeThreshold = stance.edgePanningData.edgePanThreshold;
 
                         // 유저가 커서를 화면 엣지로 가져가 능동 복귀를 시도하는지 감지
@@ -649,9 +663,10 @@ namespace TDA.Character.Player
                     {
                         // [v4.4] 제스처 입력(IsDragging) 중에는 마우스 커서 위치를 화면 중앙으로 고정.
                         bool isGestureDragging = playerGestureManager != null && playerGestureManager.IsDragging;
+                        // [버그수정] 커서 잠금 상태에서도 실제 마우스 이동 반영 — 가상 커서 사용
                         Vector2 mouseViewport = isGestureDragging
                             ? new Vector2(0.5f, 0.5f)
-                            : (Vector2)cameraObject.ScreenToViewportPoint(Input.mousePosition);
+                            : virtualCursorPos;
                         float edgeThr = stance.edgePanningData.edgePanThreshold;
                         float smoothTime = Mathf.Max(stance.edgePanningData.edgePanSmoothTime, 0.02f);
                         float returnTime = Mathf.Max(stance.edgePanningData.edgePanReturnTime, 0.1f);
@@ -775,11 +790,9 @@ namespace TDA.Character.Player
             cameraHorizontalInput = finalMouseX;
             cameraVerticalInput = finalMouseY;
 
-            // ── [v3.9 Debug] 엣지패닝 마우스 위치 기록 ─────────────────────────
-            if (cameraObject != null)
-            {
-                dbg_mouseViewport = cameraObject.ScreenToViewportPoint(Input.mousePosition);
-            }
+            // ── [버그수정] 엣지패닝 마우스 위치 기록 — 가상 커서 사용 ─────────────
+            // CursorLockMode.Locked 상태에서도 실제 마우스 이동을 반영합니다.
+            dbg_mouseViewport = virtualCursorPos;
 
             if (WorldCameraManager.Instance != null && WorldCameraManager.Instance.currentStanceSO != null)
             {
@@ -1077,7 +1090,6 @@ namespace TDA.Character.Player
             if (activeStance != null)
             {
                 var vBehavior = activeStance.verticalBehavior;
-                // 컴파일 에러 수정: 명시적 네임스페이스 적용 (TDA.Cameras.CameraVerticalBehavior)
                 if (vBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                 {
                     float t = Mathf.InverseLerp(minimumPivot, maximumPivot, upAndDownLookAngle);
@@ -1346,7 +1358,6 @@ namespace TDA.Character.Player
 
                 float fixedPitchWeightZero = upAndDownLookAngle;
                 CameraStancePresetSO activeStanceZero = WorldCameraManager.Instance?.currentStanceSO;
-                // 컴파일 에러 수정: 명시적 네임스페이스 적용
                 if (activeStanceZero != null && activeStanceZero.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                     fixedPitchWeightZero = activeStanceZero.verticalBehavior.fixedPitchAngle;
 
@@ -1398,7 +1409,6 @@ namespace TDA.Character.Player
 
                 float fixedPitchStrafe = upAndDownLookAngle;
                 CameraStancePresetSO stanceStrafe = WorldCameraManager.Instance?.currentStanceSO;
-                // 컴파일 에러 수정: 명시적 네임스페이스 적용
                 if (stanceStrafe != null && stanceStrafe.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                     fixedPitchStrafe = stanceStrafe.verticalBehavior.fixedPitchAngle;
 
@@ -1476,7 +1486,6 @@ namespace TDA.Character.Player
 
                 CameraStancePresetSO activeStanceLock = WorldCameraManager.Instance?.currentStanceSO;
                 float lockedPitch = upAndDownLookAngle;
-                // 컴파일 에러 수정: 명시적 네임스페이스 적용
                 if (activeStanceLock != null
                     && activeStanceLock.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
                     lockedPitch = activeStanceLock.verticalBehavior.fixedPitchAngle;
@@ -1682,7 +1691,6 @@ namespace TDA.Character.Player
             CameraStancePresetSO activeStance = WorldCameraManager.Instance?.currentStanceSO;
             float actualPitch = upAndDownLookAngle;
 
-            // 컴파일 에러 수정: 명시적 네임스페이스 적용
             if (activeStance != null && activeStance.verticalBehavior.behaviorType == TDA.Cameras.CameraVerticalBehavior.ElevationOnly)
             {
                 actualPitch = activeStance.verticalBehavior.fixedPitchAngle;
@@ -2080,6 +2088,53 @@ namespace TDA.Character.Player
         }
         #endregion
 
+
+        // =====================================================================
+        // [버그수정] UpdateVirtualCursor — 커서 잠금 상태 대응 가상 커서 업데이트
+        //
+        // 원인: Unity에서 CursorLockMode.Locked이면 Input.mousePosition은 항상
+        //       화면 중앙(Screen.width/2, Screen.height/2)을 반환합니다.
+        //       게임뷰 포커스 = Locked 상태이므로 dbg_mouseViewport가 고정되었음.
+        //
+        // 해결:
+        //   Locked 상태 → Input.GetAxis("Mouse X/Y") 델타를 virtualCursorPos에 누적
+        //                 (델타는 Lock 상태에서도 실제 마우스 이동량을 정확히 반환)
+        //   Unlocked 상태(Esc) → Input.mousePosition을 직접 뷰포트로 변환하여 동기화
+        //                        (커서가 화면에 보이는 상태 = 실제 위치 그대로 사용)
+        //
+        // 결과: 게임뷰 포커스와 Esc 상태 모두에서 동일한 커서 위치 표시.
+        // =====================================================================
+        private void UpdateVirtualCursor()
+        {
+            if (Cursor.lockState == CursorLockMode.Locked)
+            {
+                // Locked: 델타 누적 방식으로 가상 위치 갱신
+                float deltaX = Input.GetAxis("Mouse X");
+                float deltaY = Input.GetAxis("Mouse Y");
+
+                // 화면 해상도 기준 감도 보정 (해상도가 달라도 일정한 속도 유지)
+                float sensX = virtualCursorSensX * (1920f / Mathf.Max(Screen.width, 1f));
+                float sensY = virtualCursorSensY * (1080f / Mathf.Max(Screen.height, 1f));
+
+                virtualCursorPos.x += deltaX * sensX;
+                virtualCursorPos.y += deltaY * sensY;
+
+                // 0~1 범위로 클램프 (화면 안으로 제한)
+                virtualCursorPos.x = Mathf.Clamp01(virtualCursorPos.x);
+                virtualCursorPos.y = Mathf.Clamp01(virtualCursorPos.y);
+            }
+            else
+            {
+                // Unlocked(Esc): 실제 마우스 위치를 뷰포트로 변환하여 동기화
+                if (cameraObject != null)
+                {
+                    Vector3 vp = cameraObject.ScreenToViewportPoint(Input.mousePosition);
+                    virtualCursorPos.x = vp.x;
+                    virtualCursorPos.y = vp.y;
+                }
+            }
+        }
+
         #region Targeting & Utilities
         public void HandleLocatingLockOnTargets()
         {
@@ -2347,6 +2402,7 @@ namespace TDA.Character.Player
             smoothedEdgeInputY = 0f;
             edgePanInputVelX = 0f;
             edgePanInputVelY = 0f;
+            virtualCursorPos = new Vector2(0.5f, 0.5f); // 가상 커서 중앙으로 리셋
         }
 
         private void OnDrawGizmos()

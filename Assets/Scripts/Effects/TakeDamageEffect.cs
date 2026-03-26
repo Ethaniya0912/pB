@@ -19,7 +19,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TDA.Core.Events;  // ActionID 및 Funnel 아키텍처 연동
-using TDA.Character.AI; // AICharacterManager, AIExecutionManager
+using TDA.Character.AI; // AICharacterManager, AICharacterExecutionManager
 
 [CreateAssetMenu(menuName = "Character Effects/Instant Effects/Take Damage")]
 public class TakeDamageEffect : InstantCharacterEffect
@@ -306,7 +306,7 @@ public class TakeDamageEffect : InstantCharacterEffect
     // =========================================================================
     private bool ShouldIgnoreStaggerForExecution(CharacterManager character)
     {
-        var execMgr = character.GetComponent<AIExecutionManager>();
+        var execMgr = character.GetComponent<AICharacterExecutionManager>();
         if (execMgr == null) return false;
         return execMgr.ShouldIgnoreStaggerDuringExecution();
     }

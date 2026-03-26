@@ -90,6 +90,11 @@ public class TitleScreenManager : MonoBehaviour
         if (multiplayerReturnButton != null) multiplayerReturnButton.onClick.AddListener(CloseMultiplayerMenu);
 
         if (loadMenuReturnButton != null) loadMenuReturnButton.onClick.AddListener(CloseLoadGameMenu);
+
+        // [핵심] loadMenuStartGameButton은 싱글/호스트 모드를 모두 처리하는 통합 함수에 연결합니다.
+        // Title Screen Load Menu 와 Lobby Screen 의 Start Game 버튼은 역할이 다릅니다.
+        // - Title Screen Load Menu → Start Game Button : 여기(AttemptToStartGameWithSelectedSlot)에 연결
+        // - Lobby Screen → Host Controls → Start Game Button : LobbyUIManager.startGameButton에 연결 (별도)
         if (loadMenuStartGameButton != null) loadMenuStartGameButton.onClick.AddListener(AttemptToStartGameWithSelectedSlot);
 
         if (deleteCharacterPopUpConfirmButton != null) deleteCharacterPopUpConfirmButton.onClick.AddListener(DeleteCharacterSlot);
@@ -112,6 +117,8 @@ public class TitleScreenManager : MonoBehaviour
                 }
             }
         }
+
+        Debug.Log("[TitleScreenManager][RegisterButtonEvents] ✔ 모든 버튼 이벤트 등록 완료.");
     }
 
     private void OnDestroy()
@@ -175,6 +182,9 @@ public class TitleScreenManager : MonoBehaviour
         titleScreenMultiplayerMenu.SetActive(false);
         titleScreenLoadMenu.SetActive(true);
         loadMenuReturnButton.Select();
+
+        Debug.Log("[TitleScreenManager][StartCreateRoomFlow] ✔ Host 모드로 설정. 로드 메뉴 오픈. " +
+                  "슬롯 선택 없이 Start Game을 누르면 자동으로 빈 슬롯을 생성합니다.");
     }
 
     public void StartJoinRoomFlow()
@@ -287,40 +297,146 @@ public class TitleScreenManager : MonoBehaviour
         WorldSaveGameManager.Instance.AttemptToCreateNewGame();
     }
 
-    // 로드 메뉴에서 '게임 시작' 버튼을 눌렀을 때 실행되는 핵심 로직
+    /// <summary>
+    /// Title Screen Load Menu의 Start Game 버튼에 연결된 핵심 함수.
+    ///
+    /// [싱글플레이어] currentSelectedSlot이 반드시 선택되어 있어야 합니다.
+    ///   슬롯 미선택 시 경고 후 중단합니다.
+    ///
+    /// [호스트(멀티)] 슬롯이 선택되어 있으면 그 슬롯을 사용하고,
+    ///   선택되어 있지 않으면 WorldSaveGameManager.PrepareOrCreateSlotForLobby()를 통해
+    ///   자동으로 빈 슬롯을 생성하여 진행합니다.
+    ///   즉, Create Room 후 슬롯 목록이 비어있어도 Start Game이 정상 동작합니다.
+    /// </summary>
     public void AttemptToStartGameWithSelectedSlot()
     {
-        if (currentSelectedSlot == CharacterSlots.No_Slot)
+        // ── [DEBUG] 버튼 클릭 수신 확인 (항상 출력)
+        Debug.Log($"[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ▶ START GAME 버튼 클릭 감지됨. " +
+                  $"currentConnectionType={currentConnectionType}, " +
+                  $"currentSelectedSlot={currentSelectedSlot}");
+
+        // ── [DEBUG] 의존 오브젝트 상태 확인
+        if (WorldSaveGameManager.Instance == null)
         {
-            Debug.LogWarning("[TitleScreenManager] 캐릭터 슬롯이 선택되지 않았습니다. 슬롯을 먼저 클릭해주세요.");
+            Debug.LogError("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✖ WorldSaveGameManager.Instance가 NULL입니다! " +
+                           "씬에 WorldSaveGameManager 오브젝트가 있는지 확인하세요.");
             return;
         }
 
-        // 선택한 슬롯을 세이브 매니저에 알림
-        WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed = currentSelectedSlot;
+        if (NetworkManager.Singleton == null)
+        {
+            Debug.LogError("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✖ NetworkManager.Singleton이 NULL입니다!");
+            return;
+        }
 
         switch (currentConnectionType)
         {
+            // ──────────────────────────────────────────────────────────────────
+            // [싱글플레이어] 반드시 슬롯을 선택해야 진행 가능
+            // ──────────────────────────────────────────────────────────────────
             case NetworkConnectionType.Singleplayer:
+
+                Debug.Log("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] [싱글플레이어] 경로 진입.");
+
+                if (currentSelectedSlot == CharacterSlots.No_Slot)
+                {
+                    Debug.LogWarning("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✖ [싱글] 슬롯 미선택 → 중단. " +
+                                     "슬롯 버튼을 먼저 클릭하세요.");
+                    return;
+                }
+
+                Debug.Log($"[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✔ [싱글] 슬롯 선택 확인: {currentSelectedSlot}");
+
+                // 선택한 슬롯을 세이브 매니저에 알림
+                WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed = currentSelectedSlot;
+
                 // 싱글플레이어도 호스트 권한으로 엔진 구동
                 if (!NetworkManager.Singleton.IsServer && !NetworkManager.Singleton.IsClient)
+                {
+                    Debug.Log("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] [싱글] NGO StartHost() 호출.");
                     NetworkManager.Singleton.StartHost();
+                }
+                else
+                {
+                    Debug.Log($"[TitleScreenManager][AttemptToStartGameWithSelectedSlot] [싱글] NGO 이미 실행 중. " +
+                              $"IsServer={NetworkManager.Singleton.IsServer}, IsClient={NetworkManager.Singleton.IsClient}");
+                }
 
+                Debug.Log("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✔ [싱글] WorldSaveGameManager.LoadGame() 호출.");
                 // 해당 슬롯에 저장된 씬과 캐릭터 정보 즉시 로드
                 WorldSaveGameManager.Instance.LoadGame();
                 break;
 
+            // ──────────────────────────────────────────────────────────────────
+            // [호스트(멀티)] 슬롯이 없으면 자동 생성 후 로비 진입
+            // ──────────────────────────────────────────────────────────────────
             case NetworkConnectionType.Host:
+
+                Debug.Log("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] [호스트] 경로 진입.");
+
+                // 슬롯이 선택된 경우: 해당 슬롯을 세이브 매니저에 전달
+                if (currentSelectedSlot != CharacterSlots.No_Slot)
+                {
+                    Debug.Log($"[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✔ [호스트] 선택된 슬롯 사용: {currentSelectedSlot}");
+                    WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed = currentSelectedSlot;
+                    WorldSaveGameManager.Instance.currentCharacterData =
+                        WorldSaveGameManager.Instance.GetCharacterDataForSlot(currentSelectedSlot);
+
+                    Debug.Log($"[TitleScreenManager][AttemptToStartGameWithSelectedSlot] currentCharacterData=" +
+                              $"{(WorldSaveGameManager.Instance.currentCharacterData == null ? "NULL (슬롯에 파일 없음 - 자동생성으로 폴백)" : "로드 성공")}");
+
+                    // 슬롯은 선택됐지만 파일이 없는 경우(빈 슬롯 클릭) → 자동 생성으로 폴백
+                    if (WorldSaveGameManager.Instance.currentCharacterData == null)
+                    {
+                        Debug.LogWarning("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ⚠ [호스트] 선택된 슬롯에 저장 파일이 없습니다. " +
+                                         "PrepareOrCreateSlotForLobby()로 자동 생성합니다.");
+                        bool fallbackReady = WorldSaveGameManager.Instance.PrepareOrCreateSlotForLobby();
+                        if (!fallbackReady)
+                        {
+                            Debug.LogError("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✖ [호스트] 자동 생성도 실패. 모든 슬롯이 꽉 찼습니다.");
+                            DisplayNofreeCharacterSlotPopUp();
+                            return;
+                        }
+                    }
+                }
+                // 슬롯이 선택되지 않은 경우: 자동으로 빈 슬롯 생성
+                else
+                {
+                    Debug.Log("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] [호스트] 슬롯 미선택 → PrepareOrCreateSlotForLobby() 자동 생성 시도.");
+
+                    bool slotReady = WorldSaveGameManager.Instance.PrepareOrCreateSlotForLobby();
+
+                    if (!slotReady)
+                    {
+                        Debug.LogError("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✖ [호스트] PrepareOrCreateSlotForLobby() = false. " +
+                                       "슬롯 01~05 모두 파일이 존재합니다. 팝업을 표시합니다.");
+                        DisplayNofreeCharacterSlotPopUp();
+                        return;
+                    }
+
+                    Debug.Log($"[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✔ [호스트] 자동 슬롯 생성 완료. " +
+                              $"슬롯={WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed}");
+                }
+
                 // 호스트는 스팀 로비 생성 후, 대기방 UI(LobbyUIManager)를 띄우기 위해 타이틀 화면을 가립니다.
                 if (SteamLobbyManager.Instance != null)
                 {
+                    Debug.Log("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✔ [호스트] HideTitleScreen() + StartHostWithLobby() 호출.");
                     HideTitleScreen();
                     SteamLobbyManager.Instance.StartHostWithLobby();
                 }
+                else
+                {
+                    Debug.LogError("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ✖ [호스트] SteamLobbyManager.Instance가 NULL입니다! " +
+                                   "씬에 SteamLobbyManager 오브젝트가 있는지 확인하세요.");
+                }
                 break;
 
+            // ──────────────────────────────────────────────────────────────────
+            // [클라이언트] 이 버튼으로는 호출되지 않음 (방어 코드)
+            // ──────────────────────────────────────────────────────────────────
             case NetworkConnectionType.Client:
-                // 클라이언트는 여기를 호출할 일이 보통 없지만, 방어 코드로 비워둡니다.
+                Debug.LogWarning("[TitleScreenManager][AttemptToStartGameWithSelectedSlot] ⚠ [클라이언트] 이 경로는 호출되지 않아야 합니다. 무시합니다.");
                 break;
         }
     }

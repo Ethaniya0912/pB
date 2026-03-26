@@ -641,24 +641,26 @@ GameObject:
   - component: {fileID: 2187960731613901782}
   - component: {fileID: 212227040432806844}
   - component: {fileID: 1947142874346906517}
-  - component: {fileID: 2851853831134315020}
-  - component: {fileID: 7609067749574553744}
-  - component: {fileID: 287085065434700163}
-  - component: {fileID: 7890223221855082097}
-  - component: {fileID: 9130006063949914706}
-  - component: {fileID: 9091498491289709151}
   - component: {fileID: -6378788767511415067}
+  - component: {fileID: 4105687166604391429}
+  - component: {fileID: 8434182046016921837}
+  - component: {fileID: 287085065434700163}
+  - component: {fileID: 5607237770995763107}
+  - component: {fileID: 6398464856312832068}
+  - component: {fileID: 9117514435536015186}
   - component: {fileID: 8537996597277619272}
-  - component: {fileID: 5062653150551271864}
   - component: {fileID: 2659419398298417440}
   - component: {fileID: 7422508678030370822}
   - component: {fileID: 3579648242230154762}
-  - component: {fileID: 8561882562560733648}
-  - component: {fileID: 1778917036455899257}
-  - component: {fileID: 6808503888121520632}
-  - component: {fileID: -9004815254328650616}
+  - component: {fileID: 6857648610438603969}
+  - component: {fileID: 4970938131516336963}
   - component: {fileID: -282261469178741356}
-  - component: {fileID: 5004160217070974246}
+  - component: {fileID: -9004815254328650616}
+  - component: {fileID: 6808503888121520632}
+  - component: {fileID: 1778917036455899257}
+  - component: {fileID: 5062653150551271864}
+  - component: {fileID: 5717506456705042142}
+  - component: {fileID: 7072069649473977397}
   m_Layer: 8
   m_Name: Dummy_04
   m_TagString: Untagged
@@ -718,7 +720,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1383825015
+  GlobalObjectIdHash: 1723572614
   InScenePlacedSourceGlobalObjectIdHash: 1383825015
   DeferredDespawnTick: 0
   Ownership: 1
@@ -880,301 +882,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &2851853831134315020
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f63139e2b92a7794d9f711adad05153e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
-  isDead:
-    m_InternalValue: 0
-  networkPosition:
-    m_InternalValue: {x: 0, y: 0, z: 0}
-  networkRotation:
-    m_InternalValue: {x: 0, y: 0, z: 0, w: 1}
-  networkPositionVelocity: {x: 0, y: 0, z: 0}
-  networkPositionSmoothTime: 0.1
-  networkRotationSmoothTime: 0.1
-  animatorHorizontalMovement:
-    m_InternalValue: 0
-  animatorVerticalMovement:
-    m_InternalValue: 0
-  animatorMoveAmountMovement:
-    m_InternalValue: 0
-  currentTargetNetworkObjectID:
-    m_InternalValue: 0
-  isLockedOn:
-    m_InternalValue: 0
-  isSprinting:
-    m_InternalValue: 0
-  isJumping:
-    m_InternalValue: 0
-  isChargingAttack:
-    m_InternalValue: 0
-  endurance:
-    m_InternalValue: 1
-  vitality:
-    m_InternalValue: 1
-  currentMadness:
-    m_InternalValue: 1
-  maxMadness:
-    m_InternalValue: 1
-  currentStamina:
-    m_InternalValue: 1
-  maxStamina:
-    m_InternalValue: 1
-  currentHealth:
-    m_InternalValue: 1
-  maxHealth:
-    m_InternalValue: 1
-  currentRightHandGrabbedObjectID:
-    m_InternalValue: 0
---- !u!114 &7609067749574553744
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ecf2a1e35592aab41bf65a4b019193cf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  baseAnimationSet: {fileID: 11400000, guid: 4af2b873f9c3a644c9b5ddfede2e5fc1, type: 2}
-  lastAnimationPlayedHash: 0
-  locomotionDampTime: 0.1
-  debugHorizontalValue: 0
-  debugVerticalValue: 0
-  debugMoveAmountValue: 0
-  hit_Forward_Medium_01: Hit_Forward_Medium_01
-  hit_Forward_Medium_02: Hit_Forward_Medium_02
-  hit_Backward_Medium_01: Hit_Backward_Medium_01
-  hit_Backward_Medium_02: Hit_Backward_Medium_02
-  hit_Left_Medium_01: Hit_Left_Medium_01
-  hit_Left_Medium_02: Hit_Left_Medium_02
-  hit_Right_Medium_01: Hit_Right_Medium_01
-  hit_Right_Medium_02: Hit_Right_Medium_02
-  forward_Medium_Damage_Hashes: 
-  backward_Medium_Damage_Hashes: 
-  left_Medium_Damage_Hashes: 
-  right_Medium_Damage_Hashes: 
-  enableAnimationFramerateLimit: 0
-  targetAnimationFPS: 30
---- !u!114 &287085065434700163
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 73663d39d869ba04086e3b89ce1bd3ec, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterStatsManager
-  staminaRegenerationAmount: 2
-  staminaRegenerationDelay: 2
-  baseHealth: 100
-  baseStamina: 100
---- !u!114 &7890223221855082097
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa7b97b9965e0694dbfb383a7ed23433, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rootAudioSource: {fileID: 212227040432806844}
-  leftFootAudioSource: {fileID: 8801705395193160710}
-  rightFootAudioSource: {fileID: 9201830557489993048}
-  currentWeaponAudioSource: {fileID: 0}
-  soundMappings:
-  - triggerType: 300
-    audioClip: {fileID: 8300000, guid: c4ba9fca9e13059468e139d773e68516, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 301
-    audioClip: {fileID: 8300000, guid: 44919a8507432b34caf9f26c728498f4, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 302
-    audioClip: {fileID: 8300000, guid: c4ba9fca9e13059468e139d773e68516, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 303
-    audioClip: {fileID: 8300000, guid: 44919a8507432b34caf9f26c728498f4, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 304
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 310
-    audioClip: {fileID: 8300000, guid: 00203eabc39f52346a76dbfed9f2fe15, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 311
-    audioClip: {fileID: 8300000, guid: 00203eabc39f52346a76dbfed9f2fe15, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 312
-    audioClip: {fileID: 8300000, guid: 00203eabc39f52346a76dbfed9f2fe15, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 313
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 314
-    audioClip: {fileID: 8300000, guid: 87501f6d13d2c4540b882ee504b2917b, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 330
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 331
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 332
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 333
-    audioClip: {fileID: 8300000, guid: 0aba3acb313b61a41833bce46328a43e, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 334
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 350
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 351
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 352
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 353
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 354
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 390
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 391
-    audioClip: {fileID: 8300000, guid: 765448ae092a41743923a429f5df538a, type: 3}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 392
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 393
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  - triggerType: 394
-    audioClip: {fileID: 0}
-    audioLocation: 0
-    volume: 1
-    randomizePitch: 1
-  globalMinInterval: 0.05
---- !u!114 &9130006063949914706
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 87527bb1a43f8444cb7564a2ad960559, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  bloodSplatterVFX: {fileID: 0}
-  hitsparkVFX: {fileID: 0}
-  lastContactPoint: {x: 0, y: 0, z: 0}
-  lastAttackerPosition: {x: 0, y: 0, z: 0}
-  effectMappings: []
-  activeTimedEffects: []
-  activeStaticEffects: []
---- !u!114 &9091498491289709151
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f629c70c10d4e9a44a8602924377bd28, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
-  currentRightHandWeapon: {fileID: 0}
-  currentLeftHandWeapon: {fileID: 0}
-  weaponInRightHandSlots:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  rightHandWeaponIndex: 0
-  weaponInLeftHandSlots:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  leftHandWeaponIndex: 0
-  currentGridWidth:
-    m_InternalValue: 0
-  currentGridHeight:
-    m_InternalValue: 0
 --- !u!114 &-6378788767511415067
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1201,15 +908,230 @@ MonoBehaviour:
   characterStatsManager: {fileID: 0}
   characterEventManager: {fileID: 0}
   characterDefenseManager: {fileID: 0}
+  characterExecutionManager: {fileID: 0}
   characterGroup: 1
   isPerformingAction: 0
   applyRootMotion: 0
   canRotate: 1
   canMove: 1
+  isPoiseActive: 0
+  lockOnTransform: {fileID: 0}
   aiCharacterCombatManager: {fileID: 8537996597277619272}
+  aiCharacterLocomotionManager: {fileID: 0}
+  aiCharacterAnimationManager: {fileID: 0}
+  aiCharacterNetworkManager: {fileID: 0}
+  aiCharacterSoundFxManager: {fileID: 0}
+  aiCharacterEffectsManager: {fileID: 0}
+  aiCharacterInventoryManager: {fileID: 0}
+  aiCharacterIKController: {fileID: 0}
   navMeshAgent: {fileID: 5062653150551271864}
-  initialState: {fileID: 11400000, guid: 7caaae16eea16ca4eaf9fa0ee52c4b81, type: 2}
+  aiExecutionManager: {fileID: 0}
   currentState: {fileID: 11400000, guid: 7caaae16eea16ca4eaf9fa0ee52c4b81, type: 2}
+  defaultState: {fileID: 0}
+--- !u!114 &4105687166604391429
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a33111340f0325428e63daae020a291, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterNetworkManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  isDead:
+    m_InternalValue: 0
+  isUsingRightHand:
+    m_InternalValue: 1
+  isUsingLeftHand:
+    m_InternalValue: 0
+  networkPosition:
+    m_InternalValue: {x: 0, y: 0, z: 0}
+  networkRotation:
+    m_InternalValue: {x: 0, y: 0, z: 0, w: 1}
+  networkPositionVelocity: {x: 0, y: 0, z: 0}
+  networkPositionSmoothTime: 0.1
+  networkRotationSmoothTime: 0.1
+  animatorHorizontalMovement:
+    m_InternalValue: 0
+  animatorVerticalMovement:
+    m_InternalValue: 0
+  animatorMoveAmountMovement:
+    m_InternalValue: 0
+  currentTargetNetworkObjectID:
+    m_InternalValue: 0
+  isLockedOn:
+    m_InternalValue: 0
+  isSprinting:
+    m_InternalValue: 0
+  isJumping:
+    m_InternalValue: 0
+  isChargingAttack:
+    m_InternalValue: 0
+  endurance:
+    m_InternalValue: 100
+  vitality:
+    m_InternalValue: 100
+  currentMadness:
+    m_InternalValue: 1
+  maxMadness:
+    m_InternalValue: 1
+  currentStamina:
+    m_InternalValue: 100
+  maxStamina:
+    m_InternalValue: 100
+  currentHealth:
+    m_InternalValue: 100
+  maxHealth:
+    m_InternalValue: 100
+  currentPoise:
+    m_InternalValue: 0
+  maxPoise:
+    m_InternalValue: 0
+  currentRightHandGrabbedObjectID:
+    m_InternalValue: 0
+  aggroTargetNetworkObjectID:
+    m_InternalValue: 0
+  isAlerted:
+    m_InternalValue: 0
+  currentPhase:
+    m_InternalValue: 0
+  spawnChunkCenter:
+    m_InternalValue: {x: 0, y: 0, z: 0}
+--- !u!114 &8434182046016921837
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71143ace369a1ee43b606d640d059ece, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterAnimationManager
+  baseAnimationSet: {fileID: 11400000, guid: 4af2b873f9c3a644c9b5ddfede2e5fc1, type: 2}
+  lastAnimationPlayedHash: 0
+  locomotionDampTime: 0.1
+  debugHorizontalValue: 0
+  debugVerticalValue: 0
+  debugMoveAmountValue: 0
+  hit_Forward_Medium_01: Hit_Forward_Medium_01
+  hit_Forward_Medium_02: Hit_Forward_Medium_02
+  hit_Backward_Medium_01: Hit_Backward_Medium_01
+  hit_Backward_Medium_02: Hit_Backward_Medium_02
+  hit_Left_Medium_01: Hit_Left_Medium_01
+  hit_Left_Medium_02: Hit_Left_Medium_02
+  hit_Right_Medium_01: Hit_Right_Medium_01
+  hit_Right_Medium_02: Hit_Right_Medium_02
+  forward_Medium_Damage_Hashes: 
+  backward_Medium_Damage_Hashes: 
+  left_Medium_Damage_Hashes: 
+  right_Medium_Damage_Hashes: 
+  enableAnimationFramerateLimit: 0
+  targetAnimationFPS: 30
+  moveSmoothTime: 0.12
+  lockOnSmoothTime: 0.15
+--- !u!114 &287085065434700163
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73663d39d869ba04086e3b89ce1bd3ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterStatsManager
+  staminaRegenerationAmount: 2
+  staminaRegenerationDelay: 2
+  baseHealth: 100
+  baseStamina: 100
+--- !u!114 &5607237770995763107
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c69a707dcfd1b1e49835ce90041ffe11, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterSoundFxManager
+  rootAudioSource: {fileID: 212227040432806844}
+  leftFootAudioSource: {fileID: 8801705395193160710}
+  rightFootAudioSource: {fileID: 9201830557489993048}
+  currentWeaponAudioSource: {fileID: 0}
+  soundMappings: []
+  globalMinInterval: 0.05
+  alertVoiceClip: {fileID: 0}
+  lostTargetVoiceClip: {fileID: 0}
+  groggyVoiceClip: {fileID: 0}
+  executionVoiceClip: {fileID: 0}
+  fullVolumeRadius: 15
+  silenceRadius: 40
+--- !u!114 &6398464856312832068
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2922cd25ecb6d2440ac4b75788f56bdc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterEffectsManager
+  bloodSplatterVFX: {fileID: 0}
+  hitsparkVFX: {fileID: 0}
+  lastContactPoint: {x: 0, y: 0, z: 0}
+  lastAttackerPosition: {x: 0, y: 0, z: 0}
+  effectMappings: []
+  activeTimedEffects: []
+  activeStaticEffects: []
+  groggyImpactVFX: {fileID: 0}
+  groggyLoopVFX: {fileID: 0}
+  executionFinishVFX: {fileID: 0}
+  deathDissolveVFX: {fileID: 0}
+  phaseTransitionVFX: {fileID: 0}
+  groggyVFXHeightOffset: 1.8
+--- !u!114 &9117514435536015186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f7f93d05b0e19e48b01663b5ceb1fb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterInventoryManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  currentRightHandWeapon: {fileID: 0}
+  currentLeftHandWeapon: {fileID: 0}
+  weaponInRightHandSlots:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  rightHandWeaponIndex: 0
+  weaponInLeftHandSlots:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  leftHandWeaponIndex: 0
+  currentGridWidth:
+    m_InternalValue: 0
+  currentGridHeight:
+    m_InternalValue: 0
+  defaultRightHandWeapon: {fileID: 0}
+  defaultLeftHandWeapon: {fileID: 0}
+  dropTable: []
+  dropScatterRadius: 0.6
 --- !u!114 &8537996597277619272
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1253,34 +1175,20 @@ MonoBehaviour:
   detectionRadius: 15
   minimumDetectionAngle: 15
   maximumDetectionAngle: 50
+  maximumAttackRange: 2
+  minimumAttackRange: 0.5
+  viewableAngle: 180
+  minimumTimeBetweenAttacks: 1.5
+  maximumTimeBetweenAttacks: 3.5
   baseParryChance: 20
   baseBlockChance: 30
   baseEvadeChance: 20
   defensiveActionCooldown: 2
   strafeSpeed: 2
+  strafeDirectionChangeMin: 2
+  strafeDirectionChangeMax: 5
+  strafeOrbitRadius: 3.5
   strafeDirectionChangeTime: 3
---- !u!195 &5062653150551271864
-NavMeshAgent:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 0
-  m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 3.5
-  m_Acceleration: 8
-  avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
-  m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
-  m_AutoRepath: 1
-  m_Height: 2
-  m_BaseOffset: 0
-  m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
 --- !u!114 &2659419398298417440
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1347,7 +1255,7 @@ MonoBehaviour:
     type: 2}
   leftHandTestWeapon: {fileID: 11400000, guid: e43da9c27983eb04cbb14465059c8633, type: 2}
   leftHandTestShield: {fileID: 11400000, guid: f6ef535891cce2d43ae15f55266aaa80, type: 2}
---- !u!114 &8561882562560733648
+--- !u!114 &6857648610438603969
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1356,9 +1264,30 @@ MonoBehaviour:
   m_GameObject: {fileID: 4233442530097016134}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 009ced36acf195845a3f66df82680589, type: 3}
+  m_Script: {fileID: 11500000, guid: c40a38d70150fcb49b273db06e5b4bbf, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.CharacterIKController
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.EditorTools.AICharacterManagerDebugger
+  showDebugHUD: 0
+  lockSelection: 0
+  pauseOnDeath: 0
+  pauseOnPoiseBreak: 0
+  pauseOnEventTypes: 
+  maxHistoryCount: 50
+  pauseOnGroggy: 0
+  pauseOnExecutionStart: 0
+  pauseOnStateEnter: {fileID: 0}
+--- !u!114 &4970938131516336963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9aa366acd35ba6e459f93935b05e0668, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterIKController
   rigBuilder: {fileID: 1778917036455899257}
   rightHandIK: {fileID: 0}
   headLookIK: {fileID: 0}
@@ -1382,7 +1311,12 @@ MonoBehaviour:
   debugCalibrationLogs: 1
   targetHandWeight: 0
   targetLookWeight: 0
---- !u!114 &1778917036455899257
+  enableTargetLookIK: 1
+  lookIKActivationRange: 12
+  lookIKFadeOutSpeed: 3
+  weaponGripTarget: {fileID: 0}
+  combatFootstepDragRatio: 0
+--- !u!114 &-282261469178741356
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1391,13 +1325,36 @@ MonoBehaviour:
   m_GameObject: {fileID: 4233442530097016134}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fff0960ef4ea6e04eac66b4a7fd2189d, type: 3}
+  m_Script: {fileID: 11500000, guid: 2d5c43464041c714cb7824d31061a5f4, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Unity.Animation.Rigging::UnityEngine.Animations.Rigging.RigBuilder
-  m_RigLayers:
-  - m_Rig: {fileID: 6688767066661536966}
-    m_Active: 1
-  m_Effectors: []
+  m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
+  targetRenderer: {fileID: 0}
+  blurIntensity: 1
+  maxBlurLength: 0.04
+  minBlurFloor: 0.005
+  currentState: 0
+  isLockedOn: 0
+  lockOnShutterMultiplier: 1.4
+  _dbgWeightBufConnected: 0
+  _dbgRendererName: None
+--- !u!114 &-9004815254328650616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1c3c23125b27bd47b5fa33c2e7ff115, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AvatarAutoWeightBaker
+  globalIntensity: 1
+  armBias: 0.65
+  legBias: 0.75
+  spineCap: 0.35
+  headScale: 0.15
+  debugLog: 1
 --- !u!114 &6808503888121520632
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1444,7 +1401,7 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 929910960704787188}
---- !u!114 &-9004815254328650616
+--- !u!114 &1778917036455899257
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1453,16 +1410,36 @@ MonoBehaviour:
   m_GameObject: {fileID: 4233442530097016134}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e1c3c23125b27bd47b5fa33c2e7ff115, type: 3}
+  m_Script: {fileID: 11500000, guid: fff0960ef4ea6e04eac66b4a7fd2189d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AvatarAutoWeightBaker
-  globalIntensity: 1
-  armBias: 0.65
-  legBias: 0.75
-  spineCap: 0.35
-  headScale: 0.15
-  debugLog: 1
---- !u!114 &-282261469178741356
+  m_EditorClassIdentifier: Unity.Animation.Rigging::UnityEngine.Animations.Rigging.RigBuilder
+  m_RigLayers:
+  - m_Rig: {fileID: 6688767066661536966}
+    m_Active: 1
+  m_Effectors: []
+--- !u!195 &5062653150551271864
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 0
+  m_AgentTypeID: 0
+  m_Radius: 0.5
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &5717506456705042142
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1471,19 +1448,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 4233442530097016134}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2d5c43464041c714cb7824d31061a5f4, type: 3}
+  m_Script: {fileID: 11500000, guid: eda9002da9dab594a9871879459b5de7, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
-  targetRenderer: {fileID: 0}
-  blurIntensity: 1
-  maxBlurLength: 0.04
-  minBlurFloor: 0.005
-  currentState: 0
-  isLockedOn: 0
-  lockOnShutterMultiplier: 1.4
-  _dbgWeightBufConnected: 0
-  _dbgRendererName: None
---- !u!114 &5004160217070974246
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterEventManager
+  showConsoleLogs: 0
+  showEventGizmo: 1
+  eventGizmoDuration: 1
+--- !u!114 &7072069649473977397
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1492,24 +1463,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 4233442530097016134}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cd2711f3982f6764fb24ca656eb94a5c, type: 3}
+  m_Script: {fileID: 11500000, guid: 759af5dcc4790d442b7ed1fe2a22bbfc, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AICharacterLocomotionManager
-  verticalMovement: 0
-  horizontalMovement: 0
-  moveAmount: 0
-  useRootMotionForLocomotion: 1
-  walkingSpeed: 2.2
-  runningSpeed: 5.5
-  rotationSpeed: 15
-  dodgeStaminaCost: 10
-  gravity: -20
-  groundedGravity: -5
-  jumpForwardSpeed: 4
-  inAirControl: 2
-  isRolling: 0
-  isRotationLockedByEvent: 0
-  rotationSpeed: 5
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AIExecutionManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  isBeingExecuted:
+    m_InternalValue: 0
+  isExecutable:
+    m_InternalValue: 0
 --- !u!1 &4595707506124031444
 GameObject:
   m_ObjectHideFlags: 0

@@ -444,12 +444,86 @@ public class LobbyUIManager : NetworkBehaviour
         }
     }
 
-    // [복구] 세이브 슬롯의 데이터를 읽어서 NGO 씬 로더로 씬 전환 수행
+    // [수정됨] 세이브 슬롯의 데이터를 읽어서 NGO 씬 로더로 씬 전환 수행.
+    // 슬롯이 없는 경우 PrepareOrCreateSlotForLobby()를 통해 자동으로 빈 슬롯을 생성합니다.
     private void OnStartGameClicked()
     {
-        if (!NetworkManager.Singleton.IsHost) return;
+        // ── [DEBUG] 버튼 클릭 자체가 수신되었는지 확인 (showDebugLogs 무관하게 항상 출력)
+        Debug.Log("[LobbyUIManager][OnStartGameClicked] ▶ START GAME 버튼 클릭 감지됨.");
 
-        Log("호스트가 게임을 시작합니다! 연결된 모든 클라이언트를 본 게임 씬으로 동기화합니다.");
+        // ── [DEBUG] NetworkManager 기본 상태 덤프
+        if (NetworkManager.Singleton == null)
+        {
+            Debug.LogError("[LobbyUIManager][OnStartGameClicked] ✖ NetworkManager.Singleton이 NULL입니다! NGO가 초기화되지 않았습니다.");
+            return;
+        }
+
+        Debug.Log($"[LobbyUIManager][OnStartGameClicked] NetworkManager 상태 → " +
+                  $"IsHost={NetworkManager.Singleton.IsHost}, " +
+                  $"IsServer={NetworkManager.Singleton.IsServer}, " +
+                  $"IsClient={NetworkManager.Singleton.IsClient}, " +
+                  $"IsConnectedClient={NetworkManager.Singleton.IsConnectedClient}, " +
+                  $"IsListening={NetworkManager.Singleton.IsListening}, " +
+                  $"LocalClientId={NetworkManager.Singleton.LocalClientId}");
+
+        // ── [GATE] 호스트만 게임 시작 가능
+        if (!NetworkManager.Singleton.IsHost)
+        {
+            Debug.LogWarning("[LobbyUIManager][OnStartGameClicked] ✖ IsHost=false → 호스트가 아니므로 게임 시작 권한이 없습니다. 여기서 중단됩니다.");
+            return;
+        }
+
+        Debug.Log("[LobbyUIManager][OnStartGameClicked] ✔ 호스트 권한 확인 완료.");
+
+        // ── [DEBUG] startGameButton 상태 확인
+        if (startGameButton == null)
+        {
+            Debug.LogWarning("[LobbyUIManager][OnStartGameClicked] ⚠ startGameButton 레퍼런스가 Inspector에 연결되지 않았습니다.");
+        }
+        else
+        {
+            Debug.Log($"[LobbyUIManager][OnStartGameClicked] startGameButton 상태 → " +
+                      $"interactable={startGameButton.interactable}, " +
+                      $"activeInHierarchy={startGameButton.gameObject.activeInHierarchy}");
+        }
+
+        // ── [STEP 1] 슬롯 준비 보장
+        Debug.Log("[LobbyUIManager][OnStartGameClicked] [STEP 1] WorldSaveGameManager 슬롯 준비 시작...");
+
+        if (WorldSaveGameManager.Instance == null)
+        {
+            Debug.LogError("[LobbyUIManager][OnStartGameClicked] ✖ [STEP 1] WorldSaveGameManager.Instance가 NULL입니다! " +
+                           "씬에 WorldSaveGameManager 오브젝트가 존재하는지 확인하세요.");
+            // 슬롯 없이 기본 씬으로 강행
+            Debug.LogWarning("[LobbyUIManager][OnStartGameClicked] ⚠ 슬롯 준비를 건너뛰고 기본 씬으로 강행합니다.");
+        }
+        else
+        {
+            Debug.Log($"[LobbyUIManager][OnStartGameClicked] [STEP 1] WorldSaveGameManager 발견. " +
+                      $"현재 슬롯={WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed}, " +
+                      $"currentCharacterData={(WorldSaveGameManager.Instance.currentCharacterData == null ? "NULL" : "존재함")}");
+
+            bool slotReady = WorldSaveGameManager.Instance.PrepareOrCreateSlotForLobby();
+
+            if (!slotReady)
+            {
+                // 모든 슬롯이 꽉 찬 경우 유저에게 팝업으로 알리고 진행을 차단합니다.
+                Debug.LogError("[LobbyUIManager][OnStartGameClicked] ✖ [STEP 1] PrepareOrCreateSlotForLobby() = false → " +
+                               "사용 가능한 캐릭터 슬롯이 없어 게임을 시작할 수 없습니다. 타이틀에서 슬롯을 정리해 주세요.");
+                if (TitleScreenManager.Instance != null)
+                    TitleScreenManager.Instance.DisplayNofreeCharacterSlotPopUp();
+                else
+                    Debug.LogError("[LobbyUIManager][OnStartGameClicked] ✖ TitleScreenManager.Instance도 NULL이어서 팝업을 띄울 수 없습니다.");
+                return;
+            }
+
+            Debug.Log($"[LobbyUIManager][OnStartGameClicked] ✔ [STEP 1] 슬롯 준비 완료. " +
+                      $"슬롯={WorldSaveGameManager.Instance.currentCharacterSlotBeingUsed}, " +
+                      $"currentCharacterData={(WorldSaveGameManager.Instance.currentCharacterData == null ? "NULL" : "존재함")}");
+        }
+
+        // ── [STEP 2] 타겟 씬 이름 결정
+        Debug.Log("[LobbyUIManager][OnStartGameClicked] [STEP 2] 타겟 씬 이름 결정 시작...");
 
         // 세이브 데이터가 꼬였을 때를 대비한 기본 씬 이름
         string targetSceneName = "Scene_World_01";
@@ -457,39 +531,67 @@ public class LobbyUIManager : NetworkBehaviour
         try
         {
             // WorldSaveGameManager에서 현재 선택된 세이브 데이터 추출
+            // PrepareOrCreateSlotForLobby() 호출 이후이므로 currentCharacterData가 보장됩니다.
             if (WorldSaveGameManager.Instance != null && WorldSaveGameManager.Instance.currentCharacterData != null)
             {
                 int savedSceneIndex = WorldSaveGameManager.Instance.currentCharacterData.sceneIndex;
+                Debug.Log($"[LobbyUIManager][OnStartGameClicked] [STEP 2] 세이브 데이터의 sceneIndex={savedSceneIndex}, " +
+                          $"빌드 설정 총 씬 수={UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings}");
 
                 // 씬 인덱스가 유효한지 검사 (보통 0번은 메인 로비)
                 if (savedSceneIndex > 0 && savedSceneIndex < UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings)
                 {
                     // Build Index를 기반으로 실제 씬 이름(string)을 추출
                     string scenePath = UnityEngine.SceneManagement.SceneUtility.GetScenePathByBuildIndex(savedSceneIndex);
+                    Debug.Log($"[LobbyUIManager][OnStartGameClicked] [STEP 2] 추출된 씬 경로: \"{scenePath}\"");
 
                     if (!string.IsNullOrEmpty(scenePath))
                     {
                         targetSceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
-                        Log($"📂 세이브 슬롯 데이터 읽기 성공! 타겟 씬: {targetSceneName} (BuildIndex: {savedSceneIndex})");
+                        Debug.Log($"[LobbyUIManager][OnStartGameClicked] ✔ [STEP 2] 세이브 슬롯 씬 이름 확정: \"{targetSceneName}\" (BuildIndex: {savedSceneIndex})");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[LobbyUIManager][OnStartGameClicked] ⚠ [STEP 2] 씬 경로가 빈 문자열입니다. 기본 씬(\"{targetSceneName}\")으로 대체합니다.");
                     }
                 }
                 else
                 {
-                    LogWarning($"⚠️ 유효하지 않은 씬 인덱스({savedSceneIndex})가 감지되어 기본 씬({targetSceneName})으로 대체합니다.");
+                    Debug.LogWarning($"[LobbyUIManager][OnStartGameClicked] ⚠ [STEP 2] sceneIndex={savedSceneIndex}가 유효 범위를 벗어났습니다. " +
+                                     $"기본 씬(\"{targetSceneName}\")으로 대체합니다. " +
+                                     $"(새로 만든 캐릭터는 sceneIndex=0이 정상 → 기본 씬으로 진행됩니다.)");
                 }
             }
             else
             {
-                LogWarning("⚠️ WorldSaveGameManager 또는 CharacterData가 없어 기본 씬으로 진행합니다.");
+                Debug.LogWarning("[LobbyUIManager][OnStartGameClicked] ⚠ [STEP 2] WorldSaveGameManager 또는 currentCharacterData가 없어 기본 씬으로 진행합니다.");
             }
         }
         catch (System.Exception e)
         {
-            LogError($"🚨 세이브 슬롯 씬 추출 중 오류 발생 (기본 씬으로 강제 진행): {e.Message}");
+            Debug.LogError($"[LobbyUIManager][OnStartGameClicked] ✖ [STEP 2] 씬 이름 결정 중 예외 발생 → {e.GetType().Name}: {e.Message}\n{e.StackTrace}");
+            Debug.LogWarning($"[LobbyUIManager][OnStartGameClicked] ⚠ 예외 발생으로 기본 씬(\"{targetSceneName}\")으로 강행합니다.");
         }
 
-        // 에러를 유발하는 LoadGame() 대신 NGO 공식 SceneManager를 사용하여 네트워크 씬 로드 수행
-        NetworkManager.Singleton.SceneManager.LoadScene(targetSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+        // ── [STEP 3] NGO 네트워크 씬 로드
+        Debug.Log($"[LobbyUIManager][OnStartGameClicked] [STEP 3] NetworkManager.SceneManager.LoadScene(\"{targetSceneName}\") 호출 직전...");
+
+        if (NetworkManager.Singleton.SceneManager == null)
+        {
+            Debug.LogError("[LobbyUIManager][OnStartGameClicked] ✖ [STEP 3] NetworkManager.SceneManager가 NULL입니다! 씬 로드 불가.");
+            return;
+        }
+
+        try
+        {
+            var status = NetworkManager.Singleton.SceneManager.LoadScene(targetSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+            Debug.Log($"[LobbyUIManager][OnStartGameClicked] ✔ [STEP 3] LoadScene 호출 완료. 반환 상태={status} " +
+                      $"(Success=0, SceneNotLoaded=1, InvalidSceneName=2, SceneEventInProgress=3, SystemError=4)");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[LobbyUIManager][OnStartGameClicked] ✖ [STEP 3] LoadScene 호출 중 예외 발생 → {e.GetType().Name}: {e.Message}\n{e.StackTrace}");
+        }
     }
 
     #endregion
