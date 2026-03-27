@@ -254,6 +254,12 @@ namespace TDA.Cameras
         [Tooltip("[Hysteresis] 타겟이 화면 안으로 들어와도 이 시간(초) 동안 escape 상태를 유지합니다. 경계 펄럭임 방지용. (기본 0.25s)")]
         [Range(0f, 2f)] public float escapePersistTime;
 
+        [Tooltip("이 거리(m) 이하에서는 타겟 이탈(ESCAPE) 판정을 건너뜁니다.\n" +
+                 "몹이 아주 가까이 있을 때 lockOnTransform이 near clip 안쪽에 들어가\n" +
+                 "잘못된 ESCAPE 판정이 발생해 카메라가 뱅글뱅글 도는 버그를 방지합니다.\n" +
+                 "권장: 2~4m. 0이면 내부 기본값 3m 사용.")]
+        [Range(0f, 10f)] public float escapeMinDistance;
+
         [Tooltip("[수직 복귀] 위아래 엣지패닝 후 이동 중 기본 Pitch(fixedPitchAngle)로 복귀하는 속도. 0이면 복귀 없음. (기본 1.0)")]
         [Range(0f, 5f)] public float pitchReturnSpeed;
         // ─────────────────────────────────────────────────────────────────────
@@ -379,6 +385,7 @@ namespace TDA.Cameras
             strafeRecoveryWeight = 1.0f,
             softRecoverySpeed = 2.0f,
             escapePersistTime = 0.25f,
+            escapeMinDistance = 3.0f,
             pitchReturnSpeed = 1.0f
         };
 

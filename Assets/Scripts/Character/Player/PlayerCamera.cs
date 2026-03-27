@@ -57,6 +57,21 @@ namespace TDA.Character.Player
         [Tooltip("카메라가 바닥을 볼 수 있는 최대(내려다보기) 각도 한계입니다. (90도 금지, 60도 권장)")]
         [SerializeField] private float maximumPivot = 60f;
 
+        [Header("Initial Angle Settings")]
+        [Tooltip("게임 시작 시 카메라의 초기 좌우(Yaw) 각도입니다.\n" +
+                 "0 = 플레이어 오브젝트의 현재 Yaw 방향 그대로.\n" +
+                 "true overrideInitialYaw 가 꺼져 있으면 이 값은 무시됩니다.")]
+        [SerializeField] private float initialYawAngle = 0f;
+
+        [Tooltip("게임 시작 시 카메라의 초기 상하(Pitch) 각도입니다.\n" +
+                 "양수 = 아래를 내려다봄 / 음수 = 위를 올려다봄.\n" +
+                 "범위는 minimumPivot ~ maximumPivot 으로 자동 클램프됩니다.")]
+        [SerializeField] private float initialPitchAngle = 10f;
+
+        [Tooltip("true 이면 initialYawAngle / initialPitchAngle 값으로 카메라를 초기화합니다.\n" +
+                 "false 이면 카메라 오브젝트의 현재 Transform 각도를 그대로 사용합니다. (기존 동작)")]
+        [SerializeField] private bool overrideInitialAngle = true;
+
         [Header("Camera Feel Settings")]
         [Tooltip("평상시 마우스 이외의 회전(오토센터링, 락온)이 발생할 때 카메라가 부드럽게 따라가는 완충 시간입니다.")]
         [SerializeField] private float cameraRotationDampTime = 0.05f;
@@ -221,6 +236,11 @@ namespace TDA.Character.Player
         //       → 위치는 건드리지 않고 바라보는 방향만 조정 → 루프 없음
         private Vector3 focusPivotVelocity = Vector3.zero; // 레거시 (더 이상 desiredPos 이동에 쓰지 않음)
         private float focusYawVelocity = 0f;           // [v4.4] Yaw 보정 SmoothDamp velocity
+
+        // ── [버그수정] Escape 보정 전용 SmoothDamp velocity ─────────────────────
+        private float escapeRecoveryYawVel = 0f;  // 이탈 보정 Yaw SmoothDamp velocity
+        private float escapeRecoveryPitchVel = 0f;  // 이탈 보정 Pitch SmoothDamp velocity
+        // ─────────────────────────────────────────────────────────────────────────
 
         // ── [v4.1] MagneticSoftLock 진동 방지용 변수 ─────────────────────────────
         // 원인 1: pullStrength가 데드존 경계 근처에서 0↔0.03으로 진동 → Hysteresis로 안정화
@@ -399,10 +419,25 @@ namespace TDA.Character.Player
             steppedCameraLocalPos = continuousCameraLocalPos;
             steppedPivotLocalPos = continuousPivotLocalPos;
 
-            leftAndRightLookAngle = transform.eulerAngles.y;
-            float pitch = transform.eulerAngles.x;
-            if (pitch > 180) pitch -= 360;
-            upAndDownLookAngle = pitch;
+            // ── [신규] 초기 각도 설정 ──────────────────────────────────────────────
+            if (overrideInitialAngle)
+            {
+                // 인스펙터 파라미터 값을 직접 사용
+                // initialYawAngle: 플레이어 오브젝트 Yaw에 상대적으로 더함 (절대값 원하면 그냥 할당)
+                leftAndRightLookAngle = player != null
+                    ? player.transform.eulerAngles.y + initialYawAngle
+                    : initialYawAngle;
+                upAndDownLookAngle = Mathf.Clamp(initialPitchAngle, minimumPivot, maximumPivot);
+            }
+            else
+            {
+                // 기존 동작: 카메라 오브젝트 Transform 각도를 그대로 읽음
+                leftAndRightLookAngle = transform.eulerAngles.y;
+                float pitch = transform.eulerAngles.x;
+                if (pitch > 180) pitch -= 360;
+                upAndDownLookAngle = pitch;
+            }
+            // ─────────────────────────────────────────────────────────────────
 
             if (WorldGameStateManager.Instance != null) lastTrackedGameState = WorldGameStateManager.Instance.currentState;
         }
@@ -562,9 +597,22 @@ namespace TDA.Character.Player
                         float relaxThr = escThr * 0.5f; // 탈출 threshold — 진입보다 작아 Hysteresis 구간 형성
 
                         // ─── 이탈 판정 ────────────────────────────────────────────────────
-                        bool rawEscaped = viewportPos.z < 0f
-                            || viewportPos.x < escThr || viewportPos.x > (1f - escThr)
-                            || viewportPos.y < escThr || viewportPos.y > (1f - escThr);
+                        // [버그수정] 근거리 오판정 차단:
+                        //   몹이 아주 가까우면 lockOnTransform이 near clip 안쪽에 들어가거나
+                        //   플레이어 몸에 가려져 viewportPos.z < 0 오판정이 발생함.
+                        //   거리가 escapeMinDistance(기본 3m) 이하이면 판정 자체를 건너뜀.
+                        float escapeDist = Vector3.Distance(transform.position, targetPos);
+                        float escapeMinDist = stance.lockOnPenaltyData.escapeMinDistance > 0f
+                            ? stance.lockOnPenaltyData.escapeMinDistance : 3.0f;
+
+                        bool rawEscaped = false;
+                        if (escapeDist >= escapeMinDist)
+                        {
+                            // [버그수정] z가 near clip 경계(0~0.1) 안쪽이면 불안정 → 0.1f 안전마진
+                            rawEscaped = viewportPos.z < 0.1f
+                                || viewportPos.x < escThr || viewportPos.x > (1f - escThr)
+                                || viewportPos.y < escThr || viewportPos.y > (1f - escThr);
+                        }
 
                         if (rawEscaped)
                         {
@@ -606,37 +654,71 @@ namespace TDA.Character.Player
 
                         if (isTryingToRecover)
                         {
-                            Vector3 dirToTarget = (targetPos - transform.position).normalized;
-                            Quaternion lookRot = Quaternion.LookRotation(dirToTarget);
-                            float targetYaw = lookRot.eulerAngles.y;
-                            float targetPitch = lookRot.eulerAngles.x;
-                            if (targetPitch > 180f) targetPitch -= 360f;
+                            Vector3 dirToTarget = targetPos - transform.position;
+                            float hDist = new Vector2(dirToTarget.x, dirToTarget.z).magnitude;
 
-                            if (stance.lockOnPenaltyData.useHardCorrection)
+                            // [버그수정] LookRotation → Atan2 방식으로 교체
+                            // LookRotation은 dir이 수직(위아래)에 가까울 때 Gimbal Lock으로
+                            // eulerAngles.y가 매 프레임 크게 튀어 반시계 뱅글뱅글 현상 유발.
+                            // Atan2는 어떤 방향이든 안정적으로 Yaw를 계산합니다.
+                            float recoveryTargetYaw = Mathf.Atan2(dirToTarget.x, dirToTarget.z) * Mathf.Rad2Deg;
+                            float rawRecoveryPitch = -Mathf.Atan2(dirToTarget.y, Mathf.Max(hDist, 0.01f)) * Mathf.Rad2Deg;
+                            float recoveryTargetPitch = Mathf.Clamp(rawRecoveryPitch, minimumPivot, maximumPivot);
+
+                            // [버그수정] 등뒤 방향 보정 차단:
+                            // 타겟이 현재 카메라 Yaw에서 90도 이상 벗어나 있으면 보정 중단.
+                            // (등뒤 보정 시 LerpAngle이 ±180도 점프를 시도해 반대로 크게 돌아감)
+                            float yawDiffToTarget = Mathf.Abs(Mathf.DeltaAngle(leftAndRightLookAngle, recoveryTargetYaw));
+                            bool isBehind = yawDiffToTarget > 110f;
+
+                            if (!isBehind)
                             {
-                                // 하드 보정: 빠른 일직선 정렬 (속도 15 고정)
-                                leftAndRightLookAngle = Mathf.LerpAngle(leftAndRightLookAngle, targetYaw, Time.deltaTime * 15f);
-                                upAndDownLookAngle = Mathf.Lerp(upAndDownLookAngle, targetPitch, Time.deltaTime * 15f);
+                                if (stance.lockOnPenaltyData.useHardCorrection)
+                                {
+                                    // [버그수정] LerpAngle → SmoothDampAngle 교체 + maxSpeed 제한
+                                    // LerpAngle은 속도 상한이 없어 큰 각도 차이 시 한 프레임에 폭발 가능.
+                                    leftAndRightLookAngle = Mathf.SmoothDampAngle(
+                                        leftAndRightLookAngle, recoveryTargetYaw,
+                                        ref escapeRecoveryYawVel, 0.1f, 90f);
+                                    upAndDownLookAngle = Mathf.SmoothDamp(
+                                        upAndDownLookAngle, recoveryTargetPitch,
+                                        ref escapeRecoveryPitchVel, 0.1f, 60f);
+                                }
+                                else
+                                {
+                                    float dist = Vector3.Distance(transform.position, targetPos);
+                                    float speedMult = (stance.lockOnPenaltyData.softCorrectionDistanceCurve != null
+                                                       && stance.lockOnPenaltyData.softCorrectionDistanceCurve.length > 0)
+                                                      ? stance.lockOnPenaltyData.softCorrectionDistanceCurve.Evaluate(dist)
+                                                      : 1.0f;
+                                    float baseSpeed = Mathf.Max(stance.lockOnPenaltyData.softRecoverySpeed, 0.1f);
+                                    float softDamp = 1f / Mathf.Max(baseSpeed * speedMult, 0.1f);
+
+                                    // [버그수정] LerpAngle → SmoothDampAngle + maxSpeed 45도/s 제한
+                                    leftAndRightLookAngle = Mathf.SmoothDampAngle(
+                                        leftAndRightLookAngle, recoveryTargetYaw,
+                                        ref escapeRecoveryYawVel, softDamp, 45f);
+                                    upAndDownLookAngle = Mathf.SmoothDamp(
+                                        upAndDownLookAngle, recoveryTargetPitch,
+                                        ref escapeRecoveryPitchVel, softDamp, 30f);
+                                }
                             }
                             else
                             {
-                                // [수정] 소프트 보정 속도 → SO softRecoverySpeed 파라미터 사용 (하드코딩 5f 제거)
-                                float dist = Vector3.Distance(transform.position, targetPos);
-                                float speedMult = (stance.lockOnPenaltyData.softCorrectionDistanceCurve != null
-                                                   && stance.lockOnPenaltyData.softCorrectionDistanceCurve.length > 0)
-                                                  ? stance.lockOnPenaltyData.softCorrectionDistanceCurve.Evaluate(dist)
-                                                  : 1.0f;
-
-                                // softRecoverySpeed: SO 파라미터 (기본 2.0)
-                                float baseSpeed = Mathf.Max(stance.lockOnPenaltyData.softRecoverySpeed, 0.1f);
-
-                                leftAndRightLookAngle = Mathf.LerpAngle(leftAndRightLookAngle, targetYaw, Time.deltaTime * baseSpeed * speedMult);
-                                upAndDownLookAngle = Mathf.Lerp(upAndDownLookAngle, targetPitch, Time.deltaTime * baseSpeed * speedMult);
+                                // 등뒤 방향: 보정 중단, velocity만 감쇠
+                                escapeRecoveryYawVel = Mathf.Lerp(escapeRecoveryYawVel, 0f, Time.deltaTime * 5f);
+                                escapeRecoveryPitchVel = Mathf.Lerp(escapeRecoveryPitchVel, 0f, Time.deltaTime * 5f);
                             }
 
                             // 보정 중 유저 마우스 델타 무시
                             finalMouseX = 0f;
                             finalMouseY = 0f;
+                        }
+                        else
+                        {
+                            // 커서가 엣지에 없음: velocity 감쇠
+                            escapeRecoveryYawVel = Mathf.Lerp(escapeRecoveryYawVel, 0f, Time.deltaTime * 8f);
+                            escapeRecoveryPitchVel = Mathf.Lerp(escapeRecoveryPitchVel, 0f, Time.deltaTime * 8f);
                         }
                         // 커서가 중앙 영역 → 시선 자율권 보장 (마우스 입력 그대로 반영)
                     }
@@ -1238,9 +1320,14 @@ namespace TDA.Character.Player
                         //  HandleFollowTarget→HandleRotation 순서상 여기서 차단하는 게 더 명확)
                         bool suppressFocusYaw = player.isPerformingAction && bodyW < 0.99f;
 
-                        // Magnetic 비활성 + 억제 없음 + 수렴하지 않은 경우에만 수정
+                        // [버그수정] Escape 보정 중에는 FocusPivot Yaw 차단:
+                        //   isEscapedStable=true 상태에서 FocusPivot이 동시에 Yaw를 수정하면
+                        //   두 시스템이 서로 반대 방향으로 당겨 진동→폭발 발생.
+                        bool escapeBlocksFocus = isEscapedStable;
+
+                        // Magnetic 비활성 + 억제 없음 + Escape 보정 미충돌인 경우에만 수정
                         bool magneticOff = !isMagneticActive;
-                        if (magneticOff && !suppressFocusYaw)
+                        if (magneticOff && !suppressFocusYaw && !escapeBlocksFocus)
                         {
                             leftAndRightLookAngle = Mathf.SmoothDampAngle(
                                 leftAndRightLookAngle, focusYawTarget,
@@ -1248,8 +1335,8 @@ namespace TDA.Character.Player
                         }
                         else
                         {
-                            // Magnetic 활성 또는 공격 억제 중: velocity만 감쇠
-                            float decayRate = suppressFocusYaw ? 8f : 5f; // 공격 중 더 빠르게 수렴
+                            // Magnetic 활성 / 공격 억제 / Escape 보정 중: velocity만 감쇠
+                            float decayRate = suppressFocusYaw ? 8f : escapeBlocksFocus ? 10f : 5f;
                             focusYawVelocity = Mathf.Lerp(focusYawVelocity, 0f, Time.deltaTime * decayRate);
                         }
                         // ────────────────────────────────────────────────────────────────
@@ -1755,9 +1842,16 @@ namespace TDA.Character.Player
                 // 우측 이탈: 자석 항상 ON → 타겟이 화면 우측 밖으로 나가면 자동 복귀
                 // Y축 이탈: 좌측과 동일하게 자석 차단 (수직 자율권 보장)
                 // =====================================================================
-                bool isEscapedLeft = checkVP.z < 0f || checkVP.x < thr;
-                bool isEscapedRight = checkVP.x > (1f - thr);
-                bool isEscapedY = checkVP.y < thr || checkVP.y > (1f - thr);
+                // [버그수정] 근거리 오판정 차단 (OnCameraInputReceived와 동일 기준)
+                float magEscapeDist = Vector3.Distance(transform.position, targetPoint.position);
+                float magEscapeMinDist = (activeStanceForMag.lockOnPenaltyData.escapeMinDistance > 0f)
+                    ? activeStanceForMag.lockOnPenaltyData.escapeMinDistance : 3.0f;
+                bool skipMagEscape = magEscapeDist < magEscapeMinDist;
+
+                // [버그수정] z=0.1 안전마진 (near clip 경계 불안정 구간 제외)
+                bool isEscapedLeft = !skipMagEscape && (checkVP.z < 0.1f || checkVP.x < thr);
+                bool isEscapedRight = !skipMagEscape && checkVP.x > (1f - thr);
+                bool isEscapedY = !skipMagEscape && (checkVP.y < thr || checkVP.y > (1f - thr));
 
                 // 전체 이탈 여부 (디버그용)
                 bool isEscapedForMag = isEscapedLeft || isEscapedRight || isEscapedY;
@@ -2403,6 +2497,11 @@ namespace TDA.Character.Player
             edgePanInputVelX = 0f;
             edgePanInputVelY = 0f;
             virtualCursorPos = new Vector2(0.5f, 0.5f); // 가상 커서 중앙으로 리셋
+            // [버그수정] Escape 보정 상태 초기화
+            isEscapedStable = false;
+            escapeHoldTimer = 0f;
+            escapeRecoveryYawVel = 0f;
+            escapeRecoveryPitchVel = 0f;
         }
 
         private void OnDrawGizmos()

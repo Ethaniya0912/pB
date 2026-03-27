@@ -12,24 +12,84 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d17dac28cd585794bb7e26f7852976fb, type: 3}
   m_Name: Stance_Attack_Impact_SO
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.CameraStancePresetSO
-  fov: 55
+  fov: 54
   zTilt: -5
-  yawOffset: 0
+  baseYawOffset: 0
   baseOffset: {x: 0, y: 0, z: -1.5}
+  verticalBehavior:
+    behaviorType: 0
+    elevationSpeed: 5
+    maxElevationHeight: 3.5
+    minElevationHeight: 0.5
+    fixedPitchAngle: 25
+    pitchForMaxHeight: 45
+    maxDynamicHeight: 1.5
+    heightSmoothTime: 0.15
   useDynamicFraming: 1
+  inheritDynamicFraming: 0
   dynamicFraming:
     leftStrafeMaxOffset: -0.3
     rightStrafeMaxOffset: 0.3
     holdLeftStrafe: 0
     holdRightStrafe: 0
+    leftStrafeYaw: -15
+    rightStrafeYaw: 10
+    dynamicYawWeight: 1
     leftFramingDelay: 0.15
     rightFramingDelay: 0.15
     centerReturnDelay: 0.35
+    forwardBackwardReturnTime: 5
   focusTargets:
   - target: 0
     weight: 0.3
   - target: 4
     weight: 0.7
+  multiTargetFraming:
+    focusDetectionRadius: 12
+    proximityEnemyWeight: 0.2
+    focusDampTime: 0.35
+    staticTargetWeightScale: 1
+  edgePanningData:
+    useEdgePanning: 0
+    edgePanThreshold: 0.1
+    lockOnInputDeadzone: 0.5
+    edgePanSmoothTime: 0.12
+    edgePanReturnTime: 0.8
+    lockOnInitialFramingOffset: 0
+    lockOnInitialFramingBlendTime: 0.3
+  lockOnPenaltyData:
+    enableTargetEscapePenalty: 0
+    targetEscapeViewportThreshold: 0.1
+    useHardCorrection: 0
+    softCorrectionDistanceCurve:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    strafeRecoveryWeight: 1
+    softRecoverySpeed: 2
+    escapePersistTime: 0.25
+    pitchReturnSpeed: 1
+  dynamicInputModifier:
+    enableDynamicInputModifier: 0
+    fovModifierCurve:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    offsetZModifierCurve:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  bodyYawTracking:
+    bodyYawFollowWeight: 1
+    bodyYawFollowSmoothTime: 0
+    lockCameraOnActionStart: 0
+    lockCameraMouseInfluence: 0.5
   handheldEffect:
     enableHandheldEffect: 1
     swayAmount: 0.5

@@ -11,6 +11,11 @@
 //   [REQ-6] 애니 탭에 ActionID Enum 원본 변수명 표시 옵션
 //   [REQ-7] 텍스트 크기·창 크기 인스펙터 파라미터화
 //   [REQ-8] 각 탭 표시 항목 인스펙터 플래그
+//   [NEW-1] 하단 파노라마 패널 — 여러 탭 동시 표시 (펼침/접힘)
+//   [NEW-2] 락온 대상 Side HUD — 메인 HUD 우측에 동일 구조 HUD 표시
+//           락온 대상 전용 하단 파노라마 패널 (메인 파노라마 바로 위)
+//   [NEW-3] 각 창(메인 HUD / 사이드 HUD / 메인 파노라마 / 타겟 파노라마)
+//           개별 숨기기 / 최소화 기능
 // =============================================================================
 using System;
 using System.Collections.Generic;
@@ -52,6 +57,34 @@ namespace TDA.EditorTools
         // =====================================================================
         [Header("─── TDA Character Debugger ───────────────────────")]
         public bool showDebugHUD = false;
+
+        // =====================================================================
+        // [NEW-1] 파노라마 패널 설정
+        // =====================================================================
+        [Header("─── 파노라마 패널 ────────────────────────────────")]
+        [Tooltip("하단 파노라마 패널 표시 여부")]
+        public bool showPanorama = true;
+
+        [Tooltip("파노라마에 동시 표시할 탭 목록 (인덱스). 비어있으면 전체)")]
+        public int[] panoramaTabs = new int[] { 0, 3, 4 };  // 공통, 처형/QTE, 타겟
+
+        [Tooltip("파노라마 단일 패널 높이")]
+        [Range(80, 300)]
+        public int panoramaPanelHeight = 160;
+
+        // =====================================================================
+        // [NEW-2] 락온 사이드 HUD 설정
+        // =====================================================================
+        [Header("─── 락온 사이드 HUD ──────────────────────────────")]
+        [Tooltip("락온 대상 사이드 HUD 표시 여부 (락온 중에만 표시)")]
+        public bool showTargetSideHUD = true;
+
+        [Tooltip("락온 대상 하단 파노라마 표시 여부")]
+        public bool showTargetPanorama = true;
+
+        [Tooltip("사이드 HUD와 메인 HUD 사이 간격 (px)")]
+        [Range(4, 20)]
+        public int sideHudGap = 8;
 
         // =====================================================================
         // [REQ-8] 공통 탭 표시 플래그
@@ -134,7 +167,7 @@ namespace TDA.EditorTools
         private int _animHead = 0, _animCount = 0;
 
         // =====================================================================
-        // HUD 레이아웃 상태
+        // HUD 레이아웃 상태 — 메인 HUD
         // =====================================================================
         private Rect _hudRect = new Rect(10, 10, 300, 520);
         private bool _isDragging = false;
@@ -142,7 +175,44 @@ namespace TDA.EditorTools
         private int _activeTab = 0;
         private Vector2 _scrollPos;
 
+        // [NEW-3] 메인 HUD 최소화 상태
+        private bool _hudMinimized = false;
+
+        // =====================================================================
+        // [NEW-2] 락온 사이드 HUD 상태
+        // =====================================================================
+        private bool _sideHudMinimized = false;
+        private int _sideActiveTab = 0;
+        private Vector2 _sideScrollPos;
+        private bool _sideIsDragging = false;
+        private Vector2 _sideDragOffset = Vector2.zero;
+        private Rect _sideHudRect;  // 런타임에 메인 HUD에서 계산
+
+        // =====================================================================
+        // [NEW-1] 메인 파노라마 패널 상태
+        // =====================================================================
+        private bool _panoramaVisible = true;   // 인스펙터 showPanorama와 별개로 런타임 토글
+        private bool _panoramaMinimized = false;
+        private Rect _panoramaRect;             // 런타임에 화면 하단에서 계산
+        private bool _panoramaIsDragging = false;
+        private Vector2 _panoramaDragOffset = Vector2.zero;
+        private Vector2[] _panoramaScrollPos;   // 탭별 스크롤
+        private const float PANORAMA_TAB_WIDTH = 220f;
+        private const float PANORAMA_HEADER_H = 26f;
+
+        // =====================================================================
+        // [NEW-2] 락온 타겟 파노라마 상태
+        // =====================================================================
+        private bool _targetPanoVisible = true;
+        private bool _targetPanoMinimized = false;
+        private Rect _targetPanoRect;
+        private bool _targetPanoIsDragging = false;
+        private Vector2 _targetPanoDragOffset = Vector2.zero;
+        private Vector2 _targetPanoScroll;
+
+        // =====================================================================
         // [REQ-3] 섹션 접기 상태 (공통 탭)
+        // =====================================================================
         private bool _foldFlags = true;
         private bool _foldStats = true;
         private bool _foldCombat = true;
@@ -231,7 +301,14 @@ namespace TDA.EditorTools
 
             // HUD Rect을 인스펙터 파라미터와 동기화
             _hudRect.width = hudWidth;
-            _hudRect.height = hudHeight;
+            if (!_hudMinimized)
+                _hudRect.height = hudHeight;
+            else
+                _hudRect.height = 26f;  // 최소화: 타이틀 바만
+
+            // 파노라마 스크롤 배열 초기화
+            if (_panoramaScrollPos == null || _panoramaScrollPos.Length != TabLabels.Length)
+                _panoramaScrollPos = new Vector2[TabLabels.Length];
         }
 
         // [REQ-5] ESC로 커서 잠금 해제
@@ -239,19 +316,14 @@ namespace TDA.EditorTools
         {
 #if UNITY_EDITOR
             bool isLocked = Cursor.lockState == CursorLockMode.Locked;
-
-            // 잠금 상태 진입 감지
             if (isLocked && !_cursorWasLocked)
                 _cursorWasLocked = true;
-
-            // ESC 입력 감지 → 커서 복원
             if (_cursorWasLocked && Input.GetKeyDown(KeyCode.Escape))
             {
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
                 _cursorWasLocked = false;
             }
-
             if (!isLocked)
                 _cursorWasLocked = false;
 #endif
@@ -326,39 +398,418 @@ namespace TDA.EditorTools
             => _nullEntries.Add((name, isNull, isCritical, symptom));
 
         // =====================================================================
-        // OnGUI
+        // OnGUI — 메인 HUD + 사이드 HUD + 파노라마 패널들
         // =====================================================================
 #if UNITY_EDITOR
         private void OnGUI()
         {
             if (!showDebugHUD || !Application.isPlaying || character == null) return;
-
-            // [REQ-5] 커서 잠금 중에는 HUD 처리 건너뜀 (버튼 오작동 방지)
             if (Cursor.lockState == CursorLockMode.Locked) return;
 
-            HandleDrag();
+            // ── 파노라마 배열 초기화 ──
+            if (_panoramaScrollPos == null || _panoramaScrollPos.Length != TabLabels.Length)
+                _panoramaScrollPos = new Vector2[TabLabels.Length];
 
+            // ── 락온 대상 가져오기 ──
+            CharacterManager lockOnTarget = GetLockOnTarget();
+            bool isLockedOn = lockOnTarget != null;
+
+            // ── 1. 메인 파노라마 패널 (최하단) ──
+            if (showPanorama && _panoramaVisible)
+                DrawMainPanorama(lockOnTarget);
+
+            // ── 2. 타겟 파노라마 패널 (메인 파노라마 바로 위) ──
+            if (isLockedOn && showTargetPanorama && _targetPanoVisible)
+                DrawTargetPanoramaPanel(lockOnTarget);
+
+            // ── 3. 메인 HUD ──
+            HandleDrag(ref _hudRect, ref _isDragging, ref _dragOffset);
+
+            float mainBgH = _hudMinimized ? 26f : hudHeight;
             GUI.color = new Color(0f, 0f, 0f, 0.84f);
-            GUI.DrawTexture(_hudRect, Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(_hudRect.x, _hudRect.y, hudWidth, mainBgH), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            GUILayout.BeginArea(_hudRect);
-            DrawTitleBar();
-            DrawTabStrip();
+            GUILayout.BeginArea(new Rect(_hudRect.x, _hudRect.y, hudWidth, mainBgH));
+            DrawMainTitleBar();
+            if (!_hudMinimized)
+            {
+                DrawTabStrip();
+                float contentH = hudHeight - 82f;
+                _scrollPos = GUILayout.BeginScrollView(_scrollPos,
+                    GUILayout.Width(hudWidth),
+                    GUILayout.Height(Mathf.Max(contentH, 50f)));
+                DrawTab(_activeTab);
+                GUILayout.EndScrollView();
+                DrawToolbar();
+            }
+            GUILayout.EndArea();
 
-            float contentH = _hudRect.height - 82f;
-            _scrollPos = GUILayout.BeginScrollView(_scrollPos,
-                GUILayout.Width(_hudRect.width),
-                GUILayout.Height(Mathf.Max(contentH, 50f)));
+            // ── 4. 락온 사이드 HUD ──
+            if (isLockedOn && showTargetSideHUD)
+                DrawSideHUD(lockOnTarget);
+        }
 
-            DrawTab(_activeTab);
+        // =====================================================================
+        // 락온 대상 가져오기
+        // =====================================================================
+        protected virtual CharacterManager GetLockOnTarget()
+        {
+            if (character == null) return null;
+            var cm = character.characterCombatManager;
+            if (cm == null) return null;
+            return cm.currentTarget;
+        }
 
-            GUILayout.EndScrollView();
-            DrawToolbar();
+        // =====================================================================
+        // [NEW-2] 사이드 HUD (락온 대상)
+        // =====================================================================
+        private void DrawSideHUD(CharacterManager target)
+        {
+            float sideX = _hudRect.x + hudWidth + sideHudGap;
+            float sideY = _hudRect.y;
+            float sideH = _sideHudMinimized ? 26f : hudHeight;
+
+            _sideHudRect = new Rect(sideX, sideY, hudWidth, sideH);
+            HandleDrag(ref _sideHudRect, ref _sideIsDragging, ref _sideDragOffset);
+
+            GUI.color = new Color(0f, 0.05f, 0.12f, 0.88f);
+            GUI.DrawTexture(new Rect(_sideHudRect.x, _sideHudRect.y, hudWidth, sideH), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.BeginArea(new Rect(_sideHudRect.x, _sideHudRect.y, hudWidth, sideH));
+
+            // 사이드 타이틀 바
+            GUILayout.BeginHorizontal(GUILayout.Height(26));
+            GUILayout.Label(
+                $"<b><color=#FF8A65>🎯 {target.name}</color></b>  <color=#B0BEC5>{target.GetType().Name}</color>",
+                HudStyle.Get(fontSize), GUILayout.ExpandWidth(true));
+
+            // [NEW-3] 최소화 버튼
+            string minIcon = _sideHudMinimized ? "▲" : "▼";
+            if (GUILayout.Button(minIcon, GUILayout.Width(22), GUILayout.Height(22)))
+                _sideHudMinimized = !_sideHudMinimized;
+            // 숨기기 버튼
+            if (GUILayout.Button("×", GUILayout.Width(22), GUILayout.Height(22)))
+                showTargetSideHUD = false;
+            GUILayout.EndHorizontal();
+
+            if (!_sideHudMinimized)
+            {
+                // 사이드 탭 스트립
+                string[] labels = GetSideTabLabels();
+                int newTab = GUILayout.Toolbar(_sideActiveTab, labels,
+                    HudStyle.TabStyle, GUILayout.Height(24));
+                if (newTab != _sideActiveTab) { _sideActiveTab = newTab; _sideScrollPos = Vector2.zero; }
+
+                float contentH = hudHeight - 82f;
+                _sideScrollPos = GUILayout.BeginScrollView(_sideScrollPos,
+                    GUILayout.Width(hudWidth),
+                    GUILayout.Height(Mathf.Max(contentH, 50f)));
+
+                DrawSideTab(target, _sideActiveTab);
+
+                GUILayout.EndScrollView();
+
+                // 사이드 툴바
+                GUILayout.BeginHorizontal(GUILayout.Height(26));
+                if (GUILayout.Button("▶", GUILayout.Height(22))) EditorApplication.isPaused = false;
+                if (GUILayout.Button("⏸", GUILayout.Height(22))) EditorApplication.isPaused = true;
+                GUILayout.EndHorizontal();
+            }
+
             GUILayout.EndArea();
         }
 
-        // ── 탭 내용 라우팅 (서브클래스에서 override 가능) ───────────────────
+        // 사이드 HUD 탭 라벨
+        protected virtual string[] GetSideTabLabels() =>
+            new[] { "공통", "스탯", "전투", "타겟의타겟" };
+
+        // 사이드 HUD 탭 내용
+        protected virtual void DrawSideTab(CharacterManager target, int tab)
+        {
+            switch (tab)
+            {
+                case 0: DrawSideCommon(target); break;
+                case 1: DrawSideStats(target); break;
+                case 2: DrawSideCombat(target); break;
+                case 3: DrawSideTargetOfTarget(target); break;
+            }
+        }
+
+        private void DrawSideCommon(CharacterManager target)
+        {
+            if (!target.IsSpawned || target.characterNetworkManager == null)
+            { SmallLabel("  (미스폰)"); return; }
+            var nm = target.characterNetworkManager;
+
+            SectionLabel("🔑 상태");
+            BoolRow("isPerformingAction", target.isPerformingAction, true);
+            BoolRow("canMove", target.canMove, false, invertWarning: true);
+            BoolRow("isDead", nm.isDead.Value, true, danger: true);
+            BoolRow("isLockedOn", nm.isLockedOn.Value, false);
+            BoolRow("isSprinting", nm.isSprinting.Value, false);
+            BoolRow("isChargingAtk", nm.isChargingAttack.Value, false);
+
+            if (target.characterExecutionManager != null && target.IsSpawned)
+                BoolRow("isBeingExecuted", target.characterExecutionManager.isBeingExecuted.Value, false);
+
+            GUILayout.Space(4);
+            float dist = Vector3.Distance(character.transform.position, target.transform.position);
+            SmallLabel($"  거리 : {dist:F1}m");
+            SmallLabel($"  타입 : {target.GetType().Name}");
+        }
+
+        private void DrawSideStats(CharacterManager target)
+        {
+            if (!target.IsSpawned || target.characterNetworkManager == null)
+            { SmallLabel("  (미스폰)"); return; }
+            var nm = target.characterNetworkManager;
+
+            SectionLabel("❤ 생존 스탯");
+            StatBar("HP", nm.currentHealth.Value, nm.maxHealth.Value, new Color(0.2f, 0.8f, 0.2f));
+            StatBar("스태미나", nm.currentStamina.Value, nm.maxStamina.Value, new Color(0.9f, 0.75f, 0.1f));
+            float poise = nm.currentPoise.Value, maxP = nm.maxPoise.Value;
+            Color pc = poise <= 0f ? Color.red
+                     : poise / Mathf.Max(maxP, 1f) < 0.3f ? new Color(1f, 0.5f, 0f)
+                     : new Color(0.4f, 0.7f, 1f);
+            StatBar("포이즈", poise, maxP, pc);
+            if (poise <= 0f) WarningLabel("  ⚡ POISE BROKEN");
+            if (target.isPoiseActive) InfoLabel("  🛡 POISE ACTIVE", new Color(1f, 0.9f, 0f));
+        }
+
+        private void DrawSideCombat(CharacterManager target)
+        {
+            var cm = target.characterCombatManager;
+            if (cm == null) { SmallLabel("  CombatManager 없음"); return; }
+
+            SectionLabel("⚔ 전투 상태");
+            if (target.IsSpawned)
+            {
+                BoolRow("isAttacking", cm.isAttacking.Value, false);
+                BoolRow("canCombo", cm.canCombo.Value, false);
+            }
+            SmallLabel($"  AttackType   : {cm.currentAttackType}");
+            SmallLabel($"  lastActionHash : {cm.lastAttackAnimationPerformedHash}");
+        }
+
+        private void DrawSideTargetOfTarget(CharacterManager target)
+        {
+            var cm = target.characterCombatManager;
+            CharacterManager tot = cm?.currentTarget;
+            SectionLabel("🎯 타겟의 타겟");
+            if (tot == null) { SmallLabel("  없음"); return; }
+            InfoLabel($"  ▶ {tot.name}", new Color(1f, 0.9f, 0.4f));
+            SmallLabel($"  타입 : {tot.GetType().Name}");
+            if (tot.IsSpawned && tot.characterNetworkManager != null)
+                BoolRow("isDead", tot.characterNetworkManager.isDead.Value, true, danger: true);
+        }
+
+        // =====================================================================
+        // [NEW-1] 메인 파노라마 패널 (화면 하단, 여러 탭 동시 표시)
+        // =====================================================================
+        private void DrawMainPanorama(CharacterManager lockOnTarget)
+        {
+            int[] tabs = (panoramaTabs != null && panoramaTabs.Length > 0) ? panoramaTabs : GetDefaultPanoramaTabs();
+            string[] allLabels = TabLabels;
+
+            float panelW = PANORAMA_TAB_WIDTH;
+            int tabCount = tabs.Length;
+            float totalW = panelW * tabCount + 4f;
+            float panelH = _panoramaMinimized ? PANORAMA_HEADER_H : (PANORAMA_HEADER_H + panoramaPanelHeight + 4f);
+
+            // 최초 위치: 화면 하단 좌측
+            if (_panoramaRect.width < 10f)
+                _panoramaRect = new Rect(10f, Screen.height - panelH - 10f, totalW, panelH);
+            _panoramaRect.width = totalW;
+            _panoramaRect.height = panelH;
+
+            HandleDrag(ref _panoramaRect, ref _panoramaIsDragging, ref _panoramaDragOffset);
+
+            // 배경
+            GUI.color = new Color(0f, 0f, 0f, 0.82f);
+            GUI.DrawTexture(_panoramaRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.BeginArea(_panoramaRect);
+
+            // 파노라마 헤더
+            GUILayout.BeginHorizontal(GUILayout.Height(PANORAMA_HEADER_H));
+            GUILayout.Label("<b><color=#80DEEA>📊 파노라마</color></b>",
+                HudStyle.Get(fontSize), GUILayout.ExpandWidth(true));
+            // 최소화
+            string minIcon = _panoramaMinimized ? "▲" : "▼";
+            if (GUILayout.Button(minIcon, GUILayout.Width(22), GUILayout.Height(22)))
+                _panoramaMinimized = !_panoramaMinimized;
+            // 숨기기
+            if (GUILayout.Button("×", GUILayout.Width(22), GUILayout.Height(22)))
+                _panoramaVisible = false;
+            GUILayout.EndHorizontal();
+
+            if (!_panoramaMinimized)
+            {
+                GUILayout.BeginHorizontal();
+                for (int i = 0; i < tabCount; i++)
+                {
+                    int tabIdx = tabs[i];
+                    if (tabIdx < 0 || tabIdx >= allLabels.Length) continue;
+                    string label = allLabels[tabIdx];
+
+                    GUILayout.BeginVertical(GUILayout.Width(panelW));
+
+                    // 탭 헤더 (클릭하면 메인 HUD도 해당 탭으로 이동)
+                    if (GUILayout.Button($"<b><color=#80DEEA>{label}</color></b>",
+                        HudStyle.PanoramaHeader(sectionFontSize), GUILayout.Height(20)))
+                    {
+                        _activeTab = tabIdx;
+                        _scrollPos = Vector2.zero;
+                    }
+
+                    if (_panoramaScrollPos != null && tabIdx < _panoramaScrollPos.Length)
+                    {
+                        _panoramaScrollPos[tabIdx] = GUILayout.BeginScrollView(
+                            _panoramaScrollPos[tabIdx],
+                            GUILayout.Width(panelW),
+                            GUILayout.Height(panoramaPanelHeight));
+                    }
+                    else
+                    {
+                        GUILayout.BeginScrollView(Vector2.zero,
+                            GUILayout.Width(panelW),
+                            GUILayout.Height(panoramaPanelHeight));
+                    }
+
+                    DrawTab(tabIdx);
+
+                    GUILayout.EndScrollView();
+                    GUILayout.EndVertical();
+
+                    // 구분선
+                    if (i < tabCount - 1)
+                    {
+                        Rect sep = GUILayoutUtility.GetRect(2f, panoramaPanelHeight + 20f,
+                            GUILayout.Width(2f));
+                        GUI.color = new Color(0.4f, 0.6f, 0.8f, 0.4f);
+                        GUI.DrawTexture(sep, Texture2D.whiteTexture);
+                        GUI.color = Color.white;
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private int[] GetDefaultPanoramaTabs()
+        {
+            string[] labels = TabLabels;
+            int[] result = new int[labels.Length];
+            for (int i = 0; i < labels.Length; i++) result[i] = i;
+            return result;
+        }
+
+        // =====================================================================
+        // [NEW-2] 락온 타겟 파노라마 패널 (메인 파노라마 바로 위)
+        // =====================================================================
+        private void DrawTargetPanoramaPanel(CharacterManager target)
+        {
+            float panelH = _targetPanoMinimized ? PANORAMA_HEADER_H : (PANORAMA_HEADER_H + 140f + 4f);
+            float mainPanoH = (_panoramaVisible && !_panoramaMinimized)
+                ? (PANORAMA_HEADER_H + panoramaPanelHeight + 4f)
+                : PANORAMA_HEADER_H;
+            float mainPanoY = _panoramaRect.width > 10f ? _panoramaRect.y : (Screen.height - mainPanoH - 10f);
+
+            if (_targetPanoRect.width < 10f)
+            {
+                float tpY = mainPanoY - panelH - 4f;
+                _targetPanoRect = new Rect(10f, tpY, PANORAMA_TAB_WIDTH * 3f, panelH);
+            }
+            _targetPanoRect.height = panelH;
+
+            HandleDrag(ref _targetPanoRect, ref _targetPanoIsDragging, ref _targetPanoDragOffset);
+
+            GUI.color = new Color(0f, 0.04f, 0.1f, 0.88f);
+            GUI.DrawTexture(_targetPanoRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUILayout.BeginArea(_targetPanoRect);
+
+            // 헤더
+            GUILayout.BeginHorizontal(GUILayout.Height(PANORAMA_HEADER_H));
+            GUILayout.Label(
+                $"<b><color=#FF8A65>🎯 타겟 파노라마: {target.name}</color></b>",
+                HudStyle.Get(fontSize), GUILayout.ExpandWidth(true));
+            string minIcon = _targetPanoMinimized ? "▲" : "▼";
+            if (GUILayout.Button(minIcon, GUILayout.Width(22), GUILayout.Height(22)))
+                _targetPanoMinimized = !_targetPanoMinimized;
+            if (GUILayout.Button("×", GUILayout.Width(22), GUILayout.Height(22)))
+                _targetPanoVisible = false;
+            GUILayout.EndHorizontal();
+
+            if (!_targetPanoMinimized)
+            {
+                _targetPanoScroll = GUILayout.BeginScrollView(_targetPanoScroll,
+                    GUILayout.Height(140f));
+                DrawTargetPanoramaContent(target);
+                GUILayout.EndScrollView();
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private void DrawTargetPanoramaContent(CharacterManager target)
+        {
+            if (!target.IsSpawned || target.characterNetworkManager == null)
+            { SmallLabel("  (타겟 미스폰)"); return; }
+
+            var nm = target.characterNetworkManager;
+
+            // 3열 레이아웃 — 스탯 / 상태 플래그 / 전투
+            GUILayout.BeginHorizontal();
+
+            // 열1: 스탯 바
+            GUILayout.BeginVertical(GUILayout.Width(PANORAMA_TAB_WIDTH - 4f));
+            SectionLabel("❤ 스탯");
+            StatBar("HP", nm.currentHealth.Value, nm.maxHealth.Value, new Color(0.2f, 0.8f, 0.2f));
+            StatBar("스태미나", nm.currentStamina.Value, nm.maxStamina.Value, new Color(0.9f, 0.75f, 0.1f));
+            float tp = nm.currentPoise.Value, tmp = nm.maxPoise.Value;
+            Color tpc = tp <= 0f ? Color.red : tp / Mathf.Max(tmp, 1f) < 0.3f ? new Color(1f, 0.5f, 0f) : new Color(0.4f, 0.7f, 1f);
+            StatBar("포이즈", tp, tmp, tpc);
+            if (tp <= 0f) WarningLabel("  ⚡ POISE BROKEN");
+            GUILayout.EndVertical();
+
+            // 열2: 상태 플래그
+            GUILayout.BeginVertical(GUILayout.Width(PANORAMA_TAB_WIDTH - 4f));
+            SectionLabel("🔑 상태");
+            BoolRow("isPerformingAction", target.isPerformingAction, true);
+            BoolRow("isDead", nm.isDead.Value, true, danger: true);
+            BoolRow("isSprinting", nm.isSprinting.Value, false);
+            BoolRow("isChargingAtk", nm.isChargingAttack.Value, false);
+            if (target.characterExecutionManager != null && target.IsSpawned)
+                BoolRow("isBeingExecuted", target.characterExecutionManager.isBeingExecuted.Value, false);
+            GUILayout.EndVertical();
+
+            // 열3: 전투
+            GUILayout.BeginVertical(GUILayout.Width(PANORAMA_TAB_WIDTH - 4f));
+            SectionLabel("⚔ 전투");
+            var cm = target.characterCombatManager;
+            if (cm != null && target.IsSpawned)
+            {
+                BoolRow("isAttacking", cm.isAttacking.Value, false);
+                BoolRow("canCombo", cm.canCombo.Value, false);
+                SmallLabel($"  AtkType: {cm.currentAttackType}");
+                string tgt = cm.currentTarget != null ? cm.currentTarget.name : "없음";
+                SmallLabel($"  Target: {tgt}");
+            }
+            else SmallLabel("  CombatManager 없음");
+            GUILayout.EndVertical();
+
+            GUILayout.EndHorizontal();
+        }
+
+        // =====================================================================
+        // 탭 내용 라우팅 (서브클래스에서 override 가능)
+        // =====================================================================
         protected virtual void DrawTab(int tab)
         {
             switch (tab)
@@ -373,13 +824,28 @@ namespace TDA.EditorTools
         }
 
         // ── 타이틀 바 ─────────────────────────────────────────────────────────
-        private void DrawTitleBar()
+        private void DrawMainTitleBar()
         {
             GUILayout.BeginHorizontal(GUILayout.Height(26));
             string stateStr = GetCurrentStateName();
             GUILayout.Label(
                 $"<b><color=#4FC3F7>{character.name}</color></b>  <color=#B0BEC5>{stateStr}</color>",
                 HudStyle.Get(fontSize), GUILayout.ExpandWidth(true));
+
+            // [NEW-3] 파노라마 토글
+            string panoIcon = (_panoramaVisible && showPanorama) ? "📊" : "📉";
+            if (GUILayout.Button(panoIcon, GUILayout.Width(24), GUILayout.Height(22)))
+            {
+                if (!showPanorama) showPanorama = true;
+                _panoramaVisible = !_panoramaVisible;
+            }
+
+            // [NEW-3] 최소화
+            string minIcon = _hudMinimized ? "▲" : "▼";
+            if (GUILayout.Button(minIcon, GUILayout.Width(22), GUILayout.Height(22)))
+                _hudMinimized = !_hudMinimized;
+
+            // 닫기
             if (GUILayout.Button("×", GUILayout.Width(22), GUILayout.Height(22)))
                 showDebugHUD = false;
             GUILayout.EndHorizontal();
@@ -403,6 +869,14 @@ namespace TDA.EditorTools
             if (GUILayout.Button("▶", GUILayout.Height(22))) EditorApplication.isPaused = false;
             if (GUILayout.Button("⏸", GUILayout.Height(22))) EditorApplication.isPaused = true;
             if (GUILayout.Button("🗑 초기화", GUILayout.Height(22))) ClearHistory();
+
+            // [NEW-3] 사이드 HUD 토글
+            string sideIcon = showTargetSideHUD ? "🎯 ON" : "🎯 OFF";
+            if (GUILayout.Button(sideIcon, GUILayout.Height(22)))
+            {
+                showTargetSideHUD = !showTargetSideHUD;
+                if (showTargetSideHUD) _targetPanoVisible = true; // 사이드 켜면 타겟 파노라마도 리셋
+            }
             GUILayout.EndHorizontal();
         }
 
@@ -411,7 +885,6 @@ namespace TDA.EditorTools
         // =====================================================================
         protected virtual void DrawCommonPanel()
         {
-            // [REQ-3] 섹션별 접기
             if (showSectionFlags)
             {
                 _foldFlags = DrawFoldout(_foldFlags, "🔑 상태 플래그");
@@ -491,7 +964,6 @@ namespace TDA.EditorTools
                     HudStyle.Get(fontSize));
             }
         }
-        // Proxy for subclasses
         protected void DrawEventHistoryPanel_Proxy() => DrawEventHistoryPanel();
 
         // =====================================================================
@@ -508,10 +980,7 @@ namespace TDA.EditorTools
                 bool isRecent = (Time.time - a.time) < 0.5f;
                 string col = isRecent ? "#FFD54F" : "#90A4AE";
                 string perf = a.isPerformingAction ? "<color=#EF9A9A>●</color>" : "<color=#90A4AE>○</color>";
-
-                // [REQ-6] ActionID enum 원본 변수명 표시
                 string idStr = ResolveActionIDLabel(a.actionID);
-
                 GUILayout.Label(
                     $"{perf} <color={col}>[{a.time:F2}s]</color>  {idStr}  {a.label}",
                     HudStyle.Get(fontSize));
@@ -523,15 +992,10 @@ namespace TDA.EditorTools
         protected string ResolveActionIDLabel(int id)
         {
             if (!showActionIDEnumName) return $"ID:{id}";
-
-            // ActionID enum 검색
             if (Enum.IsDefined(typeof(ActionID), id))
                 return $"<color=#CE93D8>{(ActionID)id}</color>(<color=#90A4AE>{id}</color>)";
-
-            // 폴백: AnimationEventType enum 검색
             if (fallbackToAnimEventEnum && Enum.IsDefined(typeof(AnimationEventType), id))
                 return $"<color=#80DEEA>evt:{(AnimationEventType)id}</color>(<color=#90A4AE>{id}</color>)";
-
             return $"ID:{id}";
         }
 
@@ -545,7 +1009,6 @@ namespace TDA.EditorTools
                 _foldExec = DrawFoldout(_foldExec, "⚔ 처형 시스템");
                 if (_foldExec) DrawExecutionSection();
             }
-
             if (showSectionQTE)
             {
                 _foldQTE = DrawFoldout(_foldQTE, "🎯 QTE 상태");
@@ -557,7 +1020,6 @@ namespace TDA.EditorTools
         {
             var execMgr = character.characterExecutionManager;
             if (execMgr == null) { WarningLabel("  characterExecutionManager = null"); return; }
-
             if (character.IsSpawned)
                 BoolRow("isBeingExecuted", execMgr.isBeingExecuted.Value, false);
             else
@@ -566,10 +1028,8 @@ namespace TDA.EditorTools
 
         protected virtual void DrawQTESection()
         {
-            // 베이스: CharacterQTEManager 체크
             var qteMgr = character.GetComponent<TDA.Character.CharacterQTEManager>();
             if (qteMgr == null) { SmallLabel("  CharacterQTEManager 없음"); return; }
-
             BoolRow("isQTEActive", qteMgr.isQTEActive, false);
             SmallLabel($"  phaseIndex : {qteMgr.currentPhaseIndex}");
             SmallLabel($"  qteTarget  : {(qteMgr.qteTarget != null ? qteMgr.qteTarget.name : "없음")}");
@@ -594,7 +1054,6 @@ namespace TDA.EditorTools
                         InfoLabel($"  ▶ {target.name}", new Color(1f, 0.9f, 0.4f));
                         SmallLabel($"  타입 : {target.GetType().Name}");
                         SmallLabel($"  거리 : {Vector3.Distance(character.transform.position, target.transform.position):F1}m");
-
                         if (target.IsSpawned && target.characterNetworkManager != null)
                         {
                             var tnm = target.characterNetworkManager;
@@ -612,25 +1071,20 @@ namespace TDA.EditorTools
             }
         }
 
-        // [REQ-2] 타겟 파노라마 — 타겟의 HP/스태미나/포이즈/전투상태 한눈에
         private void DrawTargetPanorama(CharacterManager target)
         {
             if (!target.IsSpawned || target.characterNetworkManager == null)
             { SmallLabel("  (타겟 미스폰)"); return; }
-
             var tnm = target.characterNetworkManager;
             StatBar("HP", tnm.currentHealth.Value, tnm.maxHealth.Value, new Color(0.2f, 0.8f, 0.2f));
             StatBar("스태미나", tnm.currentStamina.Value, tnm.maxStamina.Value, new Color(0.9f, 0.75f, 0.1f));
             float tp = tnm.currentPoise.Value, tmp = tnm.maxPoise.Value;
             Color tpc = tp <= 0f ? Color.red : tp / Mathf.Max(tmp, 1f) < 0.3f ? new Color(1f, 0.5f, 0f) : new Color(0.4f, 0.7f, 1f);
             StatBar("포이즈", tp, tmp, tpc);
-
             GUILayout.Space(3);
             BoolRow("isPerformingAction", target.isPerformingAction, true);
             BoolRow("isSprinting", tnm.isSprinting.Value, false);
             BoolRow("isChargingAtk", tnm.isChargingAttack.Value, false);
-
-            // 타겟의 처형 상태
             if (target.characterExecutionManager != null && target.IsSpawned)
                 BoolRow("isBeingExecuted", target.characterExecutionManager.isBeingExecuted.Value, false);
         }
@@ -653,7 +1107,6 @@ namespace TDA.EditorTools
                     GUILayout.Label(entry.symptom, HudStyle.SmallGray(fontSize), GUILayout.ExpandWidth(true));
                 GUILayout.EndHorizontal();
             }
-
             GUILayout.Space(4);
             int nullCount = 0, critCount = 0;
             foreach (var e in _nullEntries) { if (e.isNull) { nullCount++; if (e.isCritical) critCount++; } }
@@ -677,26 +1130,26 @@ namespace TDA.EditorTools
         }
 
         // =====================================================================
-        // 드래그 처리
+        // 드래그 처리 (공통 헬퍼)
         // =====================================================================
-        private void HandleDrag()
+        private void HandleDrag(ref Rect rect, ref bool isDragging, ref Vector2 dragOffset)
         {
             Event e = Event.current;
-            Rect titleRect = new Rect(_hudRect.x, _hudRect.y, _hudRect.width, 26f);
+            Rect titleRect = new Rect(rect.x, rect.y, rect.width, 26f);
             if (e.type == EventType.MouseDown && titleRect.Contains(e.mousePosition))
             {
-                _isDragging = true;
-                _dragOffset = e.mousePosition - new Vector2(_hudRect.x, _hudRect.y);
+                isDragging = true;
+                dragOffset = e.mousePosition - new Vector2(rect.x, rect.y);
                 e.Use();
             }
-            else if (e.type == EventType.MouseDrag && _isDragging)
+            else if (e.type == EventType.MouseDrag && isDragging)
             {
-                _hudRect.x = Mathf.Clamp(e.mousePosition.x - _dragOffset.x, 0, Screen.width - _hudRect.width);
-                _hudRect.y = Mathf.Clamp(e.mousePosition.y - _dragOffset.y, 0, Screen.height - _hudRect.height);
+                rect.x = Mathf.Clamp(e.mousePosition.x - dragOffset.x, 0, Screen.width - rect.width);
+                rect.y = Mathf.Clamp(e.mousePosition.y - dragOffset.y, 0, Screen.height - rect.height);
                 e.Use();
             }
             else if (e.type == EventType.MouseUp)
-                _isDragging = false;
+                isDragging = false;
         }
 
         // =====================================================================
@@ -753,10 +1206,9 @@ namespace TDA.EditorTools
         // =====================================================================
         protected static class HudStyle
         {
-            // 캐시: fontSize가 바뀌면 재생성
             private static int _cachedFontSize = -1;
             private static int _cachedSectionSize = -1;
-            private static GUIStyle _richLabel, _section, _smallLabel, _smallGray, _tab, _foldBtn;
+            private static GUIStyle _richLabel, _section, _smallLabel, _smallGray, _tab, _foldBtn, _panoHeader;
 
             public static GUIStyle Get(int fs)
             {
@@ -832,6 +1284,24 @@ namespace TDA.EditorTools
                     normal = { textColor = new Color(0.7f, 0.9f, 1f), background = MakeTex(new Color(0.15f, 0.2f, 0.3f, 0.8f)) },
                     padding = new RectOffset(6, 4, 2, 2),
                 };
+            }
+
+            // [NEW-1] 파노라마 패널 헤더 버튼 스타일
+            public static GUIStyle PanoramaHeader(int fs)
+            {
+                if (_panoHeader == null)
+                {
+                    _panoHeader = new GUIStyle(GUI.skin.button)
+                    {
+                        fontSize = fs,
+                        fontStyle = FontStyle.Bold,
+                        richText = true,
+                        alignment = TextAnchor.MiddleLeft,
+                        normal = { textColor = new Color(0.5f, 0.88f, 1f), background = MakeTex(new Color(0.1f, 0.18f, 0.28f, 1f)) },
+                        padding = new RectOffset(6, 4, 2, 2),
+                    };
+                }
+                return _panoHeader;
             }
 
             private static Texture2D MakeTex(Color c)

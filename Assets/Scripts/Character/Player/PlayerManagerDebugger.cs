@@ -7,6 +7,9 @@
 //   Panel M — 방어 / 패링 상태 (isDefending, guardDirection, parryWindow)
 //   Panel N — 카메라 연동 (isLockedOn, currentTarget, FOV 플리커 감지)
 //   Panel F — Null 체크 Player 전용 항목 추가
+//
+// [NEW] 파노라마/사이드HUD 기능은 CharacterManagerDebugger 베이스에서 상속
+//       Player 전용 파노라마 기본 탭: 공통(0), 파지/공격(5), 방어/패링(6), 타겟(3)
 // =============================================================================
 using UnityEngine;
 using TDA.Character;
@@ -42,7 +45,7 @@ namespace TDA.EditorTools
         // =====================================================================
         private bool _prevRightHand = true;
         private float _prevStamina = -1f;
-        private float _lastStaminaDrain = 0f;   // 마지막 공격 시 소모량
+        private float _lastStaminaDrain = 0f;
 
         // =====================================================================
         // 패링 윈도 추적
@@ -59,7 +62,7 @@ namespace TDA.EditorTools
         private float _fovMin = 0f;
         private float _fovMax = 0f;
         private bool _flickerDetected = false;
-        private float _flickerThreshold = 3f; // FOV 차이 3도 이상이면 플리커
+        private float _flickerThreshold = 3f;
 
         // =====================================================================
         // Unity 생명주기
@@ -79,7 +82,6 @@ namespace TDA.EditorTools
         protected override void OnEnable()
         {
             base.OnEnable();
-            // PatryWindow 이벤트 구독
             var evtMgr = GetComponent<CharacterEventManager>();
             if (evtMgr != null)
                 evtMgr.OnAnimationEventTriggered += OnPlayerAnimEvent;
@@ -114,7 +116,6 @@ namespace TDA.EditorTools
         {
             base.Update();
             if (!showDebugHUD || _player == null) return;
-
             TrackGripChange();
             TrackStaminaDrain();
             SampleFOV();
@@ -127,7 +128,6 @@ namespace TDA.EditorTools
         {
             if (_player.playerNetworkManager == null) return;
             if (!_player.IsSpawned) return;
-
             bool currRight = _player.playerNetworkManager.isUsingRightHand.Value;
             if (currRight != _prevRightHand)
             {
@@ -145,7 +145,6 @@ namespace TDA.EditorTools
         {
             if (_player.playerNetworkManager == null) return;
             if (!_player.IsSpawned) return;
-
             float curr = _player.playerNetworkManager.currentStamina.Value;
             if (_prevStamina > 0f && curr < _prevStamina)
                 _lastStaminaDrain = _prevStamina - curr;
@@ -186,7 +185,6 @@ namespace TDA.EditorTools
         private float GetCurrentFOV()
         {
             if (_player.playerCamera == null) return 0f;
-            // PlayerCamera 의 currentFOV 를 리플렉션 없이 Camera 컴포넌트로 접근
             Camera cam = _player.playerCamera.GetComponentInChildren<Camera>();
             return cam != null ? cam.fieldOfView : 0f;
         }
@@ -198,7 +196,6 @@ namespace TDA.EditorTools
         {
             base.RefreshNullCheck();
             if (_player == null) return;
-
             Add("playerNetworkManager", _player.playerNetworkManager == null, true, "isUsingRightHand/LeftHand 접근 불가");
             Add("playerLocomotionManager", _player.playerLocomotionManager == null, true, "이동·구르기·점프 불가");
             Add("playerCombatManager", _player.playerCombatManager == null, true, "모든 공격 실행 불가");
@@ -210,13 +207,12 @@ namespace TDA.EditorTools
         }
 
         // =====================================================================
-        // DrawTabContent Override — 베이스 OnGUI 그대로 사용
+        // 탭 구성 / 라우팅
         // =====================================================================
 #if UNITY_EDITOR
         protected override string[] TabLabels =>
-            new[] { "공통", "이벤트", "애니", "타겟", "참조", "파지/공격", "방어/패링", "카메라" }; // [수정] "타겟" 탭 복구
+            new[] { "공통", "이벤트", "애니", "타겟", "참조", "파지/공격", "방어/패링", "카메라" };
 
-        // [수정] CS0115 에러 해결: DrawTabContent 대신 베이스의 DrawTab(int)을 오버라이드. 내부 호출 메서드명도 갱신
         protected override void DrawTab(int tab)
         {
             switch (tab)
@@ -224,7 +220,7 @@ namespace TDA.EditorTools
                 case 0: DrawCommonPanel(); break;
                 case 1: DrawEventHistoryPanel_Proxy(); break;
                 case 2: DrawAnimHistoryPanel_Proxy(); break;
-                case 3: DrawTargetPanel(); break; // [수정] 타겟(파노라마) 패널 연결
+                case 3: DrawTargetPanel(); break;
                 case 4: DrawNullCheckPanel(); break;
                 case 5: DrawGripPanel(); break;
                 case 6: DrawDefensePanel(); break;
@@ -232,22 +228,22 @@ namespace TDA.EditorTools
             }
         }
 
+        // ── 사이드 HUD 탭 — Player 전용 확장 ──────────────────────────────────
+        // Player는 사이드 HUD에 카메라 패널도 추가로 제공
+        protected override string[] GetSideTabLabels() =>
+            new[] { "공통", "스탯", "전투", "타겟의타겟" };
+
+        // ── Panel L — 파지(Grip) & 공격 ───────────────────────────────────────
         private void DrawGripPanel()
         {
-            // [수정] 베이스 클래스 헬퍼 메서드명에 맞춰 Sec, LL, TL, WL, BR, SBar 등을 교체
             SectionLabel("🗡 파지(Grip) & 공격 (Panel L)");
-
             if (_player.playerNetworkManager == null || !_player.IsSpawned)
-            {
-                SmallLabel("  (네트워크 미스폰)");
-                return;
-            }
+            { SmallLabel("  (네트워크 미스폰)"); return; }
 
             var pnm = _player.playerNetworkManager;
             bool rightHand = pnm.isUsingRightHand.Value;
             bool leftHand = pnm.isUsingLeftHand.Value;
 
-            // 파지 방향 강조 표시
             if (rightHand)
                 InfoLabel("  🗡 RIGHT GRIP (베기 계열)", new Color(0.4f, 0.7f, 1f));
             else if (leftHand)
@@ -255,7 +251,6 @@ namespace TDA.EditorTools
             else
                 SmallLabel("  (파지 없음)");
 
-            // 두 값 동시 true/false 경고
             if (rightHand == leftHand)
                 WarningLabel($"  ⚠ isRightHand={rightHand} == isLeftHand={leftHand} (동기화 이상!)");
 
@@ -285,20 +280,15 @@ namespace TDA.EditorTools
         private void DrawDefensePanel()
         {
             SectionLabel("🛡 방어 / 패링 (Panel M)");
-
             var defMgr = _player.characterDefenseManager;
             if (defMgr == null)
-            {
-                WarningLabel("  CharacterDefenseManager 없음!");
-                return;
-            }
+            { WarningLabel("  CharacterDefenseManager 없음!"); return; }
 
             BoolRow("isDefending", defMgr.isDefending, false);
             SmallLabel($"  guardDirection : {defMgr.currentGuardDirection}");
             SmallLabel($"  shieldStance   : {defMgr.currentShieldStance}");
 
             GUILayout.Space(4);
-            // 패링 윈도우 표시
             if (_parryWindowOpen)
             {
                 float elapsed = Time.time - _parryWindowOpenTime;
@@ -318,11 +308,8 @@ namespace TDA.EditorTools
         private void DrawCameraPanel()
         {
             SectionLabel("📷 카메라 연동 (Panel N)");
-
             if (_player.playerNetworkManager != null && _player.IsSpawned)
-            {
                 BoolRow("isLockedOn", _player.playerNetworkManager.isLockedOn.Value, false);
-            }
 
             var cm = _player.characterCombatManager;
             string targetName = cm?.currentTarget != null ? cm.currentTarget.name : "없음";

@@ -10,6 +10,9 @@
 //   [REQ-7] 창 크기/텍스트 크기 인스펙터 파라미터 (베이스 상속)
 //   [REQ-8] 각 탭 표시 항목 플래그
 //   AIExecutionManager → AICharacterExecutionManager 이름 변경 대응
+//   [NEW-1] 파노라마 패널 — AI 전용 기본 탭: 공통(0), FSM(5), AI상세(6), 타겟(4)
+//   [NEW-2] 락온 사이드 HUD (베이스 상속)
+//   [NEW-3] 최소화/숨기기 기능 (베이스 상속)
 // =============================================================================
 using System.Collections.Generic;
 using UnityEngine;
@@ -49,7 +52,7 @@ namespace TDA.EditorTools
         // =====================================================================
         private AICharacterManager _ai;
         private NavMeshAgent _nav;
-        private CharacterExecutionManager _execMgr;   // AICharacterExecutionManager 업캐스팅
+        private CharacterExecutionManager _execMgr;
 
         // =====================================================================
         // FSM 히스토리
@@ -94,6 +97,10 @@ namespace TDA.EditorTools
         {
             base.Awake();
             CacheComponents();
+
+            // AI 전용 파노라마 기본 탭 설정: 공통(0), FSM(5), AI상세(6), 타겟(4)
+            if (panoramaTabs == null || panoramaTabs.Length == 0)
+                panoramaTabs = new int[] { 0, 5, 4 };
         }
 
         protected override void CacheComponents()
@@ -101,7 +108,6 @@ namespace TDA.EditorTools
             base.CacheComponents();
             _ai = GetComponent<AICharacterManager>();
             _nav = GetComponent<NavMeshAgent>();
-            // AICharacterExecutionManager (이름 변경 대응 — characterExecutionManager 업캐스팅)
             _execMgr = GetComponent<CharacterExecutionManager>();
         }
 
@@ -195,7 +201,6 @@ namespace TDA.EditorTools
         {
             base.RefreshNullCheck();
             if (_ai == null) return;
-
             Add("aiCharacterCombatManager", _ai.aiCharacterCombatManager == null, true, "탐지·공격 없음");
             Add("aiCharacterLocomotionManager", _ai.aiCharacterLocomotionManager == null, true, "NavMesh 이동 없음");
             Add("navMeshAgent", _nav == null, true, "경로 계산 없음");
@@ -232,91 +237,10 @@ namespace TDA.EditorTools
         }
 
         // =====================================================================
-        // [베이스 클래스와 충돌하는 중복 GUI 코드 보존 (주석 처리)]
-        // 사유: CharacterManagerDebugger 베이스 클래스의 OnGUI() 시스템으로 통합되었으므로,
-        // AI 스크립트에서 별도로 창을 그리면 화면에 디버거가 2개 중복 출력되는 버그가 발생합니다.
+        // 사이드 HUD — AI 전용 탭 확장
         // =====================================================================
-        /*
-        // HUD 위치/드래그
-        private Rect _aiRect = new Rect(320, 10, 310, 520);
-        private bool _aiDrag = false;
-        private Vector2 _aiDragOff;
-        private int _aiTab = 0;
-        private Vector2 _aiScroll;
-
-#if UNITY_EDITOR
-        private void OnGUI()
-        {
-            if (!showDebugHUD || !Application.isPlaying || _ai == null) return;
-            if (Cursor.lockState == CursorLockMode.Locked) return;
-
-            HandleAIDrag();
-
-            GUI.color = new Color(0f, 0f, 0f, 0.84f);
-            GUI.DrawTexture(_aiRect, Texture2D.whiteTexture);
-            GUI.color = Color.white;
-
-            GUILayout.BeginArea(_aiRect);
-            DrawAITitle();
-
-            string[] labels = TabLabels;
-            int newTab = GUILayout.Toolbar(_aiTab, labels, HudStyle.TabStyle, GUILayout.Height(22));
-            if (newTab != _aiTab) { _aiTab = newTab; _aiScroll = Vector2.zero; }
-
-            float ch = _aiRect.height - 80f;
-            _aiScroll = GUILayout.BeginScrollView(_aiScroll, GUILayout.Width(_aiRect.width),
-                GUILayout.Height(Mathf.Max(ch, 50f)));
-
-            DrawTab(_aiTab);
-
-            GUILayout.EndScrollView();
-            DrawAIToolbar();
-            GUILayout.EndArea();
-        }
-
-        private void HandleAIDrag()
-        {
-            _aiRect.width = hudWidth;
-            _aiRect.height = hudHeight;
-
-            Event e = Event.current;
-            Rect tr = new Rect(_aiRect.x, _aiRect.y, _aiRect.width, 26f);
-            if (e.type == EventType.MouseDown && tr.Contains(e.mousePosition))
-            { _aiDrag = true; _aiDragOff = e.mousePosition - new Vector2(_aiRect.x, _aiRect.y); e.Use(); }
-            else if (e.type == EventType.MouseDrag && _aiDrag)
-            {
-                _aiRect.x = Mathf.Clamp(e.mousePosition.x - _aiDragOff.x, 0, Screen.width - _aiRect.width);
-                _aiRect.y = Mathf.Clamp(e.mousePosition.y - _aiDragOff.y, 0, Screen.height - _aiRect.height);
-                e.Use();
-            }
-            else if (e.type == EventType.MouseUp) _aiDrag = false;
-        }
-
-        private void DrawAITitle()
-        {
-            GUILayout.BeginHorizontal(GUILayout.Height(26));
-            string st = _ai.currentState != null ? _ai.currentState.GetType().Name : "---";
-            Color sc = GetStateColor(_ai.currentState);
-            string hex = ColorUtility.ToHtmlStringRGB(sc);
-            GUILayout.Label(
-                $"<b><color=#CE93D8>{_ai.name}</color></b>  <color=#{hex}>[{st}]</color>",
-                HudStyle.Get(fontSize), GUILayout.ExpandWidth(true));
-            if (GUILayout.Button("×", GUILayout.Width(22), GUILayout.Height(22)))
-                showDebugHUD = false;
-            GUILayout.EndHorizontal();
-        }
-
-        private void DrawAIToolbar()
-        {
-            GUILayout.BeginHorizontal(GUILayout.Height(26));
-            if (GUILayout.Button("▶", GUILayout.Height(22))) EditorApplication.isPaused = false;
-            if (GUILayout.Button("⏸", GUILayout.Height(22))) EditorApplication.isPaused = true;
-            if (GUILayout.Button("🗑 초기화", GUILayout.Height(22)))
-            { ClearHistory(); _stateHead = 0; _stateCount = 0; }
-            GUILayout.EndHorizontal();
-        }
-#endif
-        */
+        protected override string[] GetSideTabLabels() =>
+            new[] { "공통", "스탯", "전투", "타겟의타겟" };
 
 #if UNITY_EDITOR
         // =====================================================================
@@ -329,7 +253,6 @@ namespace TDA.EditorTools
                 _foldFSM = DrawFoldout(_foldFSM, "🤖 FSM 현재 상태");
                 if (_foldFSM) DrawFSMCurrent();
             }
-
             _foldFSMHist = DrawFoldout(_foldFSMHist, $"  📜 히스토리 ({_stateCount}개)");
             if (_foldFSMHist) DrawFSMHistory();
         }
@@ -337,7 +260,6 @@ namespace TDA.EditorTools
         private void DrawFSMCurrent()
         {
             if (_ai.currentState == null) { WarningLabel("  currentState = null"); return; }
-
             string sn = _ai.currentState.GetType().Name;
             Color sc = GetStateColor(_ai.currentState);
             string hex = ColorUtility.ToHtmlStringRGB(sc);
@@ -356,7 +278,6 @@ namespace TDA.EditorTools
                 Rect f = new Rect(br.x, br.y, br.width * ratio, br.height);
                 GUI.color = new Color(0.8f, 0.3f, 1f); GUI.DrawTexture(f, Texture2D.whiteTexture);
                 GUI.color = Color.white;
-
                 bool ex = _execMgr != null && _ai.IsSpawned && _execMgr.isBeingExecuted.Value;
                 if (ex) InfoLabel("  ⏸ 처형 중 — 타이머 정지", new Color(0.8f, 0.5f, 1f));
             }
@@ -391,7 +312,6 @@ namespace TDA.EditorTools
                 _foldAIPoise = DrawFoldout(_foldAIPoise, "💢 포이즈 시각화");
                 if (_foldAIPoise) DrawPoiseSection();
             }
-
             if (showSectionNavMesh)
             {
                 _foldNav = DrawFoldout(_foldNav, "🗺 NavMesh & 이동");
@@ -447,8 +367,6 @@ namespace TDA.EditorTools
             if (_ai.IsSpawned)
             {
                 BoolRow("isBeingExecuted", _execMgr.isBeingExecuted.Value, false);
-
-                // isExecutable 은 AICharacterExecutionManager 에서만 존재
                 var aiExecMgr = _execMgr as TDA.Character.AI.AICharacterExecutionManager;
                 if (aiExecMgr != null)
                     BoolRow("isExecutable", aiExecMgr.isExecutable.Value, false);
@@ -459,10 +377,8 @@ namespace TDA.EditorTools
         }
 
         // =====================================================================
-        // 유틸 (베이스 GetCurrentStateName 오버라이드 포함)
+        // 유틸 — 타이틀 바 상태 표시 (AI 상태 색상 반영)
         // =====================================================================
-
-        // [수정] 부모 클래스의 타이틀바에 표시되는 상태 문자열에 AI의 상태와 색상을 반영합니다.
         protected override string GetCurrentStateName()
         {
             if (_ai == null || _ai.currentState == null) return "---";

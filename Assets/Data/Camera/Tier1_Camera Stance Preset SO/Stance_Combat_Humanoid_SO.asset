@@ -55,7 +55,7 @@ MonoBehaviour:
     lockOnInputDeadzone: 0.04
     edgePanSmoothTime: 0.12
     edgePanReturnTime: 0.8
-    lockOnInitialFramingOffset: 0.8
+    lockOnInitialFramingOffset: 0
     lockOnInitialFramingBlendTime: 0.3
   lockOnPenaltyData:
     enableTargetEscapePenalty: 1
