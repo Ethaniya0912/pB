@@ -5,6 +5,18 @@ using TDA.Cameras; // [신규] 카메라 시퀀스 SO 참조를 위해 추가
 
 namespace TDA.Character.Animation
 {
+    // =========================================================================================
+    // [Phase1 신규] AnimationEventPoint
+    //
+    // 애니메이션 진행 시점(triggerTime)에 이벤트를 발행하는 타임라인 포인트.
+    // overlayData 필드가 추가되었으나 useOverlay = false(기본값)이므로
+    // 기존 모든 AnimationEventParamsSO 에셋은 변경 없이 그대로 동작합니다. (하위 호환 완벽)
+    //
+    // overlayData 사용 방법:
+    //   1. useOverlay = true 체크
+    //   2. overlayData에 원하는 FOV/블러/쉐이크 값 입력
+    //   3. BaseActionBehaviour가 triggerTime 통과 시 WorldCameraManager.PlayOverlayEffect() 호출 [Phase2]
+    // =========================================================================================
     [Serializable]
     public struct AnimationEventPoint
     {
@@ -14,6 +26,19 @@ namespace TDA.Character.Animation
 
         [Tooltip("발생시킬 이벤트의 종류 (마우스 드롭다운으로 선택하여 오타 원천 차단)")]
         public global::AnimationEventType eventType;
+
+        // =========================================================================================
+        // [Phase1 신규] 카메라/블러 오버레이 연동 필드
+        // useOverlay = false(기본값)면 기존 동작과 100% 동일합니다.
+        // =========================================================================================
+
+        [Tooltip("[Phase1 신규] 이 이벤트 발행 시 카메라/블러 오버레이를 함께 적용할지 여부.\n" +
+                 "false(기본값)이면 기존 동작과 완전히 동일합니다.")]
+        public bool useOverlay;
+
+        [Tooltip("[Phase1 신규] useOverlay = true일 때 WorldCameraManager.PlayOverlayEffect()로 전달할 오버레이 데이터.\n" +
+                 "FOV 델타, 블러 강도, 쉐이크 등을 선택적으로 설정하세요. (0값은 해당 효과 없음)")]
+        public TDA.Cameras.CameraEffectOverlayData overlayData;
     }
 
     /// <summary>

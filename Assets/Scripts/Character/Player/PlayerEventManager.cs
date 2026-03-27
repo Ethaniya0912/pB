@@ -41,6 +41,26 @@ namespace TDA.Character.Player
         [Tooltip("걷거나 뛸 때 발구름 진동(Camera Kick)을 줄 2계층 시퀀스 SO")]
         [SerializeField] private CameraSequencePresetSO footstepKickSequence;
 
+        // =========================================================================================
+        // [Phase3 신규] 가해자 측 타격 확인 이벤트용 카메라 시퀀스 SO
+        //
+        // Hit_Confirmed(88) / Hit_Confirmed_Heavy(89) 이벤트 수신 시 재생할 SO입니다.
+        // 미할당이면 WorldCameraManager.BroadcastCameraEvent()로 폴백하여
+        // ICameraEffectReceiver(블러 컨트롤러 등)에 이벤트만 전파합니다.
+        //
+        // 설정 가이드:
+        //   hitConfirmedOverlaySO    : 경공격 타격 — 약한 FOV 킥 + 약한 쉐이크 (blendDuration ≈ 0.05s)
+        //   hitConfirmedHeavyOverlaySO: 강공격 / 포이즈 파괴 — 강한 FOV 킥 + 강한 쉐이크
+        //   두 SO 모두 restoreToDefaultStanceOnFinish = true 권장
+        // =========================================================================================
+        [Tooltip("[Phase3 신규] 경공격 타격 확인 시 재생할 카메라 시퀀스 SO.\n" +
+                 "미할당이면 블러 컨트롤러에 이벤트만 전파합니다.")]
+        [SerializeField] private CameraSequencePresetSO hitConfirmedOverlaySO;
+
+        [Tooltip("[Phase3 신규] 강공격 / 포이즈 파괴 타격 확인 시 재생할 카메라 시퀀스 SO.\n" +
+                 "미할당이면 블러 컨트롤러에 이벤트만 전파합니다.")]
+        [SerializeField] private CameraSequencePresetSO hitConfirmedHeavyOverlaySO;
+
         protected virtual void Awake()
         {
             player = GetComponent<PlayerManager>();
@@ -171,6 +191,86 @@ namespace TDA.Character.Player
                         // 기존 UI 팝업 방식이 아닌, Camera Sequence SO 내부의 비네팅(Vignette Intensity) 수치를 읽어 자연스럽게 화면 테두리를 조입니다!
                         WorldCameraManager.Instance.PlayCameraSequence(hitVignetteSequence);
                         Debug.Log("<color=red>[PlayerEventManager]</color> 화면 외곽 붉은색 점멸 (Vignette 시퀀스 SO) 트리거!");
+                    }
+                    break;
+
+                // =======================================================
+                // [Phase3 신규] 가해자 측 타격 확인 이벤트 수신
+                //
+                // CharacterCombatManager.OnHitConfirmed()에서 발행됩니다.
+                // IsOwner 조건: 오직 공격한 로컬 플레이어 화면에서만 이펙트 발동.
+                //
+                // 설계 원칙:
+                //   - 오버레이 수치(FOV, 블러 강도)는 SO에서 읽습니다. 하드코딩 금지.
+                //   - hitConfirmedOverlaySO / hitConfirmedHeavyOverlaySO가 미할당이면
+                //     WorldCameraManager.BroadcastCameraEvent()만 호출하여
+                //     ICameraEffectReceiver(블러 컨트롤러 등)에 이벤트만 전파합니다.
+                //   - 블러 강도/시간은 P2_ObjectMotionBlurController가
+                //     BlurEventResponseSO.GetPulse(Hit_Confirmed)로 자율 결정합니다.
+                // =======================================================
+
+                case global::AnimationEventType.Hit_Confirmed:
+                    // 경공격 타격 확인 — 가해자 화면 경량 피드백
+                    if (!player.IsOwner || WorldCameraManager.Instance == null) break;
+
+                    if (hitConfirmedOverlaySO != null)
+                    {
+                        // SO에 정의된 카메라 시퀀스 재생 (FOV 킥, 약한 쉐이크 등)
+                        WorldCameraManager.Instance.PlayCameraSequence(
+                            hitConfirmedOverlaySO, "PlayerEventManager.Hit_Confirmed");
+                    }
+                    else
+                    {
+                        // SO 미할당 시 ICameraEffectReceiver에 이벤트만 전파
+                        // (BlurController가 BlurEventResponseSO로 강도 자율 결정)
+                        WorldCameraManager.Instance.BroadcastCameraEvent(
+                            global::AnimationEventType.Hit_Confirmed, "PlayerEventManager.Fallback");
+                    }
+                    break;
+
+                case global::AnimationEventType.Hit_Confirmed_Heavy:
+                    // 강공격 / 포이즈 파괴 타격 확인 — 가해자 화면 강한 피드백
+                    if (!player.IsOwner || WorldCameraManager.Instance == null) break;
+
+                    if (hitConfirmedHeavyOverlaySO != null)
+                    {
+                        WorldCameraManager.Instance.PlayCameraSequence(
+                            hitConfirmedHeavyOverlaySO, "PlayerEventManager.Hit_Confirmed_Heavy");
+                    }
+                    else
+                    {
+                        WorldCameraManager.Instance.BroadcastCameraEvent(
+                            global::AnimationEventType.Hit_Confirmed_Heavy, "PlayerEventManager.Fallback");
+                    }
+                    break;
+
+                // =======================================================
+                // [Phase3 신규] 피격자 측 방향별 이벤트 수신
+                //
+                // TakeDamageEffect.PlayDirectionalBasedDamagedAnimation()에서 발행됩니다.
+                // IsOwner 조건: 피격당한 로컬 플레이어 화면에서만 방향별 블러 발동.
+                //
+                // 현재: WorldCameraManager.BroadcastCameraEvent()로 전파만 수행.
+                //       블러 강도/시간은 BlurEventResponseSO에서 결정됩니다.
+                //       향후 방향별 전용 hitVignetteSequence SO로 교체 가능.
+                // =======================================================
+
+                case global::AnimationEventType.Hit_From_Front:
+                case global::AnimationEventType.Hit_From_Behind:
+                case global::AnimationEventType.Hit_From_Left:
+                case global::AnimationEventType.Hit_From_Right:
+                    if (!player.IsOwner || WorldCameraManager.Instance == null) break;
+
+                    // 피격 방향 이벤트를 ICameraEffectReceiver 전체에 전파
+                    // P2_ObjectMotionBlurController가 BlurEventResponseSO에서 방향별 강도를 결정합니다.
+                    WorldCameraManager.Instance.BroadcastCameraEvent(
+                        eventType, "PlayerEventManager.Hit_From_Direction");
+
+                    // 피격 시 공용 비네트 시퀀스 재생 (hitVignetteSequence 재활용)
+                    if (hitVignetteSequence != null)
+                    {
+                        WorldCameraManager.Instance.PlayCameraSequence(
+                            hitVignetteSequence, $"PlayerEventManager.{eventType}");
                     }
                     break;
             }

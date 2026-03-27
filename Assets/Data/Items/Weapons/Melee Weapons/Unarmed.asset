@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemIcon: {fileID: 0}
   itemName: Unarmed
-  itemID: 5
+  itemID: 0
   itemModel: {fileID: 0}
   itemSizeWidth: 1
   itemSizeHeight: 1

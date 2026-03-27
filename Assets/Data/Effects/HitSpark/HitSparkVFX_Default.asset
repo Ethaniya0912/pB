@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 674aec47c89504e4cbbe8504cd8a859e, type: 3}
+  m_Name: HitSparkVFX_Default
+  m_EditorClassIdentifier: Assembly-CSharp::HitSparkVFXData
+  sparkType: 0
+  physicsComputeShader: {fileID: 7200000, guid: ccbdcd30fd447fc46b2917ee3128b511,
+    type: 3}
+  sparkMaterial: {fileID: 2100000, guid: 97f6f1de32d7d6b4681ea302c261e50a, type: 2}
+  maxSparks: 2000
+  upwardBias: 0.15
+  primaryLayer:
+    count: 50
+    lifeMin: 0.4
+    lifeMax: 0.9
+    slowFraction: 0.1
+    speedMin: 4
+    speedMax: 12
+    sizeWidth: 0.012
+    sizeHeight: 0.06
+    sizeVariance: 0
+    spreadAmount: 0.35
+    useCameraPlaneSpread: 0
+  secondaryLayer:
+    count: 250
+    lifeMin: 0.15
+    lifeMax: 0.55
+    slowFraction: 0.1
+    speedMin: 1.5
+    speedMax: 8
+    sizeWidth: 0.018
+    sizeHeight: 0.018
+    sizeVariance: 0
+    spreadAmount: 0.86
+    useCameraPlaneSpread: 0
+  enableTertiaryLayer: 1
+  tertiaryLayer:
+    count: 0
+    lifeMin: 0
+    lifeMax: 0
+    slowFraction: 0
+    speedMin: 0
+    speedMax: 0
+    sizeWidth: 0
+    sizeHeight: 0
+    sizeVariance: 0
+    spreadAmount: 0
+    useCameraPlaneSpread: 0
+  enableImpactLight: 1
+  impactLightColor: {r: 1, g: 0.35, b: 0.05, a: 1}
+  impactLightRange: 4
+  impactLightIntensity: 12
+  impactLightFadeTime: 0.25
+  impactLightFadeExponent: 4
+  autoDestroyTime: 2.5

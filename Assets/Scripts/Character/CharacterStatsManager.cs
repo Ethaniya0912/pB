@@ -21,6 +21,16 @@ namespace TDA.Character
         private float staminaTickTimer = 0;
         [SerializeField] float staminaRegenerationDelay = 2;
 
+        // =========================================================================================
+        // [P1-1 신규] 포이즈 회복 전용 타이머 및 설정값
+        // CharacterStatsManager.ResetPoiseRecoveryTimer() — AICharacterManager.OnPoiseBreak()에서 호출
+        // =========================================================================================
+        [Header("Poise Regeneration")]
+        [SerializeField] public int poiseRegenerationAmount = 5;
+        private float poiseRegenerationTimer = 0;
+        private float poiseTickTimer = 0;
+        [SerializeField] float poiseRegenerationDelay = 5f; // 스태미나보다 긴 딜레이 권장
+
         protected virtual void Awake()
         {
             character = GetComponent<CharacterManager>();
@@ -82,6 +92,60 @@ namespace TDA.Character
             if (currentStaminaAmount < previousStaminaAmount)
             {
                 staminaRegenerationTimer = 0;
+            }
+        }
+
+        // =========================================================================================
+        // [P1-1 신규] 포이즈 회복 타이머 리셋 및 포이즈 재생 메서드
+        // =========================================================================================
+
+        /// <summary>
+        /// [P1-1 신규] 포이즈 파괴(OnPoiseBreak) 시 호출되어 회복 딜레이를 처음부터 재시작합니다.
+        /// AICharacterManager.OnPoiseBreak()에서 IsServer 조건 하에 호출됩니다.
+        ///
+        /// [설계 근거]
+        /// - CharacterStatsManager는 L3 Domain이므로 NetworkVariable 직접 수정 가능.
+        ///   IsOwner 게이트 불필요 (호출자인 AICharacterManager가 IsServer 게이트를 수행).
+        /// - GroggyState.ExitGroggy()에서 이미 maxPoise를 currentPoise로 완전 회복시키고 있으므로,
+        ///   이 메서드는 타이머 리셋만 담당합니다 — 중복 회복 방지.
+        /// - PlayerCharacterStatsManager가 CharacterStatsManager를 상속한다면
+        ///   override virtual로 동일 패턴 적용 권장.
+        /// </summary>
+        public virtual void ResetPoiseRecoveryTimer()
+        {
+            poiseRegenerationTimer = 0;
+            poiseTickTimer = 0;
+        }
+
+        /// <summary>
+        /// [P1-1 신규] 포이즈를 점진적으로 회복합니다. PlayerManager/AICharacterManager의 Update에서 호출 권장.
+        /// RegenerateStamina()와 동일한 구조 패턴을 따릅니다.
+        /// </summary>
+        public virtual void RegeneratePoise()
+        {
+            if (!character.IsOwner) return;
+
+            // 그로기/전투 중에는 포이즈 회복 차단
+            if (character.isPerformingAction) return;
+
+            poiseRegenerationTimer += Time.deltaTime;
+
+            if (poiseRegenerationTimer >= poiseRegenerationDelay)
+            {
+                float max = character.characterNetworkManager.maxPoise.Value;
+                float cur = character.characterNetworkManager.currentPoise.Value;
+
+                if (cur < max)
+                {
+                    poiseTickTimer += Time.deltaTime;
+
+                    if (poiseTickTimer >= 0.2f)
+                    {
+                        poiseTickTimer = 0;
+                        character.characterNetworkManager.currentPoise.Value =
+                            Mathf.Min(max, cur + poiseRegenerationAmount);
+                    }
+                }
             }
         }
 

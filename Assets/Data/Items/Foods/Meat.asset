@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FoodItem
   itemIcon: {fileID: 0}
   itemName: 
-  itemID: 1
+  itemID: 4
   itemModel: {fileID: 4392899847572615198, guid: 163db9d51b94aa34ca0f4e06e4251987,
     type: 3}
   itemSizeWidth: 1

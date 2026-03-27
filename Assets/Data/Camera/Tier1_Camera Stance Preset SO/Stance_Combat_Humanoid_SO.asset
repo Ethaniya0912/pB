@@ -97,6 +97,7 @@ MonoBehaviour:
     strafeRecoveryWeight: 1.6
     softRecoverySpeed: 2
     escapePersistTime: 0.25
+    escapeMinDistance: 3
     pitchReturnSpeed: 1
   dynamicInputModifier:
     enableDynamicInputModifier: 0
@@ -118,10 +119,10 @@ MonoBehaviour:
     lockCameraOnActionStart: 0
     lockCameraMouseInfluence: 0.5
   handheldEffect:
-    enableHandheldEffect: 1
-    swayAmount: 0.01
-    swaySpeed: 0.001
-    bobbingAmount: 0.001
+    enableHandheldEffect: 0
+    swayAmount: 1
+    swaySpeed: 1
+    bobbingAmount: 1
   impactShake:
     enableShake: 0
     shakeIntensity: 0.5

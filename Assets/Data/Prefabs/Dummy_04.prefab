@@ -917,6 +917,7 @@ MonoBehaviour:
   canRotate: 1
   canMove: 1
   isPoiseActive: 0
+  isInvincible: 0
   lockOnTransform: {fileID: 0}
   aiCharacterCombatManager: {fileID: 8537996597277619272}
   aiCharacterLocomotionManager: {fileID: 0}
@@ -1050,6 +1051,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterStatsManager
   staminaRegenerationAmount: 2
   staminaRegenerationDelay: 2
+  poiseRegenerationAmount: 5
+  poiseRegenerationDelay: 5
   baseHealth: 100
   baseStamina: 100
 --- !u!114 &5607237770995763107
@@ -1088,8 +1091,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2922cd25ecb6d2440ac4b75788f56bdc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterEffectsManager
+  vfxRegistry: {fileID: 11400000, guid: 5cbdf62e96a30304e9ad92a702f931e5, type: 2}
+  gpuSparkPrefab: {fileID: 3640125679476787863, guid: a0837c96100f89142b20715f1ee741e9,
+    type: 3}
   bloodSplatterVFX: {fileID: 0}
-  hitsparkVFX: {fileID: 0}
   lastContactPoint: {x: 0, y: 0, z: 0}
   lastAttackerPosition: {x: 0, y: 0, z: 0}
   effectMappings: []
@@ -1210,6 +1215,7 @@ MonoBehaviour:
   currentShieldDurability: 0
   baseGuardStyleTransitionSpeed: 8
   showDebugLogs: 1
+  isParryActive: 0
 --- !u!114 &7422508678030370822
 MonoBehaviour:
   m_ObjectHideFlags: 0

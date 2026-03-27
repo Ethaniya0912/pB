@@ -39,6 +39,9 @@ namespace TDA.Character.Player
         [HideInInspector] public PlayerDefenseManager playerDefenseManager;
         [HideInInspector] public PlayerGestureManager playerGestureManager; // [P0-03] 제스처 매니저 추가
 
+        // [P1-3 신규] 처형 매니저 — OnExecutionInputReceived() 에서 AttemptExecution() 호출에 사용
+        [HideInInspector] public PlayerExecutionManager playerExecutionManager;
+
         [Header("Event & Camera Dependencies (L4 - View)")]
         [HideInInspector] public PlayerCamera playerCamera;
 
@@ -68,6 +71,9 @@ namespace TDA.Character.Player
             playerEventManager = GetComponent<PlayerEventManager>();
             playerDefenseManager = GetComponent<PlayerDefenseManager>();
             playerGestureManager = GetComponent<PlayerGestureManager>();
+
+            // [P1-3 신규] PlayerExecutionManager 캐싱
+            playerExecutionManager = GetComponent<PlayerExecutionManager>();
 
             // 부모 클래스의 변수에 업캐스팅 할당
             characterLocomotionManager = playerLocomotionManager;
@@ -266,7 +272,24 @@ namespace TDA.Character.Player
             // 2. 자원 확인
             if (playerNetworkManager.currentStamina.Value <= 0) return;
 
-            // 3. 도메인으로 위임
+            // =========================================================================================
+            // [P2-3 신규] 공격 콤보 윈도우 중이면 Backstep 큐잉으로 분기
+            // canComboWithMainHandWeapon이 true인 구간(ComboWindow_Open ~ ComboWindow_Close)에서
+            // S키(Dodge) 입력이 들어오면, 일반 구르기 대신 Backstep 베리에이션을 큐에 등록합니다.
+            //
+            // [아키텍처 규약]
+            // - L2 Router(PlayerManager)는 입력 라우팅만 담당합니다.
+            //   실제 Backstep 애니메이션 실행은 PlayerCombatManager(L3)의
+            //   OnComboWindowOpened()가 ComboWindow_Open 이벤트 수신 시 처리합니다.
+            // - PlayerManager에서 Backstep 애니메이션을 직접 호출하지 않습니다.
+            // =========================================================================================
+            if (playerCombatManager != null && playerCombatManager.canComboWithMainHandWeapon)
+            {
+                playerCombatManager.QueueBackstep();
+                return; // 일반 구르기 도메인 위임 차단
+            }
+
+            // 3. 도메인으로 위임 (기존 구르기 로직)
             playerLocomotionManager.OnDodgeInputReceived();
         }
 
@@ -403,6 +426,54 @@ namespace TDA.Character.Player
             }
             */
             // Debug.Log("<color=gray>[Input]</color> 제스처 시스템(P0-03)을 사용하기 위해 기존 평타(RB) 즉발 입력이 차단되었습니다.");
+
+            // =========================================================================================
+            // [P2-5 신규] 스크린스페이스 파지 판정 (Screen Space Grip Detection)
+            //
+            // 마우스 커서 X 좌표를 화면 중앙(Screen.width * 0.5f)과 비교하여
+            // 좌측: 찌르기 계열(Thrust) ActionID → PerformDirectionalAttack()
+            // 우측: 베기 계열(기존 RB 동작) → playerCombatManager.OnRBInputReceived()
+            //
+            // [아키텍처 규약]
+            // - PlayerManager는 L2 Router입니다. 스크린스페이스 판정은 상태 검문(Gating)의
+            //   일부이므로 이 계층에서 처리하는 것이 아키텍처 규약에 부합합니다.
+            // - 게임패드 플랫폼에서는 우측 스틱 방향(Gamepad.current?.rightStick.ReadValue())을
+            //   대체 판정 기준으로 활용하는 분기 처리를 권장합니다.
+            // - PerformDirectionalAttack()에 넘길 찌르기 전용 ActionID가
+            //   Enums.ActionID에 정의되어 있는지 확인하세요.
+            // =========================================================================================
+            if (playerNetworkManager.currentStamina.Value <= 0) return;
+            if (playerNetworkManager.isDead.Value || isPerformingAction) return;
+
+            if (!WorldGameStateManager.Instance.IsCombatAllowed()) return;
+
+            // 스크린스페이스 파지 판정: 화면 중앙 대비 마우스 커서 X 좌표
+            float screenCenterX = Screen.width * 0.5f;
+            float cursorX = Input.mousePosition.x;
+
+            if (cursorX < screenCenterX)
+            {
+                // 좌측 → 찌르기 계열 ActionID
+                // ActionID.Attack_Thrust 값이 정의되어 있지 않을 경우
+                // Attack_Left_01 등 가장 유사한 찌르기 동작 ID로 교체하세요.
+                int thrustActionID = (int)ActionID.Attack_Thrust;
+                playerCombatManager.PerformDirectionalAttack(thrustActionID);
+
+                Debug.Log("<color=cyan>[PlayerManager]</color> 스크린스페이스 판정: 좌측 → 찌르기(Thrust) 공격 실행.");
+            }
+            else
+            {
+                // 우측 → 베기 계열 (기존 RB 동작 유지)
+                if (playerInventoryManager.currentRightHandWeapon != null)
+                {
+                    playerNetworkManager.currentWeaponBeingUsed.Value =
+                        playerInventoryManager.currentRightHandWeapon.itemID;
+                }
+                playerNetworkManager.SetCharacterActionHand(true);
+                playerCombatManager.OnRBInputReceived();
+
+                Debug.Log("<color=cyan>[PlayerManager]</color> 스크린스페이스 판정: 우측 → 베기(Slash) 공격 실행.");
+            }
         }
 
         internal void OnRTInputReceived()
@@ -441,6 +512,56 @@ namespace TDA.Character.Player
             if (WorldGameStateManager.Instance.IsInteractionAllowed())
             {
                 playerInteractionManager.OnInteractionInputReceived();
+            }
+        }
+
+        // =========================================================================================
+        // [P1-3 신규] 처형 입력 수신 및 AttemptExecution() 연결
+        // Gap 1: PlayerManager에서 처형 액션 입력 수신 메서드를 추가합니다.
+        //
+        // [아키텍처 규약]
+        // - PlayerManager(L2 Router)는 상태 검문(Gating)만 담당하고,
+        //   실제 처형 시퀀스는 PlayerExecutionManager(L3 Domain)에 위임합니다.
+        // - isCounterOpportunity 또는 isExecutionOpportunityActive 중 어느 플래그를
+        //   진입 조건으로 삼을지: 두 플래그를 OR 조건으로 묶는 방식을 사용합니다.
+        //   (기획 의도: 포이즈 파괴 직후 카운터 기회 or 그로기 상태 진입 후 처형 기회)
+        // =========================================================================================
+
+        /// <summary>
+        /// [P1-3 신규] 처형 키 입력 시 PlayerInputManager에서 호출됩니다.
+        /// PlayerExecutionManager.isExecutionOpportunityActive 또는
+        /// PlayerCombatManager.isCounterOpportunity 조건 하에 AttemptExecution()을 실행합니다.
+        /// </summary>
+        internal void OnExecutionInputReceived()
+        {
+            // 기본 게이트: 사망 중이거나 액션 중이면 무시
+            if (playerNetworkManager.isDead.Value) return;
+            if (isPerformingAction) return;
+
+            // 처형 가능 상태 확인 (isExecutionOpportunityActive OR isCounterOpportunity)
+            // — 두 조건 중 하나만 만족해도 처형 시도 진입을 허용합니다.
+            bool canExecute = false;
+
+            if (playerExecutionManager != null && playerExecutionManager.isExecutionOpportunityActive)
+                canExecute = true;
+
+            if (playerCombatManager != null && playerCombatManager.isCounterOpportunity)
+                canExecute = true;
+
+            if (!canExecute) return;
+
+            // currentTarget은 PlayerCombatManager(CharacterCombatManager)에서 관리
+            CharacterManager target = playerCombatManager?.currentTarget;
+
+            if (target == null)
+            {
+                Debug.Log("<color=orange>[PlayerManager]</color> 처형 시도 실패: currentTarget이 없습니다.");
+                return;
+            }
+
+            if (playerExecutionManager != null)
+            {
+                playerExecutionManager.AttemptExecution(target);
             }
         }
 

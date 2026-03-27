@@ -152,8 +152,8 @@ namespace TDA.Character.AI
         {
             if (!IsServer) return;
 
-            // 포이즈 회복 타이머 강제 리셋
-            /* characterStatsManager?.ResetPoiseRecoveryTimer(); */
+            // [P1-1 주석 해제] CharacterStatsManager.ResetPoiseRecoveryTimer() 구현 완료 후 활성화
+            characterStatsManager?.ResetPoiseRecoveryTimer();
 
             // [4계층 아키텍처 준수] L2 Router 는 이벤트 신호만 허공에 던집니다.
             // AICharacterSoundFxManager / AICharacterEffectsManager 가

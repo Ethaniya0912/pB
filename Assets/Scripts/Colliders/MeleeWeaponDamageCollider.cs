@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TDA.Character; // [Phase3] HitConfirmedData
 
 public class MeleeWeaponDamageCollider : DamageCollider
 {
@@ -191,6 +192,24 @@ public class MeleeWeaponDamageCollider : DamageCollider
                 damageEffect.elementDamage *= 0.5f;
                 SendDamageToServer(damageTarget, damageEffect);
                 break;
+        }
+        // =====================================================================
+        // [Phase3 신규] 가해자 측 타격 확인 이벤트 발행
+        // =====================================================================
+        if (characterCausingDamage != null &&
+            characterCausingDamage.characterCombatManager != null)
+        {
+            float confirmedDmg = damageEffect.physicalDamage + damageEffect.elementDamage;
+            HitConfirmedData hcd = new HitConfirmedData
+            {
+                victim = damageTarget,
+                contactPoint = contactPoint,
+                damageDealt = confirmedDmg,
+                wasPoiseBreak = damageEffect.poiseIsBroken,
+                attackType = characterCausingDamage.characterCombatManager.currentAttackType,
+                defenseResult = defenseResult
+            };
+            characterCausingDamage.characterCombatManager.OnHitConfirmed(hcd);
         }
     }
 

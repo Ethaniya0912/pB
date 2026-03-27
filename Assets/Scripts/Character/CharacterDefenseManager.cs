@@ -41,6 +41,19 @@ namespace TDA.Character
         [Tooltip("체크 시 방어 시스템의 각종 판정 결과와 내구도 차감 로그를 콘솔에 상세 출력합니다.")]
         public bool showDebugLogs = true;
 
+        // =========================================================================================
+        // [P2-4 신규] 패링 윈도우 활성 상태 플래그
+        // Parry_Window_Open(=12) 이벤트 수신 시 true, Parry_Window_Close(=13) 수신 시 false
+        // TakeDamageEffect.CheckCounterStagger()에서 패링 성공 여부 판단에 사용합니다.
+        //
+        // [설계 근거]
+        // - isInvincible과 달리 NetworkVariable이 아닌 로컬 플래그로 충분합니다.
+        //   TakeDamageEffect는 IsOwner 체크를 선행하므로 서버/클라이언트 중복 적용 걱정이 없습니다.
+        // - IAnimationEventListener.OnAnimationEventReceived()에서
+        //   Parry_Window_Open / Parry_Window_Close 수신 시 이 값을 설정합니다.
+        // =========================================================================================
+        [HideInInspector] public bool isParryActive = false;
+
         protected virtual void Awake()
         {
             character = GetComponent<CharacterManager>();
@@ -125,6 +138,9 @@ namespace TDA.Character
             currentGuardDirection = GuardDirection.None;
             isDefending = false;
 
+            // [P2-4] 방어 해제 시 패링 윈도우도 반드시 닫습니다.
+            isParryActive = false;
+
             character.animator.SetBool("isDefending", false);
 
             // 가드 해제 시 내부 보간 타겟도 기본값(가까이 잡기)으로 리셋해 둡니다.
@@ -133,6 +149,28 @@ namespace TDA.Character
             if (showDebugLogs)
             {
                 Debug.Log($"<color=gray>[DefenseManager]</color> 🛑 가드 해제 완료.");
+            }
+        }
+
+        // =========================================================================================
+        // [P2-4 신규] 패링 윈도우 수동 제어 메서드
+        // IAnimationEventListener 구현체(CharacterCombatManager 등)에서
+        // Parry_Window_Open / Parry_Window_Close 이벤트 수신 시 호출합니다.
+        // =========================================================================================
+
+        /// <summary>
+        /// [P2-4 신규] 패링 윈도우를 열거나 닫습니다.
+        /// AnimationEventType.Parry_Window_Open 수신 → open = true
+        /// AnimationEventType.Parry_Window_Close 수신 → open = false
+        /// </summary>
+        public virtual void SetParryWindow(bool open)
+        {
+            isParryActive = open;
+
+            if (showDebugLogs)
+            {
+                string state = open ? "<color=lime>OPEN</color>" : "<color=red>CLOSED</color>";
+                Debug.Log($"[DefenseManager] 패링 윈도우 {state} — isParryActive: {isParryActive}");
             }
         }
 

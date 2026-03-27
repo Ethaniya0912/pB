@@ -1156,7 +1156,21 @@ namespace TDA.Character.Player
             // Y축 전용 짐벌(Gimbal) 서스펜션 도입
             // =========================================================================================
             float targetPlayerY = player.transform.position.y;
-            smoothedPlayerY = Mathf.SmoothDamp(smoothedPlayerY, targetPlayerY, ref playerYVelocity, 0.15f);
+
+            // [버그수정] Foot IK 진동 흡수 강화
+            // CharacterIKController의 발 IK 보정이 player.transform.position.y를
+            // 매 프레임 미세하게 변동시킬 수 있음.
+            // → smoothedPlayerY가 이를 추적하면 카메라 Y위치가 진동 → 상하 흔들림.
+            //
+            // 대책 1: SmoothDamp 시간 0.15s → 0.3s (Foot IK 주기보다 긴 감쇠)
+            // 대책 2: maxSpeed 2m/s 제한 — 급격한 Y 변화(점프착지 제외) 차단
+            // 대책 3: deadband 0.015m — 미세한 Y 변화(IK 보정 수준)는 target 갱신 억제
+            float yDelta = Mathf.Abs(targetPlayerY - smoothedPlayerY);
+            float effectiveTargetY = yDelta < 0.015f ? smoothedPlayerY : targetPlayerY;
+
+            smoothedPlayerY = Mathf.SmoothDamp(
+                smoothedPlayerY, effectiveTargetY,
+                ref playerYVelocity, 0.3f, 2f);
 
             Vector3 massCenter = player.transform.position;
             massCenter.y = smoothedPlayerY; // 흔들림 없는 안전한 Y축 적용
@@ -1249,7 +1263,14 @@ namespace TDA.Character.Player
                 }
 
                 // ② 플레이어 반경 & 뷰포트 필터 통과 주변 적 가산
-                if (mf.focusDetectionRadius > 0.01f && mf.proximityEnemyWeight > 0.001f)
+                // [버그수정] 이동 중에는 proximityEnemy 가산 건너뜀
+                // 이동 시 플레이어 위치가 바뀌면서 OverlapSphere 결과와 가중 중심이
+                // 매 프레임 변동 → focusYawTarget 불안정 → velocity 폭발 방지
+                float proximityMoveAmt = player.playerNetworkManager != null
+                    ? player.playerNetworkManager.animatorMoveAmountMovement.Value : 0f;
+                bool skipProximityOnMove = proximityMoveAmt > 0.1f;
+
+                if (!skipProximityOnMove && mf.focusDetectionRadius > 0.01f && mf.proximityEnemyWeight > 0.001f)
                 {
                     Collider[] nearby = Physics.OverlapSphere(
                         player.transform.position,
@@ -1301,44 +1322,45 @@ namespace TDA.Character.Player
                         float focusYawTarget = Mathf.Atan2(dirToCenter.x, dirToCenter.z) * Mathf.Rad2Deg;
                         float focusDampTime = Mathf.Max(mf.focusDampTime, 0.3f);
 
-                        // ── [v4.4 수정] FocusPivot Yaw — 공격(isPerformingAction) 중 억제 ──
-                        // 문제: 공격 루트모션으로 플레이어 위치가 이동하면 finalCenter 방향이
-                        //       매 프레임 변하고, SmoothDampAngle이 leftAndRightLookAngle을
-                        //       계속 당겨서 bodyYawFollowWeight=0이어도 카메라가 휘둘림.
-                        // 수정: isPerformingAction=true이면 FocusPivot Yaw 수정을 억제하고
-                        //       velocity만 부드럽게 감쇠합니다.
-                        //       (bodyYawTracking 파라미터와 연동: weight가 낮을수록 더 강하게 억제)
                         CameraStancePresetSO stanceForFocusYaw = WorldCameraManager.Instance?.currentStanceSO;
                         float bodyW = stanceForFocusYaw != null
                             ? stanceForFocusYaw.bodyYawTracking.bodyYawFollowWeight : 1.0f;
 
-                        // 공격 중이고 bodyWeight가 낮으면 FocusPivot Yaw도 억제
-                        // (bodyWeight=1이면 기존 동작 유지, bodyWeight=0이면 완전 차단)
-                        // lockCameraToSnapshot 상태에서는 FocusPivot도 완전 억제
-                        // (HandleRotation에서 카메라를 스냅샷으로 덮어쓰므로
-                        //  FocusPivot이 leftAndRightLookAngle을 수정해도 의미 없지만,
-                        //  HandleFollowTarget→HandleRotation 순서상 여기서 차단하는 게 더 명확)
                         bool suppressFocusYaw = player.isPerformingAction && bodyW < 0.99f;
-
-                        // [버그수정] Escape 보정 중에는 FocusPivot Yaw 차단:
-                        //   isEscapedStable=true 상태에서 FocusPivot이 동시에 Yaw를 수정하면
-                        //   두 시스템이 서로 반대 방향으로 당겨 진동→폭발 발생.
                         bool escapeBlocksFocus = isEscapedStable;
 
-                        // Magnetic 비활성 + 억제 없음 + Escape 보정 미충돌인 경우에만 수정
+                        // [버그수정] WASD 이동 중 FocusPivot 억제
+                        // 문제: 플레이어가 이동하면 desiredPos가 매 프레임 바뀌고
+                        //       dirToCenter = finalCenter - desiredPos도 매 프레임 급변.
+                        //       → focusYawTarget이 불안정하게 진동 → velocity 폭발(190°/s)
+                        //       → leftAndRightLookAngle이 매 프레임 크게 바뀜
+                        //       → cameraRight 방향 급변 → 카메라 위치가 원호로 이동 → 극심한 흔들림
+                        // 수정: isMoving=true이면 FocusPivot Yaw 수정을 억제하고 velocity만 감쇠.
+                        //       이동이 멈추면(isMoving=false) 자연스럽게 수렴 재개.
+                        float curMoveAmt = player.playerNetworkManager != null
+                            ? player.playerNetworkManager.animatorMoveAmountMovement.Value : 0f;
+                        bool isMovingNow = curMoveAmt > 0.1f;
+                        bool suppressFocusOnMove = isMovingNow;
+
                         bool magneticOff = !isMagneticActive;
-                        if (magneticOff && !suppressFocusYaw && !escapeBlocksFocus)
+                        if (magneticOff && !suppressFocusYaw && !escapeBlocksFocus && !suppressFocusOnMove)
                         {
+                            // velocity 폭발 방지: maxSpeed 30°/s 제한
                             leftAndRightLookAngle = Mathf.SmoothDampAngle(
                                 leftAndRightLookAngle, focusYawTarget,
-                                ref focusYawVelocity, focusDampTime);
+                                ref focusYawVelocity, focusDampTime, 30f);
                         }
                         else
                         {
-                            // Magnetic 활성 / 공격 억제 / Escape 보정 중: velocity만 감쇠
-                            float decayRate = suppressFocusYaw ? 8f : escapeBlocksFocus ? 10f : 5f;
+                            // 억제 중: velocity 감쇠 (이동 중은 빠르게 0으로 수렴)
+                            float decayRate = suppressFocusOnMove ? 12f
+                                            : suppressFocusYaw ? 8f
+                                            : escapeBlocksFocus ? 10f : 5f;
                             focusYawVelocity = Mathf.Lerp(focusYawVelocity, 0f, Time.deltaTime * decayRate);
                         }
+
+                        // velocity 절대값 안전 clamp (폭발 방지 최종 안전망)
+                        focusYawVelocity = Mathf.Clamp(focusYawVelocity, -60f, 60f);
                         // ────────────────────────────────────────────────────────────────
                     }
                     else
@@ -2090,7 +2112,11 @@ namespace TDA.Character.Player
             if (WorldCameraManager.Instance == null || cameraObject == null) return;
 
             // 🚨 [Phase 4 고도화] 이동량 조이스틱 입력 기반 동적 FOV 실시간 연산 적용
-            float targetFov = WorldCameraManager.Instance.currentFOV + WorldCameraManager.Instance.dynamicFOVOffset;
+            // [Phase2 신규] overlayFOVDelta 가산 — 이벤트 구간 순간 FOV 오버레이
+            // SO 기본값(currentFOV) + 동적 입력(dynamicFOVOffset) + 이벤트 오버레이(overlayFOVDelta)
+            float targetFov = WorldCameraManager.Instance.currentFOV
+                            + WorldCameraManager.Instance.dynamicFOVOffset
+                            + WorldCameraManager.Instance.overlayFOVDelta;  // [Phase2]
             var handheld = WorldCameraManager.Instance.currentHandheldEffect;
             float zTilt = WorldCameraManager.Instance.currentZTilt;
 

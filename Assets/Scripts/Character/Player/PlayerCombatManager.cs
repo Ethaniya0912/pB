@@ -34,6 +34,16 @@ namespace TDA.Character
         public bool canComboWithOffHandWeapon = false;
 
         // =========================================================================================
+        // [P1-2 신규] 카운터 기회 신호 시스템 (isCounterOpportunity)
+        // AI 포이즈 파괴 시 TakeDamageEffect에서 호출되어 일정 시간 동안 카운터 기회를 활성화합니다.
+        // isExecutionOpportunityActive와 OR 조건으로 연계 가능 (처형 진입 게이트)
+        // =========================================================================================
+        [Header("Counter Opportunity")]
+        public bool isCounterOpportunity = false;
+        [SerializeField] private float counterOpportunityDuration = 2.5f;
+        private Coroutine counterOpportunityCoroutine;
+
+        // =========================================================================================
         // 🚨 [Phase 1 고도화] 카메라 연동 데이터
         // =========================================================================================
         [Header("Camera & UI (Phase 1)")]
@@ -123,6 +133,40 @@ namespace TDA.Character
                         player.characterEventManager.NotifyAnimationEvent(global::AnimationEventType.Trail_Disable_Smooth);
                     }
                     break;
+
+                // --- [P2-4 신규] 패링 윈도우 제어 ---
+                // Parry_Window_Open 이벤트 수신 시 CharacterDefenseManager.isParryActive = true
+                // Parry_Window_Close 이벤트 수신 시 CharacterDefenseManager.isParryActive = false
+                // TakeDamageEffect.CheckCounterStagger()에서 이 플래그를 확인하여 역경직을 부여합니다.
+                case global::AnimationEventType.Parry_Window_Open:
+                    player.playerDefenseManager?.OnParryWindowEvent(true);
+                    break;
+
+                case global::AnimationEventType.Parry_Window_Close:
+                    player.playerDefenseManager?.OnParryWindowEvent(false);
+                    break;
+
+                // --- [P2-2 신규] IFrame 무적 프레임 제어 ---
+                // IFrameEnable 이벤트 수신 시 CharacterManager.isInvincible = true
+                // IFrameDisable 이벤트 수신 시 CharacterManager.isInvincible = false
+                case global::AnimationEventType.IFrameEnable:
+                    player.isInvincible = true;
+                    break;
+
+                case global::AnimationEventType.IFrameDisable:
+                    player.isInvincible = false;
+                    break;
+
+                // --- [P2-3 신규] ComboChain 큐 윈도우 제어 ---
+                // ComboWindow_Open 이벤트 수신 시 큐잉된 Backstep 입력을 해소합니다.
+                // ComboWindow_Close 이벤트 수신 시 isBackstepQueued 플래그를 초기화합니다.
+                case global::AnimationEventType.ComboWindow_Open:
+                    OnComboWindowOpened();
+                    break;
+
+                case global::AnimationEventType.ComboWindow_Close:
+                    ClearBackstepQueue();
+                    break;
             }
         }
 
@@ -143,6 +187,73 @@ namespace TDA.Character
         {
             canComboWithMainHandWeapon = false;
             canComboWithOffHandWeapon = false;
+        }
+
+        // =========================================================================================
+        // [P2-3 신규] ComboChain 큐 시스템 (Recovery 큐잉)
+        //
+        // 기획: 전진 찌르기 후 S키(Dodge) 입력 큐잉 → Backstep 베리에이션 분기
+        //
+        // [아키텍처 규약]
+        // - QueueBackstep() 호출은 PlayerManager(L2)가 OnDodgeInputReceived() 내에서 담당하고,
+        //   실제 분기는 PlayerCombatManager(L3)가 처리합니다.
+        //   PlayerManager에서 Backstep 애니메이션을 직접 호출하지 않습니다.
+        // - isBackstepQueued 플래그는 ComboWindow_Close 또는 Action_Ended 이벤트 수신 시
+        //   무조건 false로 초기화하여 큐 꼬임을 방지합니다.
+        // - OnComboWindowOpened()는 PlayerCombatManager.OnAnimationEventReceived()의
+        //   ComboWindow_Open 케이스에서 자동 호출됩니다.
+        // =========================================================================================
+
+        [Header("ComboChain Queue")]
+        private bool isBackstepQueued = false; // S키 큐 상태 플래그
+
+        /// <summary>
+        /// [P2-3 신규] ComboWindow_Open 이벤트 수신 시 큐잉된 입력을 해소합니다.
+        /// 큐가 없으면 기존 콤보 로직을 유지합니다.
+        /// </summary>
+        public void OnComboWindowOpened()
+        {
+            if (isBackstepQueued)
+            {
+                isBackstepQueued = false;
+
+                // Backstep 베리에이션 실행 — Funnel로 위임
+                // ActionID.Back_Step 값은 프로젝트 Enums에 맞게 수정하세요.
+                player.playerAnimationManager.PlayTargetActionFunnel(
+                    (int)ActionID.Back_Step, true, true);
+
+                Debug.Log("<color=cyan>[PlayerCombatManager]</color> ComboChain: Backstep 베리에이션 실행!");
+                return;
+            }
+
+            // 큐가 없으면 기존 콤보 진행 (추가 처리 없음)
+            Debug.Log("<color=gray>[PlayerCombatManager]</color> ComboChain: 콤보 윈도우 오픈 (큐 없음).");
+        }
+
+        /// <summary>
+        /// [P2-3 신규] ComboWindow_Close 또는 Action_Ended 이벤트 수신 시 호출됩니다.
+        /// 큐 상태를 초기화하여 이전 입력이 다음 동작에 오염되지 않도록 합니다.
+        /// </summary>
+        public void ClearBackstepQueue()
+        {
+            if (isBackstepQueued)
+            {
+                isBackstepQueued = false;
+                Debug.Log("<color=gray>[PlayerCombatManager]</color> ComboChain: Backstep 큐 만료 (윈도우 닫힘).");
+            }
+        }
+
+        /// <summary>
+        /// [P2-3 신규] PlayerManager.OnDodgeInputReceived()에서 ComboWindow가 열려 있을 때 호출합니다.
+        /// canComboWithMainHandWeapon이 true일 때만 큐잉을 허용합니다.
+        /// </summary>
+        public void QueueBackstep()
+        {
+            if (canComboWithMainHandWeapon)
+            {
+                isBackstepQueued = true;
+                Debug.Log("<color=yellow>[PlayerCombatManager]</color> ComboChain: Backstep 큐 등록.");
+            }
         }
 
         // =========================================================================================
@@ -325,6 +436,46 @@ namespace TDA.Character
         // =========================================================================================
         // [기존 도메인 기능 완벽 보존]
         // =========================================================================================
+
+        // =========================================================================================
+        // [P1-2 신규] 카운터 기회 활성화 메서드
+        // =========================================================================================
+
+        /// <summary>
+        /// [P1-2 신규] TakeDamageEffect에서 AI 포이즈 파괴 확인 시 호출됩니다.
+        /// 일정 시간 동안 isCounterOpportunity 플래그를 true로 유지하며,
+        /// L4 이벤트 채널을 통해 카메라 연출·UI 알림 등을 연계할 수 있습니다.
+        ///
+        /// [아키텍처 규약]
+        /// - ActivateCounterOpportunity()는 PlayerCombatManager(L3)에 위치하므로,
+        ///   UI·카메라 연출은 반드시 L4 이벤트 발행(NotifyAnimationEvent)으로 처리해야 하며
+        ///   직접 UI 컴포넌트를 호출하면 안 됩니다.
+        /// - isCounterOpportunity 플래그는 PlayerExecutionManager.AttemptExecution()의
+        ///   진입 조건 게이트로도 활용할 수 있습니다.
+        /// </summary>
+        public void ActivateCounterOpportunity()
+        {
+            isCounterOpportunity = true;
+
+            if (counterOpportunityCoroutine != null)
+                StopCoroutine(counterOpportunityCoroutine);
+
+            counterOpportunityCoroutine = StartCoroutine(CounterOpportunityTimer());
+
+            // [L4] UI 프롬프트, 카메라 연출 등 구독자가 자율 반응
+            player.characterEventManager?
+                .NotifyAnimationEvent(AnimationEventType.Groggy_Enter);
+        }
+
+        /// <summary>
+        /// [P1-2 신규] counterOpportunityDuration 경과 후 isCounterOpportunity를 자동 해제합니다.
+        /// </summary>
+        private IEnumerator CounterOpportunityTimer()
+        {
+            yield return new WaitForSeconds(counterOpportunityDuration);
+            isCounterOpportunity = false;
+            counterOpportunityCoroutine = null;
+        }
 
         internal void OnRBInputReceived()
         {

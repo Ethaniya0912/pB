@@ -286,6 +286,102 @@ namespace TDA.Cameras
     }
     // ============================================================
 
+    // =========================================================================================
+    // [Phase1 신규] CameraEffectOverlayData
+    //
+    // SO 기본 카메라 값(FOV, Blur 등) 위에 이벤트 구간 동안 순간적으로 덮어씌우는 오버레이 데이터.
+    //
+    // 사용 위치:
+    //   ① StanceEventPoint.overlayData   — Stance 유지 중 구간 진입 시 자동 적용
+    //   ② AnimationEventPoint.overlayData — 애니메이션 이벤트 포인트 발행 시 함께 적용
+    //
+    // 처리 원칙:
+    //   - SO 기본값은 항상 살아있음. 이 오버레이는 그 위에 더해지는 델타(Delta)값.
+    //   - 구간 종료 후 WorldCameraManager가 blendOut 시간 동안 0으로 자동 보간 복귀.
+    //   - 블러 강도 처리는 P2_ObjectMotionBlurController(ICameraEffectReceiver 구현)가 담당.
+    //   - 하드코딩 금지. 모든 수치는 이 구조체 필드 또는 BlurEventResponseSO에서 관리.
+    // =========================================================================================
+    [Serializable]
+    public struct CameraEffectOverlayData
+    {
+        [Header("FOV 오버레이 (기본 FOV에 더해지는 델타값)")]
+        [Tooltip("현재 기본 FOV에 순간적으로 더할 오프셋입니다.\n" +
+                 "음수 = 줌인 효과 (예: -5), 양수 = 줌아웃 효과.\n" +
+                 "0이면 FOV 오버레이 없음.")]
+        public float fovDelta;
+
+        [Tooltip("fovDelta 목표값까지 도달하는 블렌드인 시간(초).\n" +
+                 "0이면 즉시 스냅. (예: 0.05f = 타격 직후 빠른 줌인)")]
+        [Range(0f, 1f)] public float fovBlendIn;
+
+        [Tooltip("이벤트 구간 종료 후 기본 FOV로 복귀하는 블렌드아웃 시간(초).\n" +
+                 "(예: 0.2f = 0.2초 동안 서서히 복귀)")]
+        [Range(0f, 2f)] public float fovBlendOut;
+
+        [Header("블러 오버레이 (블러 팀원 설정 영역)")]
+        [Tooltip("기본 블러 강도에 더할 순간 가산치(0~1).\n" +
+                 "P2_ObjectMotionBlurController가 BlurEventResponseSO와 함께 이 값을 참조합니다.\n" +
+                 "0이면 블러 오버레이 없음. (예: 0.4f = 강한 타격 블러)")]
+        [Range(0f, 1f)] public float blurStrengthDelta;
+
+        [Tooltip("블러가 blurStrengthDelta 최대치에 도달하는 시간(초).\n" +
+                 "(예: 0.05f = 타격 직후 빠른 블러 상승)")]
+        [Range(0f, 0.5f)] public float blurDuration;
+
+        [Tooltip("블러가 기본값으로 복귀하는 감쇠 시간(초).\n" +
+                 "(예: 0.3f = 0.3초 동안 서서히 블러 해제)")]
+        [Range(0f, 2f)] public float blurDecayTime;
+
+        [Header("카메라 쉐이크 오버레이")]
+        [Tooltip("이 이벤트와 함께 발생시킬 카메라 쉐이크 강도.\n" +
+                 "0이면 쉐이크 없음. WorldCameraManager.ApplyCameraShake()로 처리됩니다.")]
+        [Range(0f, 2f)] public float shakeIntensity;
+
+        [Tooltip("카메라 쉐이크 지속 시간(초). shakeIntensity > 0일 때만 유효합니다.")]
+        [Range(0f, 1f)] public float shakeDuration;
+    }
+
+    // =========================================================================================
+    // [Phase1 신규] StanceEventPoint
+    //
+    // CameraStanceSO가 활성화된 동안 특정 시간 구간에 진입/퇴장 시
+    // AnimationEventType을 발행하고 CameraEffectOverlayData를 적용하는 타임라인 포인트.
+    //
+    // 처리 주체: WorldCameraManager.TickStanceEventTimeline() [Phase2 구현 예정]
+    //
+    // 사용 예시:
+    //   락온 Stance에서 0.1초 후 Hit_Confirmed 이벤트 발행 + FOV 줌인 오버레이
+    //   → 블러 팀원은 BlurEventResponseSO에서 Hit_Confirmed Pulse 값만 채우면 됨
+    //
+    // 주의:
+    //   - startTime = 0이면 Stance 진입 즉시 발행.
+    //   - endTime = 0이면 단발성 이벤트 (구간 없음).
+    //   - 동일 Stance 내 여러 StanceEventPoint 중복 등록 가능 (인덱스로 구분).
+    // =========================================================================================
+    [Serializable]
+    public struct StanceEventPoint
+    {
+        [Tooltip("이 구간이 시작되는 Stance 경과 시간(초).\n" +
+                 "0이면 Stance 진입 즉시 발행합니다.")]
+        [Range(0f, 30f)] public float startTime;
+
+        [Tooltip("이 구간이 종료되는 Stance 경과 시간(초).\n" +
+                 "0이면 단발성 이벤트로 처리됩니다 (구간 없음).")]
+        [Range(0f, 30f)] public float endTime;
+
+        [Tooltip("구간 시작 시 CharacterEventManager를 통해 발행할 AnimationEventType.\n" +
+                 "P2_ObjectMotionBlurController, PlayerEventManager 등이 수신합니다.")]
+        public AnimationEventType onEnterEvent;
+
+        [Tooltip("구간 종료 시 발행할 AnimationEventType.\n" +
+                 "종료 이벤트가 필요 없으면 Action_Ended(4)로 설정하세요.")]
+        public AnimationEventType onExitEvent;
+
+        [Tooltip("구간 진입 시 WorldCameraManager.PlayOverlayEffect()로 적용할 오버레이 데이터.\n" +
+                 "모든 값이 0이면 오버레이 없음. 블러/FOV만 선택적으로 채워도 됩니다.")]
+        public CameraEffectOverlayData overlayData;
+    }
+
     /// <summary>
     /// [1계층 SO] 특정 찰나(Shot)에 카메라가 머물러야 할 시각적, 공간적, 감각적 설정값을 담는 순수 데이터 컨테이너입니다.
     /// 스크립트 내부 하드코딩을 탈피하여, 이 에셋 하나만 넘겨주면 카메라가 즉각적으로 해당 구도를 렌더링합니다.
@@ -437,5 +533,26 @@ namespace TDA.Cameras
         [Header("Debug Control (Safe-net)")]
         [Tooltip("디버그 모드가 켜져 있을 때, 이 스탠스로 전환이 완료되는 순간 유니티 에디터를 강제로 일시정지(Pause)합니다.")]
         public bool pauseOnApply = false;
+
+        // =========================================================================================
+        // [Phase1 신규] 구간 이벤트 타임라인 (Stance Event Timeline)
+        //
+        // 이 Stance가 활성화된 동안 특정 시간 구간에 카메라/블러 이벤트를 발행합니다.
+        //
+        // 처리 주체: WorldCameraManager.TickStanceEventTimeline() [Phase2에서 구현 예정]
+        //
+        // 사용 가이드:
+        //   - 블러 팀원: overlayData.blurStrengthDelta / blurDuration / blurDecayTime 설정
+        //   - 카메라 팀원: overlayData.fovDelta / fovBlendIn / fovBlendOut 설정
+        //   - onEnterEvent: Hit_Confirmed(88), Hit_From_Front(84) 등 이벤트 선택
+        //   - startTime = 0, endTime = 0: Stance 진입 즉시 단발 이벤트 발행
+        //
+        // 주의: 이 타임라인은 ChangeCameraStance() 호출 시 WorldCameraManager가
+        //        stanceElapsedTime을 0으로 리셋하며 자동으로 재시작됩니다. [Phase2]
+        // =========================================================================================
+        [Header("구간 이벤트 타임라인 (Stance Event Timeline)")]
+        [Tooltip("이 Stance 유지 중 특정 시간 구간에 카메라/블러 이벤트를 발행합니다.\n" +
+                 "비어있으면 기존 동작과 동일합니다. (하위 호환 완벽 보장)")]
+        public List<StanceEventPoint> stanceEventTimeline = new List<StanceEventPoint>();
     }
 }

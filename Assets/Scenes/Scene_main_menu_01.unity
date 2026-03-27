@@ -6138,7 +6138,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.0009765625, y: -12.731079}
+  m_AnchoredPosition: {x: 0.0009765625, y: -12.731018}
   m_SizeDelta: {x: -190.503, y: -171.617}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1027095442
@@ -11833,6 +11833,17 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 8892902281893112677, guid: 9cf1c983ffa3325479a49b8a5fa1a491,
         type: 3}
+    - target: {fileID: 453160897456722862, guid: e3b9be758e3b84ee983f83125f59cf3b,
+        type: 3}
+      propertyPath: vfxRegistry
+      value: 
+      objectReference: {fileID: 11400000, guid: 5cbdf62e96a30304e9ad92a702f931e5,
+        type: 2}
+    - target: {fileID: 453160897456722862, guid: e3b9be758e3b84ee983f83125f59cf3b,
+        type: 3}
+      propertyPath: gpuSparkPrefab
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 453160897456722862, guid: e3b9be758e3b84ee983f83125f59cf3b,
         type: 3}
       propertyPath: bloodSplatterVFX

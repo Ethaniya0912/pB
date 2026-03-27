@@ -61,6 +61,22 @@ public class CharacterManager : NetworkBehaviour
     [HideInInspector] public bool isPoiseActive = false;
     // ───────────────────────────────────────────────────────────────────────────
 
+    // =========================================================================================
+    // [P2-1 신규] IFrame 무적 프레임 플래그
+    // 회피/구르기 모션 중 무적 구간을 표현하는 로컬 플래그입니다.
+    //
+    // [설계 근거]
+    // - NetworkVariable이 아닌 로컬 플래그로 충분합니다.
+    //   TakeDamageEffect.ProcessEffect()는 IsOwner 게이트를 선행하므로
+    //   서버/클라이언트 중복 적용 걱정이 없습니다.
+    // - IAnimationEventListener 구현체(PlayerCombatManager 등)에서
+    //   IFrameEnable(=6) / IFrameDisable(=7) 이벤트 수신 시 이 값을 설정합니다.
+    //   (PlayerCombatManager.OnAnimationEventReceived() 스위치에 케이스 추가 완료)
+    // - 위빙 모션 시작 10~15% 구간에서 IFrameEnable 이벤트 발행,
+    //   85~90% 구간에서 IFrameDisable 이벤트 발행을 Unity Animator 클립에 설정해야 합니다.
+    // =========================================================================================
+    [HideInInspector] public bool isInvincible = false;
+
     // ── [신규] Lock-On Transform ──────────────────────────────────────────────
     [Header("Lock On")]
     [Tooltip("카메라 락온 / MagneticSoftLock이 조준하는 Transform")]

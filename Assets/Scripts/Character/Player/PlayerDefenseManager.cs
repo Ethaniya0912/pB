@@ -44,6 +44,26 @@ namespace TDA.Character.Player
             base.StartDefense(direction, stance);
         }
 
+        // =========================================================================================
+        // [P2-4 신규] 애니메이션 이벤트 수신 — 패링 윈도우 제어
+        // CharacterCombatManager(IAnimationEventListener)의 OnAnimationEventReceived에서
+        // 이 메서드를 호출하거나, PlayerDefenseManager가 직접 이벤트 채널을 구독하는 방식 모두 가능.
+        // 현재는 PlayerDefenseManager 직접 호출 방식으로 구현합니다.
+        // =========================================================================================
+
+        /// <summary>
+        /// [P2-4 신규] 애니메이션 이벤트(Parry_Window_Open / Parry_Window_Close) 수신 시 호출합니다.
+        /// PlayerCombatManager.OnAnimationEventReceived() 스위치에서 아래와 같이 연결합니다:
+        ///   case AnimationEventType.Parry_Window_Open:
+        ///       player.playerDefenseManager?.OnParryWindowEvent(true); break;
+        ///   case AnimationEventType.Parry_Window_Close:
+        ///       player.playerDefenseManager?.OnParryWindowEvent(false); break;
+        /// </summary>
+        public void OnParryWindowEvent(bool open)
+        {
+            SetParryWindow(open);
+        }
+
         /// <summary>
         /// [오버라이드] 적의 공격을 막아냈을 때, 부모의 판정 결과에 맞춰 스태미나 감소를 적용합니다.
         /// </summary>

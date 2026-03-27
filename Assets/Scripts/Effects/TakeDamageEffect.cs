@@ -113,36 +113,41 @@ public class TakeDamageEffect : InstantCharacterEffect
     // =========================================================================
     private void PlayDamageVFX(CharacterManager character)
     {
-        // 불 데미지를 가졌다면 불 파티클 재생
-        // 라이트닝 데미지, 라이트닝 파티클 등등...
+        // ─── [DEBUG] 진입 확인 ────────────────────────────────────────────────
+        Debug.Log($"[VFX-DEBUG 1] PlayDamageVFX 진입 — 캐릭터: {character.name}");
 
-        // 1. 기존 피 튀기는 이펙트 (필요 시 유지)
+        // 1. 피 튀기는 이펙트
         character.characterEffectsManager.PlayBloodSplatterVFX(contactPoint);
+        Debug.Log($"[VFX-DEBUG 2] PlayBloodSplatterVFX 호출 완료 — contactPoint: {contactPoint}");
 
-        // 2. [NEW] 타격 지점에서 바깥으로 튕겨나가는 정확한 방향 벡터 계산
-        // 타격 지점(contactPoint)에서 캐릭터의 중심점(position)을 빼면 캐릭터 바깥을 향하는 벡터가 나옵니다.
-        Vector3 deflectDirection = (contactPoint - character.transform.position).normalized;
-
-        // 만약 타격점이 캐릭터 중앙과 완벽히 겹쳐 벡터가 0이 될 경우를 대비한 안전 장치
-        if (deflectDirection == Vector3.zero)
-        {
-            deflectDirection = character.transform.forward;
-        }
-
-        // 3. 방향 데이터를 담아 스파크 이펙트 실행
-        character.characterEffectsManager.PlayHitSparkVFX(contactPoint, deflectDirection);
-
-        // [핵심] 나중에 애니메이션 이벤트에서 쓰기 위해 타격 지점과 공격자 위치를 저장(캐싱)해 둠
-        character.characterEffectsManager.lastContactPoint = contactPoint;
-        character.characterEffectsManager.lastAttackerPosition =
-            (characterCausingDamage != null)
+        // 2. deflectDirection 계산
+        Vector3 attackerPos = (characterCausingDamage != null)
             ? characterCausingDamage.transform.position
             : contactPoint - character.transform.forward;
 
-        // onanimationreceived때문에 위에 있는 코드가 레거시화된 느낌이 있음.
-        // (참고) 애니메이션을 기다리지 않고 즉시 스파크를 터뜨리고 싶다면 여기서 바로 호출하셔도 됩니다.
-        // Vector3 deflectDir = (contactPoint - character.transform.position).normalized;
-        // character.characterEffectsManager.PlayHitSparkVFX(contactPoint, deflectDir);
+        Vector3 deflectDirection = (character.transform.position - attackerPos).normalized;
+        if (deflectDirection == Vector3.zero)
+            deflectDirection = character.transform.forward;
+
+        Debug.Log($"[VFX-DEBUG 3] deflectDir 계산 완료 — {deflectDirection}");
+
+        // 3. CacheAttackerInfo
+        character.characterEffectsManager.CacheAttackerInfo(contactPoint, attackerPos);
+        Debug.Log($"[VFX-DEBUG 4] CacheAttackerInfo 완료");
+
+        // 4. sparkType 결정
+        AnimationEventType sparkType = poiseIsBroken
+            ? AnimationEventType.VFX_HitSpark_Heavy
+            : AnimationEventType.VFX_HitSpark_Default;
+
+        Debug.Log($"[VFX-DEBUG 5] sparkType={sparkType} poiseIsBroken={poiseIsBroken}");
+
+        // 5. EffectsManager 타입 확인
+        Debug.Log($"[VFX-DEBUG 6] effectsManager 타입: {character.characterEffectsManager.GetType().Name}");
+
+        // 6. PlayHitSparkVFX 호출
+        character.characterEffectsManager.PlayHitSparkVFX(sparkType, contactPoint, deflectDirection);
+        Debug.Log($"[VFX-DEBUG 7] PlayHitSparkVFX 호출 완료");
     }
 
     // =========================================================================
@@ -232,34 +237,50 @@ public class TakeDamageEffect : InstantCharacterEffect
         // ⑤ 방향 계산 및 Funnel 라우팅
         // [아키텍처 혁신: Funnel 라우팅]
         // Hash List를 무작위로 뽑던 기존 방식을 버리고,
-        // 3방향(뒤, 좌, 우) 피격 시스템을 위한 ActionID로 명확히 라우팅합니다.
-        ActionID staggerDirection = ActionID.Stagger_Backward; // 기본값 (정면/후면 피격 시 뒤로 밀림)
+        // 4방향(앞, 뒤, 좌, 우) 피격 시스템을 위한 ActionID로 명확히 라우팅합니다.
+        //
+        // [방향별 이벤트 발행 추가]
+        // ActionID 라우팅과 동시에 Hit_From_* AnimationEventType을 발행합니다.
+        // 블러/VFX 팀원은 이 이벤트를 구독하여 어느 방향에서 맞았는지 판단합니다.
+        // ActionID ↔ AnimationEventType 매핑:
+        //   Stagger_Backward(100) ↔ Hit_From_Front(84)   : 정면 피격 → 뒤로 밀림
+        //   Stagger_Left    (101) ↔ Hit_From_Right(85)   : 우측 피격 → 좌로 밀림
+        //   Stagger_Right   (102) ↔ Hit_From_Left(86)    : 좌측 피격 → 우로 밀림
+        //   Stagger_Forward (103) ↔ Hit_From_Behind(87)  : 후면 피격 → 앞으로 밀림
+
+        ActionID staggerDirection = ActionID.Stagger_Backward;
+        AnimationEventType hitDirectionEvent = AnimationEventType.Hit_From_Front;
 
         // 공격자의 앵글을 계산하여 피격 방향 분기
         if (angleHitFrom >= 145 && angleHitFrom <= 180)
         {
             // 정면 피격 → 뒤로 밀림
             staggerDirection = ActionID.Stagger_Backward;
+            hitDirectionEvent = AnimationEventType.Hit_From_Front;
         }
         else if (angleHitFrom <= -145 && angleHitFrom >= -180)
         {
             // 정면 피격 → 뒤로 밀림
             staggerDirection = ActionID.Stagger_Backward;
+            hitDirectionEvent = AnimationEventType.Hit_From_Front;
         }
         else if (angleHitFrom >= -45 && angleHitFrom <= 45)
         {
-            // 후면 피격 → (현재 3방향 기획에 따라) 뒤로 밀리거나 공용 모션 사용
-            staggerDirection = ActionID.Stagger_Backward;
+            // 후면 피격 → 앞으로 밀림
+            staggerDirection = ActionID.Stagger_Forward;
+            hitDirectionEvent = AnimationEventType.Hit_From_Behind;
         }
         else if (angleHitFrom >= -144 && angleHitFrom <= -45)
         {
             // 좌측 피격 → 우측으로 밀림
             staggerDirection = ActionID.Stagger_Right;
+            hitDirectionEvent = AnimationEventType.Hit_From_Left;
         }
         else if (angleHitFrom >= 45 && angleHitFrom <= 144)
         {
             // 우측 피격 → 좌측으로 밀림
             staggerDirection = ActionID.Stagger_Left;
+            hitDirectionEvent = AnimationEventType.Hit_From_Right;
         }
 
         // 포이즈가 깨졌다면 L4(Funnel)로 피격 신호 위임
@@ -268,11 +289,19 @@ public class TakeDamageEffect : InstantCharacterEffect
             // ⭕ 시각적 실행은 L4 애니메이션 매니저의 onHit 깔때기로 '위임'합니다!
             // 이렇게 해야 현재 진행 중인 모든 공격을 파괴(Interrupt)하고 1순위로 밀려납니다.
             character.characterAnimationManager.PlayTargetHitReactionFunnel((int)staggerDirection);
+
+            // [신규] 방향 이벤트 발행 — 블러/VFX 팀원이 구독하여 방향별 연출 처리
+            // CharacterVisualFeedbackManager, CharacterEffectsManager 등이 수신합니다.
+            // 이벤트 발행은 Funnel 호출 직후 — 애니메이션 재생과 동프레임에 발생합니다.
+            character.characterEventManager?.NotifyAnimationEvent(hitDirectionEvent);
         }
         else
         {
             // 포이즈 유지 → 경량 피격 모션 (Hit_* 계열)
             PlayLightHitAnimation(character);
+
+            // [신규] 경량 피격에도 방향 이벤트 발행 (블러 강도는 구독자가 결정)
+            character.characterEventManager?.NotifyAnimationEvent(hitDirectionEvent);
         }
     }
 

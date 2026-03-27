@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98b969cd1ff4a4044a8f53ee21fa93f4, type: 3}
+  m_Name: HitSparkVFXRegistry
+  m_EditorClassIdentifier: Assembly-CSharp::HitSparkVFXRegistry
+  entries:
+  - eventType: 700
+    vfxData: {fileID: 11400000, guid: c09ed7b7886fb8e4e9fedd55e55f372a, type: 2}
+  - eventType: 702
+    vfxData: {fileID: 11400000, guid: bebad1b778f1577488cb258254b31b45, type: 2}

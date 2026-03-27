@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;                  // [Phase2] ICameraEffectReceiver 수집용
 using UnityEngine;
 using TDA.Cameras;
 using TDA.Character.Player;
@@ -111,6 +112,44 @@ namespace TDA.World
         private Coroutine activeSequenceCoroutine;
         public bool IsSequencePlaying { get; private set; }
 
+        // =========================================================================================
+        // [Phase2 신규] 오버레이 레이어 상태
+        //
+        // SO 기본 카메라 값(currentFOV, currentBaseOffset 등) 위에
+        // 이벤트 구간 동안 순간적으로 덮어씌우는 독립 레이어입니다.
+        // ChangeCameraStance() / PlayCameraSequence() 와 완전히 독립적으로 동작하며,
+        // 구간 종료 후 자동으로 0으로 보간 복귀합니다.
+        //
+        // PlayerCamera.cs에서 FOV 적용 시:
+        //   camera.fieldOfView = currentFOV + dynamicFOVOffset + overlayFOVDelta;
+        //                                                          ↑ 이 값을 추가
+        // =========================================================================================
+
+        /// <summary>
+        /// [Phase2] 현재 활성화된 FOV 오버레이 델타값.
+        /// PlayerCamera가 최종 FOV 계산 시 currentFOV + dynamicFOVOffset + overlayFOVDelta 로 참조합니다.
+        /// </summary>
+        [HideInInspector] public float overlayFOVDelta = 0f;
+
+        private Coroutine overlayCoroutine;     // 진행 중인 오버레이 코루틴 추적
+        private bool isOverlayActive = false;    // 오버레이 활성 여부 (디버그용)
+
+        // =========================================================================================
+        // [Phase2 신규] Stance 구간 이벤트 타임라인 상태
+        //
+        // ChangeCameraStance() 호출 시 리셋되며, Update()에서
+        // TickStanceEventTimeline()이 매 프레임 체크하여 구간 이벤트를 발행합니다.
+        // =========================================================================================
+
+        private float stanceElapsedTime = 0f;
+        // 이미 발행된 StanceEventPoint 인덱스 추적 (중복 발행 방지)
+        private readonly HashSet<int> triggeredStanceEnterEvents = new HashSet<int>();
+        private readonly HashSet<int> triggeredStanceExitEvents = new HashSet<int>();
+
+        // ICameraEffectReceiver 캐시 (씬 내 구현체 목록)
+        // Awake/OnEnable 시점에 수집하여 매 프레임 FindObjectsByType 호출을 피합니다.
+        private List<ICameraEffectReceiver> cachedEffectReceivers = new List<ICameraEffectReceiver>();
+
         // =====================================================================
         // 🔹 히스토리 트래킹 데이터
         // =====================================================================
@@ -133,7 +172,28 @@ namespace TDA.World
             else
             {
                 Destroy(gameObject);
+                return;
             }
+
+            // [Phase2] 씬 내 ICameraEffectReceiver 구현체 캐싱
+            // Start()보다 먼저 실행되어 초기 수집을 보장합니다.
+            RefreshEffectReceivers();
+        }
+
+        /// <summary>
+        /// [Phase2] 씬 내 모든 ICameraEffectReceiver 구현체를 수집하여 캐시합니다.
+        /// 씬 로드 시 또는 런타임 중 새 수신자가 추가될 때 수동 호출할 수 있습니다.
+        /// </summary>
+        public void RefreshEffectReceivers()
+        {
+            cachedEffectReceivers.Clear();
+            cachedEffectReceivers.AddRange(
+                FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
+                    .OfType<ICameraEffectReceiver>());
+
+#if UNITY_EDITOR
+            Debug.Log($"[WorldCameraManager] ICameraEffectReceiver 수신자 {cachedEffectReceivers.Count}개 캐싱 완료.");
+#endif
         }
 
         private void Start()
@@ -166,6 +226,14 @@ namespace TDA.World
             // [Implementation Spec] 매 프레임 FocusTargets를 씬 Transform으로 갱신
             // TargetIdentifier enum → 실제 씬 Transform 변환 (요구사항 2)
             ResolveFocusTargetsToWorld();
+
+            // [Phase2] Stance 구간 이벤트 타임라인 매 프레임 체크
+            // stanceEventTimeline이 비어있으면 즉시 반환 (기존 SO 성능 영향 없음)
+            if (currentStanceSO != null && currentStanceSO.stanceEventTimeline.Count > 0)
+            {
+                stanceElapsedTime += Time.deltaTime;
+                TickStanceEventTimeline(currentStanceSO);
+            }
         }
 
         public void SetLocalCamera(PlayerCamera camera)
@@ -285,6 +353,13 @@ namespace TDA.World
             if (newStance == null) return;
 
             currentStanceSO = newStance;
+
+            // [Phase2] Stance 전환 시 타임라인 타이머 및 트리거 기록 리셋
+            // 새 Stance의 stanceEventTimeline이 처음부터 다시 실행됩니다.
+            stanceElapsedTime = 0f;
+            triggeredStanceEnterEvents.Clear();
+            triggeredStanceExitEvents.Clear();
+
             ApplyStanceInstantly(newStance, callerName);
         }
 
@@ -677,11 +752,221 @@ namespace TDA.World
 #endif
         }
 
+        // =========================================================================================
+        // [Phase2 신규] PlayOverlayEffect — SO 기본값 위에 순간 오버레이 적용 API
+        //
+        // 설계 원칙:
+        //   - ChangeCameraStance() / PlayCameraSequence() 를 대체하지 않습니다.
+        //     기존 SO 기본값은 항상 살아있고, 오버레이는 그 위에 더해지는 델타(Delta)입니다.
+        //   - 구간 종료 후 코루틴이 자동으로 overlayFOVDelta를 0으로 보간 복귀합니다.
+        //   - 동시에 ICameraEffectReceiver 구현체(블러 컨트롤러 등)에 오버레이 데이터를 전파합니다.
+        //   - 호출 스레드: 반드시 메인 스레드(IsOwner 조건 하)에서 호출.
+        //
+        // 호출 위치 (Phase2):
+        //   ① WorldCameraManager.TickStanceEventTimeline()  — Stance 구간 진입 시
+        //   ② BaseActionBehaviour (AnimationEventPoint.useOverlay=true 시) — [Phase2 연동]
+        //   ③ CharacterCombatManager.OnHitConfirmed()       — [Phase3 구현 예정]
+        // =========================================================================================
+
+        /// <summary>
+        /// [Phase2 신규] SO 기본 카메라 값 위에 순간 오버레이 효과를 덮어씌웁니다.
+        /// 기존 ChangeCameraStance / PlaySequence를 대체하지 않으며 독립 레이어로 동작합니다.
+        /// 이벤트 구간이 끝나면 자동으로 기본 SO 값으로 보간 복귀합니다.
+        /// </summary>
+        /// <param name="data">오버레이 데이터 (FOV 델타, 블러 강도, 쉐이크 등)</param>
+        /// <param name="callerTag">디버그 출처 태그 (UNITY_EDITOR에서만 출력)</param>
+        public void PlayOverlayEffect(CameraEffectOverlayData data, string callerTag = "Unknown")
+        {
+            if (localPlayerCamera == null) return;
+
+            // 진행 중인 오버레이가 있으면 중단 후 재시작 (이벤트 누적 방지)
+            if (overlayCoroutine != null)
+            {
+                StopCoroutine(overlayCoroutine);
+                overlayCoroutine = null;
+            }
+
+            // FOV 오버레이 코루틴 시작
+            overlayCoroutine = StartCoroutine(OverlayEffectRoutine(data));
+
+            // 카메라 쉐이크 즉시 적용 (코루틴과 무관하게 단발성)
+            if (data.shakeIntensity > 0f)
+            {
+                localPlayerCamera.Shake(data.shakeIntensity, data.shakeDuration);
+            }
+
+            // ICameraEffectReceiver 구현체에 오버레이 데이터 전파 (블러 컨트롤러 등)
+            BroadcastOverlayToReceivers(data);
+
+#if UNITY_EDITOR
+            Debug.Log($"[WorldCameraManager] 오버레이 재생 | FOV+{data.fovDelta:F1} | " +
+                      $"Blur+{data.blurStrengthDelta:F2} | Shake:{data.shakeIntensity:F2} | " +
+                      $"출처: {callerTag}");
+#endif
+        }
+
+        /// <summary>
+        /// [Phase2 신규] AnimationEventType 이벤트를 ICameraEffectReceiver 구현체에 전파합니다.
+        /// 블러 컨트롤러가 BlurEventResponseSO에서 강도/시간을 자율적으로 조회합니다.
+        /// </summary>
+        /// <param name="eventType">Hit_Confirmed, Hit_From_Front 등 카메라/블러 관련 이벤트</param>
+        /// <param name="callerTag">디버그 출처 태그</param>
+        public void BroadcastCameraEvent(AnimationEventType eventType, string callerTag = "Unknown")
+        {
+            BroadcastEventToReceivers(eventType);
+
+#if UNITY_EDITOR
+            Debug.Log($"[WorldCameraManager] 카메라 이벤트 브로드캐스트: {eventType} | 출처: {callerTag}");
+#endif
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // ICameraEffectReceiver 전파 헬퍼
+        // ─────────────────────────────────────────────────────────────────────
+
+        private void BroadcastOverlayToReceivers(CameraEffectOverlayData data)
+        {
+            // null 정리 후 전파 (씬 오브젝트가 파괴된 경우 캐시에서 제거)
+            cachedEffectReceivers.RemoveAll(r => r == null || (r is MonoBehaviour mb && mb == null));
+
+            foreach (var receiver in cachedEffectReceivers)
+            {
+                receiver.ReceiveOverlayEffect(data);
+            }
+        }
+
+        private void BroadcastEventToReceivers(AnimationEventType eventType)
+        {
+            cachedEffectReceivers.RemoveAll(r => r == null || (r is MonoBehaviour mb && mb == null));
+
+            foreach (var receiver in cachedEffectReceivers)
+            {
+                receiver.ReceiveCameraEffectEvent(eventType);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // [Phase2 신규] Stance 구간 이벤트 타임라인 처리
+        // Update()에서 매 프레임 호출됩니다.
+        // stanceEventTimeline이 비어있으면 즉시 반환하므로 기존 SO 성능에 영향 없음.
+        // ─────────────────────────────────────────────────────────────────────
+
+        private void TickStanceEventTimeline(CameraStancePresetSO stance)
+        {
+            for (int i = 0; i < stance.stanceEventTimeline.Count; i++)
+            {
+                var point = stance.stanceEventTimeline[i];
+                bool isSingleShot = point.endTime <= 0f;
+
+                // ── 구간 진입 이벤트 ──────────────────────────────────────────
+                bool enterTriggered = triggeredStanceEnterEvents.Contains(i);
+
+                if (!enterTriggered && stanceElapsedTime >= point.startTime)
+                {
+                    triggeredStanceEnterEvents.Add(i);
+
+                    // 카메라/블러 오버레이 적용 (값이 0이 아닌 필드만 실제 효과 발생)
+                    bool hasOverlay = point.overlayData.fovDelta != 0f
+                                  || point.overlayData.blurStrengthDelta > 0f
+                                  || point.overlayData.shakeIntensity > 0f;
+
+                    if (hasOverlay)
+                    {
+                        PlayOverlayEffect(point.overlayData, $"StanceTimeline[{i}].Enter");
+                    }
+
+                    // 애니메이션 이벤트 타입 발행 (블러 컨트롤러 등이 수신)
+                    if (point.onEnterEvent != AnimationEventType.Action_Ended)
+                    {
+                        BroadcastCameraEvent(point.onEnterEvent, $"StanceTimeline[{i}].Enter");
+                    }
+
+#if UNITY_EDITOR
+                    Debug.Log($"[StanceTimeline] [{stance.name}] 포인트[{i}] 진입 " +
+                              $"(t={stanceElapsedTime:F2}s, event={point.onEnterEvent})");
+#endif
+                }
+
+                // ── 구간 종료 이벤트 (단발성이 아닐 때만) ───────────────────────
+                if (!isSingleShot && enterTriggered)
+                {
+                    bool exitTriggered = triggeredStanceExitEvents.Contains(i);
+
+                    if (!exitTriggered && stanceElapsedTime >= point.endTime)
+                    {
+                        triggeredStanceExitEvents.Add(i);
+
+                        if (point.onExitEvent != AnimationEventType.Action_Ended)
+                        {
+                            BroadcastCameraEvent(point.onExitEvent, $"StanceTimeline[{i}].Exit");
+                        }
+
+#if UNITY_EDITOR
+                        Debug.Log($"[StanceTimeline] [{stance.name}] 포인트[{i}] 종료 " +
+                                  $"(t={stanceElapsedTime:F2}s, event={point.onExitEvent})");
+#endif
+                    }
+                }
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // [Phase2 신규] FOV 오버레이 코루틴
+        // SO 기본 FOV 위에 순간 델타를 더한 뒤, 구간 종료 후 0으로 보간 복귀합니다.
+        // overlayFOVDelta는 PlayerCamera.cs의 FOV 적용 시 가산됩니다.
+        // ─────────────────────────────────────────────────────────────────────
+
+        private IEnumerator OverlayEffectRoutine(CameraEffectOverlayData data)
+        {
+            isOverlayActive = true;
+
+            // ── BlendIn: 목표 FOV 델타까지 보간 ──────────────────────────────
+            if (data.fovBlendIn > 0f)
+            {
+                float elapsed = 0f;
+                float startDelta = overlayFOVDelta; // 이미 활성 오버레이가 있었으면 현재 값에서 이어서 보간
+                while (elapsed < data.fovBlendIn)
+                {
+                    elapsed += Time.deltaTime;
+                    overlayFOVDelta = Mathf.Lerp(startDelta, data.fovDelta,
+                                                  Mathf.Clamp01(elapsed / data.fovBlendIn));
+                    yield return null;
+                }
+            }
+            overlayFOVDelta = data.fovDelta;
+
+            // ── Hold: fovDelta 값 유지 ────────────────────────────────────────
+            // blurDuration을 Hold 기준으로 사용 (블러와 FOV Hold 구간 동기화)
+            float holdTime = Mathf.Max(0f, data.blurDuration);
+            if (holdTime > 0f)
+            {
+                yield return new WaitForSeconds(holdTime);
+            }
+
+            // ── BlendOut: 0으로 보간 복귀 ────────────────────────────────────
+            if (data.fovBlendOut > 0f)
+            {
+                float elapsed = 0f;
+                float startDelta = overlayFOVDelta;
+                while (elapsed < data.fovBlendOut)
+                {
+                    elapsed += Time.deltaTime;
+                    overlayFOVDelta = Mathf.Lerp(startDelta, 0f,
+                                                  Mathf.Clamp01(elapsed / data.fovBlendOut));
+                    yield return null;
+                }
+            }
+            overlayFOVDelta = 0f;
+
+            isOverlayActive = false;
+            overlayCoroutine = null;
+        }
+
         public void ApplyCameraShake(float intensity, float duration)
         {
             if (localPlayerCamera != null)
             {
-                localPlayerCamera.GetType().GetMethod("Shake")?.Invoke(localPlayerCamera, new object[] { intensity, duration });
+                localPlayerCamera.Shake(intensity, duration);
             }
         }
 

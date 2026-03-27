@@ -89,6 +89,70 @@ public enum AnimationEventType
     Groggy_Exit = 98,           // 그로기 타이머 만료, 전투 복귀 직전
                                 // → AICharacterEffectsManager: 루프 VFX 제거
 
+    // =========================================================================================
+    // [신규] 방향별 피격 이벤트 (Directional Hit Events) [80 ~ 89]
+    //
+    // 설계 의도:
+    //   TakeDamageEffect가 ActionID(Stagger_*)를 통해 애니메이션을 재생한 뒤,
+    //   동시에 Hit_From_* 이벤트를 발행합니다.
+    //   블러(VFX) 팀원은 이 이벤트를 구독하여 "어느 방향에서 맞았는지"를
+    //   방향 정보와 함께 처리할 수 있습니다.
+    //
+    // 수신 대상 (구독자):
+    //   - CharacterVisualFeedbackManager: 방향별 블러/비네팅/화면 왜곡
+    //   - CharacterEffectsManager:        방향별 혈흔 파티클 방향 제어
+    //   - CharacterSoundFxManager:        방향별 피격음 패닝(좌/우 채널)
+    //
+    // ActionID와 1:1 매핑:
+    //   Stagger_Backward (100) ←→ Hit_From_Front   (84)
+    //   Stagger_Left     (101) ←→ Hit_From_Right   (85)
+    //   Stagger_Right    (102) ←→ Hit_From_Left    (86)
+    //   Stagger_Forward  (103) ←→ Hit_From_Behind  (87)
+    //
+    // AnimationEventParamsSO 설정:
+    //   각 Stagger State의 SO → Event Points에 아래 값 중 하나를 선택하세요.
+    //   Trigger Time 0.05 (피격 직후 즉시 발행 권장)
+    // =========================================================================================
+    Hit_From_Front = 84,       // 정면 피격 신호 — ActionID.Stagger_Backward(100)와 쌍
+                               // → 블러: 화면 전체 앞방향 충격 연출
+    Hit_From_Right = 85,       // 우측 피격 신호 — ActionID.Stagger_Left(101)와 쌍
+                               // → 블러: 화면 우측 엣지 강조
+    Hit_From_Left = 86,       // 좌측 피격 신호 — ActionID.Stagger_Right(102)와 쌍
+                              // → 블러: 화면 좌측 엣지 강조
+    Hit_From_Behind = 87,       // 후면 피격 신호 — ActionID.Stagger_Forward(103)와 쌍
+                                // → 블러: 화면 하단/후면 충격 연출 (뒤통수 맞은 느낌)
+
+    // =========================================================================================
+    // [Phase1 신규] 가해자 측 타격 확인 이벤트 (Combat Hit Confirmed Events) [88 ~ 89]
+    //
+    // 설계 의도:
+    //   DamageCollider가 적에게 닿아 실제 데미지가 들어갔을 때 '가해자(플레이어)' 측에서 발행합니다.
+    //   피해자 측의 Hit_From_* 이벤트와 독립적으로 동작합니다.
+    //
+    // 발행 경로:
+    //   DamageCollider.OnTriggerEnter()
+    //     → CharacterCombatManager.OnHitConfirmed(HitConfirmedData)   [Phase3 구현 예정]
+    //       → characterEventManager.NotifyAnimationEvent(Hit_Confirmed / Hit_Confirmed_Heavy)
+    //
+    // 수신 대상:
+    //   - PlayerEventManager: 가해자 화면에 카메라 킥 / 히트스탑 오버레이 적용
+    //   - P2_ObjectMotionBlurController: 타격 확인 시 블러 Pulse (경량 / 강함 분기)
+    //
+    // BlurEventResponseSO에서 강도/시간 설정 (하드코딩 금지):
+    //   Hit_Confirmed       → 경공격 타격: 약한 Pulse (strength ≈ 0.2, duration ≈ 0.05s)
+    //   Hit_Confirmed_Heavy → 강공격 / 포이즈 파괴: 강한 Pulse (strength ≈ 0.5, duration ≈ 0.1s)
+    // =========================================================================================
+    Hit_Confirmed = 88,   // 가해자: 경/강공격 타격 확인 — 블러 경량 Pulse
+                          // DamageCollider 충돌 + 정상 데미지 처리 완료 시 발행
+    Hit_Confirmed_Heavy = 89,   // 가해자: 포이즈 파괴 타격 확인 — 블러 강한 Pulse
+                                // wasPoiseBreak = true 조건에서 Hit_Confirmed와 함께 추가 발행
+
+    // =========================================================================================
+
+    // --- ComboChain 연계 윈도우 이벤트 (P2-3) ---
+    ComboWindow_Open = 80,     // 연계 입력 큐잉 윈도우 오픈 → OnComboWindowOpened() 트리거
+    ComboWindow_Close = 81,     // 연계 입력 윈도우 닫힘 → isBackstepQueued 초기화
+
     #endregion
 
     #region [300 ~ 599] 오디오 및 사운드 피드백 (Audio / SFX)
@@ -164,6 +228,21 @@ public enum AnimationEventType
 
     // ── [컴파일 에러 조치] 처형 종료 이벤트 추가 ──
     Execution_Finish = 202,     // 특수 처형 애니메이션 종료 시점
+
+    // ── [700번대] HitSpark GPU 파티클 계열 ────────────────────────────────────
+    // 발행자 : TakeDamageEffect.PlayDamageVFX()
+    // 수신자 : CharacterEffectsManager → ParrySparkGPUManager
+    // 데이터 : HitSparkVFXRegistry → HitSparkVFXData (SO)
+    // ※ 이 블록 모든 값은 HitSparkVFXRegistry 에 반드시 등록해야 합니다.
+    // ─────────────────────────────────────────────────────────────────────────
+    VFX_HitSpark_Default = 700,  // 기본 물리 타격 불꽃 (fallback)
+    VFX_HitSpark_Light = 701,  // 경공격 타격 불꽃 — 얕고 짧은 스파크
+    VFX_HitSpark_Heavy = 702,  // 중공격 타격 불꽃 — 넓고 강한 스파크
+    VFX_HitSpark_Critical = 703,  // 치명타 불꽃 — 강렬한 황금빛 폭발
+    VFX_HitSpark_Parry = 704,  // 패리 불꽃 — GPU 대량 방출
+    VFX_HitSpark_BlockBreak = 705,  // 가드 붕괴 불꽃
+    VFX_HitSpark_ArmorClash = 706,  // 방어구 충돌 불꽃
+
     #endregion
 }
 
@@ -266,6 +345,7 @@ public enum ActionID
     // (pC 단계 8방향 적용을 위해 1~8번 대역을 기본 베기로 예약. 현재는 좌/우만 사용)
     Attack_Right_01 = 1,        // 우에서 좌로 베기 (기본)
     Attack_Left_01 = 2,         // 좌에서 우로 베기 (기본)
+    Attack_Thrust = 3,          // 찌르기 (스크린스페이스 좌측 입력 — 좌파지 전용)
 
     // [P0-03 신규 추가] 강공격 (차징) Action ID 할당
     Attack_Right_Heavy_01 = 11, // 우에서 좌로 강공격 (차징)
@@ -289,10 +369,15 @@ public enum ActionID
     Fumble_Stagger = 99,
 
     // --- 피격 리액션 (Hit Reactions - onHit Trigger 연동) [100 ~ 199] ---
-    // (현재 3방향 피격 시스템 적용)
-    Stagger_Backward = 100,     // 정면에서 타격받아 뒤로 밀림
-    Stagger_Left = 101,         // 우측에서 타격받아 좌측으로 밀림
-    Stagger_Right = 102,        // 좌측에서 타격받아 우측으로 밀림
+    // [4방향 피격 시스템] angleHitFrom 기반으로 TakeDamageEffect가 자동 선택합니다.
+    // AnimationEventType.Hit_From_* 이벤트와 1:1 매핑됩니다.
+    // Animator Controller에서 ActionState 파라미터 값으로 각 State에 연결하세요.
+    Stagger_Backward = 100,     // 정면 피격 (145~180° / -145~-180°) → 뒤로 밀림
+    Stagger_Left = 101,     // 우측 피격 (45~144°)              → 좌측으로 밀림
+    Stagger_Right = 102,     // 좌측 피격 (-144~-45°)            → 우측으로 밀림
+    Stagger_Forward = 103,     // 후면 피격 (-45~45°)              → 앞으로 밀림
+                               // ↑ Animator: ActionState == 103 조건으로 연결
+                               //   AnimationEventParamsSO: Hit_From_Behind 이벤트 사용
 
     // (특수 피격 상태)
     Deflected_Bounce = 110,     // 가드가 처냄(Deflect) 당해 방패가 뒤로 튕기는 모션
@@ -351,4 +436,63 @@ public enum CameraVerticalBehavior
     Free = 0,  // 마우스 상하 자유 조작
     ElevationOnly = 1,  // 고정 Pitch 각도 (위에서 내려다보는 뷰 등)
     DynamicOverShoulder = 2, // [컴파일 에러 조치] 어깨 너머 동적 추적 카메라 모드 추가
+}
+
+// =========================================================================================
+// HitSparkType — HitSparkVFXData.sparkType 과 1:1 매핑
+// ※ HitSparkVFXData.cs 에 중복 정의하지 마세요 (CS0101 방지)
+// =========================================================================================
+public enum HitSparkType
+{
+    Default = 0,
+    LightHit = 1,
+    HeavyHit = 2,
+    CriticalHit = 3,
+    Parry = 4,
+    BlockBreak = 5,
+    ArmorClash = 6,
+}
+
+// =========================================================================================
+// AnimationEventTypeExtensions — VFX 계열 판별 및 HitSparkType 변환
+// ※ Enums_VFX_HitSpark_Additions.cs 파일은 삭제하거나 제외하세요 (CS0101 방지)
+// =========================================================================================
+public static class AnimationEventTypeExtensions
+{
+    /// <summary>700~799 HitSpark GPU 파티클 계열인지 여부</summary>
+    public static bool IsHitSparkEvent(this AnimationEventType type)
+    {
+        int v = (int)type;
+        return v >= 700 && v < 800;
+    }
+
+    /// <summary>640~669 Blood/Gore 계열인지 여부</summary>
+    public static bool IsBloodVFXEvent(this AnimationEventType type)
+    {
+        int v = (int)type;
+        return v >= 640 && v < 670;
+    }
+
+    /// <summary>600~899 전체 VFX/Camera 계열인지 여부</summary>
+    public static bool IsVisualEvent(this AnimationEventType type)
+    {
+        int v = (int)type;
+        return v >= 600 && v < 900;
+    }
+
+    /// <summary>AnimationEventType → HitSparkType 변환</summary>
+    public static HitSparkType ToHitSparkType(this AnimationEventType type)
+    {
+        return type switch
+        {
+            AnimationEventType.VFX_HitSpark_Default => HitSparkType.Default,
+            AnimationEventType.VFX_HitSpark_Light => HitSparkType.LightHit,
+            AnimationEventType.VFX_HitSpark_Heavy => HitSparkType.HeavyHit,
+            AnimationEventType.VFX_HitSpark_Critical => HitSparkType.CriticalHit,
+            AnimationEventType.VFX_HitSpark_Parry => HitSparkType.Parry,
+            AnimationEventType.VFX_HitSpark_BlockBreak => HitSparkType.BlockBreak,
+            AnimationEventType.VFX_HitSpark_ArmorClash => HitSparkType.ArmorClash,
+            _ => HitSparkType.Default,
+        };
+    }
 }
