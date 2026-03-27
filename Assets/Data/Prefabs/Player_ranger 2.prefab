@@ -2811,6 +2811,12 @@ MonoBehaviour:
   fontSize: 11
   sectionFontSize: 11
   showDebugHUD: 0
+  showPanorama: 1
+  panoramaTabs: 000000000300000004000000
+  panoramaPanelHeight: 160
+  showTargetSideHUD: 1
+  showTargetPanorama: 1
+  sideHudGap: 8
   showSectionFlags: 1
   showSectionStats: 1
   showSectionCombat: 1
@@ -2862,11 +2868,14 @@ MonoBehaviour:
   targetFPS: 60
   globalIntensity: 2
   blurIntensity: 2
-  maxBlurLength: 0.1
+  maxBlurLength: 0.25
   minBlurFloor: 0.005
   currentState: 0
   isLockedOn: 0
   lockOnShutterMultiplier: 1.4
+  trailAttack: 1
+  trailHeavyAttack: 0.5
+  trailIdle: 0
   hysteresisHigh: 0.15
   hysteresisLow: 0.05
   smoothDecayIdle: 0.8
@@ -2987,7 +2996,7 @@ MonoBehaviour:
   attackBlurMultiplier: 100
   heavyBlurMultiplier: 1.5
   blurAttackRampUp: 30
-  blurAttackRampDown: 0.5
+  blurAttackRampDown: 10.59
   enableSlashWindupAsAim: 1
   aimMaxDuration: 0.2
   attackEndDelay: 0.08

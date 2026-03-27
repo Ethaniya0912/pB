@@ -1274,6 +1274,12 @@ MonoBehaviour:
   fontSize: 11
   sectionFontSize: 11
   showDebugHUD: 0
+  showPanorama: 1
+  panoramaTabs: 000000000300000004000000
+  panoramaPanelHeight: 160
+  showTargetSideHUD: 1
+  showTargetPanorama: 1
+  sideHudGap: 8
   showSectionFlags: 1
   showSectionStats: 1
   showSectionCombat: 1
@@ -1348,15 +1354,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
   debugForceIdleStretch: 0
-  shutterAngle: 180
+  shutterAngle: 360
   targetFPS: 60
-  globalIntensity: 1
-  blurIntensity: 1
-  maxBlurLength: 0.04
+  globalIntensity: 2
+  blurIntensity: 2
+  maxBlurLength: 0.2
   minBlurFloor: 0.005
   currentState: 0
   isLockedOn: 0
   lockOnShutterMultiplier: 1.4
+  trailAttack: 0.35
+  trailHeavyAttack: 0.5
+  trailIdle: 0
   hysteresisHigh: 0.15
   hysteresisLow: 0.05
   smoothDecayIdle: 0.8
@@ -1521,7 +1530,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 231a6ad896455da4d920b46d10003b28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
-  skinningCacheShader: {fileID: 0}
+  skinningCacheShader: {fileID: 7200000, guid: 5180e7e0d86f1e248a4e04abe3856aa2, type: 3}
   targetSMR: {fileID: 0}
   _dbgStatus: Initializing
   _dbgVertexCount: 0

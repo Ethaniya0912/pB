@@ -146,9 +146,9 @@ MonoBehaviour:
     lockCameraMouseInfluence: 0
   handheldEffect:
     enableHandheldEffect: 1
-    swayAmount: 10
+    swayAmount: 0.001
     swaySpeed: 1
-    bobbingAmount: 10
+    bobbingAmount: 0.001
   impactShake:
     enableShake: 1
     shakeIntensity: 0.3

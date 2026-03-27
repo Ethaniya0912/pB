@@ -76,13 +76,13 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
         // ── [Fix-9] Transparent Alpha Fade 파라미터 ──────────────────
         [Header(Transparent Alpha Fade)]
         [Toggle(_OMB_TRANSPARENT)]
-        _OMBTransparent  ("Enable Alpha Fade (P2 자동 제어)", Float) = 0
+        _OMBTransparent  ("Enable Alpha Fade", Float) = 0
 
         // 블렌드 고정값 하드코딩 — ZWrite Off, Blend SrcAlpha OneMinusSrcAlpha
         // (런타임 변경 불필요)
 
         // 0.7=이동 시작부터 빠르게 흐릿, 1.0=선형, 2.0=나중에 급격히
-        _OMBFadeExponent ("Fade Exponent", Range(0.3, 3.0)) = 0.5  // 낮을수록 빠르게 투명 → 팽창 대신 배경 비침
+        _OMBFadeExponent ("Fade Exponent", Range(0.3, 3.0)) = 0.5
         // 방향성 블러 강도. 0=방향 무관, 1.0=이동 앞쪽 완전 투명
         _OMBDirStrength  ("Dir Fade Strength", Range(0.0, 1.0)) = 0.7
         // 이 값 이하 boneWeight 버텍스는 항상 alpha=1 (몸통 보호)
@@ -92,6 +92,13 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
         // Low:  이 값 미만이어야 불투명 복귀 (높일수록 늦게 복귀)
         _OMBHysteresisHigh ("Hysteresis High", Range(0.05, 0.5)) = 0.15
         _OMBHysteresisLow  ("Hysteresis Low",  Range(0.01, 0.3)) = 0.05
+
+        [Header(Trailing Edge Smear)]
+        [Toggle(_OMB_TRAILING)]
+        _OMBTrailing         ("Enable Trailing Edge",  Float)          = 0
+        _OMBTrailFadeExp     ("Trail Fade Exponent",   Range(0.5, 5.0))= 2.0
+        _OMBTaperStrength    ("Taper Strength",        Range(0.0, 0.5))= 0.1
+        _OMBGlobalTrail      ("Global Trail Influence", Range(0.0, 1.0))= 0.0
     }
 
     SubShader
@@ -142,6 +149,7 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
             #pragma shader_feature_local _OMB_ENABLED
             #pragma shader_feature_local _OMBDEBUG_OFF _OMBDEBUG_WEIGHT _OMBDEBUG_VELOCITY _OMBDEBUG_BLURAMOUNT _OMBDEBUG_STRETCHABS _OMBDEBUG_STRETCHRATIO _OMBDEBUG_ALPHAFADE
             #pragma shader_feature_local _OMB_TRANSPARENT
+            #pragma shader_feature_local _OMB_TRAILING
 
             #pragma multi_compile_instancing
             #pragma multi_compile _ LIGHTMAP_ON
@@ -185,8 +193,13 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 float  _OMBDirStrength;
                 float  _OMBFadeWeightThreshold;
                 // [p8] Hysteresis: 깜빡임 방지
-                float  _OMBHysteresisHigh;  // 반투명 시작 임계 (기본 0.15)
-                float  _OMBHysteresisLow;   // 불투명 복귀 임계 (기본 0.05)
+                float  _OMBHysteresisHigh;
+                float  _OMBHysteresisLow;
+                // Trailing Edge Smear
+                float  _OMBTrailFadeExp;
+                float  _OMBTaperStrength;
+                float  _OMBGlobalTrail;
+                float3 _OMBFacingDir;
             CBUFFER_END
 
             // ── 모션 블러 파라미터 (전부 CBUFFER에서 MPB로 주입) ──────────
@@ -317,10 +330,54 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                     finalStretch     = max(finalStretch, minStretch);
                 }
 
-                // 버텍스 오프셋
+                // ── Trailing Edge Smear (조합 A) ────────────────────────
+                // trailWeight: 0=leading(앞면,이동방향), 1=trailing(뒷면,잔상)
+                // smoothstep(0,-0.5,dot): dot>0→0.0, dot<-0.5→1.0, 사이는 부드러운 전환
+                float3 normalWSVert = GetVertexNormalInputs(input.normalOS, input.tangentOS).normalWS;
+
                 float3 finalPosWS = posWS;
                 #if defined(_OMB_ENABLED)
-                    finalPosWS = posWS + blurDir * finalStretch;
+                    #if defined(_OMB_TRAILING)
+                        // trailing 판별: 이동 반대 방향을 향하는 면
+                        float  dotNBlur    = dot(normalWSVert, blurDir);
+                        float  trailNormal = smoothstep(0.0, -0.5, dotNBlur);
+
+                        // boneWeight 기반 global trail:
+                        // _OMBGlobalTrail > 0이면 boneWeight에 비례한 최소 trailing 보장
+                        // 팔끝(w=1.0): 항상 강한 trailing
+                        // 어깨(w=0.6): 약한 trailing
+                        // 몸통(w=0.2): 아주 약한 trailing
+                        // P2에서 BlurState.Attack 시 0.3~0.5 주입 권장
+                        float  trailGlobal = boneWeight * _OMBGlobalTrail;
+                        float  trailWeight = max(trailNormal, trailGlobal);
+
+                        // vel=0 버텍스(몸통 등)는 캐릭터 facing 방향으로 폴백
+                        float3 effectiveBlurDir = (speed > 0.001)
+                            ? blurDir
+                            : normalize(_OMBFacingDir + float3(0,0.001,0));
+
+                        // GlobalTrail 기반 최소 stretch 보장
+                        float globalStretch    = boneWeight * _OMBGlobalTrail * _OMBMaxLength * 0.5;
+                        float effectiveStretch = max(finalStretch, globalStretch);
+
+                        // ── 버텍스 오프셋: trailNormal만 사용 ────────────────
+                        // trailWeight(trailNormal + trailGlobal)를 오프셋에 쓰면
+                        // GlobalTrail > 0일 때 leading face도 이동 → 원본 위치 소실
+                        // → smear는 노멀 기반 trailNormal만 사용해 leading 보호
+                        float3 smearOffset = -effectiveBlurDir * effectiveStretch * trailNormal;
+
+                        float  blurProg    = effectiveStretch / max(_OMBMaxLength, 0.001);
+                        float  taper       = trailNormal * blurProg * _OMBTaperStrength;
+                        smearOffset       -= normalWSVert * taper;
+
+                        finalPosWS = posWS + smearOffset;
+                    #else
+                        // 기존 방식: 이동 방향으로 밀기 (Toggle Off 시)
+                        finalPosWS = posWS + blurDir * finalStretch;
+                        float trailWeight  = 0.0; // alpha 계산용 더미
+                    #endif
+                #else
+                    float trailWeight = 0.0;
                 #endif
 
                 output.positionCS         = TransformWorldToHClip(finalPosWS);
@@ -341,32 +398,46 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 output.dbgStretchRaw  = stretchLen;          // 클램프 전 순수 stretchLen
                 output.dbgSpeed       = speed;               // m/frame 단위 속도
 
-                // [Fix-9] Alpha Fade 계산
-                // blurProgress: 0(정지/Idle) ~ 1(maxBlurLength 도달)
+                // ── Alpha Fade 계산 (Trailing Edge 기반) ────────────────
+                // blurProgress: finalStretch 기반 (속도 기반 실제 stretch)
+                // globalStretch는 smear 오프셋에만 사용, alpha 계산은 분리
                 float blurProgress = finalStretch / max(_OMBMaxLength, 0.001);
+                float blurAlpha    = 1.0;
 
-                // ── Hysteresis alpha 제어 (반투명 깜빡임 완전 차단) ────────
-                // 단순 threshold 대신 두 개의 임계값 사용:
-                //   _OMBHysteresisHigh (기본 0.15): 이 값 초과 시 반투명 시작
-                //   _OMBHysteresisLow  (기본 0.05): 이 값 미만 시 불투명 복귀
-                // 0.05~0.15 구간: 이전 상태 유지 → 경계 오락가락 깜빡임 차단
-                float blurAlpha = 1.0;
-                [branch]
-                if (blurProgress > _OMBHysteresisHigh && boneWeight > _OMBFadeWeightThreshold)
-                {
-                    float globalFade = 1.0 - pow(max(blurProgress - _OMBHysteresisHigh, 0.0),
-                                                 max(_OMBFadeExponent, 0.1));
+                #if defined(_OMB_TRAILING)
+                    // Soft Alpha Ramp: trailing일수록 투명
+                    // trailWeight=0(leading) → alpha=1 (불투명 유지)
+                    // trailWeight=1(trailing 끝) + blurProgress=1 → alpha=0 (사라짐)
+                    // localFade: 속도 기반 trailing (팔처럼 빠른 부위)
+                    // globalFade: GlobalTrail 직접 적용 (전신, 속도 무관)
+                    // 두 항을 max()로 합산 → blurProgress=0인 몸통도 GlobalTrail만큼 trailing 발생
+                    float localFade  = trailNormal * blurProgress;
+                    // globalFade: boneWeight 비례 전신 trailing 보조
+                    // 0.5로 스케일 → GlobalTrail=1이어도 최대 fadeVal=0.5 (완전 투명 방지)
+                    float globalFade = boneWeight * _OMBGlobalTrail * 0.5;
+                    float trailFade  = max(localFade, globalFade);
 
-                    // 방향성 fade — 이동 방향 앞쪽 버텍스를 추가로 투명하게
-                    float3 pivotWS  = TransformObjectToWorld(float3(0, 0, 0));
-                    float3 toVertex = posWS - pivotWS;
-                    float  dirDot   = (speed > 0.001 && length(toVertex) > 0.001)
-                                      ? saturate(dot(normalize(toVertex), blurDir))
-                                      : 0.0;
-                    float  dirFade  = 1.0 - dirDot * blurProgress * _OMBDirStrength;
-
-                    blurAlpha = saturate(globalFade * dirFade);
-                }
+                    [branch]
+                    if (trailFade > 0.02 && boneWeight > _OMBFadeWeightThreshold)
+                    {
+                        float fadeVal = pow(saturate(trailFade), _OMBTrailFadeExp);
+                        blurAlpha     = 1.0 - fadeVal;
+                    }
+                #else
+                    // 기존 Hysteresis 방식 유지 (Toggle Off 시)
+                    [branch]
+                    if (blurProgress > _OMBHysteresisHigh && boneWeight > _OMBFadeWeightThreshold)
+                    {
+                        float globalFade = 1.0 - pow(max(blurProgress - _OMBHysteresisHigh, 0.0),
+                                                     max(_OMBFadeExponent, 0.1));
+                        float3 pivotWS   = TransformObjectToWorld(float3(0, 0, 0));
+                        float3 toVertex  = posWS - pivotWS;
+                        float  dirDot    = (speed > 0.001 && length(toVertex) > 0.001)
+                                           ? saturate(dot(normalize(toVertex), blurDir)) : 0.0;
+                        float  dirFade   = 1.0 - dirDot * blurProgress * _OMBDirStrength;
+                        blurAlpha        = saturate(globalFade * dirFade);
+                    }
+                #endif
 
                 output.dbgAlphaFade = blurAlpha;
 
@@ -602,9 +673,21 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 result3 *= occlusion;
 
                 float  fogFactor3  = ComputeFogFactor(input.positionCSOriginal.z);
-                float4 finalColor  = float4(result3, albedo.a);
-                finalColor.rgb     = MixFog(finalColor.rgb, fogFactor3);
 
+                // ── Soft Alpha Ramp (조합 A) ─────────────────────────────
+                // _OMB_TRAILING On: trailWeight 기반 blurAlpha → smoothstep으로 소프트닝
+                //   leading(앞): blurAlpha=1.0 → softAlpha=1.0 (완전 불투명)
+                //   trailing 끝: blurAlpha=0.0 → softAlpha=0.0 (배경으로 녹아듦)
+                //   0.05~0.25 전환 구간: 부드러운 배경 혼합
+                // _OMB_TRAILING Off: albedo.a 유지 (기존 방식)
+                #if defined(_OMB_TRAILING)
+                    float softAlpha = smoothstep(0.0, 0.25, input.dbgAlphaFade);
+                    float4 finalColor = float4(result3, softAlpha);
+                #else
+                    float4 finalColor = float4(result3, albedo.a);
+                #endif
+
+                finalColor.rgb = MixFog(finalColor.rgb, fogFactor3);
                 return finalColor;
             }
             ENDHLSL
@@ -648,6 +731,10 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 float  _OMBFadeWeightThreshold;
                 float  _OMBHysteresisHigh;
                 float  _OMBHysteresisLow;
+                float  _OMBTrailFadeExp;
+                float  _OMBTaperStrength;
+                float  _OMBGlobalTrail;
+                float3 _OMBFacingDir;
             CBUFFER_END
 
             #if defined(_OMB_ENABLED)
@@ -780,6 +867,10 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 float  _OMBFadeWeightThreshold;
                 float  _OMBHysteresisHigh;
                 float  _OMBHysteresisLow;
+                float  _OMBTrailFadeExp;
+                float  _OMBTaperStrength;
+                float  _OMBGlobalTrail;
+                float3 _OMBFacingDir;
             CBUFFER_END
 
             #if defined(_OMB_ENABLED)
@@ -891,6 +982,10 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 float  _OMBIntensityGlobal;
                 float  _OMBMaxLength;
                 float  _OMBShutterMult;
+                float  _OMBTrailFadeExp;
+                float  _OMBTaperStrength;
+                float  _OMBGlobalTrail;
+                float3 _OMBFacingDir;
                 float3 _OMBVelocityWS;
                 float  _OMBHysteresisHigh;
                 float  _OMBHysteresisLow;

@@ -74,6 +74,14 @@ public class ObjectMotionBlurController : MonoBehaviour
     [Tooltip("락온 중 공격 시 ShutterAngle 추가 배율.")]
     [Range(1f, 2f)] public float lockOnShutterMultiplier = 1.4f;
 
+    [Header("Trailing Edge")]
+    [Tooltip("Global trail influence injected per BlurState.\n" +
+             "0 = arm/fast parts only. 0.3~0.5 = whole body trailing during attack.")]
+    [Range(0f, 1f)] public float trailAttack      = 0.35f;
+    [Range(0f, 1f)] public float trailHeavyAttack = 0.50f;
+    [Range(0f, 1f)] public float trailIdle        = 0.00f;
+    private float _smoothedGlobalTrail = 0f;
+
     [Header("Alpha Hysteresis")]
     [Tooltip("반투명 시작 임계. 이 값 이상이어야 반투명 시작.\n낮출수록 작은 움직임에도 반투명. 기본 0.15.")]
     [Range(0.05f, 0.5f)] public float hysteresisHigh = 0.15f;
@@ -145,6 +153,8 @@ public class ObjectMotionBlurController : MonoBehaviour
     private static readonly int PropWeightBuf    = Shader.PropertyToID("_BlurWeightBuffer");
     private static readonly int PropVelocityBuf    = Shader.PropertyToID("_OMBVelocityBuffer");
     private static readonly int OMBHystHighID      = Shader.PropertyToID("_OMBHysteresisHigh");
+    private static readonly int OMBGlobalTrailID   = Shader.PropertyToID("_OMBGlobalTrail");
+    private static readonly int OMBFacingDirID     = Shader.PropertyToID("_OMBFacingDir");
     private static readonly int OMBHystLowID       = Shader.PropertyToID("_OMBHysteresisLow");
 
     // [Fix-9 v2] Transparent 고정값 처리로 변경 — runtime 전환 불필요
@@ -269,6 +279,17 @@ public class ObjectMotionBlurController : MonoBehaviour
         _mpb.SetFloat(OMBIntensityID,     blurIntensity * _externalIntensityMult);
         _mpb.SetFloat(OMBHystHighID,      hysteresisHigh);
         _mpb.SetFloat(OMBHystLowID,       hysteresisLow);
+
+        // _OMBGlobalTrail: BlurState에 따라 전신 trailing 강도 주입
+        float targetTrail = currentState == BlurState.HeavyAttack ? trailHeavyAttack
+                          : currentState == BlurState.Attack       ? trailAttack
+                          : trailIdle;
+        _smoothedGlobalTrail = Mathf.Lerp(_smoothedGlobalTrail, targetTrail,
+                                          Time.deltaTime * 8f);
+        _mpb.SetFloat(OMBGlobalTrailID, _smoothedGlobalTrail);
+        // facing direction: vel=0 버텍스의 trail 방향 기준
+        // transform.forward를 주입 → 몸통이 등쪽으로 당겨지는 자연스러운 trail
+        _mpb.SetVector(OMBFacingDirID, transform.forward);
 
         // ── 디버그 갱신 (velocity smoothing 시각화) ──────────────
         _dbgRawSpeed      = rawVelocity.magnitude;

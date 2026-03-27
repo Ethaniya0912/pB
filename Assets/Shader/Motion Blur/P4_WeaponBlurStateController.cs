@@ -1,7 +1,6 @@
 using UnityEngine;
 using TDA.Character;
 using TDA.Core.Events;
-using TDA.Character.Player;
 using System.Collections.Generic;
 using System.Text;
 
@@ -11,7 +10,7 @@ using System.Text;
 ///
 /// ■ 자동 탐색 구조
 ///   Awake에서 CharacterManager → characterEventManager 경로로 자동 탐색
-///   PlayerLocomotionManager 또는 CharacterController를 통해 속도 자동 감지
+///   CharacterController (또는 CharacterManager.characterController)를 통해 속도 자동 감지
 ///   Rigidbody/CharacterController Inspector 슬롯은 선택사항 (자동 탐색이 실패할 경우 폴백)
 ///
 /// ■ Windup 단계 감지 방법
