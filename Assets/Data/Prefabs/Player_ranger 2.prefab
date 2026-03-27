@@ -2973,7 +2973,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 231a6ad896455da4d920b46d10003b28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
-  skinningCacheShader: {fileID: 0}
+  skinningCacheShader: {fileID: 7200000, guid: 5180e7e0d86f1e248a4e04abe3856aa2, type: 3}
   targetSMR: {fileID: 0}
   _dbgStatus: Initializing
   _dbgVertexCount: 0

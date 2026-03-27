@@ -41,7 +41,7 @@ MonoBehaviour:
       m_RotationOrder: 4
     holdDuration: 1.3
     trackingStartTime: 0.03
-    trackingEndTime: 0.40
+    trackingEndTime: 0.4
     trackingWeightCurve:
       serializedVersion: 2
       m_Curve:
@@ -72,5 +72,9 @@ MonoBehaviour:
   canBeInterruptedByDamage: 0
   restoreToDefaultStanceOnFinish: 1
   restoreBlendDuration: 0.25
-  restorePreviousAngle: 0
+  restorePreviousAngle: 1
+  restoreAngleSpeed: 3
+  restorePreviousFraming: 1
+  restoreFramingBlendTime: 0.3
+  restorePreviousStanceValues: 1
   pauseOnApply: 0
