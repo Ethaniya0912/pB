@@ -110,6 +110,12 @@ public class PlayerLocomotionManager : CharacterLocomotionManager
         HandleAirborneAndGravity();
         HandleGroundedMovement();
         HandleRotation();
+
+        // ── Motion Blur: 이동 상태 반영 ───────────────────────────────────
+        // isPerformingAction 중에는 UpdateLocomotionBlur 내부에서 skip 되므로
+        // 공격/피격 중 Attack 블러가 보존됩니다.
+        if (player.characterEffectsManager is TDA.Character.Player.PlayerEffectsManager pem)
+            pem.UpdateLocomotionBlur(moveAmount, player.isPerformingAction);
     }
 
     public void OnMovementInputReceived(Vector2 movementInput)

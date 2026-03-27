@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 097784bc936682949a8d1d0db1d550ae, type: 3}
+  m_Name: BlurEventResponse_AI
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Cameras.BlurEventResponseSO
+  pulseDefinitions:
+  - eventType: 88
+    strength: 0.15
+    blendIn: 0.02
+    duration: 0.05
+    decayTime: 0.2
+  - eventType: 89
+    strength: 0.5
+    blendIn: 0.02
+    duration: 0.1
+    decayTime: 0.35
+  - eventType: 84
+    strength: 0.3
+    blendIn: 0.03
+    duration: 0.08
+    decayTime: 0.25
+  - eventType: 87
+    strength: 0.4
+    blendIn: 0.03
+    duration: 0.08
+    decayTime: 0.3
+  - eventType: 86
+    strength: 0.25
+    blendIn: 0.03
+    duration: 0.07
+    decayTime: 0.25
+  - eventType: 85
+    strength: 0.25
+    blendIn: 0.03
+    duration: 0.07
+    decayTime: 0.25

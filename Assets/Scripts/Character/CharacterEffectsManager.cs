@@ -49,6 +49,13 @@ namespace TDA.Character
         [Tooltip("HitSpark GPU 파티클 매니저 프리팹 (Instantiate 후 EmitSparks 호출)")]
         [SerializeField] protected ParrySparkGPUManager gpuSparkPrefab;
 
+        // ── Blur Controller (옵션) ────────────────────────────────────────────
+        // 인스펙터에서 연결하거나 Awake()에서 자동 탐색합니다.
+        // AI 캐릭터처럼 blur가 필요 없는 경우 비워두면 자동으로 skip 됩니다.
+        [Header("Motion Blur (옵션)")]
+        [Tooltip("ObjectMotionBlurController — 비워두면 GetComponentInChildren 으로 자동 탐색")]
+        [SerializeField] protected ObjectMotionBlurController blurController;
+
         // ── Blood VFX (기존 Instantiate 방식 유지) ───────────────────────────
         [Header("Blood VFX (기존 방식 유지)")]
         [SerializeField] protected GameObject bloodSplatterVFX;
@@ -74,6 +81,10 @@ namespace TDA.Character
         {
             character = GetComponent<CharacterManager>();
             eventManager = GetComponent<CharacterEventManager>();
+
+            // blurController 슬롯이 비어있으면 자식에서 자동 탐색
+            if (blurController == null)
+                blurController = GetComponentInChildren<ObjectMotionBlurController>(true);
         }
 
         // Rule 3 준수: OnEnable/OnDisable 에서 구독/해제 쌍 관리
@@ -118,7 +129,70 @@ namespace TDA.Character
                 Vector3 fallbackDir = transform.forward;
                 PlayHitSparkVFX(eventType, fallbackContact, fallbackDir);
             }
+
+            // ── Motion Blur 상태 전환 ────────────────────────────────────────
+            // blurController 가 없으면 (AI 등) 조용히 skip
+            HandleBlurStateTransition(eventType);
         }
+
+        // ════════════════════════════════════════════════════════════════════
+        //  Motion Blur 상태 전환 헬퍼
+        //
+        //  두 가지 역할을 동시에 수행합니다.
+        //
+        //  [1] BlurState 전환 (하드코딩 — 공격/이동 상태 머신)
+        //      HitBoxEnable → Attack, Action_Ended → Idle 등
+        //      게임플레이 상태를 반영하는 BlurState 전환은 코드가 가장 명확합니다.
+        //
+        //  [2] ICameraEffectReceiver Pulse 트리거 (데이터 드리븐)
+        //      Hit_Confirmed, Hit_From_Front 등 타격/피격 피드백 이벤트는
+        //      BlurEventResponseSO 의 pulseDefinitions 에서 수치를 읽습니다.
+        //      SO 에 등록되지 않은 이벤트는 Pulse 없이 무시됩니다.
+        //
+        //  하위 클래스(PlayerEffectsManager 등)에서 override 가능합니다.
+        // ════════════════════════════════════════════════════════════════════
+        protected virtual void HandleBlurStateTransition(global::AnimationEventType eventType)
+        {
+            if (blurController == null) return;
+
+            // ── [1] BlurState 전환 (상태 머신) ───────────────────────────────
+            switch (eventType)
+            {
+                case global::AnimationEventType.HitBoxEnable:
+                    blurController.SetBlurState(ObjectMotionBlurController.BlurState.Attack);
+                    break;
+
+                case global::AnimationEventType.HitBoxDisable:
+                case global::AnimationEventType.Action_Ended:
+                    blurController.SetBlurState(ObjectMotionBlurController.BlurState.Idle);
+                    break;
+
+                case global::AnimationEventType.Charge_Started:
+                    blurController.SetBlurState(ObjectMotionBlurController.BlurState.Aim);
+                    break;
+
+                case global::AnimationEventType.Charge_Ended:
+                    blurController.SetBlurState(ObjectMotionBlurController.BlurState.HeavyAttack);
+                    break;
+            }
+
+            // ── [2] ICameraEffectReceiver Pulse 트리거 (SO 드리븐) ────────────
+            // BlurEventResponseSO 에 등록된 이벤트라면 Pulse 를 발동합니다.
+            // 등록 안 된 이벤트는 ReceiveCameraEffectEvent 내부에서 조용히 무시됩니다.
+            (blurController as TDA.Cameras.ICameraEffectReceiver)
+                ?.ReceiveCameraEffectEvent(eventType);
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        //  Blur 상태를 외부(로코모션 등)에서 직접 세팅하는 공개 API
+        // ════════════════════════════════════════════════════════════════════
+        public void SetBlurState(ObjectMotionBlurController.BlurState state)
+        {
+            if (blurController != null)
+                blurController.SetBlurState(state);
+        }
+
+        public bool HasBlurController => blurController != null;
 
         // ══════════════════════════════════════════════════════════════════════
         //  피격 VFX 처리 (Damage_Calculated 경로)
@@ -172,23 +246,17 @@ namespace TDA.Character
             Vector3 contactPoint,
             Vector3 deflectDirection)
         {
-            Debug.Log($"[SPARK-DEBUG A] PlayHitSparkVFX 진입 — eventType={eventType} 클래스={GetType().Name}");
-
             // SO 레지스트리에서 데이터 조회
             HitSparkVFXData data = vfxRegistry != null
                 ? vfxRegistry.GetData(eventType)
                 : null;
 
-            Debug.Log($"[SPARK-DEBUG B] vfxRegistry={vfxRegistry != null} data={data != null}");
-
             // 레지스트리 미등록 시 WorldCharacterEffectsManager 폴백
             if (data == null)
             {
-                bool hasWorldFallback = WorldCharacterEffectsManager.Instance != null &&
-                                        WorldCharacterEffectsManager.Instance.hitsparkVFX != null;
-                Debug.Log($"[SPARK-DEBUG C] data=null → 폴백 시도. worldFallback={hasWorldFallback}");
-
-                if (hasWorldFallback)
+                // 기존 WorldCharacterEffectsManager 의 hitsparkVFX 폴백 유지
+                if (WorldCharacterEffectsManager.Instance != null &&
+                    WorldCharacterEffectsManager.Instance.hitsparkVFX != null)
                 {
                     if (deflectDirection == Vector3.zero)
                         deflectDirection = transform.forward;
@@ -196,8 +264,8 @@ namespace TDA.Character
                     Instantiate(
                         WorldCharacterEffectsManager.Instance.hitsparkVFX,
                         contactPoint, rot);
-                    Debug.Log($"[SPARK-DEBUG C2] 폴백 hitsparkVFX Instantiate 완료");
                 }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 else
                 {
                     Debug.LogWarning(
@@ -206,6 +274,7 @@ namespace TDA.Character
                         $"WorldCharacterEffectsManager.hitsparkVFX 도 null 입니다. " +
                         $"HitSparkVFXRegistry 에 항목을 등록하세요.", this);
                 }
+#endif
                 return;
             }
 
@@ -223,10 +292,8 @@ namespace TDA.Character
                 ? transform.forward
                 : deflectDirection;
 
-            Debug.Log($"[SPARK-DEBUG D] gpuSparkPrefab={gpuSparkPrefab.name} → Instantiate & EmitSparks");
             ParrySparkGPUManager instance = Instantiate(gpuSparkPrefab, contactPoint, Quaternion.identity);
             instance.EmitSparks(data, contactPoint, burstDir);
-            Debug.Log($"[SPARK-DEBUG E] EmitSparks 완료");
         }
 
         /// <summary>

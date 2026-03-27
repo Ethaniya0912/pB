@@ -1,4 +1,6 @@
 using UnityEngine;
+using TDA.Cameras;       // ICameraEffectReceiver, CameraEffectOverlayData
+using TDA.Core.Events;   // AnimationEventType
 
 /// <summary>
 /// [우선순위 2 — ObjectMotionBlurController]
@@ -7,6 +9,7 @@ using UnityEngine;
 ///   1. 이전 프레임 모델 행렬(_PrevObjectToWorld)을 매 LateUpdate마다 셰이더에 전달.
 ///   2. AvatarAutoWeightBaker로부터 WeightBuffer 레퍼런스를 받아 함께 MPB에 포함.
 ///   3. BlurState에 따라 ShutterAngle 배율을 자동 조정 (P4 WeaponBlurStateController 연동).
+///   4. [신규] ICameraEffectReceiver 구현 — BlurEventResponseSO 기반 데이터 드리븐 Pulse.
 ///
 /// ■ WeightBuffer 관리 방식
 ///   GetPropertyBlock()은 ComputeBuffer를 복사하지 않습니다.
@@ -17,16 +20,16 @@ using UnityEngine;
 /// ■ 부착 위치
 ///   캐릭터 루트 오브젝트. SkinnedMeshRenderer가 자식에 있어도 자동 탐색합니다.
 /// </summary>
-public class ObjectMotionBlurController : MonoBehaviour
+public class ObjectMotionBlurController : MonoBehaviour, ICameraEffectReceiver
 {
     // ── 블러 상태 열거형 ──────────────────────────────────────────
     public enum BlurState
     {
-        Idle,        // 정적 대기 — ShutterMult 0.5
-        Strafe,      // 이동 중   — ShutterMult 1.0
-        Aim,         // 조준/예비 — ShutterMult 0.67
-        Attack,      // 공격      — ShutterMult 1.5
-        HeavyAttack  // 강공격    — ShutterMult 2.0
+        Idle,        // 정적 대기 — ShutterMult 0.0
+        Strafe,      // 이동 중   — ShutterMult 0.8
+        Aim,         // 조준/예비 — ShutterMult 0.5
+        Attack,      // 공격      — ShutterMult 2.0
+        HeavyAttack  // 강공격    — ShutterMult 3.0
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -40,11 +43,9 @@ public class ObjectMotionBlurController : MonoBehaviour
     [Tooltip("ShutterAngle/GlobalIntensity가 StretchAbs에 반영되려면 BlurState != Idle이어야 합니다.\n" +
              "Idle의 ShutterMult=0이라 stretch=0이 되기 때문입니다.\n" +
              "이 옵션을 켜면 Idle 상태에서도 ShutterMult=1로 강제해 테스트 가능합니다.")]
-    public bool debugForceIdleStretch = false;  // Idle에서도 stretch 강제 (테스트용)
+    public bool debugForceIdleStretch = false;
 
-    [Header("Shutter Settings")]
-    [Tooltip("셔터 앵글 (도). 180°=표준, 270~360°=강한 블러.\n" +
-             "ShaderCoordinationManager 미사용 시 이 값이 직접 적용됩니다.")]
+    [Tooltip("셔터 앵글 (도). 180°=표준, 270~360°=강한 블러.")]
     [Range(1f, 360f)] public float shutterAngle = 180f;
 
     [Tooltip("목표 FPS. 60 고정 권장.")]
@@ -58,11 +59,11 @@ public class ObjectMotionBlurController : MonoBehaviour
     [Range(0f, 2f)] public float blurIntensity = 1f;
 
     [Tooltip("최대 블러 길이 (월드 단위). 너무 크면 메시가 찢어져 보입니다.")]
-    [Range(0f, 0.5f)] public float maxBlurLength = 0.25f; // GVB 활성화 후 강한 스윙 커버 — 기존 0.04 → 0.25
+    [Range(0f, 0.5f)] public float maxBlurLength = 0.25f;
 
     [Tooltip("정지 시에도 유지할 최소 블러. 0이면 팝인 발생 가능.\n" +
              "보스: 0.015  적: 0.005  플레이어: 0~0.003")]
-    [Range(0f, 0.05f)] public float minBlurFloor = 0.002f;  // 팝인 최소화 — 기존 0.005 → 0.002
+    [Range(0f, 0.05f)] public float minBlurFloor = 0.002f;
 
     [Header("State (P4 WeaponBlurStateController 연동)")]
     [Tooltip("현재 블러 상태. 직접 설정하거나 WeaponBlurStateController가 자동 설정합니다.")]
@@ -75,106 +76,111 @@ public class ObjectMotionBlurController : MonoBehaviour
     [Range(1f, 2f)] public float lockOnShutterMultiplier = 1.4f;
 
     [Header("Trailing Edge")]
-    [Tooltip("Global trail influence injected per BlurState.\n" +
-             "0 = arm/fast parts only. 0.3~0.5 = whole body trailing during attack.")]
-    [Range(0f, 1f)] public float trailAttack      = 0.35f;
+    [Range(0f, 1f)] public float trailAttack = 0.35f;
     [Range(0f, 1f)] public float trailHeavyAttack = 0.50f;
-    [Range(0f, 1f)] public float trailIdle        = 0.00f;
+    [Range(0f, 1f)] public float trailIdle = 0.00f;
     private float _smoothedGlobalTrail = 0f;
 
     [Header("Alpha Hysteresis")]
-    [Tooltip("반투명 시작 임계. 이 값 이상이어야 반투명 시작.\n낮출수록 작은 움직임에도 반투명. 기본 0.15.")]
     [Range(0.05f, 0.5f)] public float hysteresisHigh = 0.15f;
-
-    [Tooltip("불투명 복귀 임계. 이 값 미만이어야 불투명 복귀.\n두 값 사이 구간에서는 상태 유지 → 깜빡임 차단.")]
-    [Range(0.01f, 0.3f)] public float hysteresisLow  = 0.05f;
+    [Range(0.01f, 0.3f)] public float hysteresisLow = 0.05f;
 
     [Header("Velocity Smoothing")]
-    [Tooltip("이동/달리기 중 velocity 감쇠 계수. 0=즉시, 0.85=7프레임, 0.95=20프레임.")]
-    [Range(0f, 0.98f)] public float smoothDecayIdle   = 0.80f;  // Idle 복귀 시
+    [Range(0f, 0.98f)] public float smoothDecayIdle = 0.80f;
+    [Range(0f, 0.98f)] public float smoothDecayStrafe = 0.88f;
+    [Range(0.90f, 0.999f)] public float smoothDecayAttack = 0.96f;
+    [Range(0.90f, 0.999f)] public float smoothDecayHeavy = 0.98f;
 
-    [Tooltip("Attack 상태 진입 시 velocity 상승 속도 (빠를수록 즉각 반응).")]
-    [Range(0f, 0.98f)] public float smoothDecayStrafe = 0.88f;  // Strafe 이동 중
-
-    [Tooltip("공격/강공격 중 velocity 유지 계수. 높을수록 동작 내내 블러 유지됨.")]
-    [Range(0.90f, 0.999f)] public float smoothDecayAttack = 0.96f;  // Attack/Aim 중
-
-    [Tooltip("강공격 중 velocity 유지 계수. 0.98=약 50프레임 유지.")]
-    [Range(0.90f, 0.999f)] public float smoothDecayHeavy = 0.98f;  // HeavyAttack 중
+    // ═══════════════════════════════════════════════════════════════════════
+    // [신규] ICameraEffectReceiver 연동 — BlurEventResponseSO 기반 Pulse 시스템
+    //
+    // 사용 방법:
+    //   1. Create → TDA/Camera/Blur Event Response 로 SO 에셋 생성
+    //   2. Inspector 의 blurEventResponse 슬롯에 드래그 연결
+    //   3. SO 의 pulseDefinitions 리스트에서 이벤트 타입별 강도/시간 설정
+    //
+    // 동작 방식:
+    //   CharacterEventManager → WorldCameraManager.BroadcastCameraEvent()
+    //     → ICameraEffectReceiver.ReceiveCameraEffectEvent(eventType)
+    //       → BlurEventResponseSO.GetPulse(eventType)
+    //         → blurIntensity 를 Pulse 곡선으로 일시 증폭
+    // ═══════════════════════════════════════════════════════════════════════
+    [Header("ICameraEffectReceiver — Blur Event Response (SO-Driven)")]
+    [Tooltip("이벤트 타입별 블러 Pulse 강도/시간을 정의하는 SO.\n" +
+             "Create → TDA/Camera/Blur Event Response 로 생성하세요.\n" +
+             "비워두면 ReceiveCameraEffectEvent() 가 블러 Pulse 없이 무시됩니다.")]
+    [SerializeField] private BlurEventResponseSO blurEventResponse;
 
     [Header("Debug (ReadOnly) — Velocity & Stretch")]
-    [Tooltip("현재 프레임 루트 이동 속도 m/frame. 0이면 정지.")]
-    [SerializeField] private float _dbgRawSpeed      = 0f;
-    [Tooltip("Smoothing 후 속도. smoothDecay 값에 따라 소멸 속도 다름.")]
+    [SerializeField] private float _dbgRawSpeed = 0f;
     [SerializeField] private float _dbgSmoothedSpeed = 0f;
-    [Tooltip("현재 ShutterMult × Intensity × GlobalIntensity. 0이면 stretch=0.")]
-    [SerializeField] private float _dbgEffMult       = 0f;
-    [Tooltip("예상 stretchLen (m). = smoothedSpeed × FPS × expTime × effMult.")]
-    [SerializeField] private float _dbgStretchEst    = 0f;
-    [Tooltip("현재 expTime = ShutterAngle/360/FPS.")]
-    [SerializeField] private float _dbgExpTime       = 0f;
+    [SerializeField] private float _dbgEffMult = 0f;
+    [SerializeField] private float _dbgStretchEst = 0f;
+    [SerializeField] private float _dbgExpTime = 0f;
 
     [Header("Debug (ReadOnly)")]
-    [SerializeField] private bool   _dbgWeightBufConnected;
-    [SerializeField] private string _dbgRendererName   = "None";
-    [SerializeField] private string _dbgBlurState      = "Idle";
-    [SerializeField] private float  _dbgShutterMult    = 0.5f;
-    [SerializeField] private float  _dbgEffectiveMult  = 0f;   // ShutterMult × LockOn 보정 최종값
+    [SerializeField] private bool _dbgWeightBufConnected;
+    [SerializeField] private string _dbgRendererName = "None";
+    [SerializeField] private string _dbgBlurState = "Idle";
+    [SerializeField] private float _dbgShutterMult = 0.5f;
+    [SerializeField] private float _dbgEffectiveMult = 0f;
 
     // ─────────────────────────────────────────────────────────────
     // 내부 변수
     // ─────────────────────────────────────────────────────────────
-    private Renderer             _renderer;
+    private Renderer _renderer;
     private MaterialPropertyBlock _mpb;
+    private bool _isReady = false;
+    private ComputeBuffer _weightBuffer;
+    private ComputeBuffer _velocityBuffer;
 
-
-    private bool                 _isReady  = false;
-    private ComputeBuffer        _weightBuffer;
-    private ComputeBuffer        _velocityBuffer;
+    // ── Pulse 런타임 상태 ─────────────────────────────────────────
+    // ReceiveCameraEffectEvent() 가 Pulse 를 트리거하면 LateUpdate 에서
+    // 매 프레임 보간하여 blurIntensity 에 가산합니다.
+    private float _pulseIntensity = 0f;   // 현재 Pulse 가산치 (0 ~ pulse.strength)
+    private float _pulseTarget = 0f;   // 목표 강도
+    private float _pulseBlendInRate = 0f;   // 상승 속도 (1/blendIn)
+    private float _pulseDecayRate = 0f;   // 감쇠 속도 (1/decayTime)
+    private float _pulseHoldTimer = 0f;   // 최대 강도 유지 카운트다운
+    private bool _pulseDecaying = false;// 감쇠 중 여부
 
     private static readonly float[] StateShutterMultiplier =
     {
-        0.0f,   // Idle        — 정지 시 블러 없음 (팝인 방지는 minBlurFloor 담당)
-        0.8f,   // Strafe      — 이동 중 약한 잔상
-        0.5f,   // Aim         — 예비동작 집중, 블러 감소
-        2.0f,   // Attack      — 공격 강한 잔상 (기존 1.5 → 2.0)
-        3.0f,   // HeavyAttack — 강공격 최대 잔상 (기존 2.0 → 3.0)
+        0.0f,   // Idle
+        0.8f,   // Strafe
+        0.5f,   // Aim
+        2.0f,   // Attack
+        3.0f,   // HeavyAttack
     };
 
     // Shader Property IDs
     private static readonly int OMBShutterAngleID = Shader.PropertyToID("_ShutterAngle");
-    private static readonly int OMBTargetFPSID    = Shader.PropertyToID("_TargetFPS");
-    private static readonly int OMBIntGlobalID    = Shader.PropertyToID("_OMBIntensityGlobal");
-    private static readonly int OMBVelocityID     = Shader.PropertyToID("_OMBVelocityWS");
-    private static readonly int OMBIntensityID   = Shader.PropertyToID("_OMBIntensity");
-    private static readonly int OMBMaxLengthID   = Shader.PropertyToID("_OMBMaxLength");
-    private static readonly int OMBMinBlurID     = Shader.PropertyToID("_OMBMinBlur");
+    private static readonly int OMBTargetFPSID = Shader.PropertyToID("_TargetFPS");
+    private static readonly int OMBIntGlobalID = Shader.PropertyToID("_OMBIntensityGlobal");
+    private static readonly int OMBVelocityID = Shader.PropertyToID("_OMBVelocityWS");
+    private static readonly int OMBIntensityID = Shader.PropertyToID("_OMBIntensity");
+    private static readonly int OMBMaxLengthID = Shader.PropertyToID("_OMBMaxLength");
+    private static readonly int OMBMinBlurID = Shader.PropertyToID("_OMBMinBlur");
     private static readonly int OMBShutterMultID = Shader.PropertyToID("_OMBShutterMult");
-    private static readonly int PropWeightBuf    = Shader.PropertyToID("_BlurWeightBuffer");
-    private static readonly int PropVelocityBuf    = Shader.PropertyToID("_OMBVelocityBuffer");
-    private static readonly int OMBHystHighID      = Shader.PropertyToID("_OMBHysteresisHigh");
-    private static readonly int OMBGlobalTrailID   = Shader.PropertyToID("_OMBGlobalTrail");
-    private static readonly int OMBFacingDirID     = Shader.PropertyToID("_OMBFacingDir");
-    private static readonly int OMBHystLowID       = Shader.PropertyToID("_OMBHysteresisLow");
+    private static readonly int PropWeightBuf = Shader.PropertyToID("_BlurWeightBuffer");
+    private static readonly int PropVelocityBuf = Shader.PropertyToID("_OMBVelocityBuffer");
+    private static readonly int OMBHystHighID = Shader.PropertyToID("_OMBHysteresisHigh");
+    private static readonly int OMBGlobalTrailID = Shader.PropertyToID("_OMBGlobalTrail");
+    private static readonly int OMBFacingDirID = Shader.PropertyToID("_OMBFacingDir");
+    private static readonly int OMBHystLowID = Shader.PropertyToID("_OMBHysteresisLow");
 
-    // [Fix-9 v2] Transparent 고정값 처리로 변경 — runtime 전환 불필요
-
-    // 루트 위치 추적 (속도 계산용)
-    private Vector3 _smoothedVelocity     = Vector3.zero;
-    private float   _externalIntensityMult = 1.0f;  // P4가 주입하는 Attack 배율
-    private float   _smoothedShutterMult = 0.5f;   // ShutterMult 보간 캐시 // velocity smoothing 캐시
+    private Vector3 _smoothedVelocity = Vector3.zero;
+    private float _externalIntensityMult = 1.0f;
+    private float _smoothedShutterMult = 0.5f;
     private Vector3 _prevPosition;
-    private bool    _hasPrevPos = false;
+    private bool _hasPrevPos = false;
 
     // ─────────────────────────────────────────────────────────────
     // Unity 생명주기
     // ─────────────────────────────────────────────────────────────
     private void Awake()
     {
-        // MPB는 Awake에서 반드시 초기화 — InjectWeightBuffer가 Awake 중 호출될 수 있음
         _mpb = new MaterialPropertyBlock();
-
-        // Renderer 탐색은 Start로 위임 (자식 오브젝트가 아직 활성화 안 됐을 수 있음)
     }
 
     private void Start()
@@ -202,11 +208,8 @@ public class ObjectMotionBlurController : MonoBehaviour
         _dbgRendererName = _renderer.name;
         Debug.Log($"[ObjectMotionBlurController] '{name}': Renderer 탐색 성공 → {_renderer.name}", this);
 
-        // UNITY_PREV_MATRIX_M이 채워지려면 MotionVectorGenerationMode.Object 필요
-        // ForceNoMotion이면 prev=curr이 되어 vel=0, 블러 없음
         _renderer.motionVectorGenerationMode = MotionVectorGenerationMode.Object;
 
-        // Awake 중 InjectWeightBuffer가 이미 호출됐을 경우 지금 적용
         if (_weightBuffer != null)
         {
             _mpb.SetBuffer(PropWeightBuf, _weightBuffer);
@@ -218,89 +221,80 @@ public class ObjectMotionBlurController : MonoBehaviour
     {
         if (!_isReady || _renderer == null) return;
 
-        // 루트 오브젝트의 이동 벡터 계산 (1프레임 월드 이동량)
+        // ── 루트 이동 벡터 계산 ───────────────────────────────────
         Vector3 currPosition = transform.position;
-        Vector3 rawVelocity  = _hasPrevPos ? (currPosition - _prevPosition) : Vector3.zero;
+        Vector3 rawVelocity = _hasPrevPos ? (currPosition - _prevPosition) : Vector3.zero;
         _prevPosition = currPosition;
-        _hasPrevPos   = true;
+        _hasPrevPos = true;
 
-        // ── velocity smoothing (BlurState별 decay 분리) ──────────────
-        // 공격 중: decay 거의 없음 → 동작 내내 블러 유지
-        // Idle: 빠르게 소멸
-        // 비대칭 처리 제거 → 단순 Lerp 통일 (꿀렁 방지)
+        // ── velocity smoothing ───────────────────────────────────
         float decayFactor;
         switch (currentState)
         {
-            case BlurState.HeavyAttack: decayFactor = smoothDecayHeavy;  break;
-            case BlurState.Attack:      decayFactor = smoothDecayAttack; break;
-            case BlurState.Aim:         decayFactor = smoothDecayAttack; break;
-            case BlurState.Strafe:      decayFactor = smoothDecayStrafe; break;
-            default:                    decayFactor = smoothDecayIdle;   break;
+            case BlurState.HeavyAttack: decayFactor = smoothDecayHeavy; break;
+            case BlurState.Attack: decayFactor = smoothDecayAttack; break;
+            case BlurState.Aim: decayFactor = smoothDecayAttack; break;
+            case BlurState.Strafe: decayFactor = smoothDecayStrafe; break;
+            default: decayFactor = smoothDecayIdle; break;
         }
-        // 단순 Lerp: rawVelocity 방향으로 수렴, decay 속도는 BlurState에 따라 결정
-        // rawVelocity가 생기는 순간 smoothed를 즉시 동기화
-        // → deadzone 경계를 한 번에 넘어 반복 깜빡임 방지
         if (rawVelocity.magnitude > 0.001f && _smoothedVelocity.magnitude < 0.001f)
             _smoothedVelocity = rawVelocity;
         else
             _smoothedVelocity = Vector3.Lerp(rawVelocity, _smoothedVelocity, decayFactor);
         Vector3 velocityWS = _smoothedVelocity;
 
+        // ── ShutterMult 계산 ─────────────────────────────────────
         float shutterMult = StateShutterMultiplier[(int)currentState];
-        // 디버그: Idle에서도 stretch 강제 (ShutterAngle/Intensity 변화 테스트용)
         if (debugForceIdleStretch && currentState == BlurState.Idle)
             shutterMult = 1.0f;
         if (isLockedOn && currentState >= BlurState.Attack)
             shutterMult *= lockOnShutterMultiplier;
 
-        // [깜빡임 방지] ShutterMult를 Lerp로 보간 — 급격한 BlurState 전환 시 alpha 점프 방지
-        // Lerp factor 높임: 0.75 → 0.92
-        // 더 느린 전환 → BlurState 전환 시 stretchLen이 deadzone을 천천히 통과
-        // → alpha가 1.0 → <1.0 경계를 빠르게 넘어가 깜빡임 최소화
         _smoothedShutterMult = Mathf.Lerp(shutterMult, _smoothedShutterMult, 0.92f);
         shutterMult = _smoothedShutterMult;
 
 #if UNITY_EDITOR
-        // 에디터 전용 디버그 (string alloc → 런타임 GC 방지)
         string prevState = _dbgBlurState;
-        _dbgBlurState     = currentState.ToString();
-        _dbgShutterMult   = StateShutterMultiplier[(int)currentState];
+        _dbgBlurState = currentState.ToString();
+        _dbgShutterMult = StateShutterMultiplier[(int)currentState];
         _dbgEffectiveMult = shutterMult;
         if (prevState != _dbgBlurState)
             Debug.Log($"<color=cyan>[P2_BlurCtrl]</color> BlurState: {prevState} → {_dbgBlurState} | Mult: {_dbgEffectiveMult:F2}×", this);
 #endif
 
-        // MPB 구성
-        _mpb.SetVector(OMBVelocityID,     velocityWS);
-        _mpb.SetFloat(OMBShutterAngleID,  shutterAngle);
-        _mpb.SetFloat(OMBTargetFPSID,     targetFPS);
-        _mpb.SetFloat(OMBIntGlobalID,     globalIntensity);
-        // P4가 공격 중 _externalIntensityMult를 주입해 블러 강도를 최대 10배까지 증폭
-        _mpb.SetFloat(OMBIntensityID,     blurIntensity * _externalIntensityMult);
-        _mpb.SetFloat(OMBHystHighID,      hysteresisHigh);
-        _mpb.SetFloat(OMBHystLowID,       hysteresisLow);
+        // ══════════════════════════════════════════════════════════
+        // [신규] Pulse 보간 처리
+        // BlendIn → Hold → Decay 3단계로 blurIntensity 에 가산합니다.
+        // ══════════════════════════════════════════════════════════
+        float pulseAdd = TickPulse(Time.deltaTime);
 
-        // _OMBGlobalTrail: BlurState에 따라 전신 trailing 강도 주입
+        // ── MPB 구성 ─────────────────────────────────────────────
+        _mpb.SetVector(OMBVelocityID, velocityWS);
+        _mpb.SetFloat(OMBShutterAngleID, shutterAngle);
+        _mpb.SetFloat(OMBTargetFPSID, targetFPS);
+        _mpb.SetFloat(OMBIntGlobalID, globalIntensity);
+        // pulseAdd 를 blurIntensity 에 더해서 셰이더로 전달
+        _mpb.SetFloat(OMBIntensityID, (blurIntensity + pulseAdd) * _externalIntensityMult);
+        _mpb.SetFloat(OMBHystHighID, hysteresisHigh);
+        _mpb.SetFloat(OMBHystLowID, hysteresisLow);
+
         float targetTrail = currentState == BlurState.HeavyAttack ? trailHeavyAttack
-                          : currentState == BlurState.Attack       ? trailAttack
+                          : currentState == BlurState.Attack ? trailAttack
                           : trailIdle;
-        _smoothedGlobalTrail = Mathf.Lerp(_smoothedGlobalTrail, targetTrail,
-                                          Time.deltaTime * 8f);
+        _smoothedGlobalTrail = Mathf.Lerp(_smoothedGlobalTrail, targetTrail, Time.deltaTime * 8f);
         _mpb.SetFloat(OMBGlobalTrailID, _smoothedGlobalTrail);
-        // facing direction: vel=0 버텍스의 trail 방향 기준
-        // transform.forward를 주입 → 몸통이 등쪽으로 당겨지는 자연스러운 trail
         _mpb.SetVector(OMBFacingDirID, transform.forward);
 
-        // ── 디버그 갱신 (velocity smoothing 시각화) ──────────────
-        _dbgRawSpeed      = rawVelocity.magnitude;
+        _dbgRawSpeed = rawVelocity.magnitude;
         _dbgSmoothedSpeed = _smoothedVelocity.magnitude;
-        _dbgEffMult       = shutterMult * blurIntensity * _externalIntensityMult * globalIntensity;
-        float _dbgET      = (shutterAngle / 360f) / Mathf.Max(targetFPS, 1f);
-        _dbgExpTime       = _dbgET;
-        _dbgStretchEst    = _dbgSmoothedSpeed * targetFPS * _dbgET * _dbgEffMult;
-        _mpb.SetFloat(OMBMaxLengthID,     maxBlurLength);
-        _mpb.SetFloat(OMBMinBlurID,       minBlurFloor);
-        _mpb.SetFloat(OMBShutterMultID,   shutterMult);
+        _dbgEffMult = shutterMult * (blurIntensity + pulseAdd) * _externalIntensityMult * globalIntensity;
+        float expT = (shutterAngle / 360f) / Mathf.Max(targetFPS, 1f);
+        _dbgExpTime = expT;
+        _dbgStretchEst = _dbgSmoothedSpeed * targetFPS * expT * _dbgEffMult;
+
+        _mpb.SetFloat(OMBMaxLengthID, maxBlurLength);
+        _mpb.SetFloat(OMBMinBlurID, minBlurFloor);
+        _mpb.SetFloat(OMBShutterMultID, shutterMult);
 
         if (_weightBuffer != null)
             _mpb.SetBuffer(PropWeightBuf, _weightBuffer);
@@ -308,17 +302,117 @@ public class ObjectMotionBlurController : MonoBehaviour
             _mpb.SetBuffer(PropVelocityBuf, _velocityBuffer);
 
         _renderer.SetPropertyBlock(_mpb);
-
         _dbgWeightBufConnected = (_weightBuffer != null);
     }
 
-    // ── 외부 API ──────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // ICameraEffectReceiver 구현
+    // ═══════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// AvatarAutoWeightBaker.Awake()에서 호출됩니다.
-    /// WeightBuffer 레퍼런스를 보관하고 Renderer가 준비됐으면 즉시 MPB에 적용합니다.
+    /// AnimationEventType 을 수신하여 BlurEventResponseSO 에서 Pulse 수치를 조회합니다.
+    ///
+    /// 발행 경로:
+    ///   CharacterEventManager.NotifyAnimationEvent(eventType)
+    ///     → WorldCameraManager.BroadcastCameraEvent(eventType)
+    ///       → ICameraEffectReceiver.ReceiveCameraEffectEvent(eventType)  ← 여기
+    ///
+    /// 또는 CharacterEffectsManager.HandleBlurStateTransition() 에서 직접 호출:
+    ///   (blurController as ICameraEffectReceiver)?.ReceiveCameraEffectEvent(eventType)
     /// </summary>
-    // OMBSkinningCacheManager.Start()에서 호출됩니다.
+    public void ReceiveCameraEffectEvent(AnimationEventType eventType)
+    {
+        if (blurEventResponse == null) return;
+        if (!blurEventResponse.HasResponse(eventType)) return;
+
+        var pulse = blurEventResponse.GetPulse(eventType);
+        TriggerPulse(pulse.strength, pulse.blendIn, pulse.duration, pulse.decayTime);
+    }
+
+    /// <summary>
+    /// CameraEffectOverlayData 의 blurStrengthDelta / blurDuration / blurDecayTime 을
+    /// 직접 받아 Pulse 를 트리거합니다.
+    ///
+    /// 발행 경로:
+    ///   WorldCameraManager.PlayOverlayEffect(overlayData)
+    ///     → ICameraEffectReceiver.ReceiveOverlayEffect(overlayData)  ← 여기
+    /// </summary>
+    public void ReceiveOverlayEffect(CameraEffectOverlayData overlayData)
+    {
+        if (overlayData.blurStrengthDelta <= 0f) return;
+
+        // CameraEffectOverlayData.blurDuration 은 BlendIn+Hold 합산으로 해석
+        // blurDecayTime 은 감쇠 시간
+        float blendIn = Mathf.Min(0.05f, overlayData.blurDuration * 0.3f);
+        float hold = overlayData.blurDuration - blendIn;
+        TriggerPulse(overlayData.blurStrengthDelta, blendIn, Mathf.Max(0f, hold), overlayData.blurDecayTime);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pulse 내부 구현
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Pulse 를 시작합니다. 기존 Pulse 가 진행 중이면 더 강한 값으로 override 합니다.
+    /// </summary>
+    private void TriggerPulse(float strength, float blendIn, float hold, float decayTime)
+    {
+        // 기존 Pulse 보다 약하면 무시 (연속 타격 시 강한 쪽 유지)
+        if (strength < _pulseTarget * 0.5f) return;
+
+        _pulseTarget = Mathf.Clamp01(strength);
+        _pulseBlendInRate = blendIn > 0.001f ? _pulseTarget / blendIn : float.MaxValue;
+        _pulseDecayRate = decayTime > 0.001f ? _pulseTarget / decayTime : float.MaxValue;
+        _pulseHoldTimer = hold;
+        _pulseDecaying = false;
+    }
+
+    /// <summary>
+    /// 매 LateUpdate 에서 호출. Pulse 상태를 갱신하고 현재 가산치를 반환합니다.
+    /// BlendIn → Hold → Decay 순서로 진행합니다.
+    /// </summary>
+    private float TickPulse(float dt)
+    {
+        if (_pulseTarget <= 0f && _pulseIntensity <= 0f) return 0f;
+
+        if (!_pulseDecaying)
+        {
+            // ── BlendIn 단계: _pulseTarget 까지 상승 ─────────────
+            if (_pulseIntensity < _pulseTarget)
+            {
+                _pulseIntensity = Mathf.MoveTowards(
+                    _pulseIntensity, _pulseTarget, _pulseBlendInRate * dt);
+            }
+            else
+            {
+                // ── Hold 단계: 최대 강도 유지 ─────────────────────
+                _pulseIntensity = _pulseTarget;
+                _pulseHoldTimer -= dt;
+                if (_pulseHoldTimer <= 0f)
+                    _pulseDecaying = true;
+            }
+        }
+        else
+        {
+            // ── Decay 단계: 0 까지 감쇠 ──────────────────────────
+            _pulseIntensity = Mathf.MoveTowards(
+                _pulseIntensity, 0f, _pulseDecayRate * dt);
+
+            if (_pulseIntensity <= 0f)
+            {
+                _pulseIntensity = 0f;
+                _pulseTarget = 0f;
+                _pulseDecaying = false;
+            }
+        }
+
+        return _pulseIntensity;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 외부 API (기존 완전 보존)
+    // ─────────────────────────────────────────────────────────────
+
     public void InjectVelocityBuffer(ComputeBuffer buffer)
     {
         _velocityBuffer = buffer;
@@ -331,13 +425,10 @@ public class ObjectMotionBlurController : MonoBehaviour
         if (buffer == null) return;
         _weightBuffer = buffer;
 
-        // MPB가 아직 초기화 안 됐으면 지금 초기화
         if (_mpb == null) _mpb = new MaterialPropertyBlock();
 
         _mpb.SetBuffer(PropWeightBuf, _weightBuffer);
 
-        // Renderer가 이미 준비됐으면 즉시 적용
-        // 아직이면 Start()에서 처리됨
         if (_renderer != null)
         {
             _renderer.SetPropertyBlock(_mpb);
@@ -345,7 +436,6 @@ public class ObjectMotionBlurController : MonoBehaviour
         }
     }
 
-    /// <summary>P4_WeaponBlurStateController가 Attack 중 배율을 주입합니다.</summary>
     public void SetExternalIntensityMult(float mult)
     {
         _externalIntensityMult = mult;
@@ -354,18 +444,15 @@ public class ObjectMotionBlurController : MonoBehaviour
     public void SetBlurState(BlurState state)
     {
         currentState = state;
-        // [Fix-9 v2] Blend/ZWrite가 셰이더 고정값(Transparent)으로 처리됨
-        // alpha 계산은 셰이더 vert에서 speed 기반으로 자동 처리
-        // → runtime material 전환 불필요, ApplyTransparentMode 제거
     }
 
-    public void SetLockOn(bool locked)         { isLockedOn = locked; }
+    public void SetLockOn(bool locked) { isLockedOn = locked; }
 
     public void SetTargetRenderer(Renderer r)
     {
         if (r == null) return;
-        _renderer    = r;
-        _isReady     = true;
+        _renderer = r;
+        _isReady = true;
         _dbgRendererName = r.name;
     }
 }

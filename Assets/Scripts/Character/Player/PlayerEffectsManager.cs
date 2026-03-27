@@ -36,7 +36,7 @@ namespace TDA.Character.Player
 
         public override void OnAnimationEventReceived(global::AnimationEventType eventType)
         {
-            // 공통 처리 (EffectTriggerMapping, Damage_Calculated, HitSpark 계열)
+            // 공통 처리 (EffectTriggerMapping, Damage_Calculated, HitSpark 계열 + Blur 기본 전환)
             base.OnAnimationEventReceived(eventType);
 
             // ── NGO 2.0: 로컬 소유 클라이언트만 추가 처리 ──────────────────
@@ -44,7 +44,26 @@ namespace TDA.Character.Player
 
             // ── 카메라 쉐이크는 PlayerEventManager 가 SO 기반으로 처리하므로
             //    이 파일에서는 처리하지 않습니다. (SRP — 역할 분리)
-            //    하드코딩된 값(1.0f, 5f / 0.3f, 2f) 완전 제거.
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        //  Motion Blur 상태 전환 — 플레이어 전용 override
+        //  부모의 기본 전환(HitBoxEnable/Disable, Action_Ended 등) 위에
+        //  플레이어 전용 로직(이동 중 Strafe)을 추가합니다.
+        //  PlayerLocomotionManager.HandleAllMovement() 가 매 프레임 호출합니다.
+        // ════════════════════════════════════════════════════════════════════
+        public void UpdateLocomotionBlur(float moveAmount, bool isPerformingAction)
+        {
+            if (!HasBlurController) return;
+            if (character != null && !character.IsOwner) return;
+
+            // 공격/피격 중에는 로코모션이 blur 상태를 덮어쓰지 않음
+            if (isPerformingAction) return;
+
+            if (moveAmount > 0.1f)
+                SetBlurState(ObjectMotionBlurController.BlurState.Strafe);
+            else
+                SetBlurState(ObjectMotionBlurController.BlurState.Idle);
         }
 
         // ══════════════════════════════════════════════════════════════════════

@@ -2100,6 +2100,7 @@ MonoBehaviour:
   canRotate: 1
   canMove: 1
   isPoiseActive: 0
+  isInvincible: 0
   lockOnTransform: {fileID: 0}
   respawnCharacter: 0
   switchRightWeapon: 0
@@ -2114,6 +2115,7 @@ MonoBehaviour:
   playerEventManager: {fileID: 0}
   playerDefenseManager: {fileID: 0}
   playerGestureManager: {fileID: 0}
+  playerExecutionManager: {fileID: 0}
   playerCamera: {fileID: 0}
   isHoldingCloseGrip: 0
   isHoldingFarGrip: 0
@@ -2276,6 +2278,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   staminaRegenerationAmount: 1
   staminaRegenerationDelay: 0.1
+  poiseRegenerationAmount: 5
+  poiseRegenerationDelay: 5
 --- !u!114 &7301172757607828420
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2301,6 +2305,8 @@ MonoBehaviour:
   currentWeaponBeingUsed: {fileID: 0}
   canComboWithMainHandWeapon: 0
   canComboWithOffHandWeapon: 0
+  isCounterOpportunity: 0
+  counterOpportunityDuration: 2.5
   lockOnStanceSO: {fileID: 11400000, guid: 0f74c45d6a07c614c8c922e29ddec1a5, type: 2}
   lockOnSequenceSO: {fileID: 11400000, guid: 5f4371b7b9d8ff246ab2f27da706dfdb, type: 2}
   lockOn_Input: 0
@@ -2328,6 +2334,7 @@ MonoBehaviour:
   currentShieldDurability: 0
   baseGuardStyleTransitionSpeed: 8
   showDebugLogs: 1
+  isParryActive: 0
   baseStaminaDrainRatio: 0.2
   farGripStaminaPenaltyMultiplier: 1.5
 --- !u!114 &1360406133973820433
@@ -2417,6 +2424,8 @@ MonoBehaviour:
   fumblePenaltySequence: {fileID: 0}
   hitVignetteSequence: {fileID: 0}
   footstepKickSequence: {fileID: 0}
+  hitConfirmedOverlaySO: {fileID: 0}
+  hitConfirmedHeavyOverlaySO: {fileID: 0}
 --- !u!114 &4763399256367094428
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2607,8 +2616,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86bec244188934818af2cf5d5fb4ee89, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  vfxRegistry: {fileID: 0}
+  gpuSparkPrefab: {fileID: 0}
+  blurController: {fileID: 0}
   bloodSplatterVFX: {fileID: 0}
-  hitsparkVFX: {fileID: 0}
   lastContactPoint: {x: 0, y: 0, z: 0}
   lastAttackerPosition: {x: 0, y: 0, z: 0}
   effectMappings: []
@@ -2882,6 +2893,7 @@ MonoBehaviour:
   smoothDecayStrafe: 0.88
   smoothDecayAttack: 0.999
   smoothDecayHeavy: 0.999
+  blurEventResponse: {fileID: 11400000, guid: d7ee20a2f30cd8447b03e1ed36a907d5, type: 2}
   _dbgRawSpeed: 0
   _dbgSmoothedSpeed: 0
   _dbgEffMult: 0

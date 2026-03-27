@@ -1094,6 +1094,7 @@ MonoBehaviour:
   vfxRegistry: {fileID: 11400000, guid: 5cbdf62e96a30304e9ad92a702f931e5, type: 2}
   gpuSparkPrefab: {fileID: 3640125679476787863, guid: a0837c96100f89142b20715f1ee741e9,
     type: 3}
+  blurController: {fileID: 0}
   bloodSplatterVFX: {fileID: 0}
   lastContactPoint: {x: 0, y: 0, z: 0}
   lastAttackerPosition: {x: 0, y: 0, z: 0}
@@ -1378,6 +1379,7 @@ MonoBehaviour:
   smoothDecayStrafe: 0.88
   smoothDecayAttack: 0.96
   smoothDecayHeavy: 0.98
+  blurEventResponse: {fileID: 11400000, guid: 993e094db502bed4f927ef62ea741ed9, type: 2}
   _dbgRawSpeed: 0
   _dbgSmoothedSpeed: 0
   _dbgEffMult: 0
@@ -1503,7 +1505,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eda9002da9dab594a9871879459b5de7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterEventManager
-  showConsoleLogs: 0
+  showConsoleLogs: 1
   showEventGizmo: 1
   eventGizmoDuration: 1
 --- !u!114 &7072069649473977397
