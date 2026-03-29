@@ -39,7 +39,7 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    holdDuration: 1.3
+    holdDuration: 0
     trackingStartTime: 0.03
     trackingEndTime: 0.4
     trackingWeightCurve:

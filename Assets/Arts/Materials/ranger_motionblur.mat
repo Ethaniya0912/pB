@@ -107,20 +107,20 @@ Material:
     - _GlossyReflections: 0
     - _Metallic: 0
     - _OMBDebug: 0
-    - _OMBDirStrength: 0.66
+    - _OMBDirStrength: 0.97
     - _OMBDitherClip: 0
     - _OMBEnabled: 1
     - _OMBFadeExponent: 3
     - _OMBFadeWeightThreshold: 0.03
-    - _OMBGlobalTrail: 0.128
-    - _OMBHysteresisHigh: 0.17
+    - _OMBGlobalTrail: 1
+    - _OMBHysteresisHigh: 0.179
     - _OMBHysteresisLow: 0.05
     - _OMBIntensity: 1
     - _OMBIntensityGlobal: 1
     - _OMBMaxLength: 0.04
     - _OMBMinBlur: 0.005
     - _OMBShutterMult: 1
-    - _OMBTaperStrength: 0.02
+    - _OMBTaperStrength: 0.01
     - _OMBTrailFadeExp: 0.5
     - _OMBTrailOpacity: 0.504
     - _OMBTrailing: 1

@@ -53,6 +53,10 @@ MonoBehaviour:
     useEdgePanning: 1
     edgePanThreshold: 0.12106681
     lockOnInputDeadzone: 0.5
+    edgePanSmoothTime: 0.12
+    edgePanReturnTime: 0.8
+    lockOnInitialFramingOffset: 0
+    lockOnInitialFramingBlendTime: 0.3
   lockOnPenaltyData:
     enableTargetEscapePenalty: 0
     targetEscapeViewportThreshold: 0.1
@@ -66,6 +70,7 @@ MonoBehaviour:
     strafeRecoveryWeight: 1
     softRecoverySpeed: 2
     escapePersistTime: 0.25
+    escapeMinDistance: 3
     pitchReturnSpeed: 1
   dynamicInputModifier:
     enableDynamicInputModifier: 0
@@ -81,6 +86,11 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
+  bodyYawTracking:
+    bodyYawFollowWeight: 1
+    bodyYawFollowSmoothTime: 0
+    lockCameraOnActionStart: 0
+    lockCameraMouseInfluence: 0.5
   handheldEffect:
     enableHandheldEffect: 1
     swayAmount: 2
@@ -94,3 +104,4 @@ MonoBehaviour:
   dofFocusDistance: 2
   vignetteIntensity: 0.3
   pauseOnApply: 0
+  stanceEventTimeline: []

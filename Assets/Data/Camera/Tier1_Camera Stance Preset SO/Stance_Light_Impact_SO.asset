@@ -88,6 +88,7 @@ MonoBehaviour:
     strafeRecoveryWeight: 1
     softRecoverySpeed: 2
     escapePersistTime: 0.25
+    escapeMinDistance: 3
     pitchReturnSpeed: 1
   dynamicInputModifier:
     enableDynamicInputModifier: 0
@@ -157,3 +158,17 @@ MonoBehaviour:
   dofFocusDistance: 2
   vignetteIntensity: 0.3
   pauseOnApply: 0
+  stanceEventTimeline:
+  - startTime: 0
+    endTime: 1
+    onEnterEvent: 70
+    onExitEvent: 71
+    overlayData:
+      fovDelta: -10
+      fovBlendIn: 0
+      fovBlendOut: 0.337
+      blurStrengthDelta: 0
+      blurDuration: 0
+      blurDecayTime: 0
+      shakeIntensity: 0.305
+      shakeDuration: 0.152

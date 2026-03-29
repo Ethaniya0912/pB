@@ -110,7 +110,7 @@ Material:
     - _OMBEnabled: 1
     - _OMBFadeExponent: 0.5
     - _OMBFadeWeightThreshold: 0.05
-    - _OMBGlobalTrail: 1
+    - _OMBGlobalTrail: 0.12
     - _OMBHysteresisHigh: 0.15
     - _OMBHysteresisLow: 0.05
     - _OMBIntensity: 1
