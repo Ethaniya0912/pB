@@ -26,8 +26,9 @@ MonoBehaviour:
     probeSamplingDebugMesh: {fileID: 0}
     probeSamplingDebugTexture: {fileID: 0}
     probeVolumeBlendStatesCS: {fileID: 0}
-  m_RendererFeatures: []
-  m_RendererFeatureMap: 
+  m_RendererFeatures:
+  - {fileID: 881757922723889655}
+  m_RendererFeatureMap: f701d8b128a23c0c
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -56,3 +57,22 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 1
+--- !u!114 &881757922723889655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8826dbbd2f20a84180629a9ae196e22, type: 3}
+  m_Name: ScreenSpaceGlobalIlluminationURP
+  m_EditorClassIdentifier: SSGIURP::ScreenSpaceGlobalIlluminationURP
+  m_Active: 1
+  m_Shader: {fileID: 4800000, guid: c30a66d1e2c823a4e83f5e82fa1602c0, type: 3}
+  m_RenderingDebugger: 0
+  m_ReflectionProbes: 1
+  m_HighQualityUpscaling: 1
+  m_OverrideAmbientLighting: 1
+  m_BackfaceLighting: 1
