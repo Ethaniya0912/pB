@@ -18,6 +18,14 @@
 //   AICharacterManager.Awake() 에서 자동 등록됩니다.
 //   GroggyState.Tick() 에서 isExecutable 플래그를 확인합니다.
 //   TakeDamageEffect 에서 ShouldIgnoreStaggerDuringExecution() 을 확인합니다.
+//
+// 수정 이력:
+//   [개선] BeginExecution() — IsServer 게이트 과도 적용 문제 해결.
+//          기존: canMove=false, NavMesh 정지 등 시각 플래그 전부 서버에서만 처리됨.
+//          개선: 서버 판정(isBeingExecuted) 유지 + ApplyVictimStateClientRpc() 분리
+//               → 모든 클라이언트가 AI 이동 잠금을 즉시 반영.
+//   [개선] EndExecution() — RestoreVictimStateClientRpc() 분리로 처형 종료 시 모든 클라이언트 복원.
+//   [개선] ReleaseExecutionExternal() — 강제 해제 시에도 ClientRpc 로 즉시 복원.
 // =============================================================================
 using Unity.Netcode;
 using UnityEngine;
@@ -81,30 +89,25 @@ namespace TDA.Character.AI
         /// <summary>
         /// AI 가 처형 피격자로 확정되었을 때 호출됩니다.
         /// PlayerExecutionManager.AttemptExecution() 에서 호출됩니다.
+        ///
+        /// [개선] 기존 문제:
+        ///   BeginExecution() 전체가 IsServer 게이트로 막혀 있어
+        ///   canMove=false, NavMesh 정지 같은 로컬 시각 플래그가
+        ///   서버에서만 처리되고 다른 클라이언트에서 즉시 반응하지 않았습니다.
+        ///
+        /// 해결:
+        ///   서버에서 처형 상태(isBeingExecuted) 판정 후 ApplyVictimStateClientRpc() 를 호출해
+        ///   모든 클라이언트가 동일한 시각 상태를 즉시 적용합니다.
         /// </summary>
         public override void BeginExecution()
         {
             if (!IsServer) return;
-            base.BeginExecution();
+            base.BeginExecution(); // isBeingExecuted.Value = true
 
-            // 처형 중 이동·공격 불가
-            if (aiCharacter != null)
-            {
-                aiCharacter.canMove = false;
-                aiCharacter.canRotate = false;
-                aiCharacter.isPerformingAction = true;
-            }
+            // 모든 클라이언트에 시각 상태 즉시 적용
+            ApplyVictimStateClientRpc(true);
 
-            // NavMesh 이동 즉시 정지
-            if (aiCharacter?.navMeshAgent != null
-                && aiCharacter.navMeshAgent.isActiveAndEnabled
-                && aiCharacter.navMeshAgent.isOnNavMesh)
-            {
-                aiCharacter.navMeshAgent.ResetPath();
-                aiCharacter.navMeshAgent.velocity = Vector3.zero;
-            }
-
-            DebugLog("[BeginExecution] 처형 피격 시퀀스 시작");
+            DebugLog("[BeginExecution] 처형 피격 시퀀스 시작 → ClientRpc 발송");
         }
 
         // =====================================================================
@@ -117,10 +120,13 @@ namespace TDA.Character.AI
         public override void EndExecution()
         {
             if (!IsServer) return;
-            base.EndExecution();
+            base.EndExecution(); // isBeingExecuted.Value = false
             SetExecutable(false);
 
-            DebugLog("[EndExecution] 처형 피격 시퀀스 종료");
+            // 모든 클라이언트에 복원 상태 즉시 적용
+            RestoreVictimStateClientRpc();
+
+            DebugLog("[EndExecution] 처형 피격 시퀀스 종료 → ClientRpc 발송");
         }
 
         // =====================================================================
@@ -136,12 +142,96 @@ namespace TDA.Character.AI
         }
 
         // =====================================================================
+        // Override : 외부 강제 해제
+        // =====================================================================
+        /// <summary>
+        /// QTE 실패 등 외부에서 처형 잠금을 강제 해제합니다.
+        /// 모든 클라이언트에 즉시 복원 상태를 전파합니다.
+        /// </summary>
+        public override void ReleaseExecutionExternal()
+        {
+            if (!IsServer) return;
+            // 모든 클라이언트 즉시 복원
+            ApplyVictimStateClientRpc(false);
+            CleanUpExecution();
+        }
+
+        // =====================================================================
+        // ClientRpc — 시각 상태 적용 (모든 클라이언트)
+        // =====================================================================
+
+        /// <summary>
+        /// [신규] 처형 시작/중단 시 모든 클라이언트에서 AI 이동 정지 및 상태 플래그를 설정합니다.
+        /// isBeingVictim=true : 처형 진입 (이동 잠금)
+        /// isBeingVictim=false: 처형 중단 (QTE 실패 등 강제 해제 시 즉시 복원)
+        /// </summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ApplyVictimStateClientRpc(bool isBeingVictim)
+        {
+            if (aiCharacter == null) return;
+
+            if (isBeingVictim)
+            {
+                // 처형 중 이동·공격 불가
+                aiCharacter.canMove = false;
+                aiCharacter.canRotate = false;
+                aiCharacter.isPerformingAction = true;
+
+                // NavMesh 이동 즉시 정지
+                if (aiCharacter.navMeshAgent != null
+                    && aiCharacter.navMeshAgent.isActiveAndEnabled
+                    && aiCharacter.navMeshAgent.isOnNavMesh)
+                {
+                    aiCharacter.navMeshAgent.ResetPath();
+                    aiCharacter.navMeshAgent.velocity = Vector3.zero;
+                }
+
+                DebugLog("[ApplyVictimStateClientRpc] 처형 상태 적용 (모든 클라이언트)");
+            }
+            else
+            {
+                // QTE 실패 등 강제 중단 시 즉시 복원
+                RestoreAIState();
+                DebugLog("[ApplyVictimStateClientRpc] 처형 중단 → 상태 복원 (모든 클라이언트)");
+            }
+        }
+
+        /// <summary>
+        /// [신규] 처형 완료 후 모든 클라이언트에서 AI 상태를 복원합니다.
+        /// </summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RestoreVictimStateClientRpc()
+        {
+            RestoreAIState();
+            DebugLog("[RestoreVictimStateClientRpc] 처형 종료 → 상태 복원 (모든 클라이언트)");
+        }
+
+        // =====================================================================
         // 유틸
         // =====================================================================
+
+        /// <summary>AI 이동·회전 플래그와 NavMesh 를 정상 상태로 복원합니다.</summary>
+        private void RestoreAIState()
+        {
+            if (aiCharacter == null) return;
+
+            aiCharacter.canMove = true;
+            aiCharacter.canRotate = true;
+            aiCharacter.isPerformingAction = false;
+
+            // NavMeshAgent 재활성화 (비활성화했던 경우)
+            if (aiCharacter.navMeshAgent != null
+                && aiCharacter.navMeshAgent.isActiveAndEnabled)
+            {
+                aiCharacter.navMeshAgent.ResetPath();
+            }
+        }
+
         private void DebugLog(string msg)
         {
 #if UNITY_EDITOR
-            Debug.Log($"<color=magenta>[AICharacterExecutionManager:{name}]</color> {msg}");
+            if (showDebugLogs)
+                Debug.Log($"<color=magenta>[AICharacterExecutionManager:{name}]</color> {msg}");
 #endif
         }
     }

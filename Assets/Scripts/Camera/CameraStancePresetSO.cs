@@ -358,27 +358,59 @@ namespace TDA.Cameras
     //   - endTime = 0이면 단발성 이벤트 (구간 없음).
     //   - 동일 Stance 내 여러 StanceEventPoint 중복 등록 가능 (인덱스로 구분).
     // =========================================================================================
+    // =========================================================================================
+    // [개선 P-4] StanceEventPoint Tooltip 전면 교체
+    //
+    // 기존 Tooltip 의 문제:
+    //   - startTime/endTime 이 "조건(Condition)" 처럼 읽혀 혼란 유발
+    //   - 히트스톱 발생 시에만 FOV 가 걸리는 건지, 해당 구간에 무조건 적용되는 건지 불명확
+    //   - onEnterEvent 가 실제로 발동되는지 여부를 외관에서 알 수 없음
+    //
+    // 개선 원칙:
+    //   - "조건이 아닌 타이머" 임을 명확히 표기
+    //   - 히트스톱/입력과 완전 무관함을 명시
+    //   - Overlay Data 각 채널이 독립적임을 명시
+    // =========================================================================================
     [Serializable]
     public struct StanceEventPoint
     {
-        [Tooltip("이 구간이 시작되는 Stance 경과 시간(초).\n" +
-                 "0이면 Stance 진입 즉시 발행합니다.")]
+        [Tooltip("【자동 발동 타이머】\n" +
+                 "이 Stance 가 활성화된 후 이 시간(초)이 지나면\n" +
+                 "조건 없이 자동으로 이벤트와 오버레이가 발동됩니다.\n\n" +
+                 "0 = Stance 진입 즉시 발동\n\n" +
+                 "⚠ 이것은 조건(Condition)이 아닙니다.\n" +
+                 "히트스톱, 플레이어 입력, 공격 여부와 완전 무관합니다.\n" +
+                 "단순히 'Stance 진입 후 N초가 지나면 자동 실행' 하는 스케줄러입니다.")]
         [Range(0f, 30f)] public float startTime;
 
-        [Tooltip("이 구간이 종료되는 Stance 경과 시간(초).\n" +
-                 "0이면 단발성 이벤트로 처리됩니다 (구간 없음).")]
+        [Tooltip("【구간 종료 타이머 / 단발성 여부】\n\n" +
+                 "0 = 단발성 이벤트\n" +
+                 "  → startTime 시점에 딱 한 번 onEnterEvent 만 발동됩니다.\n\n" +
+                 "0 초과 = 구간 이벤트\n" +
+                 "  → startTime 에 onEnterEvent, endTime 에 onExitEvent 가 발동됩니다.\n\n" +
+                 "예) start=0, end=1\n" +
+                 "  → Stance 진입 즉시 Enter 이벤트 발동, 1초 후 Exit 이벤트 발동")]
         [Range(0f, 30f)] public float endTime;
 
-        [Tooltip("구간 시작 시 CharacterEventManager를 통해 발행할 AnimationEventType.\n" +
-                 "P2_ObjectMotionBlurController, PlayerEventManager 등이 수신합니다.")]
+        [Tooltip("【구간 시작 시 발행할 이벤트】\n" +
+                 "startTime 에 도달하면 WorldCameraManager.BroadcastCameraEvent() 로\n" +
+                 "ICameraEffectReceiver 구현체(블러 컨트롤러 등)에 전파됩니다.\n\n" +
+                 "수신자가 없으면 효과 없음 → showDebugLogs 로 수신 여부 확인 가능.\n\n" +
+                 "이벤트가 필요 없으면 Action_Ended(4) 로 설정하세요.\n" +
+                 "(Action_Ended 는 BroadcastCameraEvent 가 호출되지 않아 안전합니다)")]
         public AnimationEventType onEnterEvent;
 
-        [Tooltip("구간 종료 시 발행할 AnimationEventType.\n" +
-                 "종료 이벤트가 필요 없으면 Action_Ended(4)로 설정하세요.")]
+        [Tooltip("【구간 종료 시 발행할 이벤트】\n" +
+                 "endTime > 0 일 때만 유효합니다. endTime = 0 이면 무시됩니다.\n\n" +
+                 "종료 이벤트가 필요 없으면 Action_Ended(4) 로 설정하세요.")]
         public AnimationEventType onExitEvent;
 
-        [Tooltip("구간 진입 시 WorldCameraManager.PlayOverlayEffect()로 적용할 오버레이 데이터.\n" +
-                 "모든 값이 0이면 오버레이 없음. 블러/FOV만 선택적으로 채워도 됩니다.")]
+        [Tooltip("【오버레이 효과 — 모든 값이 0이면 효과 없음 (이벤트만 발동)】\n\n" +
+                 "startTime 도달 시 WorldCameraManager.PlayOverlayEffect() 로 적용됩니다.\n\n" +
+                 "fovDelta / blurStrengthDelta / shakeIntensity 는 완전 독립 채널입니다.\n" +
+                 "원하는 항목만 0 이 아닌 값으로 채우세요.\n\n" +
+                 "이 오버레이는 히트스톱·입력 조건과 무관하게\n" +
+                 "startTime 에 자동 적용됩니다.")]
         public CameraEffectOverlayData overlayData;
     }
 

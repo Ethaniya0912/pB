@@ -2309,6 +2309,7 @@ MonoBehaviour:
   counterOpportunityDuration: 2.5
   lockOnStanceSO: {fileID: 11400000, guid: 0f74c45d6a07c614c8c922e29ddec1a5, type: 2}
   lockOnSequenceSO: {fileID: 11400000, guid: 5f4371b7b9d8ff246ab2f27da706dfdb, type: 2}
+  lockOffSequenceSO: {fileID: 11400000, guid: 254ac92976564ce4fab45bd8c8770e7b, type: 2}
   lockOn_Input: 0
   lockOn_Left_Input: 0
   lockOn_Right_Input: 0
@@ -2950,6 +2951,7 @@ MonoBehaviour:
   humanoidQTEPhases: []
   largeMonsterQTEPhases: []
   bossQTEPhases: []
+  finisherDataList: []
   isExecutionOpportunityActive: 0
   executionOpportunityTimer: 0
   executionOpportunityDuration: 3

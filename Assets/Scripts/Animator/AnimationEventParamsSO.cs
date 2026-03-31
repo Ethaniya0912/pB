@@ -64,6 +64,27 @@ namespace TDA.Character.Animation
         [Tooltip("이 애니메이션 액션이 시작될 때 재생할 2계층 카메라 시퀀스 에셋을 연결하세요. (예: 강공격 줌인 연출)")]
         public CameraSequencePresetSO cameraSequence;
 
+        // ── [개선 P-1] 락온 전용 스탠스 오버라이드 ──────────────────────────────────────
+        // 락온(isLockedOn = true) 상태에서 이 액션이 실행될 때,
+        // cameraSequence(Seq) 전체를 재생하는 대신 이 Stance 만 단독으로 교체합니다.
+        //
+        // 사용 목적:
+        //   Seq_LockOn 이 재생 중인 락온 상태에서 공격하면, 기존에는 Seq_LightSlash 가 시작되며
+        //   Seq_LockOn 컨텍스트를 완전히 이탈했습니다. lockOnStanceOverride 를 설정하면
+        //   Seq_LockOn 내부에서 Stance 만 교체하는 깔끔한 흐름을 유지할 수 있습니다.
+        //
+        // 설정 방법:
+        //   1. lockOnStanceOverride 슬롯에 공격 시 전환될 Stance SO 연결
+        //      (예: Stance_Light_Impact_SO)
+        //   2. 락온 중 공격 시 ChangeCameraStance() 만 호출됩니다.
+        //   3. null 이면 기존 cameraSequence 로 폴백 (하위 호환 100%)
+        [Tooltip("[개선 P-1] 락온(isLockedOn=true) 상태에서 이 액션 실행 시,\n" +
+                 "cameraSequence(Seq) 전체를 재생하는 대신 이 Stance 만 단독 교체합니다.\n\n" +
+                 "null 이면 기존 cameraSequence 로 폴백합니다. (하위 호환)\n\n" +
+                 "예: Stance_Light_Impact_SO 연결 → 락온 공격 시 Seq_LockOn 컨텍스트를 유지하면서\n" +
+                 "    Stance_Light_Impact 로만 전환. 공격 종료 후 Seq_LockOn 이 자연스럽게 이어집니다.")]
+        public TDA.Cameras.CameraStancePresetSO lockOnStanceOverride;
+
         [Header("Event Timeline (P1 & P4)")]
         public List<AnimationEventPoint> eventPoints = new List<AnimationEventPoint>();
 

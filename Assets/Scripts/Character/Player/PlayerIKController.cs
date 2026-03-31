@@ -274,7 +274,12 @@ namespace TDA.Character.Player
             // =========================================================================================
             // 7. 🚨 [버그 수정 2] 턴 애니메이션 명시적 타겟팅 발동
             // =========================================================================================
-            if (absAngle > turnStepAngle && !isPlayingTurnAnim && !isTransitioningToTurn && spawnStabilizeTimer <= 0f && turnTriggerTimer <= 0f)
+            // [신규] isPerformingAction 추가 차단
+            // 2번 액션 가드는 turnTriggerTimer > 0 이면 통과할 수 있고,
+            // 4번 Cancel 로직이 isPerformingAction = false 로 잘못 초기화하는 경우도 있어
+            // 공격 중 턴 발동이 뚫릴 수 있습니다.
+            // 7번 발동 시점에도 명시적으로 isPerformingAction 을 차단합니다.
+            if (absAngle > turnStepAngle && !isPlayingTurnAnim && !isTransitioningToTurn && spawnStabilizeTimer <= 0f && turnTriggerTimer <= 0f && !player.isPerformingAction)
             {
                 isTurningDebug = true;
                 currentTurnDirection = Mathf.Sign(signedAngle);

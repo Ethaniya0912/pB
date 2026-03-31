@@ -50,9 +50,49 @@ namespace TDA.Character
         [Tooltip("락온 시 카메라를 좌측 숄더뷰로 고정하기 위한 락온 전용 스탠스 SO")]
         public CameraStancePresetSO lockOnStanceSO;
 
+        // =========================================================================================
+        // [신규] WorldCameraManager.defaultRestStance 원본 캐시
+        //
+        // 설계 목적:
+        //   락온 ON 시 WorldCameraManager.defaultRestStance 를 락온 전용 Stance 로 교체하여
+        //   피격·가드·패링 Seq 가 종료될 때 "restoreToDefaultStanceOnFinish" 로 자동 복귀되는
+        //   대상이 락온 Stance 가 되도록 합니다.
+        //
+        //   락온 OFF 시 이 캐시 값을 복원하여 원래의 탐험 Stance 로 돌아가게 합니다.
+        //
+        // 세팅 위치:
+        //   - Awake(): WorldCameraManager 가 초기화된 이후 Start() 이전에 캐싱해야 하지만
+        //     WorldCameraManager 는 DontDestroyOnLoad 싱글턴이므로 OnLockOnInputReceived()
+        //     최초 진입 시점에 한 번만 캐싱하는 방어 로직을 사용합니다.
+        // =========================================================================================
+        private CameraStancePresetSO originalDefaultRestStance;
+
         // [신규 추가] Seq SO — restorePreviousAngle 등 전체 시퀀스 설정을 담은 Tier2 에셋
         [Tooltip("락온 진입 시 재생할 카메라 시퀀스 SO (Seq_LockOn_Humanoid_SO를 여기에 연결)")]
         public CameraSequencePresetSO lockOnSequenceSO;
+
+        // =========================================================================================
+        // [신규 추가] 락온 해제(LockOff) 전용 시퀀스 SO
+        //
+        // 설계 목적:
+        //   기존에는 락온 해제 시 ChangeCameraStance(defaultRestStance) 만 호출하여
+        //   Seq 컨텍스트가 정리되지 않고 히스토리에 Seq_LockOn 이 잔류하는 문제가 있었습니다.
+        //
+        //   lockOffSequenceSO 를 연결하면 락온 해제 시 이 Seq 를 재생하고,
+        //   Seq 종료 후 restoreToDefaultStanceOnFinish 에 의해 defaultRestStance 로
+        //   자연스럽게 복귀합니다. Seq 컨텍스트가 깔끔하게 닫힙니다.
+        //
+        // 권장 SO 설정 (Seq_LockOff_Humanoid_SO):
+        //   restoreToDefaultStanceOnFinish = true
+        //   restoreBlendDuration = 0.3f (부드러운 복귀)
+        //   steps: Stance_Normal_Explore_SO 또는 lockOffStanceSO 로 짧게 전환
+        //
+        // null 이면 기존 동작 유지 — ChangeCameraStance(defaultRestStance) 폴백
+        // =========================================================================================
+        [Tooltip("락온 해제 시 재생할 카메라 시퀀스 SO.\n" +
+                 "Seq_LockOff_Humanoid_SO 를 여기에 연결하세요.\n" +
+                 "null 이면 기존 동작(defaultRestStance 즉시 전환)으로 폴백됩니다.")]
+        public CameraSequencePresetSO lockOffSequenceSO;
 
         [Header("Lock On Input")]
         [SerializeField] bool lockOn_Input;
@@ -527,11 +567,60 @@ namespace TDA.Character
                     lockOnCoroutine = null;
                 }
 
+                // =========================================================================================
                 // 🚨 [Phase 1 고도화] 락온 해제 시 관제탑에 설정된 기본 스탠스로 복귀
-                if (WorldCameraManager.Instance != null && WorldCameraManager.Instance.defaultRestStance != null)
+                //
+                // [신규 개선] lockOffSequenceSO 우선 재생
+                //   기존: ChangeCameraStance(defaultRestStance) 만 호출
+                //         → Seq 컨텍스트가 닫히지 않고 currentSequenceSO 에 Seq_LockOn 이 잔류
+                //   개선: lockOffSequenceSO 가 연결된 경우 해당 Seq 를 재생
+                //         → Seq 종료 시 restoreToDefaultStanceOnFinish 로 defaultRestStance 복귀
+                //         → 히스토리/디버그에 락온/오프 전환 흐름이 명확하게 기록됨
+                //         lockOffSequenceSO 미연결 시 기존 동작(defaultRestStance 즉시 전환) 유지
+                //
+                // [신규] isInLockContext = false 세팅
+                //   lockOffSequenceSO 재생 중에도 컨텍스트를 즉시 해제합니다.
+                //   이로써 LockOff Seq 재생 중 공격해도 Stance 만 교체되지 않고
+                //   일반 Seq 가 재생됩니다. (락오프 중 공격 = 자유 전투 전환 의도)
+                //   만약 LockOff Seq 중 공격 시에도 Stance 만 교체하고 싶다면
+                //   이 줄을 Seq 종료 콜백 이후로 이동하세요.
+                // =========================================================================================
+                if (WorldCameraManager.Instance != null)
                 {
-                    WorldCameraManager.Instance.ChangeCameraStance(WorldCameraManager.Instance.defaultRestStance, "LockOn Disabled");
-                    Debug.Log("<color=cyan>[PlayerCombatManager]</color> 락온 해제! <b>기본 스탠스</b>로 복귀합니다.");
+                    // [신규] 컨텍스트 즉시 해제 — 이후 공격은 isInLockContext=false 기준으로 동작
+                    WorldCameraManager.Instance.isInLockContext = false;
+
+                    // =========================================================================================
+                    // [신규] defaultRestStance 를 원본으로 복원 (락온 ON 시 교체했던 것을 되돌림)
+                    //
+                    // 설계 의도:
+                    //   락온 ON 시 defaultRestStance 를 lockOnStanceSO 로 교체했습니다.
+                    //   락온 OFF 시 반드시 originalDefaultRestStance 로 복원해야
+                    //   락오프 이후의 피격·가드 Seq 종료 시 탐험 Stance 로 올바르게 복귀합니다.
+                    //
+                    //   복원 후 lockOffSequenceSO 재생 시 restoreToDefaultStanceOnFinish 로
+                    //   복원된 originalDefaultRestStance(탐험 Stance) 로 자동 복귀됩니다.
+                    // =========================================================================================
+                    if (originalDefaultRestStance != null)
+                    {
+                        WorldCameraManager.Instance.defaultRestStance = originalDefaultRestStance;
+                        Debug.Log($"<color=cyan>[PlayerCombatManager]</color> defaultRestStance → {originalDefaultRestStance.name} 로 복원 (락오프 구도 복귀 보장)");
+                        originalDefaultRestStance = null; // 캐시 초기화 (다음 락온 시 재캐싱 가능하도록)
+                    }
+
+                    if (lockOffSequenceSO != null)
+                    {
+                        // 락오프 Seq 재생 — Seq 내부에서 LockOff 전용 Stance 로 전환되고
+                        // restoreToDefaultStanceOnFinish=true 로 복원된 originalDefaultRestStance 까지 자동 복귀합니다.
+                        WorldCameraManager.Instance.PlayCameraSequence(lockOffSequenceSO, "LockOn Disabled");
+                        Debug.Log("<color=cyan>[PlayerCombatManager]</color> 락온 해제! <b>LockOff Seq</b> 재생하여 기본 스탠스로 복귀합니다.");
+                    }
+                    else if (WorldCameraManager.Instance.defaultRestStance != null)
+                    {
+                        // fallback: lockOffSequenceSO 미연결 시 기존 동작 유지
+                        WorldCameraManager.Instance.ChangeCameraStance(WorldCameraManager.Instance.defaultRestStance, "LockOn Disabled");
+                        Debug.Log("<color=cyan>[PlayerCombatManager]</color> 락온 해제! <b>기본 스탠스</b>로 복귀합니다.");
+                    }
                 }
             }
             else
@@ -557,6 +646,38 @@ namespace TDA.Character
 
                     if (WorldCameraManager.Instance != null)
                     {
+                        // =========================================================================================
+                        // [신규] 락온 진입 시 isInLockContext = true 세팅
+                        // BaseActionBehaviour 가 이 값을 읽어 공격 시 Seq 전체를 재생할지,
+                        // Stance 만 교체할지 판단합니다.
+                        // =========================================================================================
+                        WorldCameraManager.Instance.isInLockContext = true;
+
+                        // =========================================================================================
+                        // [신규] defaultRestStance 를 락온 전용 Stance 로 교체 (근본 해결)
+                        //
+                        // 설계 의도:
+                        //   피격·가드·패링 Seq 는 종료 시 restoreToDefaultStanceOnFinish 로
+                        //   WorldCameraManager.defaultRestStance 로 자동 복귀합니다.
+                        //   이 값을 락온 전용 Stance(lockOnStanceSO) 로 교체해두면
+                        //   어떤 외부 Seq 가 끝나도 락온 구도로 자연스럽게 복귀됩니다.
+                        //   CameraSequenceRoutine 코드를 한 줄도 건드리지 않는 가장 깔끔한 방법입니다.
+                        //
+                        // 원본 캐싱:
+                        //   originalDefaultRestStance 에 원본을 저장해 두고,
+                        //   락온 해제 시 반드시 복원해야 합니다.
+                        // =========================================================================================
+                        if (lockOnStanceSO != null)
+                        {
+                            // 원본을 아직 캐싱하지 않은 경우에만 저장 (중복 락온 시 원본 덮어쓰기 방지)
+                            if (originalDefaultRestStance == null)
+                            {
+                                originalDefaultRestStance = WorldCameraManager.Instance.defaultRestStance;
+                            }
+                            WorldCameraManager.Instance.defaultRestStance = lockOnStanceSO;
+                            Debug.Log($"<color=cyan>[PlayerCombatManager]</color> defaultRestStance → {lockOnStanceSO.name} 로 교체 (락온 구도 복귀 보장)");
+                        }
+
                         // Sequence SO가 연결되어 있으면 PlayCameraSequence로 호출
                         // → restorePreviousAngle, damping, canBeInterruptedByInput 등 모두 작동
                         if (lockOnSequenceSO != null)

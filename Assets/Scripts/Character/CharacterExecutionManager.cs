@@ -15,6 +15,12 @@
 // 하위 클래스:
 //   - PlayerExecutionManager : 플레이어가 처형을 시전(Executor) 할 때
 //   - AICharacterExecutionManager     : AI가 처형 대상(Victim)이 될 때
+//
+// 수정 이력:
+//   [버그수정] CleanUpExecution() — isBeingExecuted.Value 변경 시 IsServer 게이트 추가.
+//             서버 아닌 클라이언트에서 NetworkVariable 쓰기 시도 → InvalidOperationException 방지.
+//   [버그수정] Awake() — characterExecutionManager 업캐스팅 누락 주석 명시.
+//             PlayerManager / AICharacterManager 각각의 Awake() 에서 반드시 할당해야 함.
 // =============================================================================
 using Unity.Netcode;
 using UnityEngine;
@@ -48,6 +54,11 @@ namespace TDA.Character
         protected virtual void Awake()
         {
             character = GetComponent<CharacterManager>();
+
+            // [주의] characterExecutionManager 업캐스팅은 각 서브클래스 Manager 의 Awake() 에서 담당합니다.
+            // PlayerManager.Awake()      → characterExecutionManager = playerExecutionManager;
+            // AICharacterManager.Awake() → characterExecutionManager = aiCharacterExecutionManager;
+            // 이 할당이 빠지면 RequestExecutionStartServerRpc() 에서 null 참조가 발생합니다.
         }
 
         /// <summary>
@@ -79,7 +90,7 @@ namespace TDA.Character
             isBeingExecuted.Value = true;
         }
 
-        /// <summary>처형 시퀀스를 종료합니다.</summary>
+        /// <summary>처형 시퀀스를 종료합니다. 서버에서만 NetworkVariable 을 변경합니다.</summary>
         public virtual void EndExecution()
         {
             if (!IsServer) return;
@@ -115,11 +126,18 @@ namespace TDA.Character
 
         /// <summary>
         /// 처형 상태를 정리합니다 (중단 또는 완료 후 공통 처리).
+        ///
+        /// [버그 수정] isBeingExecuted 는 NetworkVariable (Server Write Only) 입니다.
+        /// 클라이언트에서 직접 호출 시 InvalidOperationException 이 발생하므로
+        /// IsServer 게이트를 추가합니다.
+        /// executionPartner null 초기화는 로컬 변수이므로 모든 클라이언트에서 수행합니다.
         /// </summary>
         protected virtual void CleanUpExecution()
         {
-            executionPartner = null;
-            isBeingExecuted.Value = false;
+            executionPartner = null;             // 로컬 참조 초기화 — 모든 클라이언트 가능
+
+            if (IsServer)
+                isBeingExecuted.Value = false;   // NetworkVariable 쓰기 — 서버만 가능
         }
 
         /// <summary>
@@ -177,6 +195,9 @@ namespace TDA.Character
             var attackerExec = attacker.characterExecutionManager;
             var victimExec = victim.characterExecutionManager;
 
+            // 모든 클라이언트에서 각자 BeginExecution 호출
+            // — 공격자: BeginExecution(victim, asAttacker=true) → 워핑·Animator 처리
+            // — 피격자: BeginExecution()                        → 이동 잠금 처리
             attackerExec?.BeginExecution(victim, true);
             victimExec?.BeginExecution(attacker, false);
         }

@@ -115,7 +115,7 @@ MonoBehaviour:
       m_RotationOrder: 4
   bodyYawTracking:
     bodyYawFollowWeight: 1
-    bodyYawFollowSmoothTime: 0
+    bodyYawFollowSmoothTime: 0.1
     lockCameraOnActionStart: 0
     lockCameraMouseInfluence: 0.5
   handheldEffect:
@@ -131,3 +131,4 @@ MonoBehaviour:
   dofFocusDistance: 2
   vignetteIntensity: 0.3
   pauseOnApply: 0
+  stanceEventTimeline: []

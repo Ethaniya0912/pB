@@ -58,14 +58,65 @@ namespace TDA.AnimatorBehaviours
 
                 // =========================================================================================
                 // 3. 🚨 [허브 A 발동] 애니메이션 노드 진입 시 카메라 관제탑으로 시퀀스 SO 즉시 발사!
+                //
+                // [개선 P-1] 락온/오프 통합 isInLockContext 기반 분기 (최종안)
+                //
+                //   ─── 판단 기준 변천사 ────────────────────────────────────────────────────────
+                //   v1: isLockedOn 여부
+                //       문제 → 락오프 상태에서 LockOff Seq 중 공격 시 Seq 가 중단됨
+                //
+                //   v2: IsSequencePlaying 여부
+                //       문제 → Seq Steps 가 빠르게 끝나면 이미 false 가 되어
+                //              공격 타이밍에 항상 false 임 (Seq 는 종료됐지만 컨텍스트는 유지 중)
+                //
+                //   v3: WorldCameraManager.isInLockContext 플래그
+                //       PlayerCombatManager 가 락온 ON/OFF 시 명시적으로 세팅합니다.
+                //       Seq 종료 여부와 무관하게 "현재 락온/락오프 카메라 컨텍스트인가" 를
+                //       정확히 반영합니다.
+                //
+                //   v4 (현재): isInLockContext 와 무관하게 공격 시 Seq 재생 완전 제거
+                //       락온/락오프 모두 공격 시 cameraSequence 를 재생할 이유가 없습니다.
+                //       현재 카메라 구도(LockOn/LockOff/탐험)를 그대로 유지하고
+                //       임팩트 효과는 eventPoints[i].useOverlay = true 로만 처리합니다.
+                //
+                //   ─── 분기 규칙 (v4) ──────────────────────────────────────────────────────────
+                //   lockOnStanceOverride 설정됨
+                //     → ChangeCameraStance() : 현재 구도 유지하면서 Stance 만 교체
+                //
+                //   lockOnStanceOverride = null (미설정)
+                //     → 아무것도 하지 않음 (Seq 도, Stance 도 변화 없음)
+                //     → 타격 임팩트는 eventPoints[i].useOverlay = true 로 처리
+                //
+                //   ─── cameraSequence 필드는? ──────────────────────────────────────────────────
+                //   AnimationEventParamsSO.cameraSequence 필드는 삭제하지 않습니다.
+                //   공격 액션에서는 더 이상 참조하지 않지만, 가드/패링/피격 등
+                //   카메라 구도 전환이 필요한 다른 액션에서 여전히 활용 가능합니다.
+                //   (하위 호환 유지 — 기존에 연결된 Seq_LightSlash 등은 무시됨)
                 // =========================================================================================
-                if (character is TDA.Character.Player.PlayerManager && actionParams.cameraSequence != null)
+                if (character is TDA.Character.Player.PlayerManager player)
                 {
-                    if (WorldCameraManager.Instance != null)
+                    if (WorldCameraManager.Instance == null) goto skipCamera;
+
+                    // [개선 P-2] callerName 을 상세하게 구성 — 어느 액션/클립에서 호출됐는지 명확히 기록
+                    string clipName = actionParams.targetClip != null ? actionParams.targetClip.name : "NoClip";
+                    bool isLockedOn = player.playerNetworkManager != null && player.playerNetworkManager.isLockedOn.Value;
+                    bool inLockCtx = WorldCameraManager.Instance.isInLockContext;
+                    string callerInfo = $"BaseAction:{actionParams.name}|Clip:{clipName}|LockOn:{isLockedOn}|LockCtx:{inLockCtx}";
+
+                    // ── lockOnStanceOverride 연결 시 → Stance 만 교체 ──────────────────────────
+                    // 락온/락오프 무관하게 공격 시 Seq 는 절대 재생하지 않습니다.
+                    // 현재 카메라 구도(LockOn/LockOff/탐험)를 그대로 유지합니다.
+                    // lockOnStanceOverride 가 연결된 경우에만 Stance 를 교체합니다.
+                    // null 이면 → 아무것도 하지 않음. 현재 구도 완전 유지.
+                    if (actionParams.lockOnStanceOverride != null)
                     {
-                        WorldCameraManager.Instance.PlayCameraSequence(actionParams.cameraSequence);
-                        // Debug.Log($"<color=cyan>[Camera Hub A]</color> '{actionParams.name}' 액션 진입! 카메라 시퀀스({actionParams.cameraSequence.name})를 재생합니다.");
+                        WorldCameraManager.Instance.ChangeCameraStance(
+                            actionParams.lockOnStanceOverride, callerInfo);
                     }
+                // else → 아무것도 하지 않음.
+                // 타격 임팩트 효과는 OnStateUpdate 의 useOverlay 로 처리합니다.
+
+                skipCamera:;
                 }
             }
             else
@@ -112,7 +163,39 @@ namespace TDA.AnimatorBehaviours
                     string clipName = actionParams.targetClip != null ? actionParams.targetClip.name : "Unknown Clip";
                     string sourceInfo = $"SO: {actionParams.name} | Clip: {clipName} | Time: {point.triggerTime:F2}";
 
+                    // AnimationEventType 이벤트 발행
                     eventManager.NotifyAnimationEvent(point.eventType, sourceInfo);
+
+                    // =============================================================================
+                    // [신규] useOverlay 처리 — 타격 순간 카메라 오버레이 효과 발동
+                    //
+                    // AnimationEventParamsSO.eventPoints 에 useOverlay = true 로 설정하면
+                    // 해당 triggerTime 에 WorldCameraManager.PlayOverlayEffect() 가 호출됩니다.
+                    //
+                    // 이 방식을 쓰면 Seq/Stance 전환 없이 현재 카메라 구도를 유지하면서
+                    // 타격 순간에만 순간적인 효과(쉐이크, FOV 킥, 블러)를 얹을 수 있습니다.
+                    // 락온 Seq 유지 중 공격 임팩트감을 주는 핵심 수단입니다.
+                    //
+                    // overlayData 설정 예시 (AnimationEventParamsSO Inspector):
+                    //   useOverlay = true
+                    //   fovDelta         = -5     (순간 줌인)
+                    //   fovBlendIn       = 0.02s
+                    //   fovBlendOut      = 0.15s
+                    //   shakeIntensity   = 0.3    (카메라 흔들림)
+                    //   shakeDuration    = 0.12s
+                    //   blurStrengthDelta = 0.2   (모션블러)
+                    //   blurDuration     = 0.05s
+                    //   blurDecayTime    = 0.2s
+                    // =============================================================================
+                    if (point.useOverlay
+                        && character is TDA.Character.Player.PlayerManager
+                        && WorldCameraManager.Instance != null)
+                    {
+                        WorldCameraManager.Instance.PlayOverlayEffect(
+                            point.overlayData,
+                            $"AnimEventOverlay:{actionParams.name}|t={point.triggerTime:F2}");
+                    }
+
                     hasEventFired[i] = true;
                 }
             }

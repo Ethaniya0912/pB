@@ -84,6 +84,12 @@ namespace TDA.Character.Player
             characterCombatManager = playerCombatManager;
             characterDefenseManager = playerDefenseManager;
 
+            // ★ [버그수정] characterExecutionManager 업캐스팅 추가
+            // CharacterExecutionManager.RequestExecutionStartServerRpc() 에서
+            // attacker.characterExecutionManager?.BeginExecution(victim, true) 로 호출하므로
+            // 반드시 여기서 등록되어 있어야 null 참조 없이 동작합니다.
+            characterExecutionManager = playerExecutionManager;
+
             // [컴파일 에러 픽스] CharacterManager에 선언되어 있지 않은 매니저들은 업캐스팅을 생략합니다.
             // characterEquipmentManager = playerEquipmentManager;
             // characterInteractionManager = playerInteractionManager;

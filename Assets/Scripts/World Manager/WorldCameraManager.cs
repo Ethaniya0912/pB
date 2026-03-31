@@ -22,6 +22,14 @@ namespace TDA.World
         // 🚨 이름(string) 대신 실제 SO 레퍼런스를 담아 에디터에서 즉시 포커싱할 수 있게 합니다.
         public CameraSequencePresetSO seqSO;
         public CameraStancePresetSO stanceSO;
+
+        // ── [개선 P-3] 히스토리 상세 정보 필드 추가 ────────────────────────────────
+        // changeType   : 변경 종류 (Seq / Stance / Overlay / StanceTimeline) — 에디터 색상 배지에 활용
+        // prevStanceName: 변경 직전 Stance 이름 — 이전/이후를 화살표 형식으로 표시하기 위해 저장
+        // debugNote    : 추가 컨텍스트 정보 (isLockedOn 여부 등) — 선택적으로 전달
+        public string changeType;      // "Seq" | "Stance" | "Overlay" | "StanceTimeline" | "Unknown"
+        public string prevStanceName;  // 변경 직전 currentStanceSO 의 name (변경 전 Before 값)
+        public string debugNote;       // 추가 컨텍스트 정보 (callerName 보조 메모)
     }
 
     /// <summary>
@@ -149,6 +157,28 @@ namespace TDA.World
         // ICameraEffectReceiver 캐시 (씬 내 구현체 목록)
         // Awake/OnEnable 시점에 수집하여 매 프레임 FindObjectsByType 호출을 피합니다.
         private List<ICameraEffectReceiver> cachedEffectReceivers = new List<ICameraEffectReceiver>();
+
+        // =====================================================================
+        // 🔹 락온/오프 컨텍스트 플래그
+        // =====================================================================
+        //
+        // 설계 목적:
+        //   BaseActionBehaviour 가 공격 시 Seq 전체를 재생할지, Stance 만 교체할지 판단하기 위해
+        //   "현재 락온/락오프 카메라 컨텍스트인가" 여부를 WorldCameraManager 에 보관합니다.
+        //
+        //   기존의 IsSequencePlaying 은 Seq Steps 가 모두 끝나면 false 가 되어
+        //   공격 타이밍에는 이미 false 인 경우가 많습니다 (Seq 가 빠르게 종료됨).
+        //   따라서 IsSequencePlaying 대신 이 플래그로 컨텍스트를 명시적으로 관리합니다.
+        //
+        // 세팅 위치:
+        //   - 락온 ON  : PlayerCombatManager.OnLockOnInputReceived() → true
+        //   - 락온 OFF : PlayerCombatManager.OnLockOnInputReceived() → false
+        //                (lockOffSequenceSO 가 있으면 해당 Seq 재생 후 Seq 종료 시 false)
+        //
+        // 읽는 위치:
+        //   - BaseActionBehaviour.OnStateEnter() → isInLockContext 로 분기
+        //
+        [HideInInspector] public bool isInLockContext = false;
 
         // =====================================================================
         // 🔹 히스토리 트래킹 데이터
@@ -325,14 +355,35 @@ namespace TDA.World
         }
         // =============================================================================
 
+        /// <summary>
+        /// 기존 호환용 오버로드. changeType·debugNote 가 필요 없는 단순 호출에서 사용합니다.
+        /// </summary>
         public void RecordCameraState(string caller, CameraSequencePresetSO seqSO, CameraStancePresetSO stanceSO)
+        {
+            // changeType 자동 추론: seqSO 가 있으면 "Seq", 없으면 "Stance"
+            string autoType = seqSO != null ? "Seq" : "Stance";
+            RecordCameraState(caller, seqSO, stanceSO, autoType, "");
+        }
+
+        /// <summary>
+        /// [개선 P-3] 히스토리 상세 정보를 포함하는 풀 오버로드.
+        /// changeType, prevStanceName(자동 추출), debugNote 를 함께 기록합니다.
+        /// </summary>
+        /// <param name="changeType">"Seq" | "Stance" | "Overlay" | "StanceTimeline" — 에디터 배지 색상에 사용</param>
+        /// <param name="debugNote">isLockedOn 여부 등 추가 컨텍스트 (선택)</param>
+        public void RecordCameraState(string caller, CameraSequencePresetSO seqSO, CameraStancePresetSO stanceSO,
+                                      string changeType, string debugNote = "")
         {
             CameraStateRecord record = new CameraStateRecord
             {
                 timestamp = System.DateTime.Now.ToString("HH:mm:ss.fff"),
                 callerEvent = caller,
                 seqSO = seqSO,
-                stanceSO = stanceSO
+                stanceSO = stanceSO,
+                changeType = changeType,
+                // 변경 직전 Stance 이름을 Before 값으로 저장 (변경이 일어나기 전에 호출해야 함)
+                prevStanceName = currentStanceSO != null ? currentStanceSO.name : "None",
+                debugNote = debugNote,
             };
 
             // 최신 기록이 맨 위(0번 인덱스)로 오도록 삽입
@@ -351,6 +402,21 @@ namespace TDA.World
         public void ChangeCameraStance(CameraStancePresetSO newStance, string callerName = "Unknown")
         {
             if (newStance == null) return;
+
+#if UNITY_EDITOR
+            // ── [개선 P-2] ChangeCameraStance() 콘솔 로그 추가 ──────────────────────────
+            // 기존에 로그가 없어 어디서 왜 Stance 가 바뀌었는지 추적 불가능했습니다.
+            string prevName = currentStanceSO != null ? currentStanceSO.name : "None";
+            Debug.Log($"<color=cyan>[CameraStance]</color> " +
+                      $"<b>{prevName}</b> → <b>{newStance.name}</b> | " +
+                      $"호출: {callerName} | t={Time.time:F2}s");
+#endif
+
+            // ── [개선 P-3] Stance 단독 전환도 히스토리에 기록 ─────────────────────────
+            // 기존: ApplyStanceInstantly() 내부에서만 기록 → ChangeCameraStance() 직접 호출 시 누락
+            // 개선: currentStanceSO 덮어쓰기 전에 RecordCameraState() 를 먼저 호출해야
+            //       prevStanceName 에 올바른 Before 값이 기록됩니다.
+            RecordCameraState(callerName, null, newStance, "Stance");
 
             currentStanceSO = newStance;
 
@@ -432,10 +498,15 @@ namespace TDA.World
 
             currentSequenceSO = sequenceSO;
             IsSequencePlaying = true;
-            Debug.Log($"<color=magenta>[WorldCameraManager]</color> 🎬 새로운 카메라 시퀀스 재생 시작: <b>{sequenceSO.name}</b>");
 
-            // 히스토리에 실제 SO 레퍼런스를 전달
-            RecordCameraState(callerName, sequenceSO, currentStanceSO);
+            // ── [개선 P-2] callerName 포함 상세 로그 ──────────────────────────────────
+            // 기존: 시퀀스 이름만 출력 → 어느 액션/코드에서 호출됐는지 불명확
+            // 개선: callerName 과 현재 Stance 이름을 함께 출력하여 흐름 추적 용이
+            Debug.Log($"<color=magenta>[WorldCameraManager]</color> 🎬 카메라 시퀀스 재생: <b>{sequenceSO.name}</b> | " +
+                      $"호출: {callerName} | 현재 Stance: {(currentStanceSO != null ? currentStanceSO.name : "None")} | t={Time.time:F2}s");
+
+            // 히스토리에 실제 SO 레퍼런스를 전달 (changeType = "Seq")
+            RecordCameraState(callerName, sequenceSO, currentStanceSO, "Seq");
 
 #if UNITY_EDITOR
             if (sequenceSO.pauseOnApply)
@@ -799,9 +870,13 @@ namespace TDA.World
             BroadcastOverlayToReceivers(data);
 
 #if UNITY_EDITOR
-            Debug.Log($"[WorldCameraManager] 오버레이 재생 | FOV+{data.fovDelta:F1} | " +
+            // ── [개선 P-3] Overlay 발동도 히스토리에 기록 ────────────────────────────
+            Debug.Log($"<color=orange>[Overlay]</color> 오버레이 재생 | FOV+{data.fovDelta:F1} | " +
                       $"Blur+{data.blurStrengthDelta:F2} | Shake:{data.shakeIntensity:F2} | " +
                       $"출처: {callerTag}");
+            RecordCameraState(callerTag, null, currentStanceSO,
+                              "Overlay",
+                              $"FOV+{data.fovDelta:F1} Blur+{data.blurStrengthDelta:F2} Shake:{data.shakeIntensity:F2}");
 #endif
         }
 
@@ -816,7 +891,16 @@ namespace TDA.World
             BroadcastEventToReceivers(eventType);
 
 #if UNITY_EDITOR
-            Debug.Log($"[WorldCameraManager] 카메라 이벤트 브로드캐스트: {eventType} | 출처: {callerTag}");
+            // ── [개선 P-2] 수신자 목록을 함께 출력 ────────────────────────────────────
+            // 기존: 이벤트 타입과 출처만 출력 → 실제로 어느 컴포넌트가 받았는지 확인 불가
+            // 개선: cachedEffectReceivers 목록의 오브젝트 이름을 함께 출력
+            string receiverNames = cachedEffectReceivers.Count > 0
+                ? string.Join(", ", cachedEffectReceivers
+                    .Select(r => (r as MonoBehaviour)?.name ?? "?"))
+                : "수신자 없음";
+            Debug.Log($"<color=yellow>[CameraEvent]</color> " +
+                      $"이벤트={eventType} | 출처={callerTag} | " +
+                      $"수신자=[{receiverNames}]");
 #endif
         }
 
@@ -882,8 +966,15 @@ namespace TDA.World
                     }
 
 #if UNITY_EDITOR
-                    Debug.Log($"[StanceTimeline] [{stance.name}] 포인트[{i}] 진입 " +
-                              $"(t={stanceElapsedTime:F2}s, event={point.onEnterEvent})");
+                    // ── [개선 P-2/P-3] StanceTimeline 진입 시 상세 로그 + 히스토리 기록 ───
+                    // isSingleShot, hasOverlay 여부를 함께 출력하여 "왜 발동됐는지" 명확하게 파악
+                    Debug.Log($"<color=lime>[StanceTimeline]</color> [{stance.name}] 포인트[{i}] 진입 | " +
+                              $"t={stanceElapsedTime:F2}s | event={point.onEnterEvent} | " +
+                              $"singleShot={isSingleShot} | hasOverlay={hasOverlay}");
+                    // Overlay/이벤트 발동을 히스토리에 기록 (changeType = "StanceTimeline")
+                    RecordCameraState($"StanceTimeline[{i}].Enter:{stance.name}", null, currentStanceSO,
+                                      "StanceTimeline",
+                                      $"event={point.onEnterEvent} singleShot={isSingleShot} hasOverlay={hasOverlay}");
 #endif
                 }
 
@@ -902,8 +993,9 @@ namespace TDA.World
                         }
 
 #if UNITY_EDITOR
-                        Debug.Log($"[StanceTimeline] [{stance.name}] 포인트[{i}] 종료 " +
-                                  $"(t={stanceElapsedTime:F2}s, event={point.onExitEvent})");
+                        // ── [개선 P-2] Exit 로그도 상세화 ───────────────────────────────────
+                        Debug.Log($"<color=lime>[StanceTimeline]</color> [{stance.name}] 포인트[{i}] 종료 | " +
+                                  $"t={stanceElapsedTime:F2}s | event={point.onExitEvent}");
 #endif
                     }
                 }
@@ -1405,12 +1497,13 @@ namespace TDA.World
             {
                 EditorGUILayout.BeginVertical("box");
 
-                // 테이블 헤더
+                // ── [개선 P-3] 테이블 헤더 — changeType 컬럼 추가 ─────────────────────
                 EditorGUILayout.BeginHorizontal("box");
+                EditorGUILayout.LabelField("구분", EditorStyles.boldLabel, GUILayout.Width(75));
                 EditorGUILayout.LabelField("발생 시간", EditorStyles.boldLabel, GUILayout.Width(85));
-                EditorGUILayout.LabelField("호출 스크립트/이벤트명", EditorStyles.boldLabel, GUILayout.Width(180));
-                EditorGUILayout.LabelField("Seq SO명 (클릭하여 열기)", EditorStyles.boldLabel, GUILayout.Width(150));
-                EditorGUILayout.LabelField("Stance SO명 (클릭하여 열기)", EditorStyles.boldLabel, GUILayout.Width(150));
+                EditorGUILayout.LabelField("호출 스크립트/이벤트명", EditorStyles.boldLabel, GUILayout.Width(200));
+                EditorGUILayout.LabelField("Seq SO (클릭)", EditorStyles.boldLabel, GUILayout.Width(130));
+                EditorGUILayout.LabelField("이전 → 현재 Stance", EditorStyles.boldLabel, GUILayout.Width(200));
                 EditorGUILayout.EndHorizontal();
 
                 // 데이터 검증 및 출력
@@ -1438,13 +1531,27 @@ namespace TDA.World
                         EditorGUILayout.BeginHorizontal("helpbox");
                         GUI.backgroundColor = Color.white;
 
-                        // 데이터 출력
+                        // ── [개선 P-3] changeType 배지 + 이전→현재 화살표 표시 ───────────────
+                        // changeType 에 따라 색상 배지를 표시하여 한눈에 종류를 구분할 수 있습니다.
+                        string ct = string.IsNullOrEmpty(record.changeType) ? "?" : record.changeType;
+                        Color badgeColor = ct switch
+                        {
+                            "Seq" => new Color(0.3f, 0.5f, 1f),    // 파란색 — 시퀀스 전환
+                            "Stance" => new Color(0.2f, 0.8f, 0.3f),  // 초록색 — 스탠스 단독 전환
+                            "Overlay" => new Color(1f, 0.6f, 0.1f),    // 주황색 — 오버레이 발동
+                            "StanceTimeline" => new Color(0.8f, 0.3f, 1f),    // 보라색 — 타임라인 이벤트
+                            _ => Color.gray,
+                        };
+                        GUI.contentColor = badgeColor;
+                        EditorGUILayout.LabelField($"[{ct}]", EditorStyles.boldLabel, GUILayout.Width(75));
+                        GUI.contentColor = Color.white;
+
                         EditorGUILayout.LabelField(record.timestamp, GUILayout.Width(85));
-                        EditorGUILayout.LabelField(record.callerEvent, GUILayout.Width(180));
+                        EditorGUILayout.LabelField(record.callerEvent, GUILayout.Width(200));
 
                         // 🚨 Seq SO 버튼 처리
                         string seqName = record.seqSO != null ? record.seqSO.name : "-";
-                        if (GUILayout.Button(seqName, linkBtnStyle, GUILayout.Width(150)))
+                        if (GUILayout.Button(seqName, linkBtnStyle, GUILayout.Width(130)))
                         {
                             if (record.seqSO != null)
                             {
@@ -1453,15 +1560,26 @@ namespace TDA.World
                             }
                         }
 
-                        // 🚨 Stance SO 버튼 처리
-                        string stanceName = record.stanceSO != null ? record.stanceSO.name : "-";
-                        if (GUILayout.Button(stanceName, linkBtnStyle, GUILayout.Width(150)))
+                        // 🚨 Stance SO 화살표 표시: "이전 → 현재" 형식
+                        // prevStanceName 이 기록되어 있으면 화살표로 변화를 시각화합니다.
+                        string prevName = string.IsNullOrEmpty(record.prevStanceName) ? "?" : record.prevStanceName;
+                        string currentName = record.stanceSO != null ? record.stanceSO.name : "-";
+                        string arrowLabel = $"{prevName} → {currentName}";
+                        if (GUILayout.Button(arrowLabel, linkBtnStyle, GUILayout.Width(200)))
                         {
                             if (record.stanceSO != null)
                             {
                                 EditorGUIUtility.PingObject(record.stanceSO); // 프로젝트 창에서 반짝임 효과
                                 Selection.activeObject = record.stanceSO;     // 인스펙터에 즉시 선택
                             }
+                        }
+
+                        // debugNote 가 있으면 툴팁 형태로 표시
+                        if (!string.IsNullOrEmpty(record.debugNote))
+                        {
+                            GUI.contentColor = new Color(0.7f, 0.7f, 0.7f);
+                            EditorGUILayout.LabelField($"  ℹ {record.debugNote}", EditorStyles.miniLabel);
+                            GUI.contentColor = Color.white;
                         }
 
                         EditorGUILayout.EndHorizontal();

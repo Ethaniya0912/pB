@@ -12,11 +12,12 @@ using System;
 // =============================================================================
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using Unity.Netcode;
-using TDA.World;
+using System.Runtime.InteropServices;
 using TDA.Cameras;
 using TDA.Core.Events;
+using TDA.World;
+using Unity.Netcode;
+using UnityEngine;
 
 namespace TDA.Character.Player
 {
@@ -94,6 +95,34 @@ namespace TDA.Character.Player
         [Tooltip("카메라가 정면으로 정렬되는 복귀 속도입니다.")]
         [SerializeField] private float autoCenterSpeed = 2.0f;
 
+        // =============================================================================
+        // [신규] 이동 시 AutoCenter 부드러운 보간 파라미터
+        //
+        // 문제:
+        //   카메라를 옆으로 돌린 상태에서 W 를 누르면 AutoCenter 가 즉시 발동되어
+        //   카메라가 이동 방향으로 확 꺾여버립니다.
+        //
+        // 해결:
+        //   1. autoCenterOnMoveDelay  : 이동 시작 후 이 시간(초)이 지난 뒤부터 복귀 시작
+        //   2. autoCenterOnMoveSpeed  : 이동 중 복귀 속도 (autoCenterSpeed 와 별도)
+        //   3. autoCenterMaxDegPerSec : 초당 최대 복귀 각도 — 급격한 꺾임 방지
+        //
+        // 권장 값:
+        //   autoCenterOnMoveDelay  = 0.3s  (달리기 시작 후 0.3초 대기)
+        //   autoCenterOnMoveSpeed  = 1.5   (느리게 부드럽게)
+        //   autoCenterMaxDegPerSec = 60    (초당 최대 60도 — 급격한 꺾임 방지)
+        // =============================================================================
+        [Tooltip("이동 시작 후 AutoCenter 가 시작되기까지의 대기 시간(초).\n0 이면 즉시 시작 (기존 동작).")]
+        [SerializeField] private float autoCenterOnMoveDelay = 0.3f;
+
+        [Tooltip("이동 중 카메라가 정면으로 복귀하는 속도.\nautoCenterSpeed 와 별도 조절 가능.")]
+        [SerializeField] private float autoCenterOnMoveSpeed = 1.5f;
+
+        [Tooltip("이동 중 AutoCenter 의 초당 최대 회전 각도(도/초).\n이 값을 낮출수록 급격한 꺾임이 부드러워집니다.")]
+        [SerializeField] private float autoCenterMaxDegPerSec = 60f;
+
+        private float moveAutoCenterTimer = 0f; // 이동 시작 후 경과 시간 (딜레이용)
+
         private float noInputTimer = 0f;
         #endregion
 
@@ -133,6 +162,66 @@ namespace TDA.Character.Player
         [HideInInspector] public float dbg_finalRenderYaw = 0f;
         [HideInInspector] public float dbg_playerBodyYaw = 0f;
         [HideInInspector] public float dbg_bodyToCamDiff = 0f;  // 카메라-몸통 사이 각도
+        // [신규] bodyWeight 실시간 추적용 디버그 변수
+        [HideInInspector] public float dbg_bodyWeight = 0f;         // 실제 적용된 bodyWeight (공격 중엔 0 강제)
+        [HideInInspector] public float dbg_effBodyYaw = 0f;         // effBodyYaw (몸통 추적 반영 후 기준 Yaw)
+        [HideInInspector] public float dbg_smoothedBodyYaw = 0f;    // smoothedPlayerBodyYaw
+        [HideInInspector] public bool dbg_isPerformingAction = false; // 공격 중 여부
+
+        // =============================================================================
+        // [신규] 각도 점프 감지 디버그 변수
+        // FinalRender / leftAndRightLookAngle 이 한 프레임 내에 임계값 이상 변화하면
+        // 콘솔 로그와 OSD 에 표시합니다.
+        // =============================================================================
+        [Tooltip("한 프레임 내 FinalRender 변화가 이 값(도) 이상이면 점프로 감지합니다.")]
+        [SerializeField] private float jumpDetectThresholdDeg = 15f;
+
+        [Header("Jump Debug - Pause")]
+        [Tooltip("점프 감지 시 Time.timeScale=0 으로 자동 일시정지합니다.")]
+        [SerializeField] public bool pauseOnJumpDetect = false;
+        [Tooltip("일시정지 후 이 키를 누르면 재개됩니다. (Inspector 에서 Resume 버튼과 동일)")]
+        [SerializeField] private KeyCode resumeKey = KeyCode.F9;
+        [HideInInspector] public bool isPausedByJump = false; // 점프 감지로 일시정지 중 여부
+        private bool _skipNextFrameAfterResume = false;       // Resume 직후 deltaTime 스파이크 스킵용
+
+        // =============================================================================
+        // [신규] smoothedPlayerBodyYaw 강제 스냅 임계값
+        //
+        // smoothed 와 playerBodyYaw 의 차이가 이 값 이상이면
+        // 부드러운 보간 대신 즉시 스냅합니다.
+        // 턴 애니메이션처럼 한 프레임에 몸통이 크게 도는 경우를 처리합니다.
+        //
+        // 너무 낮으면 일반 이동에서도 스냅 → 카메라 튐
+        // 너무 높으면 턴 애니메이션에서 스냅 안 됨 → 점프
+        // 권장: 60~90°
+        // =============================================================================
+        [Tooltip("smoothedBodyYaw 와 playerBodyYaw 차이가 이 값(도) 이상이면 즉시 스냅합니다. 턴 애니메이션처럼 몸통이 한 프레임에 크게 도는 경우 처리용.")]
+        [SerializeField] private float bodyYawSnapThresholdDeg = 80f;
+        [HideInInspector] public bool dbg_jumpDetected = false;  // 이번 프레임 점프 발생
+        [HideInInspector] public float dbg_jumpDeltaDeg = 0f;     // 점프 변화량
+        [HideInInspector] public string dbg_jumpSource = "";     // 점프 발생 단계
+        [HideInInspector] public float dbg_jumpPrevFinal = 0f;     // 이전 프레임 FinalRender
+        [HideInInspector] public float dbg_jumpCurrFinal = 0f;     // 현재 프레임 FinalRender
+        // 단계별 중간값 스냅샷
+        [HideInInspector] public float dbg_snap_afterHandleRot = 0f;  // HandleRotation 직후
+        [HideInInspector] public float dbg_snap_afterMagnetic = 0f;  // MagneticSoftLock 직후
+        [HideInInspector] public float dbg_snap_afterApplyDynamic = 0f;  // ApplyDynamicYawAndClamp 직후
+        // 점프 발생 시 인수 스냅샷
+        [HideInInspector] public float dbg_jump_playerBodyYaw = 0f;
+        [HideInInspector] public float dbg_jump_effBodyYaw = 0f;
+        [HideInInspector] public float dbg_jump_smoothedYaw = 0f;
+        [HideInInspector] public float dbg_jump_currentDiff = 0f;
+        [HideInInspector] public float dbg_jump_refBodyYaw = 0f;
+        [HideInInspector] public float dbg_jump_baseDiff = 0f;
+        [HideInInspector] public bool dbg_jump_isMoving = false;
+        [HideInInspector] public float dbg_jump_bodyWeight = 0f;
+        [HideInInspector] public float dbg_jump_prevSmoothed = 0f;  // 동기이동 전 smoothed
+        [HideInInspector] public float dbg_jump_smoothedDelta = 0f;  // _smoothedDelta 값
+        [HideInInspector] public float dbg_jump_leftAndRight = 0f;  // 현재 leftAndRightLookAngle
+        [HideInInspector] public float dbg_jump_prevLeftAndRight = 0f; // 이전 프레임 leftAndRight
+        private float prevFinalRenderYaw = 0f; // 이전 프레임 FinalRender (점프 감지용, -180~180 정규화)
+        private float prevCurrentDiff = 0f; // 이전 프레임 currentDiff (점프 오인 방지용)
+        private float _prevEffBodyYaw = 0f; // 이전 프레임 effBodyYaw (변화량 보상용)
         [HideInInspector] public float dbg_currentFramingOffsetX = 0f;
         [HideInInspector] public float dbg_currentFramingYawOffset = 0f;
         [HideInInspector] public float dbg_trackingWeight = 0f;
@@ -455,6 +544,28 @@ namespace TDA.Character.Player
         {
             if (player == null) return;
 
+            // ── Pause 해제 키 처리 ──────────────────────────────────────────
+            if (isPausedByJump && Input.GetKeyDown(resumeKey))
+            {
+                isPausedByJump = false;
+                Time.timeScale = 1f;
+                _skipNextFrameAfterResume = true; // 재개 직후 deltaTime 스파이크 프레임 스킵
+                Debug.Log($"<color=lime>[CamJump Pause]</color> 재개 ({resumeKey} 키 입력)");
+            }
+            if (isPausedByJump) return; // Pause 중에는 카메라 업데이트 스킵
+
+            // Resume 직후 첫 프레임 스킵 (deltaTime 스파이크 방지)
+            if (_skipNextFrameAfterResume)
+            {
+                _skipNextFrameAfterResume = false;
+                // smoothed 를 현재 playerBodyYaw 로 즉시 동기화해서 누적 오차 리셋
+                smoothedPlayerBodyYaw = player.transform.eulerAngles.y;
+                smoothedPlayerBodyYawVelocity = 0f;
+                prevFinalRenderYaw = dbg_finalRenderYaw;
+                prevCurrentDiff = dbg_bodyToCamDiff;
+                return;
+            }
+
             // 1. 프레임 디커플링 연산 전 복구
             if (enableFrameDecoupling && !isFirstFrame)
             {
@@ -488,9 +599,106 @@ namespace TDA.Character.Player
 
             UpdateVirtualCursor();
             HandleFollowTarget();
+            // [신규] 점프 감지 — 단계별 스냅샷 수집
+            dbg_jumpDetected = false;
+            float _preHandleYaw = dbg_finalRenderYaw; // 이전 프레임 FinalRender
+
             Quaternion baseRotation = HandleRotation();
+            // HandleRotation 직후 스냅샷
+            dbg_snap_afterHandleRot = Mathf.DeltaAngle(0f, leftAndRightLookAngle);
+
             baseRotation = HandleMagneticSoftLock(baseRotation);
+            // MagneticSoftLock 직후 스냅샷 (leftAndRightLookAngle 은 Magnetic 에서 변할 수 있음)
+            dbg_snap_afterMagnetic = Mathf.DeltaAngle(0f, leftAndRightLookAngle);
+
             baseRotation = ApplyDynamicYawAndClamp(baseRotation);
+            // ApplyDynamicYawAndClamp 직후 스냅샷 (dbg_finalRenderYaw 는 함수 내부에서 세팅됨)
+            dbg_snap_afterApplyDynamic = dbg_finalRenderYaw; // 이미 정규화됨
+
+            // ── 점프 감지 ───────────────────────────────────────────────────────
+            // [개선] dbg_finalRenderYaw 는 저장 시점에 이미 -180~180 정규화됨
+            // 추가 정규화 불필요 — 직접 사용
+            float _currNorm = dbg_finalRenderYaw;
+            float _prevNorm = prevFinalRenderYaw;
+            float _jumpDelta = Mathf.Abs(Mathf.DeltaAngle(_prevNorm, _currNorm));
+
+            // [개선] diff 변화량도 함께 계산
+            // diff 변화와 FinalRender 변화가 비례하면 정상 이동 (오인 방지)
+            float _diffDelta = Mathf.Abs(Mathf.DeltaAngle(prevCurrentDiff, dbg_bodyToCamDiff));
+
+            // 진짜 점프 조건: FinalRender 점프 크기가 임계값 이상이고
+            // diff 변화로 설명되지 않는 잉여 점프가 존재할 때
+            float _unexplainedJump = Mathf.Max(0f, _jumpDelta - _diffDelta - 2f); // 2° 여유
+
+            if (_unexplainedJump > jumpDetectThresholdDeg)
+            {
+                dbg_jumpDetected = true;
+                dbg_jumpDeltaDeg = _jumpDelta;
+                dbg_jumpPrevFinal = _prevNorm;
+                dbg_jumpCurrFinal = _currNorm;
+
+                // 어느 단계에서 점프가 발생했는지 파악
+                // 스냅 값들도 정규화
+                float _snapHR = Mathf.DeltaAngle(0f, dbg_snap_afterHandleRot);
+                float _snapMag = Mathf.DeltaAngle(0f, dbg_snap_afterMagnetic);
+                float _snapApply = Mathf.DeltaAngle(0f, dbg_snap_afterApplyDynamic);
+
+                float _deltaAfterHandleRot = Mathf.Abs(Mathf.DeltaAngle(_prevNorm, _snapHR));
+                float _deltaAfterMagnetic = Mathf.Abs(Mathf.DeltaAngle(_snapHR, _snapMag));
+                float _deltaAfterApplyDynamic = Mathf.Abs(Mathf.DeltaAngle(_snapMag, _snapApply));
+
+                if (_deltaAfterApplyDynamic > _deltaAfterHandleRot && _deltaAfterApplyDynamic > _deltaAfterMagnetic)
+                    dbg_jumpSource = "ApplyDynamicYawAndClamp";
+                else if (_deltaAfterMagnetic > _deltaAfterHandleRot)
+                    dbg_jumpSource = "MagneticSoftLock";
+                else
+                    dbg_jumpSource = "HandleRotation";
+
+                // 인수 스냅샷
+                dbg_jump_playerBodyYaw = dbg_playerBodyYaw;
+                dbg_jump_effBodyYaw = dbg_effBodyYaw;
+                dbg_jump_smoothedYaw = dbg_smoothedBodyYaw;
+                dbg_jump_currentDiff = dbg_bodyToCamDiff;
+                dbg_jump_isMoving = (player.playerNetworkManager != null
+                    && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f);
+                dbg_jump_bodyWeight = dbg_bodyWeight;
+                dbg_jump_prevSmoothed = dbg_jump_prevLeftAndRight; // 동기이동 전 참조용
+                dbg_jump_smoothedDelta = dbg_bodyToCamDiff;         // 현재 diff (실제 smoothedDelta 는 아래서)
+                dbg_jump_leftAndRight = leftAndRightLookAngle;
+
+                if (showDebugLogs)
+                    Debug.Log($"<color=red>[CamJump]</color> {_jumpDelta:F1}° 점프 (설명불가={_unexplainedJump:F1}°) | " +
+                              $"발생단계={dbg_jumpSource} | " +
+                              $"단계별: HR={_snapHR:F1} Mag={_snapMag:F1} Apply={_snapApply:F1} | " +
+                              $"Prev={_prevNorm:F1} Curr={_currNorm:F1} | " +
+                              $"diff변화={_diffDelta:F1}° | " +
+                              $"PlayerBody={dbg_jump_playerBodyYaw:F1} effBody={dbg_jump_effBodyYaw:F1} " +
+                              $"smoothed={dbg_jump_smoothedYaw:F1} prevSmoothed={dbg_jump_prevSmoothed:F1} " +
+                              $"smoothedDelta={dbg_jump_smoothedDelta:F1} | " +
+                              $"leftAndRight={dbg_jump_leftAndRight:F1} prevLeftAndRight={dbg_jump_prevLeftAndRight:F1} | " +
+                              $"diff={dbg_jump_currentDiff:F1} | " +
+                              $"refBody={dbg_jump_refBodyYaw:F1} baseDiff={dbg_jump_baseDiff:F1} | " +
+                              $"bodyW={dbg_jump_bodyWeight:F2} isMoving={dbg_jump_isMoving} " +
+                              $"isPerforming={dbg_isPerformingAction}");
+
+                // ── Pause 기능 ─────────────────────────────────────────────
+                if (pauseOnJumpDetect && !isPausedByJump)
+                {
+                    isPausedByJump = true;
+                    Time.timeScale = 0f;
+                    Debug.Log($"<color=yellow>[CamJump Pause]</color> 점프 감지로 일시정지. " +
+                              $"{resumeKey} 키 또는 Inspector Resume 버튼으로 재개.");
+                }
+            }
+            else
+            {
+                dbg_jumpDetected = false;
+            }
+            prevFinalRenderYaw = dbg_finalRenderYaw;
+            prevCurrentDiff = dbg_bodyToCamDiff;
+            dbg_jump_prevLeftAndRight = leftAndRightLookAngle; // 다음 프레임 비교용
+            // ────────────────────────────────────────────────────────────────────
+
             HandleCollision();
             ApplyFinalTransform(baseRotation);
 
@@ -1168,9 +1376,13 @@ namespace TDA.Character.Player
             float yDelta = Mathf.Abs(targetPlayerY - smoothedPlayerY);
             float effectiveTargetY = yDelta < 0.015f ? smoothedPlayerY : targetPlayerY;
 
+            // [개선] 낙하 시 Y 추적 속도 자동 상승
+            // 플레이어가 빠르게 떨어질 때(낙하) maxSpeed=2m/s 제한으로 카메라가 뒤처짐.
+            // playerYVelocity 가 음수(낙하 중)이면 속도 제한을 해제합니다.
+            float _yMaxSpeed = (targetPlayerY < smoothedPlayerY - 0.1f) ? 99f : 2f;
             smoothedPlayerY = Mathf.SmoothDamp(
                 smoothedPlayerY, effectiveTargetY,
-                ref playerYVelocity, 0.3f, 2f);
+                ref playerYVelocity, 0.3f, _yMaxSpeed);
 
             Vector3 massCenter = player.transform.position;
             massCenter.y = smoothedPlayerY; // 흔들림 없는 안전한 Y축 적용
@@ -1326,7 +1538,19 @@ namespace TDA.Character.Player
                         float bodyW = stanceForFocusYaw != null
                             ? stanceForFocusYaw.bodyYawTracking.bodyYawFollowWeight : 1.0f;
 
-                        bool suppressFocusYaw = player.isPerformingAction && bodyW < 0.99f;
+                        // =============================================================================
+                        // [신규] 공격 중 FocusPivot Yaw 보정 무조건 억제
+                        //
+                        // 기존: suppressFocusYaw = isPerformingAction && bodyW < 0.99f
+                        //   → bodyW(SO 설정)가 1.0이면 공격 중에도 FocusPivot 이 동작
+                        //   → FocusPivot 이 매 프레임 leftAndRightLookAngle 을 꺾어
+                        //      카메라가 몸통/타겟 방향으로 강제 회전하는 문제 발생
+                        //
+                        // 개선: isPerformingAction=true 이면 bodyW 값과 무관하게 무조건 억제
+                        //   → 공격 중 FocusPivot 이 leftAndRightLookAngle 에 간섭하지 않음
+                        //   → HandleRotation 의 bodyWeight=0 패치와 함께 완전한 카메라 고정
+                        // =============================================================================
+                        bool suppressFocusYaw = player.isPerformingAction;
                         bool escapeBlocksFocus = isEscapedStable;
 
                         // [버그수정] WASD 이동 중 FocusPivot 억제
@@ -1623,6 +1847,30 @@ namespace TDA.Character.Player
             float bodySmoothTime = stanceForBodyYaw != null
                 ? stanceForBodyYaw.bodyYawTracking.bodyYawFollowSmoothTime : 0f;
 
+            // =============================================================================
+            // [신규] 공격 중 bodyWeight 강제 0 — SO 설정 무관하게 몸통 추적 완전 차단
+            //
+            // 문제:
+            //   bodyWeight 는 SO(currentStanceSO) 에서 읽어오는 구조입니다.
+            //   공격 중 currentStanceSO 가 Stance_Idle_SO 등 bodyWeight=1 인 Stance 이면
+            //   루트모션으로 playerBodyYaw 가 급변할 때 카메라가 그대로 따라 꺾입니다.
+            //   lockCameraOnActionStart / HandleMagneticSoftLock 차단만으로는 부족합니다.
+            //   effBodyYaw 계산 자체가 playerBodyYaw 를 그대로 반영하기 때문입니다.
+            //
+            // 해결:
+            //   isPerformingAction=true 이면 SO 설정과 무관하게 bodyWeight = 0 으로 강제합니다.
+            //   effBodyYaw = Lerp(leftAndRightLookAngle, smoothed, 0) = leftAndRightLookAngle
+            //   → 몸통 회전이 leftAndRightLookAngle 에 전혀 반영되지 않습니다.
+            //   → 공격 중 카메라가 루트모션 몸통 회전을 따라가지 않습니다.
+            //
+            // 비공격 중:
+            //   SO 에서 읽은 원래 bodyWeight 가 그대로 사용됩니다. 기존 동작 유지.
+            // =============================================================================
+            if (player.isPerformingAction)
+            {
+                bodyWeight = 0f;
+            }
+
             // [v4.4 버그 수정] smoothedBodyYaw 초기화 — weight가 낮을 때만
             // bodyWeight < 1이면 smoothedBodyYaw가 이전 값(구 각도)을 기준으로 보간 시작.
             // 공격 시작 직전 playerBodyYaw를 즉시 스냅하여 보간 시작점을 올바르게 설정합니다.
@@ -1634,18 +1882,204 @@ namespace TDA.Character.Player
                 smoothedPlayerBodyYawVelocity = 0f;
             }
 
-            // smoothedPlayerBodyYaw: SmoothDamp로 실제 몸통 Yaw를 추적 (공격 중에만 의미 있음)
-            if (bodySmoothTime < 0.005f)
+            // smoothedPlayerBodyYaw: SmoothDamp로 실제 몸통 Yaw를 추적
+            //
+            // [개선] 비공격 이동 중에도 최소 보간 시간 적용
+            //   기존: bodySmoothTime < 0.005f 이면 즉각 추적 (몸통 회전 = 카메라 즉각 반영)
+            //         → 이동 방향 전환 시 effBodyYaw 가 급변 → 카메라가 확 꺾임
+            //   개선: 비공격(isPerformingAction=false) + 이동 중일 때 최소 보간 시간 보장
+            //         autoCenterOnMoveDelay 와 연동하여 이동 직후 급변을 완화
+            // =============================================================================
+            // [개선] smoothedPlayerBodyYaw — 스냅 임계값 + maxSpeed 제한
+            //
+            // 두 가지 케이스를 처리합니다:
+            //
+            // ① 큰 오차(턴 애니메이션, 공격 종료 후 누적 오차):
+            //    smoothed 와 playerBodyYaw 차이가 bodyYawSnapThresholdDeg 이상이면
+            //    즉시 스냅합니다. 부드럽게 보간하면 오히려 여러 프레임 동안 점프가
+            //    누적되어 더 나빠집니다. 스냅해서 즉시 따라가는 게 더 자연스럽습니다.
+            //
+            // ② 작은 오차(일반 이동/방향 전환):
+            //    maxSpeed 로 초당 최대 회전량을 제한합니다.
+            //    한 프레임 최대 = maxSpeed × deltaTime (약 2~4°)
+            //    부드럽게 보간되어 카메라가 몸통 방향으로 천천히 수렴합니다.
+            // =============================================================================
+            float effectiveSmoothTime = bodySmoothTime;
+            float effectiveMaxSpeed = 99999f; // 기본: 무제한
+
+            if (!player.isPerformingAction)
             {
-                // smoothTime이 0에 가까우면 즉각 추적 (기존 동작, SmoothDamp 오버헤드 없음)
+                bool _isMovingNow = player.playerNetworkManager != null
+                    && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f;
+                if (_isMovingNow)
+                {
+                    // 이동 중: 최소 보간 시간 + maxSpeed 제한으로 급변 방지
+                    if (effectiveSmoothTime < 0.05f)
+                        effectiveSmoothTime = 0.05f;
+                    effectiveMaxSpeed = 150f; // 초당 최대 150°
+                }
+                // 정지 중: 제한 없이 즉각 추적 (smoothTime 은 SO 값 그대로)
+            }
+
+            // ── 스냅 임계값 체크 ────────────────────────────────────────────────
+            float _prevSmoothedForDelta = smoothedPlayerBodyYaw; // 보간 전 값 저장
+            float _yawDiffFromBody = Mathf.Abs(Mathf.DeltaAngle(smoothedPlayerBodyYaw, playerBodyYaw));
+
+            // =============================================================================
+            // [v4.5 Fix] 이동 시작 카메라 점프 방지 — 스냅 조건 개선
+            //
+            // 문제:
+            //   smoothedPlayerBodyYaw/leftAndRightLookAngle 이 360° 이상 무한 누적됨.
+            //   (MoveTowardsAngle 반환값이 정규화되지 않아 554° 같은 값 발생)
+            //   W키 입력으로 몸통이 이동 방향으로 급회전(~146°)하면 스냅이 발동되고
+            //   smoothedPlayerBodyYaw 만 0~360 범위로 점프하여 leftAndRightLookAngle(554°)와
+            //   범위 불일치 → currentDiff 폭발(176.5°) → clamp → 카메라 대점프.
+            //
+            // 해결 (2단계):
+            //   ① 이동 중(비공격) 스냅 차단:
+            //      W키 입력으로 몸통이 급회전하는 상황에서는 스냅하지 않고
+            //      MoveTowardsAngle 이 점진적으로 따라가도록 허용합니다.
+            //      초당 effectiveMaxSpeed(150°/s) 로 부드럽게 수렴 → 점프 없음.
+            //   ② 스냅 시 diff 보존 (비이동/액션 시):
+            //      스냅이 발동되더라도 leftAndRightLookAngle 을 함께 조정하여
+            //      카메라-몸통 상대각도(currentDiff)를 스냅 전후로 동일하게 유지합니다.
+            //      → effBodyYaw 변화와 leftAndRightLookAngle 변화가 동일하므로
+            //         currentDiff/FinalRender 에 불연속이 발생하지 않습니다.
+            // =============================================================================
+            bool _isMovingForSnap = player.playerNetworkManager != null
+                && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f;
+            // 이동 중 + 비공격 → 스냅 차단 (MoveTowardsAngle 점진 추적으로 충분)
+            // 정지 중 또는 공격 중 → 스냅 허용 (턴 애니메이션/텔레포트 대응)
+            bool _allowSnap = !(_isMovingForSnap && !player.isPerformingAction);
+
+            if (_yawDiffFromBody >= bodyYawSnapThresholdDeg && _allowSnap)
+            {
+                // =============================================================================
+                // 스냅: smoothedPlayerBodyYaw 만 바꾸고 leftAndRightLookAngle 은 건드리지 않음
+                //
+                // 이전 방식의 문제:
+                //   스냅 후 leftAndRightLookAngle += _snapDelta 를 했는데,
+                //   _snapDelta = DeltaAngle(oldSmoothed, newSmoothed) 이 매우 클 수 있음.
+                //   이 보정이 오히려 leftAndRightLookAngle 을 엉뚱한 방향으로 밀어버림.
+                //   그 결과 currentDiff 가 비정상 값이 되고 다음 프레임에 점프 발생.
+                //
+                // 올바른 방식:
+                //   스냅은 smoothedPlayerBodyYaw(= effBodyYaw) 만 즉시 이동.
+                //   leftAndRightLookAngle 은 그대로 유지.
+                //   → currentDiff = DeltaAngle(newEffBodyYaw, leftAndRight) 가 재계산됨.
+                //   → 이 새로운 diff 가 maxViewAngle 초과하면 clamp 가 잡아줌.
+                //   → 자연스럽고 예측 가능한 동작.
+                //
+                // [v4.5 Fix] 추가 개선:
+                //   스냅 시 leftAndRightLookAngle 도 같은 상대각도를 유지하도록 보정.
+                //   → currentDiff 가 스냅 전후로 동일하게 유지됨.
+                //   → ApplyDynamicYawAndClamp 의 refBodyYaw 변화와 leftAndRight 변화가
+                //      동일하므로 FinalRender 점프가 발생하지 않음.
+                // =============================================================================
+                float _prevSmoothed = smoothedPlayerBodyYaw;
+                // [v4.5 Fix] 스냅 전 카메라-몸통 상대각도(diff) 보존
+                float _oldDiff = Mathf.DeltaAngle(smoothedPlayerBodyYaw, leftAndRightLookAngle);
                 smoothedPlayerBodyYaw = playerBodyYaw;
+                smoothedPlayerBodyYawVelocity = 0f;
+                // [v4.5 Fix] leftAndRightLookAngle 을 새 기준(playerBodyYaw) + 기존 diff 로 재계산
+                // 이렇게 하면 effBodyYaw 변화량 = leftAndRight 변화량 → currentDiff 유지 → 점프 없음
+                leftAndRightLookAngle = smoothedPlayerBodyYaw + _oldDiff;
+
+                if (showDebugLogs)
+                {
+                    bool _snapIsMoving = player.playerNetworkManager != null
+                        && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f;
+                    Debug.Log($"<color=orange>[BodyYawSnap]</color> " +
+                              $"오차 {_yawDiffFromBody:F1}° → 즉시 스냅 | " +
+                              $"Prev={_prevSmoothed:F1} → Body={playerBodyYaw:F1} | " +
+                              $"oldDiff={_oldDiff:F1}° → leftAndRight={leftAndRightLookAngle:F1} | " +
+                              $"isMoving={_snapIsMoving} isPerforming={player.isPerformingAction} " +
+                              $"bodyW={bodyWeight:F2}");
+                }
+                // 스냅 후: _prevSmoothedForDelta 를 새 smoothed 로 갱신
+                // 동기이동(_smoothedDelta) 이 스냅 변화량을 중복 반영하지 않도록
+                _prevSmoothedForDelta = smoothedPlayerBodyYaw;
             }
             else
             {
-                // 각도 랩어라운드(360↔0) 안전 처리를 위해 SmoothDampAngle 사용
-                smoothedPlayerBodyYaw = Mathf.SmoothDampAngle(
-                    smoothedPlayerBodyYaw, playerBodyYaw,
-                    ref smoothedPlayerBodyYawVelocity, bodySmoothTime);
+                // [개선] MoveTowardsAngle — velocity 누적 없는 엄격한 속도 제한
+                // deltaTime 을 0.05s 로 클램프해서 프레임 스파이크 방지
+                // (Pause Resume 직후 deltaTime 이 비정상적으로 클 수 있음)
+                float _safeDeltaTime = Mathf.Min(Time.deltaTime, 0.05f);
+                float _maxDelta = effectiveMaxSpeed * _safeDeltaTime;
+                smoothedPlayerBodyYaw = Mathf.MoveTowardsAngle(
+                    smoothedPlayerBodyYaw, playerBodyYaw, _maxDelta);
+                smoothedPlayerBodyYawVelocity = 0f; // velocity 변수 초기화 유지
+            }
+
+            // =============================================================================
+            // [v4.5 Fix] smoothedPlayerBodyYaw / leftAndRightLookAngle 정규화
+            //
+            // 문제:
+            //   MoveTowardsAngle 는 내부에서 각도 래핑을 처리하지만 반환값은
+            //   입력(current) 기준으로 누적됩니다.
+            //   예: MoveTowardsAngle(554, 17.5, 2.4) → 551.6 (정규화 안 됨)
+            //   이 누적이 반복되면 smoothedPlayerBodyYaw 가 360° 이상/이하로 발산합니다.
+            //
+            //   동기이동(leftAndRightLookAngle += _smoothedDelta) 도 같은 속도로 누적.
+            //   둘이 동기 상태에서는 문제없지만, 스냅이나 playerBodyYaw(0~360) 기반
+            //   계산과 만나면 범위 불일치로 점프가 발생합니다.
+            //
+            // 해결:
+            //   매 프레임 smoothedPlayerBodyYaw 를 [0, 360) 범위로 정규화하고,
+            //   같은 오프셋을 leftAndRightLookAngle 에도 적용하여
+            //   두 값의 상대각도(diff)를 완벽히 보존합니다.
+            //   → playerBodyYaw(0~360)와 항상 같은 범위에 있으므로 스냅/DeltaAngle 안전.
+            //   → 장시간 플레이 시 float 정밀도 저하도 방지.
+            // =============================================================================
+            {
+                float _rawSmoothed = smoothedPlayerBodyYaw;
+                // Repeat: [0, 360) 범위로 정규화 (음수도 올바르게 처리)
+                float _normSmoothed = _rawSmoothed - Mathf.Floor(_rawSmoothed / 360f) * 360f;
+                float _normOffset = _normSmoothed - _rawSmoothed;
+                // 실제 정규화가 필요한 경우에만 적용 (매 프레임 불필요한 연산 방지)
+                if (Mathf.Abs(_normOffset) > 0.5f)
+                {
+                    smoothedPlayerBodyYaw = _normSmoothed;
+                    // leftAndRightLookAngle 에 동일 오프셋 적용 → 상대각도(diff) 보존
+                    leftAndRightLookAngle += _normOffset;
+                    // _prevSmoothedForDelta 도 같이 보정 — 동기이동 계산에 영향
+                    _prevSmoothedForDelta += _normOffset;
+                }
+            }
+
+            // ── smoothed 변화량만큼 leftAndRightLookAngle 동기 이동 ─────────────
+            // effBodyYaw 가 이동한 만큼 leftAndRight 도 같이 이동
+            // → currentDiff 가 항상 일정하게 유지 → clamp 에 걸리지 않음
+            //
+            // [조건] 비공격 중에만 적용
+            // 공격 중(isPerformingAction=true)에는 bodyWeight=0 으로 effBodyYaw 를
+            // 고정하지만 smoothedPlayerBodyYaw 는 계속 playerBodyYaw 를 추적합니다.
+            // 이 상태에서 동기 이동을 적용하면 루트모션 몸통 회전이
+            // leftAndRightLookAngle 에 그대로 반영되어 카메라가 몸통을 따라가게 됩니다.
+            if (!player.isPerformingAction)
+            {
+                float _smoothedDelta = Mathf.DeltaAngle(_prevSmoothedForDelta, smoothedPlayerBodyYaw);
+                dbg_jump_smoothedDelta = _smoothedDelta;
+                dbg_jump_prevSmoothed = _prevSmoothedForDelta;
+                if (Mathf.Abs(_smoothedDelta) > 0.001f)
+                    leftAndRightLookAngle += _smoothedDelta;
+            }
+            else
+            {
+                // 공격 중: 동기이동 없음. dbg 도 명시적으로 0 기록
+                dbg_jump_smoothedDelta = 0f;
+                dbg_jump_prevSmoothed = _prevSmoothedForDelta;
+            }
+
+            // ── 보간 후 남은 오차 로그 ─────────────────────────────────────────
+            float _yawDiffAfter = Mathf.Abs(Mathf.DeltaAngle(smoothedPlayerBodyYaw, playerBodyYaw));
+            if (showDebugLogs && _yawDiffFromBody > 5f && _yawDiffAfter > 2f)
+            {
+                Debug.Log($"<color=gray>[BodyYawBlend]</color> " +
+                          $"오차: {_yawDiffFromBody:F1}° → {_yawDiffAfter:F1}° | " +
+                          $"smoothed={smoothedPlayerBodyYaw:F1} body={playerBodyYaw:F1} | " +
+                          $"maxSpd={effectiveMaxSpeed:F0}°/s");
             }
 
             // effBodyYaw: weight=0이면 이전 프레임의 smoothedBodyYaw를 고정 (회전 차단)
@@ -1667,12 +2101,15 @@ namespace TDA.Character.Player
             float effectiveMaxViewAngle = Mathf.Lerp(179.9f, maxViewAngle, trackingWeight);
 
             // ── [v4.1 수정C] 엣지 패닝 발동 중 시야각 제한 완화 ──────────────────────────
-            // 문제 2: 락온 상태에서 currentDiff가 이미 maxViewAngle에 가까우면
-            // 추가 엣지 입력이 clamp에 막혀 카메라가 더 이상 회전하지 않는 현상 해결.
-            // 엣지 패닝 발동 중에는 최대 시야각을 1.8배로 확장 (최대 179.9 이하 유지)
-            if (isLockedOnNow && isEdgePanActive)
+            // 문제: 락온 상태에서 currentDiff 가 이미 maxViewAngle 에 가까우면
+            //       추가 엣지 입력이 clamp 에 막혀 카메라가 더 이상 회전하지 않는 현상.
+            //
+            // [개선] 락온 조건 제거 — 락온/락오프 무관하게 엣지패닝 발동 중에는 확장
+            //        확장 배율: 1.8 → 2.5 (maxViewAngle=60° 기준 → 최대 150° 허용)
+            //        이렇게 해도 179.9° 하드캡이 있어 뒤집힘 버그는 발생하지 않음
+            if (isEdgePanActive)
             {
-                effectiveMaxViewAngle = Mathf.Min(effectiveMaxViewAngle * 1.8f, 179.9f);
+                effectiveMaxViewAngle = Mathf.Min(effectiveMaxViewAngle * 2.5f, 179.9f);
             }
             // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1708,18 +2145,46 @@ namespace TDA.Character.Player
             {
                 if (enableAutoCenterOnMove && isMoving)
                 {
-                    if (Mathf.Abs(currentHorizontal) < 0.01f)
+                    // [신규] 이동 중 AutoCenter — 딜레이 + 최대 속도 제한으로 부드러운 보간
+                    //
+                    // 기존: autoCenterSpeed 로 즉시 Lerp → 카메라가 확 꺾임
+                    // 개선:
+                    //   1. moveAutoCenterTimer 로 딜레이 적용 (이동 시작 직후엔 복귀 안 함)
+                    //   2. autoCenterOnMoveSpeed 로 별도 속도 제어
+                    //   3. autoCenterMaxDegPerSec 으로 초당 최대 회전량 제한
+                    //      → currentDiff 가 크든 작든 일정 속도 이상 꺾이지 않음
+                    moveAutoCenterTimer += Time.deltaTime;
+
+                    if (Mathf.Abs(currentHorizontal) < 0.01f && moveAutoCenterTimer >= autoCenterOnMoveDelay)
                     {
-                        currentDiff = Mathf.Lerp(currentDiff, 0f, autoCenterSpeed * Time.deltaTime);
+                        // Lerp 로 목표(0)를 향해 보간
+                        float desired = Mathf.Lerp(currentDiff, 0f, autoCenterOnMoveSpeed * Time.deltaTime);
+
+                        // 초당 최대 각도 클램프 — 급격한 꺾임 방지
+                        float maxDelta = autoCenterMaxDegPerSec * Time.deltaTime;
+                        currentDiff = Mathf.MoveTowards(currentDiff, desired, maxDelta);
                     }
                 }
                 else if (enableAutoCenterOnIdle && !isMoving)
                 {
+                    // 이동 중 아닐 때: 딜레이 타이머 리셋
+                    moveAutoCenterTimer = 0f;
+
                     if (noInputTimer >= idleAutoCenterDelay)
                     {
                         currentDiff = Mathf.Lerp(currentDiff, 0f, (autoCenterSpeed * 0.3f) * Time.deltaTime);
                     }
                 }
+                else
+                {
+                    // 이동 중 아니고 Idle AutoCenter 도 꺼진 경우: 타이머 리셋
+                    moveAutoCenterTimer = 0f;
+                }
+            }
+            else
+            {
+                // AutoCenter 차단 중: 타이머 리셋
+                moveAutoCenterTimer = 0f;
             }
             // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1785,7 +2250,12 @@ namespace TDA.Character.Player
 
             // ── [v3.9 Debug] Rotation 상태 기록 ──────────────────────────────────
             dbg_leftAndRightLookAngle = leftAndRightLookAngle;
-            dbg_playerBodyYaw = playerBodyYaw; // 실제 몸통 (원본)
+            dbg_playerBodyYaw = playerBodyYaw;          // 실제 몸통 (원본)
+            dbg_bodyWeight = bodyWeight;                  // 실제 적용된 bodyWeight (공격 중 0 강제 반영)
+            dbg_effBodyYaw = effBodyYaw;                  // 몸통 추적 반영 후 기준 Yaw
+            dbg_smoothedBodyYaw = smoothedPlayerBodyYaw;  // SmoothDamp 결과
+            dbg_isPerformingAction = player.isPerformingAction;
+
             // effBodyYaw = weight/smooth 적용된 기준값 (OnGUI에서 확인 가능)
             dbg_bodyToCamDiff = currentDiff;
             dbg_trackingWeight = trackingWeight;
@@ -1813,8 +2283,66 @@ namespace TDA.Character.Player
 
             float playerBodyYaw = player.transform.eulerAngles.y;
 
+            // =============================================================================
+            // [신규] FinalRender 계산 기준 — playerBodyYaw 급변 방지
+            //
+            // 문제:
+            //   ApplyDynamicYawAndClamp 는 player.transform.eulerAngles.y (raw playerBodyYaw)
+            //   를 기준으로 FinalRender 를 계산합니다.
+            //   HandleRotation 에서 smoothedPlayerBodyYaw 를 effBodyYaw 로 쓰더라도
+            //   이 함수에서 다시 raw playerBodyYaw 를 쓰면 이동/루트모션으로 몸통이
+            //   급변할 때 FinalRender 도 즉시 튑니다.
+            //
+            // 해결:
+            //   ① 공격 중(isPerformingAction=true): leftAndRightLookAngle 직접 사용 (기존)
+            //   ② 비공격 이동 중: smoothedPlayerBodyYaw 를 기준으로 사용
+            //      → HandleRotation 과 동일한 보간 기준으로 일관성 유지
+            //      → 이동 방향 전환 시 FinalRender 도 부드럽게 따라감
+            //   ③ 정지 + 비공격: raw playerBodyYaw 사용 (기존 동작)
+            // =============================================================================
+            if (player.isPerformingAction)
+            {
+                // ① 공격 중 — playerBodyYaw 무시, leftAndRightLookAngle 직접 사용
+                float finalYawDirect = leftAndRightLookAngle + finalYawOffset;
+                dbg_finalRenderYaw = Mathf.DeltaAngle(0f, finalYawDirect); // -180~180 정규화
+                return Quaternion.Euler(actualPitch, finalYawDirect, 0);
+            }
+
+            // ② 비공격 시: smoothedPlayerBodyYaw 를 baseDiff 기준으로 사용
+            // HandleRotation 의 effBodyYaw 계산과 동일한 기준을 맞춤으로써
+            // 이동 방향 전환 시 FinalRender 가 급변하지 않습니다.
+            bool isMoveNow = player.playerNetworkManager != null
+                && player.playerNetworkManager.animatorMoveAmountMovement.Value > 0.1f;
+            // ApplyDynamicYawAndClamp 는 별도 함수이므로 bodyWeight 를 SO 에서 다시 읽음
+            CameraStancePresetSO stanceForRefYaw = WorldCameraManager.Instance?.currentStanceSO;
+            float bodyWeightForRef = stanceForRefYaw != null
+                ? stanceForRefYaw.bodyYawTracking.bodyYawFollowWeight : 1.0f;
+            // =============================================================================
+            // [v4.5 Fix] refBodyYaw 를 항상 smoothedPlayerBodyYaw 로 통일
+            //
+            // 기존 문제:
+            //   이동 중에는 smoothedPlayerBodyYaw, 정지 시에는 raw playerBodyYaw 를 사용.
+            //   HandleRotation 의 effBodyYaw 계산은 항상 smoothedPlayerBodyYaw 기반인데
+            //   ApplyDynamic 의 refBodyYaw 가 다른 값(raw)을 사용하면 baseDiff 가
+            //   HandleRotation 의 currentDiff 와 불일치하여 FinalRender 점프 발생.
+            //
+            // 해결:
+            //   refBodyYaw 를 이동/정지 무관하게 항상 smoothedPlayerBodyYaw 로 사용.
+            //   수정 2의 정규화 덕분에 smoothedPlayerBodyYaw 는 항상 0~360 범위이므로
+            //   playerBodyYaw 와 범위 일치. HandleRotation 의 effBodyYaw 와도 일관됨.
+            //   → baseDiff = currentDiff → FinalRender 안정.
+            //
+            //   정지 중에도 smoothed 를 사용합니다. 정지 시 smoothed 는 playerBodyYaw 를
+            //   즉각 추적(effectiveSmoothTime≈0)하므로 사실상 동일한 값입니다.
+            // =============================================================================
+            // 비공격 이동 중에는 최소 보간 적용 → weight 를 0 이 아닌 중간값으로 취급
+            if (!player.isPerformingAction && bodyWeightForRef >= 0.999f && isMoveNow)
+                bodyWeightForRef = 0.5f; // 이동 중 refBodyYaw 가 smoothed 를 참조하도록
+            // [v4.5 Fix] 항상 smoothedPlayerBodyYaw 사용 — HandleRotation effBodyYaw 와 일관성 유지
+            float refBodyYaw = smoothedPlayerBodyYaw;
+
             // 1. HandleRotation에서 보장된 안전한 렌더링 앵글의 차이값을 구합니다.
-            float baseDiff = Mathf.DeltaAngle(playerBodyYaw, leftAndRightLookAngle);
+            float baseDiff = Mathf.DeltaAngle(refBodyYaw, leftAndRightLookAngle);
 
             // 2. 다이내믹 프레이밍 오프셋을 이 차이에 더해줍니다.
             float totalDiff = baseDiff + finalYawOffset;
@@ -1832,12 +2360,40 @@ namespace TDA.Character.Player
             totalDiff = Mathf.Clamp(totalDiff, -maxAllowedAngle, maxAllowedAngle);
 
             // 6. 안전하게 보호된 최종 글로벌 오일러 앵글 반환
-            dbg_finalRenderYaw = playerBodyYaw + totalDiff; // [v3.9 Debug]
-            return Quaternion.Euler(actualPitch, playerBodyYaw + totalDiff, 0);
+            dbg_finalRenderYaw = Mathf.DeltaAngle(0f, refBodyYaw + totalDiff); // -180~180 정규화
+            // [신규] 점프 감지용 인수 노출
+            dbg_jump_refBodyYaw = refBodyYaw;
+            dbg_jump_baseDiff = baseDiff;
+            return Quaternion.Euler(actualPitch, refBodyYaw + totalDiff, 0);
         }
 
         private Quaternion HandleMagneticSoftLock(Quaternion currentRotation)
         {
+            // =============================================================================
+            // [신규] lockCameraOnActionStart=true + isPerformingAction=true 시 자석 차단
+            //
+            // 문제:
+            //   HandleRotation() 이 lockCameraOnActionStart=true 로 Yaw 를 스냅샷 고정해도
+            //   HandleMagneticSoftLock() 이 그 위에 타겟 방향 보정을 덮어씌웁니다.
+            //   루트모션 공격 중 몸통이 꺾이면 타겟 상대위치가 변하고,
+            //   자석이 카메라를 강하게 당기면서 "카메라 고정" 의도가 무력화됩니다.
+            //
+            // 해결:
+            //   lockCameraOnActionStart=true 인 Stance 에서 공격 중에는
+            //   MagneticSoftLock 보정을 완전히 차단합니다.
+            //   HandleRotation() 의 스냅샷 고정이 온전히 유지됩니다.
+            // =============================================================================
+            CameraStancePresetSO stanceForMagCheck = WorldCameraManager.Instance?.currentStanceSO;
+            bool lockOnActionStart = stanceForMagCheck != null
+                && stanceForMagCheck.bodyYawTracking.lockCameraOnActionStart;
+            if (player.isPerformingAction && lockOnActionStart)
+            {
+                dbg_isMagneticActive = false;
+                dbg_magneticPullStrength = 0f;
+                dbg_magneticState = "BLOCKED (lockCameraOnActionStart=true, 공격 중 자석 차단)";
+                return currentRotation;
+            }
+
             if (!player.playerNetworkManager.isLockedOn.Value || player.playerCombatManager.currentTarget == null)
             {
                 dbg_isMagneticActive = false; dbg_magneticPullStrength = 0f;
@@ -2608,6 +3164,16 @@ namespace TDA.Character.Player
 
             GUI.Label(new Rect(panelX, y, panelW, lineH),
                 $"  Player Body: {dbg_playerBodyYaw:F1}°   Cam-Body Δ: {dbg_bodyToCamDiff:F1}°", labelStyle); y += lineH;
+
+            // [신규] bodyWeight / effBodyYaw 실시간 표시
+            {
+                string performStr = dbg_isPerformingAction ? " 🥊공격중(bodyW강제0)" : "";
+                GUIStyle bodyWStyle = (dbg_bodyWeight < 0.01f) ? neutralStyle : warnStyle;
+                GUI.Label(new Rect(panelX, y, panelW, lineH),
+                    $"  bodyW={dbg_bodyWeight:F2}{performStr}  effBodyYaw={dbg_effBodyYaw:F1}°  smoothed={dbg_smoothedBodyYaw:F1}°",
+                    bodyWStyle); y += lineH;
+            }
+
             // [v4.4] 몸통 추적 설정 표시
             var stanceForDbgBody = WorldCameraManager.Instance?.currentStanceSO;
             if (stanceForDbgBody != null)
@@ -2645,6 +3211,56 @@ namespace TDA.Character.Player
                     dbg_isTargetEscaped ? warnStyle : okStyle); y += lineH;
             }
 
+            y += sectionGap;
+
+            // ── [신규] 각도 점프 감지 패널 ───────────────────────────────────────
+            {
+                blockH = lineH * 6 + sectionGap + 22f;
+                GUI.Box(new Rect(panelX - 4, y - 4, panelW + 8, blockH), "", panelBg);
+                GUI.Label(new Rect(panelX, y, panelW, lineH), "⚡  각도 점프 감지", headerStyle); y += lineH + 2;
+
+                GUIStyle jumpStyle = dbg_jumpDetected ? warnStyle : okStyle;
+                string pauseStr = pauseOnJumpDetect ? (isPausedByJump ? " [⏸PAUSED]" : " [AutoPause ON]") : "";
+                string jumpStr = dbg_jumpDetected
+                    ? $"JUMP {dbg_jumpDeltaDeg:F1}° [{dbg_jumpSource}]{pauseStr}"
+                    : $"정상 (임계값:{jumpDetectThresholdDeg:F0}°){pauseStr}";
+                GUI.Label(new Rect(panelX, y, panelW, lineH), $"  {jumpStr}", jumpStyle); y += lineH;
+
+                // Pause 중 재개 버튼
+                if (isPausedByJump)
+                {
+                    if (GUI.Button(new Rect(panelX, y, panelW, lineH + 4), $"▶ Resume ({resumeKey})"))
+                    {
+                        isPausedByJump = false;
+                        Time.timeScale = 1f;
+                    }
+                    y += lineH + 8;
+                }
+
+                if (dbg_jumpDetected)
+                {
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  FinalRender: Prev={dbg_jumpPrevFinal:F1}° → Curr={dbg_jumpCurrFinal:F1}°", warnStyle); y += lineH;
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  leftAndRight: Prev={dbg_jump_prevLeftAndRight:F1}° → Curr={dbg_jump_leftAndRight:F1}°", warnStyle); y += lineH;
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  smoothedDelta={dbg_jump_smoothedDelta:F1}° prevSmoothed={dbg_jump_prevSmoothed:F1}° smoothed={dbg_jump_smoothedYaw:F1}°", warnStyle); y += lineH;
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  PlayerBody={dbg_jump_playerBodyYaw:F1}° effBody={dbg_jump_effBodyYaw:F1}° diff={dbg_jump_currentDiff:F1}°", warnStyle); y += lineH;
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  refBody={dbg_jump_refBodyYaw:F1}° baseDiff={dbg_jump_baseDiff:F1}°", warnStyle); y += lineH;
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  bodyW={dbg_jump_bodyWeight:F2} isMoving={dbg_jump_isMoving} isPerforming={dbg_isPerformingAction}", warnStyle); y += lineH;
+                }
+                else
+                {
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  단계: HR={dbg_snap_afterHandleRot:F1}° Mag={dbg_snap_afterMagnetic:F1}° Apply={dbg_snap_afterApplyDynamic:F1}°", labelStyle); y += lineH;
+                    GUI.Label(new Rect(panelX, y, panelW, lineH),
+                        $"  smoothedDelta={dbg_jump_smoothedDelta:F1}° prevSmoothed={dbg_jump_prevSmoothed:F1}°", labelStyle); y += lineH;
+                    y += lineH * 4; // 빈 공간
+                }
+            }
             y += sectionGap;
 
             // ── [2] 자석 소프트락 상태 ────────────────────────────────────────
