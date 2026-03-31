@@ -215,6 +215,79 @@ namespace CaveSystem
             int threadGroups3D = Mathf.CeilToInt(pointsPerAxis / 8.0f);
             densityShader.Dispatch(kernelGenerateDensity, threadGroups3D, threadGroups3D, threadGroups3D);
 
+            // ═══════════════════════════════════════════════════════════════
+            // [pB-4 Week 0] Dual Contouring 분기
+            // 밀도장(커널 1)은 위에서 이미 생성 완료.
+            // useDualContouring=true이면 MC(커널 2) 대신 DC 3커널을 실행.
+            // useDualContouring=false이면 이 블록을 완전히 건너뛰어 기존 MC 동작 100% 유지.
+            // ═══════════════════════════════════════════════════════════════
+            var dcExtension = GetComponent<DCPipelineExtension>();
+            if (dcExtension != null && dcExtension.useDualContouring && dcExtension.IsInitialized)
+            {
+                // DC 3커널 실행: Hermite Data 수집 → QEF 풀기 → 쿼드 생성
+                dcExtension.DispatchDC(context.ChunkPos, pointsPerAxis, chunkSize, voxelBuffer);
+
+                // DC 비동기 읽기 → 기존 onGpuCompleted 콜백 대신 DC 전용 처리
+                dcExtension.ReadbackAsync((dcVerts, dcQuads, quadCount) =>
+                {
+                    // ─── Stage 4: DC 쿼드 → Unity Mesh 빌드 ───
+                    var meshBuilder = GetComponent<DCMeshBuilder>();
+                    if (meshBuilder != null && dcVerts != null && quadCount > 0)
+                    {
+                        System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+                        sw.Start();
+
+                        meshBuilder.BuildMeshFromDCData(
+                            dcVerts, dcQuads, quadCount,
+                            context, chunkSize, voxelSize,
+                            (completedCtx) =>
+                            {
+                                sw.Stop();
+
+                                // ─── Stage 5: Normal Map 베이킹 ───
+                                var normalBaker = GetComponent<CaveNormalBaker>();
+                                if (normalBaker != null && completedCtx.ChunkObject != null)
+                                {
+                                    var filter = completedCtx.ChunkObject.GetComponent<UnityEngine.MeshFilter>();
+                                    var renderer = completedCtx.ChunkObject.GetComponent<UnityEngine.MeshRenderer>();
+                                    if (filter != null && filter.sharedMesh != null)
+                                    {
+                                        normalBaker.BakeNormalMap(filter.sharedMesh, renderer);
+                                    }
+                                }
+
+                                // ─── Stage 6: 성능 프로파일링 ───
+                                var profiler = GetComponent<DCPerformanceProfiler>();
+                                if (profiler != null)
+                                {
+                                    profiler.RecordChunkResult(new DCProfileResult
+                                    {
+                                        chunkPos = context.ChunkPos,
+                                        vertexCount = dcVerts.Length,
+                                        triangleCount = quadCount * 2,
+                                        quadCount = quadCount,
+                                        totalTimeMs = (float)sw.Elapsed.TotalMilliseconds,
+                                        gpuBufferBytes = DCPerformanceProfiler.CalculateGPUBufferMemory(pointsPerAxis)
+                                    });
+                                }
+
+                                Debug.Log($"[DC] 청크 완성: {context.ChunkPos}, {quadCount} quads, {sw.ElapsedMilliseconds}ms");
+                            }
+                        );
+                    }
+                    else
+                    {
+                        Debug.Log($"[DC] 청크 비어있음: {context.ChunkPos}, quads={quadCount}");
+                        context.State = ChunkState.Completed;
+                    }
+
+                    IsBusy = false;
+                });
+                return; // ← MC 커널 2를 완전히 스킵하고 여기서 종료
+            }
+            // ═══ DC 분기 끝. 아래는 기존 MC 코드가 그대로 유지됨 ═══
+
+
             // ----------------------------------------------------
             // 커널 2: 마칭 큐브 메쉬 추출 (Marching Cubes)
             // ----------------------------------------------------

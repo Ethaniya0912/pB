@@ -1,0 +1,381 @@
+// =============================================================================
+// CaveDualContouring.compute  |  pB-4 Project — Week 0
+// Layer  : GPU Compute (지형)
+// Owner  : Person B
+//
+// 역할:
+//   DC 3단계 커널 스켈레톤.
+//   Stage 1: 빈 커널 프레임 (이 파일)
+//   Stage 2: CollectHermiteData 구현
+//   Stage 3: SolveQEF 구현 (핵심 난관)
+//   Stage 4: GenerateQuads 구현
+//
+// GPU 정렬:
+//   모든 구조체는 C# 측 DCDataStructs와 1:1 매칭.
+//   DCVertex=56바이트, DCHermiteEdge=32바이트, DCQuad=16바이트
+// =============================================================================
+
+#pragma kernel CollectHermiteData
+#pragma kernel SolveQEF
+#pragma kernel GenerateQuads
+
+// ============ 구조체 정의 (C# DCDataStructs와 동일) ============
+
+struct CaveVoxel
+{
+    float density;
+    int oreType;
+    float2 padding;
+};
+
+struct DCHermiteEdge
+{
+    float3 intersectionPoint;
+    float3 intersectionNormal;
+    int edgeAxis;
+    float padding;
+};
+
+struct DCVertex
+{
+    float3 position;
+    float3 normal;
+    float2 uv;
+    int featureType;   // 0=Smooth, 1=Edge, 2=Corner
+    int materialIndex;
+    float qefError;
+    float3 padding;
+};
+
+struct DCQuad
+{
+    int v0, v1, v2, v3;
+};
+
+struct GameplaySculptData
+{
+    int wantNarrow;
+    int wantHighGround;
+    int wantDeadEnd;
+    float ambushScore;
+};
+
+// ============ 버퍼 ============
+
+RWStructuredBuffer<CaveVoxel> _VoxelBuffer;
+RWStructuredBuffer<DCHermiteEdge> _HermiteEdgeBuffer;
+RWStructuredBuffer<DCVertex> _DCVertexBuffer;
+RWStructuredBuffer<DCQuad> _DCQuadBuffer;
+RWByteAddressBuffer _QuadCount;
+StructuredBuffer<GameplaySculptData> _GameplaySculptBuffer;
+
+// ============ 유니폼 ============
+
+int _PointsPerAxis;
+float _ChunkSize;
+float4 _ChunkOffset;
+
+// ============ 헬퍼 함수 ============
+
+float3 GetVoxelWorldPos(uint3 id)
+{
+    float spacing = _ChunkSize / (_PointsPerAxis - 1);
+    return _ChunkOffset.xyz + float3(id) * spacing;
+}
+
+int FlatIndex(uint3 id)
+{
+    return id.x + id.y * _PointsPerAxis + id.z * _PointsPerAxis * _PointsPerAxis;
+}
+
+// ============ QEF 수학 함수 (Stage 3에서 구현) ============
+
+// Cholesky 분해 기반 3x3 대칭 행렬 풀기
+float3 SolveQEF_Cholesky(float3x3 ATA, float3 ATb, float regLambda)
+{
+    // Tikhonov Regularization: (ATA + λI)x = ATb
+    ATA[0][0] += regLambda;
+    ATA[1][1] += regLambda;
+    ATA[2][2] += regLambda;
+
+    // Cholesky: ATA = L * L^T
+    float l00 = sqrt(max(ATA[0][0], 1e-10));
+    float l10 = ATA[1][0] / l00;
+    float l11 = sqrt(max(ATA[1][1] - l10 * l10, 1e-10));
+    float l20 = ATA[2][0] / l00;
+    float l21 = (ATA[2][1] - l20 * l10) / l11;
+    float l22 = sqrt(max(ATA[2][2] - l20 * l20 - l21 * l21, 1e-10));
+
+    // Forward substitution: Ly = ATb
+    float y0 = ATb.x / l00;
+    float y1 = (ATb.y - l10 * y0) / l11;
+    float y2 = (ATb.z - l20 * y0 - l21 * y1) / l22;
+
+    // Backward substitution: L^T x = y
+    float x2 = y2 / l22;
+    float x1 = (y1 - l21 * x2) / l11;
+    float x0 = (y0 - l10 * x1 - l20 * x2) / l00;
+
+    return float3(x0, x1, x2);
+}
+
+// Sharp Feature Detection via eigenvalue analysis
+int ClassifyFeature(float3x3 ATA)
+{
+    // 간이 고유값 분석 (Jacobi iteration 3회)
+    // eigenvalue가 모두 비슷 → Smooth
+    // 하나만 작음 → Edge
+    // 둘이 작음 → Corner
+    float trace = ATA[0][0] + ATA[1][1] + ATA[2][2];
+    float det = determinant(ATA);
+    float avg = trace / 3.0;
+    
+    // 분산 기반 간이 분류
+    float var0 = abs(ATA[0][0] - avg);
+    float var1 = abs(ATA[1][1] - avg);
+    float var2 = abs(ATA[2][2] - avg);
+    float totalVar = var0 + var1 + var2;
+    
+    if (totalVar < 0.01) return 0;       // Smooth
+    else if (totalVar < 0.1) return 1;   // Edge
+    else return 2;                        // Corner
+}
+
+// ====================================================================
+// Kernel 1: Hermite Data 수집
+// 밀도장에서 부호 전환(sign change) 에지를 탐색하고
+// 교차점 위치와 노말을 기록.
+// ====================================================================
+[numthreads(8, 8, 8)]
+void CollectHermiteData(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_PointsPerAxis - 1, _PointsPerAxis - 1, _PointsPerAxis - 1)))
+        return;
+
+    int idx = FlatIndex(id);
+    float d0 = _VoxelBuffer[idx].density;
+
+    // 3축 에지 검사
+    uint3 neighbors[3] = { uint3(1,0,0), uint3(0,1,0), uint3(0,0,1) };
+
+    for (int axis = 0; axis < 3; axis++)
+    {
+        uint3 nid = id + neighbors[axis];
+        if (any(nid >= uint3(_PointsPerAxis, _PointsPerAxis, _PointsPerAxis)))
+            continue;
+
+        int nIdx = FlatIndex(nid);
+        float d1 = _VoxelBuffer[nIdx].density;
+
+        // 부호 전환 검사 (하나는 양수, 하나는 음수)
+        if ((d0 > 0) == (d1 > 0))
+            continue;
+
+        // 선형 보간으로 교차점 계산
+        float t = d0 / (d0 - d1);
+        float3 p0 = GetVoxelWorldPos(id);
+        float3 p1 = GetVoxelWorldPos(nid);
+        float3 intersection = lerp(p0, p1, t);
+
+        // 중심 차분법으로 노말 계산 (밀도장 그래디언트)
+        float3 normal = float3(
+            _VoxelBuffer[FlatIndex(min(id + uint3(1,0,0), _PointsPerAxis-1))].density -
+            _VoxelBuffer[FlatIndex(max(id - uint3(1,0,0), 0))].density,
+            _VoxelBuffer[FlatIndex(min(id + uint3(0,1,0), _PointsPerAxis-1))].density -
+            _VoxelBuffer[FlatIndex(max(id - uint3(0,1,0), 0))].density,
+            _VoxelBuffer[FlatIndex(min(id + uint3(0,0,1), _PointsPerAxis-1))].density -
+            _VoxelBuffer[FlatIndex(max(id - uint3(0,0,1), 0))].density
+        );
+        normal = normalize(normal);
+
+        // 에지 인덱스 = 복셀 인덱스 * 3 + axis
+        int edgeIdx = idx * 3 + axis;
+        DCHermiteEdge edge;
+        edge.intersectionPoint = intersection;
+        edge.intersectionNormal = normal;
+        edge.edgeAxis = axis;
+        edge.padding = 0;
+        _HermiteEdgeBuffer[edgeIdx] = edge;
+    }
+}
+
+// ====================================================================
+// Kernel 2: QEF 풀기
+// 각 복셀에 대해 주변 Hermite 에지 데이터를 수집하고
+// QEF(Quadratic Error Function)를 최소화하는 버텍스 위치를 결정.
+// ====================================================================
+[numthreads(8, 8, 8)]
+void SolveQEF(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_PointsPerAxis - 1, _PointsPerAxis - 1, _PointsPerAxis - 1)))
+        return;
+
+    int idx = FlatIndex(id);
+
+    // 이 복셀 주변의 Hermite 에지 수집
+    float3x3 ATA = float3x3(0,0,0, 0,0,0, 0,0,0);
+    float3 ATb = float3(0,0,0);
+    float3 massPoint = float3(0,0,0);
+    int edgeCount = 0;
+
+    // 12개 에지 검사 (복셀의 12개 에지)
+    for (int dx = 0; dx <= 1; dx++)
+    for (int dy = 0; dy <= 1; dy++)
+    for (int dz = 0; dz <= 1; dz++)
+    {
+        uint3 nid = id + uint3(dx, dy, dz);
+        if (any(nid >= uint3(_PointsPerAxis - 1, _PointsPerAxis - 1, _PointsPerAxis - 1)))
+            continue;
+
+        int nIdx = FlatIndex(nid);
+        for (int axis = 0; axis < 3; axis++)
+        {
+            int edgeIdx = nIdx * 3 + axis;
+            DCHermiteEdge edge = _HermiteEdgeBuffer[edgeIdx];
+
+            // 유효한 에지만 사용 (노말이 0이 아닌 것)
+            if (length(edge.intersectionNormal) < 0.01)
+                continue;
+
+            float3 n = edge.intersectionNormal;
+            float3 p = edge.intersectionPoint;
+
+            // ATA += n * n^T
+            ATA[0][0] += n.x * n.x; ATA[0][1] += n.x * n.y; ATA[0][2] += n.x * n.z;
+            ATA[1][0] += n.y * n.x; ATA[1][1] += n.y * n.y; ATA[1][2] += n.y * n.z;
+            ATA[2][0] += n.z * n.x; ATA[2][1] += n.z * n.y; ATA[2][2] += n.z * n.z;
+
+            // ATb += n * dot(n, p)
+            float d = dot(n, p);
+            ATb += n * d;
+
+            massPoint += p;
+            edgeCount++;
+        }
+    }
+
+    if (edgeCount == 0) return;
+
+    massPoint /= edgeCount;
+
+    // QEF 풀기 (Tikhonov Regularization λ=0.01)
+    float3 qefSolution = SolveQEF_Cholesky(ATA, ATb, 0.01);
+
+    // 복셀 바운드 내로 클램핑
+    float3 voxelMin = GetVoxelWorldPos(id);
+    float spacing = _ChunkSize / (_PointsPerAxis - 1);
+    float3 voxelMax = voxelMin + float3(spacing, spacing, spacing);
+    qefSolution = clamp(qefSolution, voxelMin, voxelMax);
+
+    // QEF 잔차 계산
+    float3 residual = qefSolution - massPoint;
+    float qefError = dot(residual, residual);
+
+    // Feature Type 분류
+    int featureType = ClassifyFeature(ATA);
+
+    // MaterialIndex: 기본 지형=0, 광석은 CaveVoxel.oreType에서 판별
+    int matIdx = 0;
+    int oreType = _VoxelBuffer[idx].oreType;
+    if (oreType > 0) matIdx = (oreType >> 24) & 0xFF; // 상위 8비트 = 카테고리
+
+    // 결과 기록
+    DCVertex vert;
+    vert.position = qefSolution;
+    vert.normal = normalize(ATb); // 가중 평균 노말
+    vert.uv = float2(qefSolution.x, qefSolution.z) * 0.1; // 임시 UV
+    vert.featureType = featureType;
+    vert.materialIndex = matIdx;
+    vert.qefError = qefError;
+    vert.padding = float3(0, 0, 0);
+    _DCVertexBuffer[idx] = vert;
+}
+
+// ====================================================================
+// Kernel 3: 쿼드 생성
+// 부호 전환 에지에서 인접 4개 DC 버텍스를 연결하여 쿼드 생성.
+// ====================================================================
+[numthreads(8, 8, 8)]
+void GenerateQuads(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_PointsPerAxis - 1, _PointsPerAxis - 1, _PointsPerAxis - 1)))
+        return;
+
+    int idx = FlatIndex(id);
+    float d0 = _VoxelBuffer[idx].density;
+
+    uint3 neighbors[3] = { uint3(1,0,0), uint3(0,1,0), uint3(0,0,1) };
+
+    for (int axis = 0; axis < 3; axis++)
+    {
+        uint3 nid = id + neighbors[axis];
+        if (any(nid >= uint3(_PointsPerAxis, _PointsPerAxis, _PointsPerAxis)))
+            continue;
+
+        int nIdx = FlatIndex(nid);
+        float d1 = _VoxelBuffer[nIdx].density;
+
+        if ((d0 > 0) == (d1 > 0)) continue;
+
+        // 에지를 공유하는 4개 복셀의 DC 버텍스 인덱스 결정
+        // axis=0(X): (y,z), (y-1,z), (y-1,z-1), (y,z-1)
+        // axis=1(Y): (x,z), (x-1,z), (x-1,z-1), (x,z-1)
+        // axis=2(Z): (x,y), (x-1,y), (x-1,y-1), (x,y-1)
+
+        int3 offsets[4];
+        if (axis == 0)
+        {
+            offsets[0] = int3(0, 0, 0);
+            offsets[1] = int3(0, -1, 0);
+            offsets[2] = int3(0, -1, -1);
+            offsets[3] = int3(0, 0, -1);
+        }
+        else if (axis == 1)
+        {
+            offsets[0] = int3(0, 0, 0);
+            offsets[1] = int3(-1, 0, 0);
+            offsets[2] = int3(-1, 0, -1);
+            offsets[3] = int3(0, 0, -1);
+        }
+        else
+        {
+            offsets[0] = int3(0, 0, 0);
+            offsets[1] = int3(-1, 0, 0);
+            offsets[2] = int3(-1, -1, 0);
+            offsets[3] = int3(0, -1, 0);
+        }
+
+        // 범위 체크 및 인덱스 수집
+        bool valid = true;
+        int quadVerts[4];
+        for (int i = 0; i < 4; i++)
+        {
+            int3 vid = int3(id) + offsets[i];
+            if (any(vid < 0) || any(vid >= int3(_PointsPerAxis - 1, _PointsPerAxis - 1, _PointsPerAxis - 1)))
+            {
+                valid = false;
+                break;
+            }
+            quadVerts[i] = FlatIndex(uint3(vid));
+        }
+        if (!valid) continue;
+
+        // 와인딩 방향 결정 (밀도 부호에 따라)
+        DCQuad quad;
+        if (d0 > 0)
+        {
+            quad.v0 = quadVerts[0]; quad.v1 = quadVerts[1];
+            quad.v2 = quadVerts[2]; quad.v3 = quadVerts[3];
+        }
+        else
+        {
+            quad.v0 = quadVerts[3]; quad.v1 = quadVerts[2];
+            quad.v2 = quadVerts[1]; quad.v3 = quadVerts[0];
+        }
+
+        // 원자적 카운터로 쿼드 추가
+        uint appendIdx;
+        _QuadCount.InterlockedAdd(0, 1, appendIdx);
+        _DCQuadBuffer[appendIdx] = quad;
+    }
+}

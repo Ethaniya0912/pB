@@ -335,6 +335,18 @@ namespace CaveSystem
         /// </summary>
         public void HandleGpuResult(ChunkRequestContext context, ComputeBuffer triBuffer, ComputeBuffer oreBuffer)
         {
+            // ═══ [pB-4 Week 0] DC 모드 안전 가드 ═══
+            // DC 모드에서는 CaveComputeDispatcher.DispatchChunk() 내부에서 이미 DC 전용 처리를 하고
+            // return하므로, 이 콜백이 호출되지 않아야 한다. 만약 호출되면 안전하게 무시.
+            var dcExt = GetComponent<CaveSystem.DCPipelineExtension>();
+            if (dcExt != null && dcExt.useDualContouring)
+            {
+                Debug.LogWarning("[CaveManager] DC 모드에서 MC 콜백이 호출되었습니다. 무시합니다.");
+                computeDispatcher.IsBusy = false;
+                return;
+            }
+            // ═══ DC 안전 가드 끝. 아래는 기존 MC 코드 그대로 ═══
+
             if (context.State == ChunkState.Aborted)
             {
                 computeDispatcher.IsBusy = false;
