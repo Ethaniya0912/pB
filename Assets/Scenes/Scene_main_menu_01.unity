@@ -8268,7 +8268,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f2937aeff87b3e40989b557e843d988, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCPipelineExtension
-  useDualContouring: 1
+  useDualContouring: 0
   dcComputeShader: {fileID: 7200000, guid: 1021cf0d45fc3d6448634523bca6f001, type: 3}
   sdfProfiles:
   - {fileID: 11400000, guid: 84c2617875d04a346b7eb0d1df9294de, type: 2}

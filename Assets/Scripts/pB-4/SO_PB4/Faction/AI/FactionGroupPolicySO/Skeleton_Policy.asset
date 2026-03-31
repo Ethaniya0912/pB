@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a14827781a36d5d4488c4a847cc7f2d3, type: 3}
+  m_Name: Skeleton_Policy
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.FactionGroupPolicySO
+  factionId: 
+  panicChainMultiplier: 0
+  escalationMode: 2
+  leaderInfluenceRadius: 15
+  messengerPolicy: 1
+  formationTemplate: 2
+  tokenOverrideEnabled: 0
+  tokenOverrideThreshold: 0
+  roleTransitionRules: []
