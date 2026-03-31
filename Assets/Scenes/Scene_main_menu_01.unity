@@ -8265,11 +8265,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1464201060}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7d66797a2e6377348a26cec7900ebb4a, type: 3}
+  m_Script: {fileID: 11500000, guid: 8f2937aeff87b3e40989b557e843d988, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCPipelineExtension
   useDualContouring: 1
-  dcComputeShader: {fileID: 7200000, guid: 52a2fe4b35cd226498add6faeb41a578, type: 3}
+  dcComputeShader: {fileID: 7200000, guid: 1021cf0d45fc3d6448634523bca6f001, type: 3}
   sdfProfiles: []
 --- !u!224 &1466137898 stripped
 RectTransform:
