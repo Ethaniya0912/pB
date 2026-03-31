@@ -8,6 +8,13 @@
 //   P1 ⑭  isPoiseActive bool 추가 (강공격 중 포이즈 유지 플래그)
 //   Fix    navMeshAgent 프로퍼티 복구 및 UnityEngine.AI 네임스페이스 추가
 //   Fix    CS1061 에러 조치 (ResetPoiseRecoveryTimer 누락 우회)
+//
+// 버그 수정 이력 (CodeReview v1.0):
+//   [I-04 수정] Update()에 characterStatsManager.RegeneratePoise() 호출 추가
+//              → 포이즈 파괴 후 점진 회복이 동작하지 않던 버그 수정
+//   [I-08 수정] GroggyState SO 인스턴스 공유 타이머 오염 해소
+//              groggyTimer / hasEnteredGroggy 를 AICharacterManager 인스턴스 필드로 이관
+//              → 여러 AI가 동일 GroggyState SO를 공유해도 타이머가 독립적으로 동작
 // =============================================================================
 using UnityEngine;
 using Unity.Netcode;
@@ -64,6 +71,25 @@ namespace TDA.Character.AI
         // 자식 클래스에서 재선언하면 Unity 직렬화 에러가 발생합니다.
         // AttackState / GroggyState 에서 aiCharacter.isPoiseActive 로 그대로 접근합니다.
         // ─────────────────────────────────────────────────────────────────────
+
+        // =====================================================================
+        // [I-08 수정] GroggyState 타이머 — SO 인스턴스 공유 오염 해소
+        //
+        // 문제:
+        //   GroggyState 는 ScriptableObject 이므로 여러 AI 가 동일한 SO 인스턴스를 공유합니다.
+        //   기존에 SO 클래스 내부 private 필드(groggyTimer, hasEnteredGroggy)로 런타임 상태를
+        //   보관하면, AI-A 가 그로기에 진입하면서 hasEnteredGroggy = true 로 바꾸면
+        //   AI-B 가 GroggyState.Tick() 에 진입할 때 이미 true 여서 EnterGroggy() 를 건너뜁니다.
+        //
+        // 해결:
+        //   런타임 상태(타이머 / 진입 여부)를 SO 대신 AICharacterManager 인스턴스 필드로 이관합니다.
+        //   GroggyState.Tick() 에서 aiCharacter.groggyTimer / aiCharacter.hasEnteredGroggy 를
+        //   직접 읽고 씁니다. 각 AI 오브젝트가 독립된 값을 유지합니다.
+        //
+        // [HideInInspector] — 인스펙터 노출 불필요(런타임 전용), 직렬화는 필요(MonoBehaviour)
+        // =====================================================================
+        [HideInInspector] public float groggyTimer = 0f;
+        [HideInInspector] public bool hasEnteredGroggy = false;
 
 
         // =====================================================================
@@ -130,6 +156,11 @@ namespace TDA.Character.AI
             base.Update();
             if (!IsServer) return;
             if (currentState == null) return;
+
+            // [I-04 수정] 포이즈 점진 회복 — 메서드가 구현되어 있었으나 호출이 누락된 버그 수정
+            // RegenerateStamina() 와 동일한 패턴으로 매 프레임 호출합니다.
+            // IsOwner 체크는 RegeneratePoise() 내부에서 수행하므로 여기서는 불필요합니다.
+            characterStatsManager?.RegeneratePoise();
 
             currentState = currentState.Tick(this);
         }

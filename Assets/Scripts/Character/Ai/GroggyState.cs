@@ -18,6 +18,14 @@
 //   - Animator 직접 조작 금지 : PlayTargetActionFunnel() 경유 필수
 //   - NGO 서버 권위형 : Tick() 내부 모든 상태 변경은 IsServer 게이트 확인
 //   - FSM 단일 책임 : 이동/공격 금지 플래그만 설정, 실제 이동 차단은 AICharacterLocomotionManager 가 처리
+//
+// 버그 수정 이력 (CodeReview v1.0):
+//   [I-08 수정] SO 인스턴스 공유 타이머 오염 해소
+//     - 기존: groggyTimer / hasEnteredGroggy 를 SO 클래스 private 필드로 선언
+//             → 여러 AI 가 동일 SO 공유 시 타이머가 오염되어 EnterGroggy() 건너뜀 버그
+//     - 수정: aiCharacter.groggyTimer / aiCharacter.hasEnteredGroggy 로 이관
+//             (AICharacterManager 인스턴스 필드 — 각 AI 오브젝트가 독립 보유)
+//     - SO 내부 private 필드 제거. AICharacterManager 에 신규 필드 추가됨.
 // =============================================================================
 using UnityEngine;
 using UnityEngine.AI;
@@ -50,8 +58,24 @@ namespace TDA.Character.AI
         // =====================================================================
         // 런타임 상태 (ScriptableObject 이므로 초기화 필수)
         // =====================================================================
-        private float groggyTimer = 0f;
-        private bool hasEnteredGroggy = false;
+        // [I-08 수정] groggyTimer / hasEnteredGroggy 를 SO 필드에서 제거하고
+        //             AICharacterManager 인스턴스 필드로 이관했습니다.
+        //
+        // 이관 이유:
+        //   ScriptableObject 는 에셋 인스턴스이므로 여러 AI 오브젝트가 동일 SO 를 공유합니다.
+        //   SO 에 런타임 상태를 저장하면 AI-A 가 값을 바꿀 때 AI-B 에게도 영향을 줍니다.
+        //   (동시에 두 AI 가 그로기에 진입하면 hasEnteredGroggy = true 가 공유되어
+        //    두 번째 AI 의 EnterGroggy() 가 건너뛰어지는 버그)
+        //
+        // 수정 결과:
+        //   Tick() / EnterGroggy() / ExitGroggy() / ResetStateFlags() 에서
+        //   aiCharacter.groggyTimer / aiCharacter.hasEnteredGroggy 를 사용합니다.
+        //   각 AI 오브젝트(MonoBehaviour)가 독립된 값을 보유하므로 공유 오염이 없습니다.
+        //
+        // AICharacterManager.cs 에 추가된 필드:
+        //   [HideInInspector] public float groggyTimer = 0f;
+        //   [HideInInspector] public bool hasEnteredGroggy = false;
+        // =====================================================================
 
         // =====================================================================
         // Tick
@@ -65,7 +89,8 @@ namespace TDA.Character.AI
                 return SwitchState(aiCharacter, combatStanceState);
 
             // ── 최초 진입 처리 ────────────────────────────────────────────────
-            if (!hasEnteredGroggy)
+            // [I-08] SO 필드 → aiCharacter 인스턴스 필드 참조
+            if (!aiCharacter.hasEnteredGroggy)
             {
                 EnterGroggy(aiCharacter);
                 return this;
@@ -77,8 +102,9 @@ namespace TDA.Character.AI
                 return this;
 
             // ── 그로기 타이머 진행 ────────────────────────────────────────────
-            groggyTimer += Time.deltaTime;
-            if (groggyTimer >= groggyDuration)
+            // [I-08] SO 필드 → aiCharacter 인스턴스 필드 참조
+            aiCharacter.groggyTimer += Time.deltaTime;
+            if (aiCharacter.groggyTimer >= groggyDuration)
             {
                 ExitGroggy(aiCharacter);
                 return SwitchState(aiCharacter, combatStanceState);
@@ -92,8 +118,9 @@ namespace TDA.Character.AI
         // =====================================================================
         private void EnterGroggy(AICharacterManager aiCharacter)
         {
-            hasEnteredGroggy = true;
-            groggyTimer = 0f;
+            // [I-08] SO 필드 → aiCharacter 인스턴스 필드 참조
+            aiCharacter.hasEnteredGroggy = true;
+            aiCharacter.groggyTimer = 0f;
 
             // NavMesh 이동 즉시 정지
             if (aiCharacter.navMeshAgent != null
@@ -152,8 +179,9 @@ namespace TDA.Character.AI
             base.ResetStateFlags(aiCharacterManager); // NavMesh ResetPath + applyRootMotion=false
 
             // 런타임 상태 초기화 (ScriptableObject 재진입 대비)
-            hasEnteredGroggy = false;
-            groggyTimer = 0f;
+            // [I-08] SO 필드 → aiCharacterManager 인스턴스 필드 참조
+            aiCharacterManager.hasEnteredGroggy = false;
+            aiCharacterManager.groggyTimer = 0f;
 
             // 이동·회전 복구
             aiCharacterManager.canMove = true;

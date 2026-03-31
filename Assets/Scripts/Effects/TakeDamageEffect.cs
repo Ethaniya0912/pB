@@ -14,6 +14,13 @@
 //   [신규] poiseIsBroken 무조건 → currentPoise 비교 로직으로 교체
 //   [신규] AI 처형 진행 중 경직 무시 (ShouldIgnoreStaggerForExecution)
 //   [신규] poiseDamage 필드 추가
+//
+// 버그 수정 이력 (CodeReview v1.0):
+//   [I-03 수정] isInvincible 체크 주석 해제 → IFrame 무적 정상 동작
+//   [I-01 수정] ActivateCounterOpportunity() 호출 연결 → 카운터 기회 신호 전달
+//   [I-02 수정] CheckCounterStagger() 구현 및 ProcessEffect() 호출 추가 → 패링 역경직 완성
+//   [I-05 수정] PlayLightHitAnimation() ActionID → Hit_Light_* 전용 ID 사용
+//   [I-07 수정] angleHitFrom 경계 데드존 해소 (-144 → -145f, 마지막 분기 else로 변경)
 // =============================================================================
 using System.Collections;
 using System.Collections.Generic;
@@ -60,13 +67,19 @@ public class TakeDamageEffect : InstantCharacterEffect
             return;
 
         // 무적 상태 확인 (향후 IFrame 플래그 체크 추가)
-        // if (character.isInvincible) return;
+        // [I-03 수정] 주석 해제 — IFrameEnable/Disable 이벤트와 CharacterManager.isInvincible 플래그가
+        //             구현 완료되어 있으므로 실제 체크를 활성화합니다.
+        if (character.isInvincible) return;
 
         // 데미지 계산
         CalculateDamage(character);
 
         // 방향별 데미지 위치 체크 및 데미지 애니메이션 재생 (Funnel 라우팅)
         PlayDirectionalBasedDamagedAnimation(character);
+
+        // [I-02 수정] 패링 역경직 체크
+        // character(피격자)의 패링 윈도우가 열려있으면 characterCausingDamage(공격자)에게 역경직 부여
+        CheckCounterStagger(character);
 
         // 빌드업 체크 (독, 출혈 등 — 향후 구현)
         // CheckBuildUpEffects(character);
@@ -226,7 +239,20 @@ public class TakeDamageEffect : InstantCharacterEffect
 
             // 포이즈 파괴 시 AI에게 OnPoiseBreak 알림
             if (poiseIsBroken && character is AICharacterManager aiChar)
+            {
                 aiChar.OnPoiseBreak();
+
+                // [I-01 수정] 공격자(플레이어)에게 카운터 기회 신호 전달
+                // characterCausingDamage 가 PlayerCombatManager 를 가지고 있으면
+                // ActivateCounterOpportunity() 를 호출하여 isCounterOpportunity 플래그를 활성화합니다.
+                // PlayerManager.OnExecutionInputReceived() 의 처형 진입 게이트가 이 플래그를 참조합니다.
+                if (characterCausingDamage != null)
+                {
+                    var attackerCombat = characterCausingDamage
+                        .GetComponent<TDA.Character.PlayerCombatManager>();
+                    attackerCombat?.ActivateCounterOpportunity();
+                }
+            }
         }
         else
         {
@@ -270,15 +296,17 @@ public class TakeDamageEffect : InstantCharacterEffect
             staggerDirection = ActionID.Stagger_Forward;
             hitDirectionEvent = AnimationEventType.Hit_From_Behind;
         }
-        else if (angleHitFrom >= -144 && angleHitFrom <= -45)
+        // [I-07 수정] -144 → -145f 로 확장하여 -144.1~-144.9 데드존 해소
+        else if (angleHitFrom >= -145f && angleHitFrom < -45f)
         {
             // 좌측 피격 → 우측으로 밀림
             staggerDirection = ActionID.Stagger_Right;
             hitDirectionEvent = AnimationEventType.Hit_From_Left;
         }
-        else if (angleHitFrom >= 45 && angleHitFrom <= 144)
+        // [I-07 수정] else if(45~144) → else 로 변경하여 144.1~144.9 데드존 흡수
+        else
         {
-            // 우측 피격 → 좌측으로 밀림
+            // 우측 피격 → 좌측으로 밀림 (45~144 및 경계 float 데드존 전부 포함)
             staggerDirection = ActionID.Stagger_Left;
             hitDirectionEvent = AnimationEventType.Hit_From_Right;
         }
@@ -308,6 +336,13 @@ public class TakeDamageEffect : InstantCharacterEffect
     // =========================================================================
     // PlayLightHitAnimation — 포이즈 유지 시 재생하는 경량 피격 모션
     // Hit_* ActionID를 사용하여 방향을 표현합니다. (Stagger 아닌 미세 피격)
+    //
+    // [I-05 수정] Attack_Right_01 / Attack_Left_01 임시 사용 → Hit_Light_* 전용 ActionID 로 교체
+    //   기존: ActionID.Attack_Right_01 (공격 모션 ID, 임시)
+    //   수정: ActionID.Hit_Light_Forward (경량 피격 전용 ID)
+    //   Animator Controller: ActionState 파라미터에 Hit_Light_* State 연결 필요
+    //
+    // [I-07 수정] angleHitFrom 경계 데드존 해소 (-144f → -145f, 마지막 분기 else로 변경)
     // =========================================================================
     private void PlayLightHitAnimation(CharacterManager character)
     {
@@ -315,22 +350,68 @@ public class TakeDamageEffect : InstantCharacterEffect
 
         if ((angleHitFrom >= 145f && angleHitFrom <= 180f) ||
             (angleHitFrom <= -145f && angleHitFrom >= -180f))
-            hitDirection = ActionID.Attack_Right_01;  // 임시: 전용 Hit_Forward 추가 전
+            hitDirection = ActionID.Hit_Light_Forward;   // [I-05] 정면 경량 피격 (기존: Attack_Right_01 임시)
 
         else if (angleHitFrom >= -45f && angleHitFrom <= 45f)
-            hitDirection = ActionID.Attack_Left_01;   // 임시: 전용 Hit_Backward 추가 전
+            hitDirection = ActionID.Hit_Light_Backward;  // [I-05] 후면 경량 피격 (기존: Attack_Left_01 임시)
 
-        else if (angleHitFrom >= -144f && angleHitFrom <= -45f)
-            hitDirection = ActionID.Stagger_Right;    // 좌측 피격 → 우로 소폭 반응
+        // [I-07] -144f → -145f 로 확장하여 float 경계 데드존 해소
+        else if (angleHitFrom >= -145f && angleHitFrom < -45f)
+            hitDirection = ActionID.Hit_Light_Left;      // [I-05] 좌측 경량 피격 (기존: Stagger_Right 임시)
 
+        // [I-07] else if(45~144) → else 로 변경하여 144.1~144.9 데드존 흡수
         else
-            hitDirection = ActionID.Stagger_Left;     // 우측 피격 → 좌로 소폭 반응
+            hitDirection = ActionID.Hit_Light_Right;     // [I-05] 우측 경량 피격 (기존: Stagger_Left 임시)
 
         character.characterAnimationManager.PlayTargetHitReactionFunnel((int)hitDirection);
     }
 
     // =========================================================================
-    // ShouldIgnoreStaggerForExecution [신규]
+    // CheckCounterStagger [I-02 신규 구현]
+    //
+    // 역할:
+    //   character(피격자)의 패링 윈도우(isParryActive)가 열려있으면
+    //   패링 성공으로 판정하고 characterCausingDamage(공격자)에게 역경직을 부여합니다.
+    //
+    // 호출 시점:
+    //   ProcessEffect() 에서 PlayDirectionalBasedDamagedAnimation() 직후 호출됩니다.
+    //   poiseIsBroken 여부와 무관하게 독립적으로 실행됩니다.
+    //
+    // isParryActive 설정 경로:
+    //   Parry_Window_Open(12) 이벤트 → PlayerCombatManager.OnAnimationEventReceived()
+    //     → playerDefenseManager.OnParryWindowEvent(true)
+    //       → CharacterDefenseManager.SetParryWindow(true)
+    //         → isParryActive = true
+    //
+    // AI 패링도 동일한 경로를 따릅니다.
+    //   AICharacterCombatManager.PerformParry() → StartDefense() + SetParryWindow(true)
+    //
+    // [아키텍처 규약]
+    //   IsOwner 게이트는 character(피격자) 기준으로 수행합니다.
+    //   역경직 부여 대상은 characterCausingDamage(공격자)입니다.
+    // =========================================================================
+    private void CheckCounterStagger(CharacterManager character)
+    {
+        if (!character.IsOwner) return;
+        if (characterCausingDamage == null) return;
+
+        // 피격자(character)의 패링 윈도우가 열려있는지 확인
+        var defenderDefense = character.characterDefenseManager;
+        if (defenderDefense == null || !defenderDefense.isParryActive) return;
+
+        // 패링 성공 → 공격자(characterCausingDamage)에게 역경직 부여
+        // L4 Funnel 경유 — Animator 직접 조작 금지
+        characterCausingDamage.characterAnimationManager
+            .PlayTargetHitReactionFunnel((int)ActionID.Stagger_Backward);
+
+        // [L4] 역경직 이벤트 발행 — VFX/카메라 구독자가 자율 반응
+        characterCausingDamage.characterEventManager?
+            .NotifyAnimationEvent(AnimationEventType.Recoil_Trigger);
+
+        Debug.Log($"[TakeDamageEffect] 패링 역경직 발동: {character.name} 패링 성공 → {characterCausingDamage.name} 역경직");
+    }
+
+    // =========================================================================
     // AI 처형 진행 중이면 경직을 무시합니다.
     // =========================================================================
     private bool ShouldIgnoreStaggerForExecution(CharacterManager character)

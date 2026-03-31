@@ -5,6 +5,15 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using TDA.Core.Events;
 
+// =============================================================================
+// PlayerManager.cs  |  TDA Project
+// 버그 수정 이력 (CodeReview v1.0):
+//   [I-04 수정] Update()에 playerStatsManager.RegeneratePoise() 호출 추가
+//              → 포이즈 파괴 후 점진 회복이 동작하지 않던 버그 수정
+//              RegeneratePoise() 메서드는 CharacterStatsManager 에 구현되어 있었으나
+//              Player / AI 양쪽 모두 Update 호출이 누락되어 있었음
+// =============================================================================
+
 namespace TDA.Character.Player
 {
     /// <summary>
@@ -106,6 +115,9 @@ namespace TDA.Character.Player
             // 상시 실행되어야 하는 도메인 로직 업데이트 (이동 물리 연산 및 자원 회복)
             playerLocomotionManager.HandleAllMovement();
             playerStatsManager.RegenerateStamina();
+            // [I-04 수정] 포이즈 점진 회복 — CharacterStatsManager.RegeneratePoise()가 구현되어 있으나
+            //             Update 호출이 누락되어 포이즈가 영구 미회복되는 버그 수정
+            playerStatsManager.RegeneratePoise();
         }
 
         private void LateUpdate()

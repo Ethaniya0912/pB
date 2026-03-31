@@ -9,6 +9,11 @@
 //   P1 ④ PerformBlock               : CharacterDefenseManager.StartDefense(FarGrip) 연동
 //   Fix  : 누락되었던 AI 속성(Wander, Patrol, Detection, FOV 로그 등) 원본 복구
 //   Fix  : CS1739(명명된 매개변수), CS7036(오버로드 누락), CS0117(Enum 누락) 에러 우회 적용
+//
+// 버그 수정 이력 (CodeReview v1.0):
+//   [I-09 수정] PerformParry() — StartDefense() 이후 SetParryWindow(true) 호출 누락 수정
+//              CharacterDefenseManager.isParryActive 가 설정되지 않아
+//              TakeDamageEffect.CheckCounterStagger() 의 역경직 판정이 동작하지 않던 버그
 // =============================================================================
 using System.Collections;
 using System.Collections.Generic;
@@ -482,6 +487,12 @@ namespace TDA.Character.AI
                 aiCharacter.characterDefenseManager.StartDefense(
                     GuardDirection.Top,
                     ShieldStance.CloseGrip);
+
+                // [I-09 수정] isParryActive 를 명시적으로 활성화
+                // StartDefense() 는 isDefending = true 와 guardStartTime 만 설정합니다.
+                // TakeDamageEffect.CheckCounterStagger() 에서 isParryActive 를 확인하므로
+                // SetParryWindow(true) 를 반드시 별도로 호출해야 역경직 판정이 동작합니다.
+                aiCharacter.characterDefenseManager.SetParryWindow(true);
             }
 
             // 패링 모션 (위치 매개변수 사용)
