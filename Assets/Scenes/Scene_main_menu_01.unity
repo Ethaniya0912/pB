@@ -2122,8 +2122,18 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8182103954360668382, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
+      propertyPath: m_GateFitMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8182103954360668382, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
       propertyPath: m_CullingMask.m_Bits
       value: 32735
+      objectReference: {fileID: 0}
+    - target: {fileID: 8182103954360668382, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
+        type: 3}
+      propertyPath: m_projectionMatrixMode
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 9093613400333441787, guid: f2329c55ac76bdc4ab79d9f3b0a1d3a9,
         type: 3}
@@ -6138,7 +6148,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.0009765625, y: -12.730957}
+  m_AnchoredPosition: {x: 0.0009765625, y: -12.730835}
   m_SizeDelta: {x: -190.503, y: -171.617}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1027095442
@@ -8268,7 +8278,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f2937aeff87b3e40989b557e843d988, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCPipelineExtension
-  useDualContouring: 0
+  useDualContouring: 1
   dcComputeShader: {fileID: 7200000, guid: 1021cf0d45fc3d6448634523bca6f001, type: 3}
   sdfProfiles:
   - {fileID: 11400000, guid: 84c2617875d04a346b7eb0d1df9294de, type: 2}
@@ -8277,6 +8287,85 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b70016dad4672424296c7ca233ac266d, type: 2}
   - {fileID: 11400000, guid: 1a19ae5e297543340b393f9dd6e9cc4c, type: 2}
   - {fileID: 11400000, guid: 20676e2feb320b148a70036b23b17e4a, type: 2}
+--- !u!114 &1464201082 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+    type: 3}
+  m_PrefabInstance: {fileID: 1670054366}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
+--- !u!114 &1464201086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d42dec624ef51d64193bf767b6225b34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCPerformanceProfiler
+  enableProfiling: 1
+  historySize: 30
+  maxGpuBufferBytes: 52428800
+  maxNavMeshRebuildMs: 200
+  history: []
+  avgVertexCount: 0
+  avgTriangleCount: 0
+  avgTotalTimeMs: 0
+  totalGpuBufferBytes: 0
+  lastNavMeshRebuildMs: 0
+--- !u!114 &1464201087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db58cab8d0d955449bf348ca9d49e5a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveNormalBaker
+  normalMapResolution: 512
+  autoAssignToShader: 1
+  tiling: 0.15
+  subVoxelFactor: 0.1
+  lastBakeVertexCount: 0
+  lastBakeTimeMs: 0
+--- !u!114 &1464201088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c70185489de327449823c6dc473bfc3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCMeshBuilder
+  caveMaterial: {fileID: 2100000, guid: 06176ee8cef908b4b89c0ff7abe19ff3, type: 2}
+  existingMeshJobManager: {fileID: 1464201082}
+--- !u!114 &1464201089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c6638ba1687d3a42948f211274e2f62, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.ChunkSeamStitcher
+  stitchedPairCount: 0
 --- !u!224 &1466137898 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3286728277505491436, guid: b4c5370b3c09bce4a996898584135628,
@@ -9363,12 +9452,12 @@ PrefabInstance:
     - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: chunkSize
-      value: 32
+      value: 64
       objectReference: {fileID: 0}
     - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: voxelSize
-      value: 2
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -9403,13 +9492,19 @@ PrefabInstance:
     - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: ChunkSize
-      value: 32
+      value: 64
       objectReference: {fileID: 0}
     - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: VoxelSize
-      value: 2
+      value: 0.5
       objectReference: {fileID: 0}
+    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: terrainConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 1efe9746e3c65974c8ddc846846d6bf8,
+        type: 2}
     - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: playerPrefab
@@ -9424,12 +9519,12 @@ PrefabInstance:
     - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: chunkSize
-      value: 32
+      value: 64
       objectReference: {fileID: 0}
     - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: voxelSize
-      value: 2
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -9460,6 +9555,22 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1464201075}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201088}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201087}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201086}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201089}
   m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1 &1693359577
 GameObject:
@@ -13185,6 +13296,11 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1135784879608721889, guid: 1a569a583a61e7340983ec88c7e8c43f,
+        type: 3}
+      propertyPath: fogDensity
+      value: 0.03
+      objectReference: {fileID: 0}
     - target: {fileID: 1484398648211226083, guid: 1a569a583a61e7340983ec88c7e8c43f,
         type: 3}
       propertyPath: m_LocalPosition.x
