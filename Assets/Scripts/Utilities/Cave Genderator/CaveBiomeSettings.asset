@@ -25,10 +25,10 @@ MonoBehaviour:
   - layerName: 1F
     maxAltitude: 15
     minAltitude: -5
-    floorBlendRadius: 12
+    floorBlendRadius: 18
     ceilBlendRadius: 8
-    floorBumpAmplitude: 0.6
-    floorBumpFrequency: 0.15
+    floorBumpAmplitude: 0.3
+    floorBumpFrequency: 0.07
     noiseFrequency: 0.05
     sdfSmoothness: 2.5
     sinkholeProbability: 0.146
@@ -39,5 +39,5 @@ MonoBehaviour:
     spiralFrequency: 0.5
     spiralAmplitude: 2
     layerFogColor: {r: 0.22745098, g: 0.20784314, b: 0.1882353, a: 0}
-    waterLevel: -45
+    waterLevel: -4
     oreDistributions: []

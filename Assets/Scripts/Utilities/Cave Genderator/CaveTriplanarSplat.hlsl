@@ -16,6 +16,10 @@ TEXTURE2D(_DirtMask);       SAMPLER(sampler_DirtMask);
 TEXTURE2D(_RockMask);       SAMPLER(sampler_RockMask);
 TEXTURE2D(_MossMask);       SAMPLER(sampler_MossMask);
 
+TEXTURE2D(_DCNormalMap_X);  SAMPLER(sampler_DCNormalMap_X);
+TEXTURE2D(_DCNormalMap_Y);  SAMPLER(sampler_DCNormalMap_Y);
+TEXTURE2D(_DCNormalMap_Z);  SAMPLER(sampler_DCNormalMap_Z);
+
 // RNM Blend
 float3 RNMBlend(float3 n1, float3 n2)
 {
@@ -93,6 +97,8 @@ void GetCaveSurfaceData(
     float3 worldPos, float3 worldNormal, float3 viewDirWS,
     float tiling, float heightScale, float normalScale,
     float enableSafePom, float enablePomFading, float pomFadeStart, float pomFadeEnd,
+    float dirtFadeStart, float dirtFadeEnd,
+    float dcNormalStrength,
     out float3 outAlbedo, out float3 outNormal, out float4 outMOHR)
 {
     float3 safeNormal = length(worldNormal) < 0.001 ? float3(0.01, 1.0, 0.01) : normalize(worldNormal);
@@ -177,6 +183,8 @@ void GetCaveSurfaceData(
     float slope = safeNormal.y;
     float mossWeight = saturate(smoothstep(0.5, 0.9, slope) + (mossMOHR.b * 0.3));
     float dirtWeight = saturate(smoothstep(0.5, 0.9, -slope) + (dirtMOHR.b * 0.3));
+    float heightMask = 1.0 - saturate((worldPos.y - dirtFadeStart) / max(0.001, dirtFadeEnd - dirtFadeStart));
+    dirtWeight *= heightMask;
     float rockWeight = saturate(1.0 - (dirtWeight + mossWeight));
 
     float totalWeight = dirtWeight + mossWeight + rockWeight;
@@ -186,6 +194,22 @@ void GetCaveSurfaceData(
 
     outAlbedo = (dirtAlbedo.rgb * dirtWeight) + (rockAlbedo.rgb * rockWeight) + (mossAlbedo.rgb * mossWeight);
     outNormal = normalize((dirtNormal * dirtWeight) + (rockNormal * rockWeight) + (mossNormal * mossWeight));
+
+    UNITY_BRANCH
+    if (dcNormalStrength > 0.001)
+    {
+        float2 dcUvX = samplePos.zy * tiling;
+        float2 dcUvY = samplePos.xz * tiling;
+        float2 dcUvZ = samplePos.xy * tiling;
+        float3 dcX = UnpackNormal(SAMPLE_TEXTURE2D(_DCNormalMap_X, sampler_DCNormalMap_X, dcUvX));
+        float3 dcY = UnpackNormal(SAMPLE_TEXTURE2D(_DCNormalMap_Y, sampler_DCNormalMap_Y, dcUvY));
+        float3 dcZ = UnpackNormal(SAMPLE_TEXTURE2D(_DCNormalMap_Z, sampler_DCNormalMap_Z, dcUvZ));
+        float3 blendX_dc = RNMBlend(float3(outNormal.zy, abs(outNormal.x)), dcX);
+        float3 blendY_dc = RNMBlend(float3(outNormal.xz, abs(outNormal.y)), dcY);
+        float3 blendZ_dc = RNMBlend(float3(outNormal.xy, abs(outNormal.z)), dcZ);
+        float3 dcNormal  = normalize(blendX_dc * blendWeights.x + blendY_dc * blendWeights.y + blendZ_dc * blendWeights.z);
+        outNormal = normalize(lerp(outNormal, dcNormal, dcNormalStrength));
+    }
     outMOHR = (dirtMOHR * dirtWeight) + (rockMOHR * rockWeight) + (mossMOHR * mossWeight);
 }
 #endif

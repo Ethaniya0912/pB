@@ -161,7 +161,7 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
-    - _HeightScale: 0.3
+    - _HeightScale: 0.08
     - _Metallic: 0
     - _MetallicScale: 0
     - _NormalScale: 0.5
@@ -170,8 +170,8 @@ Material:
     - _Parallax: 0.005
     - _PointLightFalloff: 9.23
     - _PointLightWrap: 0.308
-    - _PomFadeEnd: 0.5
-    - _PomFadeStart: 0.2
+    - _PomFadeEnd: 50
+    - _PomFadeStart: 20
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ReflectionToggle: 1
@@ -186,7 +186,7 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _Tiling: 0.3
+    - _Tiling: 1
     - _WorkflowMode: 1
     - _WrapDiffuse: 0.015
     - _XRMotionVectorsPass: 1

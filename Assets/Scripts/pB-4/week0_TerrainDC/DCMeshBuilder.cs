@@ -95,8 +95,8 @@ namespace CaveSystem
                 bool gpuValid = gpuN.sqrMagnitude > 0.001f;
                 if (gpuValid)
                 {
-                    // GPU 노말(밀도 그래디언트) 0.6 + 면 노말 0.4 혼합
-                    Vector3 blended = gpuN.normalized * 0.6f + faceN * 0.4f;
+                    // GPU 노말(밀도 그래디언트) 0.8 + 면 노말 0.2 혼합 — SDF 그래디언트 우선
+                    Vector3 blended = gpuN.normalized * 0.8f + faceN * 0.2f;
                     float bLen = blended.magnitude;
                     normals[i] = bLen > 0.0001f ? blended / bLen : faceN;
                 }
@@ -261,7 +261,8 @@ namespace CaveSystem
             //   XZ 평면(수평)으로만 이동 — Y(높이)는 고정하여 플랫 바닥 유지.
             //   2회 반복: 부드러움 vs 형태 보존 균형.
             // ────────────────────────────────────────────────────
-            ApplyFloorSmoothing(mesh, context, chunkSize, voxelSize, iterations: 2, floorNormalYThreshold: 0.35f, smoothStrength: 0.55f);
+            // 벽면+바닥 통합 스무딩: iterations=3, 벽면(normalY<0.35)도 포함
+            ApplyFloorSmoothing(mesh, context, chunkSize, voxelSize, iterations: 3, floorNormalYThreshold: 0.15f, smoothStrength: 0.55f);
 
             // [주의] mesh.normals는 이미 GPU노말(0.6)+면평균(0.4) 블렌딩 결과.
             //   RecalculateNormals() 호출 시 덮어씌워지므로 사용하지 않음.
@@ -288,8 +289,10 @@ namespace CaveSystem
                 if (mat == null && existingMeshJobManager != null)
                     mat = existingMeshJobManager.caveMaterial;
                 renderer.sharedMaterial = mat;
-                // [Fix-Shadow] DC 메쉬 앞뒤 양면 그림자 — Angular 면의 그림자 누락 방지
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.TwoSided;
+                // [Fix-Shadow v2] On으로 복원: TwoSided는 phantom/역방향 면이 동굴 내부로
+                // 그림자를 투사하게 만들어 Point Light 이동 시 번쩍임 발생.
+                // Shadow Acne는 대신 Light Inspector에서 Shadow Bias ≥ 0.5 로 해결.
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
 
                 // [v3] 서브복셀 노말맵 베이킹 (isHeadless=false, renderer 생성 후)
                 var normalBaker = GetComponent<CaveNormalBaker>();
@@ -299,7 +302,7 @@ namespace CaveSystem
                         normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
                             context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
                     else
-                        normalBaker.BakeFlat(mesh, renderer);
+                        normalBaker.BakeFlat3(mesh, renderer);
                 }
 
                 var collider = context.ChunkObject.GetOrAddComponent<MeshCollider>();
@@ -400,12 +403,23 @@ namespace CaveSystem
                         Mathf.Min(bz, 1f - bz)
                     ) * 8f;  // 경계에서 멀수록 최대 1.0
                     float effectiveStrength = smoothStrength * Mathf.Clamp01(borderFactor);
-
-                    smoothed[i] = new Vector3(
-                        Mathf.Lerp(verts[i].x, avgX, effectiveStrength),
-                        verts[i].y,
-                        Mathf.Lerp(verts[i].z, avgZ, effectiveStrength)
-                    );
+                    float normY = normals[i].y;
+                    if (normY > floorNormalYThreshold) // 바닥: XZ만
+                    {
+                        smoothed[i] = new Vector3(
+                            Mathf.Lerp(verts[i].x, avgX, effectiveStrength),
+                            verts[i].y,
+                            Mathf.Lerp(verts[i].z, avgZ, effectiveStrength));
+                    }
+                    else // 벽: 노말 수직 방향만 이동
+                    {
+                        float nx = normals[i].x, nz = normals[i].z;
+                        float dx = avgX - verts[i].x, dz = avgZ - verts[i].z;
+                        float d = dx * nx + dz * nz;
+                        dx -= d * nx * 0.7f; dz -= d * nz * 0.7f;
+                        float ws = effectiveStrength * 0.6f;
+                        smoothed[i] = new Vector3(verts[i].x + dx * ws, verts[i].y, verts[i].z + dz * ws);
+                    }
                 }
                 System.Array.Copy(smoothed, verts, vCount);
             }

@@ -16,6 +16,16 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         _PomFadeStart ("POM Fade Start", Float) = 10.0
         _PomFadeEnd ("POM Fade End", Float) = 30.0
         
+        [Header(Dirt Height Mask)]
+        _DirtFadeStart ("Dirt Fade Start Y", Float) = 0.0
+        _DirtFadeEnd   ("Dirt Fade End Y",   Float) = 4.0
+
+        [Header(DC SubVoxel Normal Maps)]
+        [NoScaleOffset][Normal] _DCNormalMap_X ("DC Normal X", 2D) = "bump" {}
+        [NoScaleOffset][Normal] _DCNormalMap_Y ("DC Normal Y", 2D) = "bump" {}
+        [NoScaleOffset][Normal] _DCNormalMap_Z ("DC Normal Z", 2D) = "bump" {}
+        _DCNormalStrength ("DC Normal Strength", Range(0,1)) = 0.5
+
         [Space(10)]
         [NoScaleOffset] _DirtAlbedo ("Dirt Albedo", 2D) = "white" {}
         [NoScaleOffset][Normal] _DirtNormal ("Dirt Normal", 2D) = "bump" {}
@@ -103,6 +113,9 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             float _EnablePomFading;
             float _PomFadeStart;
             float _PomFadeEnd;
+            float _DirtFadeStart;
+            float _DirtFadeEnd;
+            float _DCNormalStrength;
 
             float _MetallicScale;
             float _OcclusionScale;
@@ -204,6 +217,8 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     input.positionWS, worldNormal, viewDirWS,
                     _Tiling, _HeightScale, _NormalScale,
                     _EnableSafePom, _EnablePomFading, _PomFadeStart, _PomFadeEnd,
+                    _DirtFadeStart, _DirtFadeEnd,
+                    _DCNormalStrength,
                     sampledAlbedo, triNormal, MOHR
                 );
                 
@@ -472,6 +487,9 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             float _EnablePomFading;
             float _PomFadeStart;
             float _PomFadeEnd;
+            float _DirtFadeStart;
+            float _DirtFadeEnd;
+            float _DCNormalStrength;
 
             struct Attributes
             {
@@ -509,6 +527,8 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     input.positionWS, worldNormal, viewDirWS,
                     _Tiling, _HeightScale, _NormalScale,
                     _EnableSafePom, _EnablePomFading, _PomFadeStart, _PomFadeEnd,
+                    _DirtFadeStart, _DirtFadeEnd,
+                    _DCNormalStrength,
                     sampledAlbedo, triNormal, MOHR
                 );
                 worldNormal = normalize(triNormal);
