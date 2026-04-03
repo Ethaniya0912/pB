@@ -87,18 +87,42 @@ float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, float normalY, 
     switch (noiseType)
     {
         case 0:
+        {
+            // [바닥자연화] Case 0도 wallMask 추가: 바닥에 과도한 노이즈 방지
+            float wallMask0 = smoothstep(0.7, 0.25, abs(normalY));
             float karstNoise = fBm(float3(pos.x, pos.y * safeYComp, pos.z) * safeFreq, 4, 2.0, 0.5);
-            detailSDF += karstNoise * 5.0;
+            // 바닥: baseSDF 유지(wallMask0=0). 벽: 최대 ±2.0m 요철(5.0→2.0)
+            detailSDF += karstNoise * 2.0 * wallMask0;
             break;
+        }
             
         case 1:
+        {
+            // [바닥자연화 Fix-1] wallMask 추가 + abs() 제거 + 진폭 축소
+            //   기존: abs(fBm)*3.0 wallMask없이 전체 적용 → 바닥 ±5.25m 스파이크
+            //   수정: wallMask로 바닥(normalY높음) 보호. 부호 있는 noise → 유기적 요철.
+            //   진폭 1.2: 벽면에 ±1.2m 자연 요철 (5.25m에서 대폭 축소)
+
+            // wallMask: abs(normalY)=0.2(수직벽)=1.0, abs(normalY)=0.65(수평바닥)=0.0
+            // 50° 전환 구간 → 벽-바닥 경계 부드럽게
+            float wallMask1 = smoothstep(0.65, 0.2, abs(normalY));
+
             float safeTerrace = max(p.terraceSteps, 0.001);
             float terracedY = floor(pos.y * safeTerrace) / safeTerrace;
-            float3 warpedPos = pos + float3(snoise(pos * safeFreq * 0.5), 0, snoise(pos * safeFreq * 0.5 + 10.0)) * 4.0;
+
+            // 도메인 워프 진폭 4.0→2.5 (바닥 안정성 향상)
+            float3 warpedPos = pos + float3(snoise(pos * safeFreq * 0.5), 0,
+                                            snoise(pos * safeFreq * 0.5 + 10.0)) * 2.5;
             float3 strataPos = float3(warpedPos.x, terracedY, warpedPos.z);
-            float faultNoise = abs(fBm(strataPos * safeFreq, 3, 2.0, 0.5));
-            detailSDF -= faultNoise * 3.0;
+
+            // [핵심] abs() 제거: 부호 있는 noise → 올록볼록한 지층 요철
+            // (abs이면 항상 파임 → 스파이크. 부호 있으면 볼록/오목 균형)
+            float faultNoise = fBm(strataPos * safeFreq, 3, 2.0, 0.5);
+
+            // wallMask: 벽면만 거칠게, 바닥은 baseSDF 유지
+            detailSDF += faultNoise * 1.2 * wallMask1;
             break;
+        }
 
         case 2:
             float f1, f2;

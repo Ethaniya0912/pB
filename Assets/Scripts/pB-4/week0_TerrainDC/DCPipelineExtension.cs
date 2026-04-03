@@ -1,49 +1,33 @@
 // =============================================================================
 // DCPipelineExtension.cs  |  pB-4 Project — Week 0
-// Layer  : Pipeline (지형)
-// Owner  : Person B
-//
-// 역할:
-//   기존 CaveComputeDispatcher를 직접 수정하지 않고, DC 전용 버퍼와
-//   디스패치 로직을 래퍼 클래스로 확장.
-//   기존 MC 파이프라인과 공존하며, useDualContouring 플래그로 분기.
-//
-// 기존 파일과의 관계:
-//   - CaveComputeDispatcher.cs: 기존 MC 파이프라인 유지 (수정 최소화)
-//   - CaveManager.cs: HandleGpuResult에 DC 분기 추가 필요 (별도 PR)
-//   - CaveMeshJobManager.cs: WeldAndSmoothJob 제거, DCNormalFinalizeJob 추가
-//
-// Stage 진행:
-//   Stage 1: 이 파일 + DCDataStructs.cs 생성, 빈 커널 스켈레톤
-//   Stage 2: CollectHermiteData 커널 구현
-//   Stage 3: SolveQEF 커널 구현 (핵심 난관)
-//   Stage 4: GenerateQuads 커널 구현 + 메쉬 출력
-//   Stage 5: CaveNormalBaker 연동
-//   Stage 6: 성능 최적화 + 검증
 // =============================================================================
+// [버그 수정 목록]
+// FIX-A: _ChunkSize = (pointsPerAxis-1)*voxelSize  (기존: chunkSize 정수값 그대로 → 간격 오류)
+// FIX-B: _ChunkOffset 제거  (기존: 청크 정수 좌표 → 잘못된 월드 좌표)
+// FIX-C: voxelBuffer를 SolveQEF, GenerateQuads에도 바인딩  (기존: CollectHermiteData만 바인딩)
+// FIX-D: ClearHermiteBuffer 커널 추가 및 디스패치 전 호출  (청크 간 잔존 데이터 오염 방지)
+// FIX-E: DCVertexBuffer 초기화 (ClearDCVertexBuffer 추가)
+// FIX-F: _isDestroyed 플래그로 Play모드 종료 시 ReadbackAsync 크래시 방지
+// FIX-G: DispatchDC 시그니처에 voxelSize 추가 (FIX-A 계산에 필요)
+// =============================================================================
+
 using UnityEngine;
 using UnityEngine.Rendering;
 using System.Runtime.InteropServices;
 
 namespace CaveSystem
 {
-    /// <summary>
-    /// DC 전환을 위한 CaveComputeDispatcher 확장.
-    /// 기존 디스패처에 컴포넌트로 부착하여 DC 버퍼와 커널을 관리.
-    /// </summary>
     [RequireComponent(typeof(CaveComputeDispatcher))]
     public class DCPipelineExtension : MonoBehaviour
     {
         [Header("DC Pipeline Control")]
-        [Tooltip("true=Dual Contouring, false=Marching Cubes (레거시)")]
+        [Tooltip("true=Dual Contouring, false=Marching Cubes")]
         public bool useDualContouring = false;
 
         [Header("DC Compute Shader")]
-        [Tooltip("CaveDualContouring.compute — 3개 커널(Hermite/QEF/Quad)")]
         public ComputeShader dcComputeShader;
 
         [Header("SDF Enhancement")]
-        [Tooltip("BiomeSDF_ProfileSO 목록. 기존 CaveBiomeSettings.globalBiomes와 1:1 매핑.")]
         public BiomeSDF_ProfileSO[] sdfProfiles;
 
         // --- DC 전용 GPU 버퍼 ---
@@ -54,13 +38,14 @@ namespace CaveSystem
         private ComputeBuffer gameplaySculptBuffer;
 
         // --- 커널 캐싱 ---
+        private int kernelClearHermite  = -1;   // [FIX-D]
         private int kernelCollectHermite = -1;
-        private int kernelSolveQEF = -1;
+        private int kernelSolveQEF      = -1;
         private int kernelGenerateQuads = -1;
 
-        // 기존 디스패처 참조
         private CaveComputeDispatcher baseDispatcher;
-        private int currentPointsPerAxis = 0;
+        private int   currentPointsPerAxis = 0;
+        private bool  _isDestroyed = false;     // [FIX-F]
 
         private void Awake()
         {
@@ -77,19 +62,25 @@ namespace CaveSystem
         private void OnDisable()
         {
             BiomeSDF_ProfileSO.OnProfileModified -= OnSDFProfileChanged;
+        }
+
+        private void OnDestroy()
+        {
+            _isDestroyed = true;    // [FIX-F] ReadbackAsync 콜백 진입 차단
             ReleaseBuffers();
         }
 
         // ==================================================================
-        // Stage 1: 커널 초기화
+        // 커널 초기화
         // ==================================================================
         private void InitializeDCKernels()
         {
+            kernelClearHermite   = dcComputeShader.FindKernel("ClearHermiteBuffer"); // [FIX-D]
             kernelCollectHermite = dcComputeShader.FindKernel("CollectHermiteData");
-            kernelSolveQEF = dcComputeShader.FindKernel("SolveQEF");
-            kernelGenerateQuads = dcComputeShader.FindKernel("GenerateQuads");
+            kernelSolveQEF       = dcComputeShader.FindKernel("SolveQEF");
+            kernelGenerateQuads  = dcComputeShader.FindKernel("GenerateQuads");
 
-            Debug.Log($"[DCPipeline] 커널 초기화 완료: Hermite={kernelCollectHermite}, QEF={kernelSolveQEF}, Quad={kernelGenerateQuads}");
+            Debug.Log($"[DCPipeline] 커널 초기화: Clear={kernelClearHermite}, Hermite={kernelCollectHermite}, QEF={kernelSolveQEF}, Quad={kernelGenerateQuads}");
         }
 
         // ==================================================================
@@ -101,130 +92,170 @@ namespace CaveSystem
             ReleaseBuffers();
 
             currentPointsPerAxis = pointsPerAxis;
-            int voxelCount = pointsPerAxis * pointsPerAxis * pointsPerAxis;
-            int maxEdges = voxelCount * 3;  // 3축 에지
-            int maxVertices = voxelCount;    // 최대 복셀당 1 버텍스
-            int maxQuads = maxEdges;         // 최대 에지당 1 쿼드
+            int N3       = pointsPerAxis * pointsPerAxis * pointsPerAxis;
+            int maxEdges = N3 * 3;
 
-            int hermiteStride = Marshal.SizeOf(typeof(DCHermiteEdge));   // 32
-            int vertexStride = Marshal.SizeOf(typeof(DCVertex));         // 56
-            int quadStride = Marshal.SizeOf(typeof(DCQuad));             // 16
-            int sculptStride = Marshal.SizeOf(typeof(GameplaySculptData)); // 16
+            int hermiteStride = Marshal.SizeOf(typeof(DCHermiteEdge)); // 32
+            int vertexStride  = Marshal.SizeOf(typeof(DCVertex));      // 56
+            int quadStride    = Marshal.SizeOf(typeof(DCQuad));        // 16
+            int sculptStride  = Marshal.SizeOf(typeof(GameplaySculptData)); // 16
 
-            hermiteEdgeBuffer = new ComputeBuffer(maxEdges, hermiteStride);
-            dcVertexBuffer = new ComputeBuffer(maxVertices, vertexStride);
-            dcQuadBuffer = new ComputeBuffer(maxQuads, quadStride);
-            quadCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
+            hermiteEdgeBuffer  = new ComputeBuffer(maxEdges, hermiteStride);
+            dcVertexBuffer     = new ComputeBuffer(N3,       vertexStride);
+            dcQuadBuffer       = new ComputeBuffer(N3,       quadStride);    // N3: FIX-7과 동기화
+            quadCountBuffer    = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
 
-            // GameplaySculpt 버퍼: 노드/엣지 수만큼 할당 (Phase 1에서 채움)
             var graphBuilder = CaveNodeGraphBuilder.Instance;
-            int sculptCount = Mathf.Max(1, 
-                (graphBuilder != null ? graphBuilder.nodesData.Count + graphBuilder.edgesData.Count : 64));
+            int sculptCount  = Mathf.Max(1,
+                graphBuilder != null ? graphBuilder.nodesData.Count + graphBuilder.edgesData.Count : 64);
             gameplaySculptBuffer = new ComputeBuffer(sculptCount, sculptStride);
 
-            Debug.Log($"[DCPipeline] 버퍼 할당 완료: {pointsPerAxis}³, Hermite={maxEdges}, Vertex={maxVertices}, Quad={maxQuads}, Sculpt={sculptCount}");
+            Debug.Log($"[DCPipeline] 버퍼 할당: N={pointsPerAxis}, Hermite={maxEdges}, Vertex={N3}");
         }
 
         private void ReleaseBuffers()
         {
-            hermiteEdgeBuffer?.Release(); hermiteEdgeBuffer = null;
-            dcVertexBuffer?.Release(); dcVertexBuffer = null;
-            dcQuadBuffer?.Release(); dcQuadBuffer = null;
-            quadCountBuffer?.Release(); quadCountBuffer = null;
+            hermiteEdgeBuffer?.Release();  hermiteEdgeBuffer  = null;
+            dcVertexBuffer?.Release();     dcVertexBuffer     = null;
+            dcQuadBuffer?.Release();       dcQuadBuffer       = null;
+            quadCountBuffer?.Release();    quadCountBuffer    = null;
             gameplaySculptBuffer?.Release(); gameplaySculptBuffer = null;
             currentPointsPerAxis = 0;
         }
 
+        // [FIX-D] Hermite 버퍼 클리어
+        private void ClearHermiteEdgeBuffer(int pointsPerAxis)
+        {
+            int hermiteCount = 3 * pointsPerAxis * pointsPerAxis * pointsPerAxis;
+            dcComputeShader.SetInt("_HermiteBufferSize", hermiteCount);
+            dcComputeShader.SetBuffer(kernelClearHermite, "_HermiteEdgeBuffer", hermiteEdgeBuffer);
+            int groups = Mathf.CeilToInt(hermiteCount / 256.0f);
+            dcComputeShader.Dispatch(kernelClearHermite, groups, 1, 1);
+        }
+
+        // [FIX-E] DCVertex 버퍼 클리어 (featureType=-1 마커 보장)
+        private void ClearDCVertexBuffer(int pointsPerAxis)
+        {
+            // GPU에서 모든 원소를 -1로 초기화하는 가장 간단한 방법:
+            // DCVertex.featureType 오프셋(24바이트)을 포함한 56바이트 구조체를
+            // 전체 0으로 채우면 featureType=0(유효)로 보임 → 문제.
+            // 대신 CPU에서 -1 마킹한 배열로 SetData.
+            int N3 = pointsPerAxis * pointsPerAxis * pointsPerAxis;
+            var cleared = new DCVertex[N3];
+            for (int i = 0; i < N3; i++)
+                cleared[i].featureType = -1;
+            dcVertexBuffer.SetData(cleared);
+        }
+
         // ==================================================================
-        // Stage 2~4: DC 디스패치 (기존 MC Dispatch와 동일 위치에서 호출)
+        // DC 디스패치
         // ==================================================================
 
         /// <summary>
-        /// 기존 CaveComputeDispatcher.DispatchChunk() 내부에서 MC 커널 대신 호출.
-        /// 밀도장(voxelBuffer)은 기존 커널 1이 이미 생성한 상태.
-        /// 이 메서드가 MC의 '커널 2: marchingCubesShader.Dispatch' 를 대체한다.
-        /// 
-        /// [CaveComputeDispatcher.DispatchChunk() 내부에 삽입할 코드]
-        /// ───────────────────────────────────────────────────────────
-        /// var dcExt = GetComponent&lt;DCPipelineExtension&gt;();
-        /// if (dcExt != null &amp;&amp; dcExt.useDualContouring &amp;&amp; dcExt.IsInitialized)
-        /// {
-        ///     dcExt.DispatchDC(context.ChunkPos, pointsPerAxis, chunkSize, voxelBuffer);
-        ///     dcExt.ReadbackAsync((verts, quads, count) =&gt; {
-        ///         Debug.Log($"[DC] Readback: {count} quads");
-        ///         IsBusy = false;
-        ///     });
-        ///     return; // MC 커널 2 스킵
-        /// }
-        /// // ─── 기존 MC 커널 2 코드가 여기 아래에 그대로 유지됨 ───
-        /// ───────────────────────────────────────────────────────────
+        /// CaveComputeDispatcher의 DC 분기에서 호출.
+        /// 밀도장(voxelBuffer)은 이미 생성된 상태여야 함.
         /// </summary>
-        public void DispatchDC(Vector3Int chunkPos, int pointsPerAxis, float chunkSize,
-            ComputeBuffer voxelBuffer /* 기존 밀도장 */)
+        /// <param name="chunkPos">청크 그리드 좌표</param>
+        /// <param name="pointsPerAxis">복셀 그리드 크기 (chunkSize + 3 권장)</param>
+        /// <param name="chunkSize">청크의 복셀 수 (64 등)</param>
+        /// <param name="voxelSize">복셀 하나의 월드 크기 (0.5 등)</param>
+        /// <param name="voxelBuffer">밀도장 버퍼</param>
+        public void DispatchDC(Vector3Int chunkPos, int pointsPerAxis, int chunkSize,
+                               float voxelSize, ComputeBuffer voxelBuffer) // [FIX-G]
         {
             if (dcComputeShader == null || kernelCollectHermite < 0)
             {
-                Debug.LogError("[DCPipeline] Compute Shader 또는 커널이 초기화되지 않았습니다.");
+                Debug.LogError("[DCPipeline] Compute Shader 또는 커널 미초기화.");
                 return;
             }
 
             AllocateBuffers(pointsPerAxis);
 
-            // --- Stage 2: Hermite Data 수집 ---
-            dcComputeShader.SetBuffer(kernelCollectHermite, "_VoxelBuffer", voxelBuffer);
-            dcComputeShader.SetBuffer(kernelCollectHermite, "_HermiteEdgeBuffer", hermiteEdgeBuffer);
-            dcComputeShader.SetInt("_PointsPerAxis", pointsPerAxis);
-            dcComputeShader.SetFloat("_ChunkSize", chunkSize);
-            dcComputeShader.SetVector("_ChunkOffset", new Vector4(chunkPos.x, chunkPos.y, chunkPos.z, 0));
+            // [FIX-A] _ChunkSize = (N-1) * voxelSize → spacing = voxelSize (정확 일치)
+            //   기존: _ChunkSize = chunkSize(=64) → spacing = 64/(N-1) ≈ 0.985 ≠ voxelSize
+            float chunkWorldSize = (float)(pointsPerAxis - 1) * voxelSize;
 
-            int threadGroups = Mathf.CeilToInt(pointsPerAxis / 8f);
+            // [FIX-D] Hermite 버퍼 클리어 (이전 청크 잔존 데이터 제거)
+            ClearHermiteEdgeBuffer(pointsPerAxis);
+
+            // [FIX-E] DCVertex 버퍼 클리어 (featureType=-1 초기화)
+            ClearDCVertexBuffer(pointsPerAxis);
+
+            int threadGroups = Mathf.CeilToInt(pointsPerAxis / 8.0f);
+
+            // --- Stage 2: Hermite Data 수집 ---
+            dcComputeShader.SetBuffer(kernelCollectHermite, "_VoxelBuffer",       voxelBuffer);
+            dcComputeShader.SetBuffer(kernelCollectHermite, "_HermiteEdgeBuffer", hermiteEdgeBuffer);
+            dcComputeShader.SetInt  ("_PointsPerAxis", pointsPerAxis);
+            dcComputeShader.SetFloat("_ChunkSize",     chunkWorldSize); // [FIX-A, FIX-B]
+            // [FIX-B] _ChunkOffset 전달 제거 — 셰이더는 순수 로컬 좌표만 사용
             dcComputeShader.Dispatch(kernelCollectHermite, threadGroups, threadGroups, threadGroups);
 
             // --- Stage 3: QEF 풀기 ---
+            // [FIX-C] _VoxelBuffer를 SolveQEF에도 바인딩 (oreType, 그래디언트 읽기)
+            dcComputeShader.SetBuffer(kernelSolveQEF, "_VoxelBuffer",       voxelBuffer);
             dcComputeShader.SetBuffer(kernelSolveQEF, "_HermiteEdgeBuffer", hermiteEdgeBuffer);
-            dcComputeShader.SetBuffer(kernelSolveQEF, "_DCVertexBuffer", dcVertexBuffer);
+            dcComputeShader.SetBuffer(kernelSolveQEF, "_DCVertexBuffer",    dcVertexBuffer);
             dcComputeShader.SetBuffer(kernelSolveQEF, "_GameplaySculptBuffer", gameplaySculptBuffer);
+            // _PointsPerAxis, _ChunkSize는 이미 위에서 설정됨 (uniform 유지)
             dcComputeShader.Dispatch(kernelSolveQEF, threadGroups, threadGroups, threadGroups);
 
             // --- Stage 4: 쿼드 생성 ---
             quadCountBuffer.SetData(new int[] { 0 });
+            // [FIX-C] _VoxelBuffer를 GenerateQuads에도 바인딩 (밀도 부호 읽기)
+            dcComputeShader.SetBuffer(kernelGenerateQuads, "_VoxelBuffer",  voxelBuffer);
             dcComputeShader.SetBuffer(kernelGenerateQuads, "_DCVertexBuffer", dcVertexBuffer);
             dcComputeShader.SetBuffer(kernelGenerateQuads, "_DCQuadBuffer", dcQuadBuffer);
-            dcComputeShader.SetBuffer(kernelGenerateQuads, "_QuadCount", quadCountBuffer);
+            dcComputeShader.SetBuffer(kernelGenerateQuads, "_QuadCount",    quadCountBuffer);
             dcComputeShader.Dispatch(kernelGenerateQuads, threadGroups, threadGroups, threadGroups);
         }
 
-        /// <summary>
-        /// 비동기 GPU 읽기. CaveManager.HandleGpuResult DC 분기에서 호출.
-        /// DispatchDC()가 먼저 호출된 후에만 사용 가능.
-        /// </summary>
+        /// <summary>비동기 GPU 읽기</summary>
         public void ReadbackAsync(System.Action<DCVertex[], DCQuad[], int> onComplete)
         {
-            // Null Guard: DispatchDC()가 호출되지 않은 상태에서 Readback 시도 방지
             if (quadCountBuffer == null || dcVertexBuffer == null || dcQuadBuffer == null)
             {
-                Debug.LogWarning("[DCPipeline] 버퍼가 할당되지 않았습니다. DispatchDC()를 먼저 호출하세요.");
+                Debug.LogWarning("[DCPipeline] 버퍼 미할당. DispatchDC() 먼저 호출 필요.");
                 onComplete?.Invoke(null, null, 0);
                 return;
             }
 
             AsyncGPUReadback.Request(quadCountBuffer, (countReq) =>
             {
-                if (countReq.hasError) { Debug.LogError("[DCPipeline] QuadCount readback failed"); return; }
+                // [FIX-F] Play 종료 후 콜백 진입 차단
+                if (_isDestroyed || quadCountBuffer == null) return;
+                if (countReq.hasError)
+                {
+                    Debug.LogError("[DCPipeline] QuadCount readback 실패");
+                    onComplete?.Invoke(null, null, 0);
+                    return;
+                }
+
                 int quadCount = countReq.GetData<int>()[0];
+                if (quadCount == 0)
+                {
+                    onComplete?.Invoke(null, null, 0);
+                    return;
+                }
 
-                if (quadCount == 0) { onComplete?.Invoke(null, null, 0); return; }
-
-                // 버텍스 읽기
                 AsyncGPUReadback.Request(dcVertexBuffer, (vertReq) =>
                 {
-                    if (vertReq.hasError) return;
+                    if (_isDestroyed || dcVertexBuffer == null) return;
+                    if (vertReq.hasError)
+                    {
+                        onComplete?.Invoke(null, null, 0);
+                        return;
+                    }
                     var verts = vertReq.GetData<DCVertex>().ToArray();
 
-                    // 쿼드 읽기
                     AsyncGPUReadback.Request(dcQuadBuffer, (quadReq) =>
                     {
-                        if (quadReq.hasError) return;
+                        if (_isDestroyed || dcQuadBuffer == null) return;
+                        if (quadReq.hasError)
+                        {
+                            onComplete?.Invoke(null, null, 0);
+                            return;
+                        }
                         var quads = quadReq.GetData<DCQuad>().ToArray();
                         onComplete?.Invoke(verts, quads, quadCount);
                     });
@@ -232,21 +263,14 @@ namespace CaveSystem
             });
         }
 
-        // ==================================================================
-        // SDF 프로파일 변경 핫리로드
-        // ==================================================================
         private void OnSDFProfileChanged()
         {
-            // TODO: sdfProfiles → 기존 UpdateBiomeBuffer() 패턴으로 GPU 갱신
             Debug.Log("[DCPipeline] SDF Profile 변경 감지 → GPU 버퍼 갱신 예정");
         }
 
-        // ==================================================================
-        // 공개 프로퍼티 (CaveManager에서 접근)
-        // ==================================================================
         public bool IsInitialized => kernelCollectHermite >= 0;
-        public ComputeBuffer DCVertexBuffer => dcVertexBuffer;
-        public ComputeBuffer DCQuadBuffer => dcQuadBuffer;
+        public ComputeBuffer DCVertexBuffer      => dcVertexBuffer;
+        public ComputeBuffer DCQuadBuffer        => dcQuadBuffer;
         public ComputeBuffer GameplaySculptBuffer => gameplaySculptBuffer;
     }
 }

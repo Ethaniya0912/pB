@@ -4,67 +4,68 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
     {
         // SECTION 1: Feature Toggles
         [Header(Feature Toggles)]
-        [Toggle(_USE_DISTORTION)] _UseDistortion ("Enable Distortion", Float) = 1
-        [Toggle(_USE_CHROMA)] _UseChroma ("Enable Speed Chroma", Float) = 1
-        [Toggle(_USE_MOTION_BLUR)] _UseMotionBlur ("Enable Motion Blur", Float) = 1
-        [Toggle(_USE_MIPMAP)] _UseMipmap ("Enable Mipmap", Float) = 1
-        [Toggle(_USE_DISTANCE_BLUR)] _UseDistanceBlur ("Enable Distance Blur", Float) = 1
+        [Toggle(_USE_DISTORTION)]    _UseDistortion  ("Enable Distortion",    Float) = 1
+        [Toggle(_USE_CHROMA)]        _UseChroma      ("Enable Speed Chroma",  Float) = 1
+        [Toggle(_USE_MOTION_BLUR)]   _UseMotionBlur  ("Enable Motion Blur",   Float) = 1
+        [Toggle(_USE_MIPMAP)]        _UseMipmap      ("Enable Mipmap",        Float) = 1
+        [Toggle(_USE_DISTANCE_BLUR)] _UseDistanceBlur("Enable Distance Blur", Float) = 1
 
         // SECTION 2: Distance Blur Settings
         [Header(Distance Zones)]
         _NearDist ("Near Distance", Float) = 7.0
-        _MidDist ("Mid Distance", Float) = 25.0
-        _FarDist ("Far Distance", Float) = 50.0
-        
+        _MidDist  ("Mid Distance",  Float) = 25.0
+        _FarDist  ("Far Distance",  Float) = 50.0
+
         [Header(Blur Intensity)]
         [KeywordEnum(Gaussian, Disk, Smooth, Pixel, Dream)] _BlurType ("Blur Method", Float) = 3
-        _MidBlurSize ("Mid Blur Size", Range(0.0, 20.0)) = 4.0
-        _FarBlurSize ("Far Blur Size", Range(0.0, 30.0)) = 12.0
-        _BlurExponent ("Distance Curve Exponent", Range(1.0, 5.0)) = 2.0
-        _CenterBlurScale ("Center Blur Strength", Range(0.0, 1.0)) = 0.2 
+        _MidBlurSize  ("Mid Blur Size",            Range(0.0, 20.0)) = 4.0
+        _FarBlurSize  ("Far Blur Size",            Range(0.0, 30.0)) = 12.0
+        _BlurExponent ("Distance Curve Exponent",  Range(1.0, 5.0))  = 2.0
+        _CenterBlurScale ("Center Blur Strength",  Range(0.0, 1.0))  = 0.2
 
         [Header(Artifact Correction)]
         [KeywordEnum(None, SNN, Kuwahara, Median)] _FilterType ("Filter Method", Float) = 1
-        _DepthThreshold ("Depth Awareness", Range(0.1, 10.0)) = 2.0
-        _JitterIntensity ("Smooth Jitter", Range(0.0, 1.0)) = 1.0
-        
+        _DepthThreshold      ("Depth Awareness",        Range(0.1, 10.0)) = 2.0
+        _JitterIntensity     ("Smooth Jitter",          Range(0.0, 1.0))  = 1.0
+        _NearSampleCutoffRatio ("Near Sample Cutoff Ratio", Range(0.1, 0.9)) = 0.5
+
         [Header(Pixel and Mosaic Settings)]
-        _PixelScale ("Near Pixel Scale", Range(1.0, 15.0)) = 4.0
-        _FarPixelScale ("Far Pixel Scale", Range(1.0, 50.0)) = 15.0
-        _PixelCurve ("Pixel Curve", Range(0.1, 5.0)) = 1.0
-        _MoireReduction ("Moire Reduction", Range(0.0, 2.0)) = 0.5
-        [Toggle(_LOCK_GRID)] _LockGrid ("Lock Grid", Float) = 1
+        _PixelScale    ("Near Pixel Scale",  Range(1.0, 15.0)) = 4.0
+        _FarPixelScale ("Far Pixel Scale",   Range(1.0, 50.0)) = 15.0
+        _PixelCurve    ("Pixel Curve",       Range(0.1, 5.0))  = 1.0
+        _MoireReduction("Moire Reduction",   Range(0.0, 2.0))  = 0.5
+        [Toggle(_LOCK_GRID)]   _LockGrid   ("Lock Grid",   Float) = 1
         [Toggle(_MOSAIC_MODE)] _MosaicMode ("Mosaic Mode", Float) = 0
-        
+
         [Header(Dreamcore Settings)]
-        _DreamHaze ("Dream Haze", Range(0.0, 1.0)) = 0.5
-        _DreamChroma ("Dream Chromatic", Range(0.0, 5.0)) = 1.5
+        _DreamHaze   ("Dream Haze",     Range(0.0, 1.0)) = 0.5
+        _DreamChroma ("Dream Chromatic",Range(0.0, 5.0)) = 1.5
 
         [Header(LockOn Focus Blur)]
         _PlayerProtectRadius ("Player Protect Radius (m)", Range(0.5, 10.0)) = 1.5
         _TargetProtectRadius ("Target Protect Radius (m)", Range(0.5, 10.0)) = 1.5
-        _FocusBlurStrength ("Focus Blur Strength", Range(0.0, 5.0)) = 1.5
-        _FocusBlurFalloff ("Focus Blur Falloff", Range(0.5, 5.0)) = 2.0
+        _FocusBlurStrength   ("Focus Blur Strength",       Range(0.0, 5.0))  = 1.5
+        _FocusBlurFalloff    ("Focus Blur Falloff",        Range(0.5, 5.0))  = 2.0
 
         // SECTION 3: Speed Response
         [Header(Phase 2 Speed Response)]
-        _VignetteIntensity ("Vignette Intensity", Range(0.0, 1.0)) = 0.8
-        _VignetteRadiusShrink ("Vignette Shrink", Range(0.0, 0.5)) = 0.2
-        _SpeedChromaIntensity ("Speed Chroma", Range(0.0, 10.0)) = 4.0
-        
+        _VignetteIntensity   ("Vignette Intensity", Range(0.0, 1.0))  = 0.8
+        _VignetteRadiusShrink("Vignette Shrink",    Range(0.0, 0.5))  = 0.2
+        _SpeedChromaIntensity("Speed Chroma",       Range(0.0, 10.0)) = 4.0
+
         [Header(Phase 2 Lens Distortion)]
-        _IdleLensDistortion ("Idle Distortion", Range(-1.0, 1.0)) = -0.1
-        _SpeedLensDistortion ("Speed Distortion Boost", Range(-1.0, 1.0)) = -0.3
-        _ZoomAutoFitScale ("Zoom Auto Fit", Range(0.0, 1.0)) = 0.25
+        _IdleLensDistortion ("Idle Distortion",       Range(-1.0, 1.0)) = -0.1
+        _SpeedLensDistortion("Speed Distortion Boost",Range(-1.0, 1.0)) = -0.3
+        _ZoomAutoFitScale   ("Zoom Auto Fit",         Range(0.0, 1.0))  = 0.25
 
         [Header(Phase 2 Motion Blur)]
         _PeripheralMotionBlur ("Motion Blur Intensity", Range(0.0, 0.2)) = 0.05
-        
+
         [Header(Phase 2 Mipmap Control)]
-        _IdleMipmapRange ("Idle Mip Range", Range(0.0, 1.0)) = 0.3
-        _SprintMipmapRange ("Sprint Mip Range", Range(0.0, 1.0)) = 0.7
-        _MipDebugLineThickness ("Debug Line Width", Range(0.001, 0.05)) = 0.01
-        [Toggle(_MIP_DEBUG)] _MipDebug ("Enable Mipmap Debug", Float) = 0 
+        _IdleMipmapRange     ("Idle Mip Range",   Range(0.0, 1.0))   = 0.3
+        _SprintMipmapRange   ("Sprint Mip Range", Range(0.0, 1.0))   = 0.7
+        _MipDebugLineThickness("Debug Line Width",Range(0.001, 0.05)) = 0.01
+        [Toggle(_MIP_DEBUG)] _MipDebug ("Enable Mipmap Debug", Float) = 0
     }
 
     SubShader
@@ -106,6 +107,7 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
             float _NearDist, _MidDist, _FarDist;
             float _MidBlurSize, _FarBlurSize, _BlurExponent, _CenterBlurScale;
             float _DepthThreshold, _JitterIntensity;
+            float _NearSampleCutoffRatio; // [FIX P2] 근거리 샘플 하드 배제 비율
             float _PixelScale, _FarPixelScale, _PixelCurve, _MoireReduction;
             float _DreamHaze, _DreamChroma;
 
@@ -126,9 +128,16 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
             float _VFXMipBias;        
 
             // GetWeight function at the top
+            // [FIX P1] 단방향 → 양방향 깊이 보호.
+            // 기존: max(0, center-sample) 로 인해 sample < center 일 때만 억제됨.
+            //       → 원거리 픽셀(center=80m) 커널이 근거리 샘플(sample=2m)을 포함해도
+            //         가중치가 감소하지 않아 캐릭터 색상이 배경 블러에 흡수되는 버그 발생.
+            // 수정: abs(center-sample) 로 양방향 억제.
+            //       → 깊이 차이가 클수록 방향에 관계없이 가중치를 0에 수렴시킴.
             float GetWeight(float centerDepth, float sampleDepth)
             {
-                return 1.0 / (1.0 + max(0.0, centerDepth - sampleDepth) * _DepthThreshold);
+                float depthDiff = abs(centerDepth - sampleDepth);
+                return 1.0 / (1.0 + depthDiff * _DepthThreshold);
             }
 
             // Custom IGN function to avoid naming conflict with Unity Core.hlsl
@@ -211,10 +220,16 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 float2 texelSize = _BlitTexture_TexelSize.xy * strength;
                 float gWeights[9] = { 0.0625, 0.125, 0.0625, 0.125, 0.25, 0.125, 0.0625, 0.125, 0.0625 };
                 float2 offsets[9] = { float2(-1,-1), float2(0,-1), float2(1,-1), float2(-1,0), float2(0,0), float2(1,0), float2(-1,1), float2(0,1), float2(1,1) };
+                // [FIX P2] 근거리 하드 배제 임계값: centerDepth의 절반 미만 샘플은 커널에서 제외.
+                // 원거리 배경 픽셀(80m)이 캐릭터 픽셀(2m)을 샘플링하면 cutoff=40m 미만이므로 skip.
+                float cutoff = centerDepth * _NearSampleCutoffRatio;
                 [unroll]
                 for(int i = 0; i < 9; i++) {
                     float2 sUV = uv + offsets[i] * texelSize;
-                    float w = gWeights[i] * GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
+                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
+                    // [FIX P2] 근거리 샘플 조기 배제
+                    if (sDepth < cutoff) continue;
+                    float w = gWeights[i] * GetWeight(centerDepth, sDepth);
                     color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0) * w;
                     totalWeight += w;
                 }
@@ -226,10 +241,15 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 float4 color = 0; float totalWeight = 0;
                 float2 texelSize = _BlitTexture_TexelSize.xy * strength;
                 float2 offsets[13] = { float2(0,0), float2(0,1), float2(0,-1), float2(1,0), float2(-1,0), float2(0.7,0.7), float2(-0.7,0.7), float2(0.7,-0.7), float2(-0.7,-0.7), float2(0,2), float2(0,-2), float2(2,0), float2(-2,0) };
+                // [FIX P2] 근거리 하드 배제 임계값
+                float cutoff = centerDepth * _NearSampleCutoffRatio;
                 [unroll]
                 for(int i = 0; i < 13; i++) {
                     float2 sUV = uv + offsets[i] * texelSize;
-                    float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
+                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
+                    // [FIX P2] 근거리 샘플 조기 배제
+                    if (sDepth < cutoff) continue;
+                    float w = GetWeight(centerDepth, sDepth);
                     color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0) * w;
                     totalWeight += w;
                 }
@@ -243,10 +263,15 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 float cosN = cos(noise) * strength; float sinN = sin(noise) * strength;
                 float2x2 rot = float2x2(cosN, -sinN, sinN, cosN);
                 float2 offsets[8] = { float2(1,0), float2(-1,0), float2(0,1), float2(0,-1), float2(0.5,0.5), float2(-0.5,0.5), float2(0.5,-0.5), float2(-0.5,-0.5) };
+                // [FIX P2] 근거리 하드 배제 임계값
+                float cutoff = centerDepth * _NearSampleCutoffRatio;
                 [unroll]
                 for(int i = 0; i < 8; i++) {
                     float2 sUV = uv + mul(rot, offsets[i]) * _BlitTexture_TexelSize.xy;
-                    float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
+                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
+                    // [FIX P2] 근거리 샘플 조기 배제
+                    if (sDepth < cutoff) continue;
+                    float w = GetWeight(centerDepth, sDepth);
                     color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0) * w;
                     totalWeight += w;
                 }
@@ -267,6 +292,8 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 float angle = noise * 6.283185 * _MoireReduction;
                 float2x2 rotMat = float2x2(cos(angle), -sin(angle), sin(angle), cos(angle));
                 float4 color = 0; float totalWeight = 0;
+                // [FIX P2] 근거리 하드 배제 임계값 (GetPixelBlur 공통)
+                float cutoff = centerDepth * _NearSampleCutoffRatio;
 
                 #if defined(_MOSAIC_MODE)
                     [unroll] for(int x = -1; x <= 1; x++) [unroll] for(int y = -1; y <= 1; y++) {
@@ -277,7 +304,10 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                         #else
                             finalUV = snappedBase + neighborOffset;
                         #endif
-                        float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams));
+                        float sDepth = LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams);
+                        // [FIX P2] 근거리 샘플 조기 배제
+                        if (sDepth < cutoff) continue;
+                        float w = GetWeight(centerDepth, sDepth);
                         color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, finalUV, 0.0) * w;
                         totalWeight += w;
                     }
@@ -294,7 +324,10 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                             #else
                                 finalUV = qPoint + neighborOffset;
                             #endif
-                            float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams));
+                            float sDepth = LinearEyeDepth(SampleSceneDepth(finalUV), _ZBufferParams);
+                            // [FIX P2] 근거리 샘플 조기 배제
+                            if (sDepth < cutoff) continue;
+                            float w = GetWeight(centerDepth, sDepth);
                             color += SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, finalUV, 0.0) * w;
                             totalWeight += w;
                         }
@@ -309,10 +342,15 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                 float2 texelSize = _BlitTexture_TexelSize.xy * strength;
                 float2 chromaOffset = _BlitTexture_TexelSize.xy * _DreamChroma * strength;
                 float2 offsets[8] = { float2(0,1), float2(0,-1), float2(1,0), float2(-1,0), float2(0.7,0.7), float2(-0.7,0.7), float2(0.7,-0.7), float2(-0.7,-0.7) };
+                // [FIX P2] 근거리 하드 배제 임계값
+                float cutoff = centerDepth * _NearSampleCutoffRatio;
                 [unroll]
                 for(int i = 0; i < 8; i++) {
                     float2 sUV = uv + offsets[i] * texelSize;
-                    float w = GetWeight(centerDepth, LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams));
+                    float sDepth = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
+                    // [FIX P2] 근거리 샘플 조기 배제
+                    if (sDepth < cutoff) continue;
+                    float w = GetWeight(centerDepth, sDepth);
                     float r = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV + chromaOffset, 0.0).r;
                     float g = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0.0).g;
                     float b = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV - chromaOffset, 0.0).b;
@@ -427,10 +465,21 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
                     else {
                         normalizedDist = saturate((linearDepth - _MidDist) / (_FarDist - _MidDist));
                         float farMix = pow(normalizedDist, _BlurExponent);
-                        mixWeight = 1.0;
+                        // [FIX MISSING] 기존 mixWeight=1.0 고정 → farMix로 수정.
+                        // 이전 코드는 FarDist 구간 진입 즉시 100% 블러로 치환되어
+                        // 원거리 블러가 근거리 오브젝트 색상을 100%로 덮어쓰는 문제 발생.
+                        mixWeight = farMix;
                         strength = lerp(_MidBlurSize, _FarBlurSize, farMix);
                     }
-                    
+
+                    // [FIX B] 방안B: nearProtectMask — 근거리 픽셀 mixWeight 강제 0.
+                    // P2(cutoff)가 '배경 커널→캐릭터 샘플 흡수'를 막는다면,
+                    // 방안B는 '캐릭터 픽셀 자체'가 실수로 블러 구간에 걸릴 때의 안전망.
+                    // NearDist 경계를 0.5m 폭의 smoothstep으로 부드럽게 전환.
+                    float nearProtectMask = smoothstep(_NearDist - 0.5, _NearDist + 0.5, linearDepth);
+                    mixWeight *= nearProtectMask;
+                    strength  *= nearProtectMask;
+
                     // Center Blur Suppress (Based on Mip Range)
                     float centerSuppress = lerp(_CenterBlurScale, 1.0, 1.0 - mipMask);
                     strength *= centerSuppress;
@@ -488,4 +537,5 @@ Shader "Hidden/URP/DistanceBlurFullScreen"
             ENDHLSL
         }
     }
+    CustomEditor "DistanceBlurShaderGUI"
 }

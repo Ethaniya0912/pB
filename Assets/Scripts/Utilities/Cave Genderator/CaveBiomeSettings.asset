@@ -24,11 +24,11 @@ MonoBehaviour:
   depthLayers:
   - layerName: 1F
     maxAltitude: 15
-    minAltitude: -50
-    floorBlendRadius: 3
-    ceilBlendRadius: 4
-    floorBumpAmplitude: 0
-    floorBumpFrequency: 0
+    minAltitude: -5
+    floorBlendRadius: 12
+    ceilBlendRadius: 8
+    floorBumpAmplitude: 0.6
+    floorBumpFrequency: 0.15
     noiseFrequency: 0.05
     sdfSmoothness: 2.5
     sinkholeProbability: 0.146

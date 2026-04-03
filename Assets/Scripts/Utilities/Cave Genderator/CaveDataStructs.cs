@@ -116,6 +116,12 @@ namespace CaveSystem
         public ChunkState State;
         public GameObject ChunkObject;
 
-        public void Dispose() { }
+        // [v3] NormalBakerV3 서브복셀 베이킹용 density 데이터
+        public float[] DensityCache;     // voxelBuffer에서 추출한 density 배열
+        public int DensityDcN;       // DC pointsPerAxis
+        public Vector3 DensityDcBasePos; // 청크 기준 월드좌표 (chunkBasePos - voxelSize)
+        public float DensityVoxelSize;
+
+        public void Dispose() { DensityCache = null; }
     }
 }

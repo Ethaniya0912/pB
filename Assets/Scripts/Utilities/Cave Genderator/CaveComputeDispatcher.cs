@@ -27,6 +27,9 @@ namespace CaveSystem
 
         // 지형 연산용 공통 버퍼 (청크 생성 시 재사용)
         private ComputeBuffer voxelBuffer;
+        // [Inspector] Domain Warp 진폭 — 천장/벽 형태 자연화 (권장: 0.5)
+        [SerializeField] private float warpAmplitude = 0.5f;
+
         private ComputeBuffer triangleBuffer;
         private ComputeBuffer oreBuffer;
         private ComputeBuffer triCountBuffer;
@@ -213,6 +216,7 @@ namespace CaveSystem
 
             // 3D 스레드 실행 (PointsPerAxis를 기준으로 넉넉하게 할당하여 유령 복셀 구역 연산)
             int threadGroups3D = Mathf.CeilToInt(pointsPerAxis / 8.0f);
+            densityShader.SetFloat("_WarpAmplitude", warpAmplitude);
             densityShader.Dispatch(kernelGenerateDensity, threadGroups3D, threadGroups3D, threadGroups3D);
 
             // ═══════════════════════════════════════════════════════════════
@@ -224,66 +228,125 @@ namespace CaveSystem
             var dcExtension = GetComponent<DCPipelineExtension>();
             if (dcExtension != null && dcExtension.useDualContouring && dcExtension.IsInitialized)
             {
-                // DC 3커널 실행: Hermite Data 수집 → QEF 풀기 → 쿼드 생성
-                dcExtension.DispatchDC(context.ChunkPos, pointsPerAxis, chunkSize, voxelBuffer);
+                // [FIX-H] DC는 +3 패딩 (Seamless Overlap)
+                int dcPointsPerAxis = chunkSize + 3;
+                AllocateTempBuffers(dcPointsPerAxis, chunkSize, isDCMode: true);
+                int dcTG = Mathf.CeilToInt(dcPointsPerAxis / 8.0f);
 
-                // DC 비동기 읽기 → 기존 onGpuCompleted 콜백 대신 DC 전용 처리
-                dcExtension.ReadbackAsync((dcVerts, dcQuads, quadCount) =>
+                // DC용 밀도장 재생성 (dcBasePos = -voxelSize 오프셋으로 오버랩)
+                Vector3 dcBasePos = chunkBasePos - new Vector3(voxelSize, voxelSize, voxelSize);
+                densityShader.SetBuffer(kernelGenerateDensity, "_VoxelBuffer", voxelBuffer);
+                densityShader.SetBuffer(kernelGenerateDensity, "_NodeBuffer", nodeBuffer);
+                densityShader.SetInt("_NodeCount", CaveNodeGraphBuilder.Instance != null ? CaveNodeGraphBuilder.Instance.nodesData.Count : 0);
+                densityShader.SetBuffer(kernelGenerateDensity, "_EdgeBuffer", edgeBuffer);
+                densityShader.SetInt("_EdgeCount", CaveNodeGraphBuilder.Instance != null ? CaveNodeGraphBuilder.Instance.edgesData.Count : 0);
+                densityShader.SetBuffer(kernelGenerateDensity, "_BiomeBuffer", biomeBuffer);
+                densityShader.SetInt("_BiomeCount", biomeBuffer.count);
+                densityShader.SetFloat("_MacroBiomeScale", Mathf.Max(caveSettings.macroBiomeScale, 1.0f));
+                densityShader.SetVector("_ChunkBasePosition", dcBasePos);
+                densityShader.SetInt("_ChunkSize", chunkSize);
+                densityShader.SetInt("_PointsPerAxis", dcPointsPerAxis);
+                densityShader.SetFloat("_VoxelSize", voxelSize);
+                densityShader.SetInt("_DebugStage", (int)caveSettings.debugStage);
+                densityShader.SetFloat("_SdfSmoothness", currentLayer.sdfSmoothness);
+                densityShader.SetFloat("_FloorAltitude", currentLayer.minAltitude);
+                densityShader.SetFloat("_CeilAltitude", currentLayer.maxAltitude);
+                densityShader.SetFloat("_FloorBlendRadius", currentLayer.floorBlendRadius);
+                densityShader.SetFloat("_CeilBlendRadius", currentLayer.ceilBlendRadius);
+                densityShader.SetFloat("_FloorBumpAmplitude", currentLayer.floorBumpAmplitude);
+                densityShader.SetFloat("_FloorBumpFrequency", currentLayer.floorBumpFrequency);
+                densityShader.SetFloat("_WarpAmplitude", warpAmplitude);
+                densityShader.Dispatch(kernelGenerateDensity, dcTG, dcTG, dcTG);
+
+                // 침식도 DC에 적용
+                densityShader.SetBuffer(kernelSimulateErosion, "_VoxelBuffer", voxelBuffer);
+                densityShader.Dispatch(kernelSimulateErosion, dcTG, dcTG, dcTG);
+
+                // [v3] voxelBuffer density readback → NormalBakerV3 서브복셀 베이킹
+                Vector3 bakedBasePos = new Vector3(context.ChunkPos.x, context.ChunkPos.y, context.ChunkPos.z)
+                                       * (chunkSize * voxelSize) - Vector3.one * voxelSize;
+                int totalVoxels = dcPointsPerAxis * dcPointsPerAxis * dcPointsPerAxis;
+                UnityEngine.Rendering.AsyncGPUReadback.Request(voxelBuffer, (densReq) =>
                 {
-                    // ─── Stage 4: DC 쿼드 → Unity Mesh 빌드 ───
-                    var meshBuilder = GetComponent<DCMeshBuilder>();
-                    if (meshBuilder != null && dcVerts != null && quadCount > 0)
+                    // density 배열 추출 (or null if error)
+                    float[] densityData = null;
+                    if (!densReq.hasError)
                     {
-                        System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
-                        sw.Start();
+                        var rawVoxels = densReq.GetData<CaveVoxel>();
+                        densityData = new float[rawVoxels.Length];
+                        for (int di = 0; di < rawVoxels.Length; di++)
+                            densityData[di] = rawVoxels[di].density;
+                    }
 
-                        meshBuilder.BuildMeshFromDCData(
-                            dcVerts, dcQuads, quadCount,
-                            context, chunkSize, voxelSize,
-                            (completedCtx) =>
-                            {
-                                sw.Stop();
+                    // [FIX-G] DC 3커널 디스패치 (density readback 완료 후)
+                    dcExtension.DispatchDC(context.ChunkPos, dcPointsPerAxis, chunkSize, voxelSize, voxelBuffer);
 
-                                // ─── Stage 5: Normal Map 베이킹 ───
-                                var normalBaker = GetComponent<CaveNormalBaker>();
-                                if (normalBaker != null && completedCtx.ChunkObject != null)
+                    dcExtension.ReadbackAsync((dcVerts, dcQuads, quadCount) =>
+                    {
+                        // density 데이터를 context에 첨부해 DCMeshBuilder에서 사용
+                        context.DensityCache = densityData;
+                        context.DensityDcN = dcPointsPerAxis;
+                        context.DensityDcBasePos = bakedBasePos;
+                        context.DensityVoxelSize = voxelSize;
+
+                        var meshBuilder = GetComponent<DCMeshBuilder>();
+                        // [진단 개선] meshBuilder 미부착과 실제 빈 청크를 분리 로깅
+                        if (meshBuilder == null)
+                        {
+                            Debug.LogError("[DC] DCMeshBuilder 컴포넌트 없음! CaveComputeDispatcher와 동일 GameObject에 부착 필요.");
+                            context.State = ChunkState.Completed;
+                            onGpuCompleted?.Invoke(context, null, null);
+                            IsBusy = false;
+                            return;
+                        }
+
+                        if (dcVerts != null && quadCount > 0)
+                        {
+                            System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+                            sw.Start();
+                            meshBuilder.BuildMeshFromDCData(
+                                dcVerts, dcQuads, quadCount,
+                                context, chunkSize, voxelSize,
+                                (completedCtx) =>
                                 {
-                                    var filter = completedCtx.ChunkObject.GetComponent<UnityEngine.MeshFilter>();
-                                    var renderer = completedCtx.ChunkObject.GetComponent<UnityEngine.MeshRenderer>();
-                                    if (filter != null && filter.sharedMesh != null)
+                                    sw.Stop();
+
+                                    // // [v3] NormalBaker는 DCMeshBuilder에서 density와 함께 호출됨
+                                    var profiler = GetComponent<DCPerformanceProfiler>();
+                                    if (profiler != null)
                                     {
-                                        normalBaker.BakeNormalMap(filter.sharedMesh, renderer);
+                                        profiler.RecordChunkResult(new DCProfileResult
+                                        {
+                                            chunkPos = context.ChunkPos,
+                                            vertexCount = dcVerts.Length,
+                                            triangleCount = quadCount * 2,
+                                            quadCount = quadCount,
+                                            totalTimeMs = (float)sw.Elapsed.TotalMilliseconds,
+                                            gpuBufferBytes = DCPerformanceProfiler.CalculateGPUBufferMemory(dcPointsPerAxis)
+                                        });
                                     }
+
+                                    Debug.Log($"[DC] 청크 완성: {context.ChunkPos}, {quadCount} quads, {sw.ElapsedMilliseconds}ms");
+
+                                    // [FIX-I] onGpuCompleted 호출 → completedChunks 증가
+                                    onGpuCompleted?.Invoke(completedCtx, null, null);
+                                    // [FIX-J] IsBusy 해제를 BuildMesh 완료 시점으로 이동
+                                    IsBusy = false;
                                 }
-
-                                // ─── Stage 6: 성능 프로파일링 ───
-                                var profiler = GetComponent<DCPerformanceProfiler>();
-                                if (profiler != null)
-                                {
-                                    profiler.RecordChunkResult(new DCProfileResult
-                                    {
-                                        chunkPos = context.ChunkPos,
-                                        vertexCount = dcVerts.Length,
-                                        triangleCount = quadCount * 2,
-                                        quadCount = quadCount,
-                                        totalTimeMs = (float)sw.Elapsed.TotalMilliseconds,
-                                        gpuBufferBytes = DCPerformanceProfiler.CalculateGPUBufferMemory(pointsPerAxis)
-                                    });
-                                }
-
-                                Debug.Log($"[DC] 청크 완성: {context.ChunkPos}, {quadCount} quads, {sw.ElapsedMilliseconds}ms");
-                            }
-                        );
-                    }
-                    else
-                    {
-                        Debug.Log($"[DC] 청크 비어있음: {context.ChunkPos}, quads={quadCount}");
-                        context.State = ChunkState.Completed;
-                    }
-
-                    IsBusy = false;
-                });
-                return; // ← MC 커널 2를 완전히 스킵하고 여기서 종료
+                            );
+                        }
+                        else
+                        {
+                            Debug.Log($"[DC] 빈 청크 (표면 없음): {context.ChunkPos}, quads={quadCount}");
+                            context.State = ChunkState.Completed;
+                            // [FIX-I] 빈 청크도 onGpuCompleted 호출
+                            onGpuCompleted?.Invoke(context, null, null);
+                            IsBusy = false;
+                        }
+                        // IsBusy=false 제거 ← FIX-J (BuildMesh 완료 전 해제 방지)
+                    }); // end dcExtension.ReadbackAsync
+                }); // end density AsyncGPUReadback.Request
+                return;
             }
             // ═══ DC 분기 끝. 아래는 기존 MC 코드가 그대로 유지됨 ═══
 
@@ -324,6 +387,13 @@ namespace CaveSystem
 
         private void AllocateTempBuffers(int pointsPerAxis, int chunkSize)
         {
+            AllocateTempBuffers(pointsPerAxis, chunkSize, isDCMode: false);
+        }
+
+        // [triangleBuffer 최적화] DC 모드에서는 voxelBuffer만 할당
+        // isDCMode=true → triangleBuffer/oreBuffer 스킵 (청크당 14.1MB 절약)
+        private void AllocateTempBuffers(int pointsPerAxis, int chunkSize, bool isDCMode)
+        {
             int requiredVoxelCount = pointsPerAxis * pointsPerAxis * pointsPerAxis;
             int maxCubeCount = chunkSize * chunkSize * chunkSize;
 
@@ -333,10 +403,15 @@ namespace CaveSystem
                 currentPointsPerAxis = pointsPerAxis;
 
                 voxelBuffer = new ComputeBuffer(requiredVoxelCount, Marshal.SizeOf(typeof(CaveVoxel)));
-                triangleBuffer = new ComputeBuffer(maxCubeCount * 5, Marshal.SizeOf(typeof(CaveTriangle)), ComputeBufferType.Append);
-                oreBuffer = new ComputeBuffer(maxCubeCount, Marshal.SizeOf(typeof(CaveOreData)), ComputeBufferType.Append);
-                triCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
-                oreCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+
+                if (!isDCMode)
+                {
+                    // MC 전용 버퍼: DC 모드에서는 생략 (14.1MB 절약)
+                    triangleBuffer = new ComputeBuffer(maxCubeCount * 5, Marshal.SizeOf(typeof(CaveTriangle)), ComputeBufferType.Append);
+                    oreBuffer = new ComputeBuffer(maxCubeCount, Marshal.SizeOf(typeof(CaveOreData)), ComputeBufferType.Append);
+                    triCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+                    oreCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.IndirectArguments);
+                }
             }
         }
 

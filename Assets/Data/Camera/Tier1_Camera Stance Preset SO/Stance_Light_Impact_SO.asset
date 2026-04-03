@@ -151,7 +151,7 @@ MonoBehaviour:
     swaySpeed: 1
     bobbingAmount: 0.001
   impactShake:
-    enableShake: 1
+    enableShake: 0
     shakeIntensity: 0.3
     shakeDelay: 0
     maxDuration: 0.1

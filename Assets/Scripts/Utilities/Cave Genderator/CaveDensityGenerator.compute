@@ -36,6 +36,7 @@ float _VoxelSize;
 float _FloorAltitude;
 float _CeilAltitude;
 float _FloorBlendRadius;
+float _WarpAmplitude;  // CaveComputeDispatcher.cs에서 SetFloat로 제어 (권장: 0.5)
 float _CeilBlendRadius;
 
 float _FloorBumpFrequency;
@@ -91,7 +92,7 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
         }
         float dCanyon = length(p - canyonPt) - node.radius;
         float flatBottom = (node.position.y - node.radius * 0.7) - p.y;
-        dCanyon = smax(dCanyon, flatBottom, 1.5);
+        dCanyon = smax(dCanyon, flatBottom, 4.0);  // [바닥자연화] k=1.5→4.0: 4m 블렌딩으로 단차 완화
         // -----------------------------------
 
         float d = lerp(dNormal, dCanyon, canyonWeight);
@@ -129,7 +130,7 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
         }
         float dCanyonEdge = length(p - canyonEdgePt) - edge.width;
         float flatBottomEdge = (closestPt.y - edge.width * 0.7) - p.y;
-        dCanyonEdge = smax(dCanyonEdge, flatBottomEdge, 1.5);
+        dCanyonEdge = smax(dCanyonEdge, flatBottomEdge, 4.0);  // [바닥자연화] k=1.5→4.0
         // -----------------------------------
         
         float d = lerp(dNormal, dCanyonEdge, canyonWeight);
@@ -191,7 +192,15 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
 
     // 3. 뼈대 생성 (협곡 변형 적용)
     int closestRoomType = 0;
-    float baseSDF = EvaluateSkeleton(worldPos, curP, canyonWeight, closestRoomType);
+    // [바닥자연화] Domain Warp — EvaluateSkeleton 좌표를 노이즈로 왜곡
+    //   XZ만 warp (Y=0): 높이는 유지하며 평면 형태만 비정형화
+    //   amplitude 0.8~1.2: 통로 반경(3~5m) 대비 최대 20~25% 변형 → 통과성 보장
+    // [Inspector] _WarpAmplitude는 CaveComputeDispatcher.SetFloat로 외부 설정
+    float warpX = snoise2D((worldPos.xz + float2(1.7, 9.2)) * 0.11) * _WarpAmplitude;
+    float warpZ = snoise2D((worldPos.xz + float2(8.3, 2.8)) * 0.11) * _WarpAmplitude;
+    // Y warp 제외: 바닥 높이 안정성 유지 (Domain Warp가 바닥면을 왜곡하지 않음)
+    float3 warpedPos = worldPos + float3(warpX, 0.0, warpZ);
+    float baseSDF = EvaluateSkeleton(warpedPos, curP, canyonWeight, closestRoomType);
 
     if (_DebugStage == 0)
     {
@@ -230,6 +239,12 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     
     finalDensity = smax(finalDensity, floorPlaneSDF, max(_FloorBlendRadius, 0.1));
     finalDensity = smax(finalDensity, ceilPlaneSDF, max(_CeilBlendRadius, 0.1));
+
+    // [바닥자연화] 고주파 침식 노이즈
+    float erosionMask = saturate(1.0 - abs(finalDensity) * 0.5);
+    float erosionNoise = snoise2D(worldPos.xz * 0.6 + float2(3.1, 7.4)) * 0.35
+                       + snoise2D(worldPos.xz * 1.3 + float2(5.5, 2.2)) * 0.12;
+    finalDensity += erosionNoise * erosionMask * 0.7;
 
     if (_SinkholeProb > 0.01 && hash2D(_ChunkBasePosition.xz).x < _SinkholeProb)
     {

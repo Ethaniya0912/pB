@@ -15,6 +15,7 @@ Material:
   - _DEBUGVIEW_NONE
   m_InvalidKeywords:
   - _ENABLECUSTOMPOINTLIGHT_ON
+  - _ENABLEPOMFADING_ON
   - _ENABLESAFEPOM_ON
   - _REFLECTIONTOGGLE_ON
   - _SPECULARTOGGLE_ON
@@ -151,7 +152,7 @@ Material:
     - _DstBlendAlpha: 0
     - _Dummy: 0
     - _EnableCustomPointLight: 1
-    - _EnablePomFading: 0
+    - _EnablePomFading: 1
     - _EnableSafePom: 1
     - _EnvironmentReflections: 1
     - _GlobalMadness: 0.5
@@ -185,7 +186,7 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _Tiling: 1
+    - _Tiling: 0.3
     - _WorkflowMode: 1
     - _WrapDiffuse: 0.015
     - _XRMotionVectorsPass: 1

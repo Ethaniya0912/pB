@@ -11,8 +11,21 @@ namespace CaveSystem
     public class CaveChunkManager : MonoBehaviour
     {
         [Header("Chunk Settings")]
+        // [CaveTerrainConfig] VoxelSize/ChunkSize 중앙화 SO 참조
+        // SO 없으면 하위 호환 fallback으로 Inspector 직접 설정 유지
+        [Tooltip("CaveTerrainConfig SO (없으면 아래 직접 설정값 사용)")]
+        public CaveTerrainConfig terrainConfig;
+
+        // fallback: SO 미설정 시 직접 사용
+        [Tooltip("복셀 그리드 크기. terrainConfig 있으면 자동 계산됨.")]
         public int ChunkSize = 64;
+        [Tooltip("복셀 월드 크기(m). terrainConfig 있으면 자동 적용됨.")]
         public float VoxelSize = 0.5f;
+
+        // 실제 사용 프로퍼티: SO 우선, 없으면 직접 값 사용
+        public int EffectiveChunkSize => terrainConfig != null ? terrainConfig.ChunkSize : ChunkSize;
+        public float EffectiveVoxelSize => terrainConfig != null ? terrainConfig.voxelSize : VoxelSize;
+        public float ChunkWorldSize => EffectiveChunkSize * EffectiveVoxelSize;
         public int ViewDistance = 2;
         public int PhysicsDistance = 1;
 
@@ -80,15 +93,20 @@ namespace CaveSystem
             UpdateChunkPositions();
         }
 
+        // [FIX-K] DC Readback 완료를 추적하는 카운터
+        // Interlocked: Increment=Dispatch직전, Decrement=onGpuCompleted콜백
+        private volatile int _activeGeneratingCount = 0;
+
         public bool IsInitialGenerationComplete()
         {
-            return generationQueue.Count == 0;
+            // [FIX-K] DC Readback이 완전히 끝난 뒤에만 Ready 판정
+            return generationQueue.Count == 0 && _activeGeneratingCount == 0;
         }
 
         private void UpdateChunkPositions()
         {
             Vector3 playerPos = CaveManager.Instance.playerTransform.position;
-            float chunkWorldSize = ChunkSize * VoxelSize;
+            float chunkWorldSize = ChunkWorldSize; // CaveTerrainConfig 자동 반영
 
             Vector3Int currentChunkPos = new Vector3Int(
                 Mathf.FloorToInt(playerPos.x / chunkWorldSize),
@@ -156,7 +174,7 @@ namespace CaveSystem
 
             GeometryUtility.CalculateFrustumPlanes(mainCam, frustumPlanes);
             Vector3 camPos = mainCam.transform.position;
-            float chunkWorldSize = ChunkSize * VoxelSize;
+            float chunkWorldSize = ChunkWorldSize; // CaveTerrainConfig 자동 반영
 
             List<Vector3Int> chunksToRemove = new List<Vector3Int>();
 
@@ -211,6 +229,8 @@ namespace CaveSystem
                 {
                     ReturnToPool(activeChunks[pos].ChunkObject);
                 }
+                // [ChunkSeamStitcher] 청크 제거 시 경계 캐시 정리
+                ChunkSeamStitcher.Instance?.UnregisterChunk(pos);
                 activeChunks.Remove(pos);
             }
         }
@@ -228,7 +248,7 @@ namespace CaveSystem
                 if (!activeChunks.ContainsKey(context.ChunkPos) || context.State == ChunkState.Aborted) return;
 
                 GameObject chunkObj = GetFromPool();
-                chunkObj.transform.position = new Vector3(context.ChunkPos.x, context.ChunkPos.y, context.ChunkPos.z) * (ChunkSize * VoxelSize);
+                chunkObj.transform.position = new Vector3(context.ChunkPos.x, context.ChunkPos.y, context.ChunkPos.z) * ChunkWorldSize;
                 chunkObj.name = $"Chunk_{context.ChunkPos.x}_{context.ChunkPos.y}_{context.ChunkPos.z}";
                 chunkObj.SetActive(true);
 
@@ -264,11 +284,18 @@ namespace CaveSystem
                 context.State = ChunkState.Generating;
                 if (CaveManager.Instance != null)
                 {
+                    // [FIX-K] Dispatch 직전 카운터 증가
+                    System.Threading.Interlocked.Increment(ref _activeGeneratingCount);
                     CaveManager.Instance.computeDispatcher.DispatchChunk(
                         context,
-                        ChunkSize,
-                        VoxelSize,
-                        CaveManager.Instance.HandleGpuResult
+                        EffectiveChunkSize,
+                        EffectiveVoxelSize,
+                        (ctx, tri, ore) =>
+                        {
+                            // [FIX-K] Readback 완료 시 카운터 감소
+                            System.Threading.Interlocked.Decrement(ref _activeGeneratingCount);
+                            CaveManager.Instance.HandleGpuResult(ctx, tri, ore);
+                        }
                     );
                 }
             }
