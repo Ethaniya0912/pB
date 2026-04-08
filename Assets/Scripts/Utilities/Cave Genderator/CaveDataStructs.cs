@@ -122,6 +122,9 @@ namespace CaveSystem
         public Vector3 DensityDcBasePos; // 청크 기준 월드좌표 (chunkBasePos - voxelSize)
         public float DensityVoxelSize;
 
-        public void Dispose() { DensityCache = null; }
+        // [Phase 2] featureType 배열 — Laplacian 억제에 사용
+        public int[] FeatureTypes;  // dcVerts 인덱스 기준, -1=무효/0=Smooth/1=Edge/2=Corner
+
+        public void Dispose() { DensityCache = null; FeatureTypes = null; }
     }
 }

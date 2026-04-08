@@ -20,7 +20,7 @@ MonoBehaviour:
   macroBiomeScale: 500
   globalBiomes:
   - {fileID: 11400000, guid: 23062ff654eafe2438553c5eb819c6e9, type: 2}
-  - {fileID: 11400000, guid: 2e0520f991830f042949f12073e0b060, type: 2}
+  - {fileID: 11400000, guid: 23062ff654eafe2438553c5eb819c6e9, type: 2}
   depthLayers:
   - layerName: 1F
     maxAltitude: 15

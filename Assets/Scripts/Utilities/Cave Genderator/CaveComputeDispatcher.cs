@@ -283,11 +283,23 @@ namespace CaveSystem
 
                     dcExtension.ReadbackAsync((dcVerts, dcQuads, quadCount) =>
                     {
-                        // density 데이터를 context에 첨부해 DCMeshBuilder에서 사용
+                        // density + featureType 전달
                         context.DensityCache = densityData;
                         context.DensityDcN = dcPointsPerAxis;
                         context.DensityDcBasePos = bakedBasePos;
                         context.DensityVoxelSize = voxelSize;
+                        // [Phase 2] featureType 추출 (null/빈 배열 안전 처리)
+                        if (dcVerts != null && dcVerts.Length > 0)
+                        {
+                            var ftArr = new int[dcVerts.Length];
+                            for (int fi = 0; fi < dcVerts.Length; fi++)
+                                ftArr[fi] = dcVerts[fi].featureType;
+                            context.FeatureTypes = ftArr;
+                        }
+                        else
+                        {
+                            context.FeatureTypes = null;
+                        }
 
                         var meshBuilder = GetComponent<DCMeshBuilder>();
                         // [진단 개선] meshBuilder 미부착과 실제 빈 청크를 분리 로깅

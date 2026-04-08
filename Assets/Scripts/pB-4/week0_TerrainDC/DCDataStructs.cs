@@ -12,38 +12,34 @@
 //   - 모든 구조체는 16바이트 배수 정렬 필수
 //   - Marshal.SizeOf 검증을 Week 0 체크리스트에 포함
 // =============================================================================
-using UnityEngine;
 using System.Runtime.InteropServices;
+using Unity.Mathematics;
+using UnityEngine;
 
 namespace CaveSystem
 {
     /// <summary>
-    /// DC 버텍스 데이터 (총 56 바이트)
+    /// DC 버텍스 데이터 (총 32 바이트) [O1] 56B→32B 압축 (uv/qefError/padding 제거)
     /// QEF로 계산된 최적 버텍스 위치 + Hermite 노말 + 피처 유형
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct DCVertex
     {
-        public Vector3 position;   // 12 bytes (Offset 0)  : QEF 최소화 위치
-        public Vector3 normal;     // 12 bytes (Offset 12) : Hermite Normal
-        public Vector2 uv;         // 8 bytes  (Offset 24) : 텍스처 좌표
-        public int featureType;    // 4 bytes  (Offset 32) : 0=Smooth, 1=Edge, 2=Corner
-        public int materialIndex;  // 4 bytes  (Offset 36) : 0=기본지형, 1+=광석/보석
-        public float qefError;     // 4 bytes  (Offset 40) : QEF 잔차 (디버깅용)
-        public Vector3 padding;    // 12 bytes (Offset 44) : 56바이트 정렬 마감
+        public Vector3 position;    // 12B
+        public Vector3 normal;      // 12B
+        public int featureType;     // 4B
+        public int materialIndex;   // 4B
     }
 
     /// <summary>
-    /// DC Hermite Edge 데이터 (총 32 바이트)
+    /// DC Hermite Edge 데이터 (총 16 바이트) [O3] 32B→16B 압축 (Oct16 packedNormal)
     /// 밀도장의 부호 전환 에지 위치 및 교차점 노말
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct DCHermiteEdge
     {
-        public Vector3 intersectionPoint;  // 12 bytes (Offset 0)  : 에지-표면 교차점
-        public Vector3 intersectionNormal; // 12 bytes (Offset 12) : 교차점에서의 밀도장 그래디언트
-        public int edgeAxis;               // 4 bytes  (Offset 24) : 0=X, 1=Y, 2=Z
-        public float padding;              // 4 bytes  (Offset 28) : 32바이트 정렬 마감
+        float3 intersectionPoint;   // 12B
+        uint packedNormal;        //  4B  Oct16 인코딩 (오차 최대 0.5°)
     }
 
     /// <summary>
@@ -83,12 +79,12 @@ namespace CaveSystem
         static DCStructValidator()
         {
             int dcVertexSize = Marshal.SizeOf(typeof(DCVertex));
-            if (dcVertexSize != 56)
-                Debug.LogError($"[치명적 오류] DCVertex 크기가 56바이트가 아닙니다! 현재: {dcVertexSize}");
+            if (dcVertexSize != 32) // [O1] 56B→32B 압축 후
+                Debug.LogError($"[치명적 오류] DCVertex 크기가 32바이트가 아닙니다! 현재: {dcVertexSize}");
 
             int dcHermiteSize = Marshal.SizeOf(typeof(DCHermiteEdge));
-            if (dcHermiteSize != 32)
-                Debug.LogError($"[치명적 오류] DCHermiteEdge 크기가 32바이트가 아닙니다! 현재: {dcHermiteSize}");
+            if (dcHermiteSize != 16) // [O3] 32B→16B 압축 후
+                Debug.LogError($"[치명적 오류] DCHermiteEdge 크기가 16바이트가 아닙니다! 현재: {dcHermiteSize}");
 
             int dcQuadSize = Marshal.SizeOf(typeof(DCQuad));
             if (dcQuadSize != 16)

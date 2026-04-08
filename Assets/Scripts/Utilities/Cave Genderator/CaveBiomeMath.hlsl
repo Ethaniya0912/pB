@@ -107,16 +107,43 @@ float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, float normalY, 
             // 50° 전환 구간 → 벽-바닥 경계 부드럽게
             float wallMask1 = smoothstep(0.65, 0.2, abs(normalY));
 
-            float safeTerrace = max(p.terraceSteps, 0.001);
-            float terracedY = floor(pos.y * safeTerrace) / safeTerrace;
-
             // 도메인 워프 진폭 4.0→2.5 (바닥 안정성 향상)
             float3 warpedPos = pos + float3(snoise(pos * safeFreq * 0.5), 0,
                                             snoise(pos * safeFreq * 0.5 + 10.0)) * 2.5;
-            float3 strataPos = float3(warpedPos.x, terracedY, warpedPos.z);
+
+            // [FIX-NONVERTICAL v2] terraceSteps 복원 + yOscillation 병행
+            //
+            // 이전 FIX-NONVERTICAL의 오류:
+            //   strataY = pos.y + yOscillation  ← terraceSteps 파라미터 완전 무시!
+            //   → Inspector에서 terraceSteps=1 설정해도 case 1에서 효과 없음
+            //
+            // 근본 문제: yOscillation A=0.45 최솟값 구간에서
+            //   ∂strataY/∂y_min = 1-0.45×2.2 = 0.01
+            //   Y gradient = 0.3×0.01×1.2 = 0.003/m
+            //   ATA[y][y]/ATA[x][x] = (0.003/0.33)² = 0.0001% → 수직!
+            //
+            // 수정: terraceSteps를 복원하고 yOscillation은 위상 변조용으로만 사용
+            //   terraceSteps=1 → Y gradient (경계 4.0/m, 내부 0.36/m) 보장
+            //   yOscillation  → XZ 위치마다 계단 위상 변조
+            //                   규칙적 수평 줄무늬 → 자연스러운 물결 지층
+            //
+            // terraceSteps=1 + yOscillation 병행:
+            //   내부 셀 Y gradient = 0.36 + 0.019 = 0.379/m
+            //   ATA[y][y]/ATA[x][x] = 1.32 → 강한 비수직 ✓
+            //   경계 셀 Y gradient = 4.0/m → 압도적 비수직 ✓
+
+            // terraceSteps 복원
+            float safeTerrace = max(p.terraceSteps, 0.001);
+            float terracedY = floor(pos.y * safeTerrace) / safeTerrace;
+
+            // yOscillation: terracedY에 추가하여 계단 위상을 XZ마다 변조
+            // A=0.43 < 1/freq(=0.455) → 단조성 보장: ∂strataY/∂y_min = 0.054 > 0
+            float yPhase = snoise2D(pos.xz * 0.13) * 4.7;
+            float yOscillation = sin(pos.y * 2.2 + yPhase) * 0.43;
+            float strataY = terracedY + yOscillation;  // terraceSteps + 위상 변조
+            float3 strataPos = float3(warpedPos.x, strataY, warpedPos.z);
 
             // [핵심] abs() 제거: 부호 있는 noise → 올록볼록한 지층 요철
-            // (abs이면 항상 파임 → 스파이크. 부호 있으면 볼록/오목 균형)
             float faultNoise = fBm(strataPos * safeFreq, 3, 2.0, 0.5);
 
             // wallMask: 벽면만 거칠게, 바닥은 baseSDF 유지

@@ -112,7 +112,7 @@ Material:
     - _OMBEnabled: 1
     - _OMBFadeExponent: 3
     - _OMBFadeWeightThreshold: 0.03
-    - _OMBGlobalTrail: 1
+    - _OMBGlobalTrail: 0
     - _OMBHysteresisHigh: 0.179
     - _OMBHysteresisLow: 0.05
     - _OMBIntensity: 1
@@ -121,7 +121,7 @@ Material:
     - _OMBMinBlur: 0.005
     - _OMBShutterMult: 1
     - _OMBTaperStrength: 0.01
-    - _OMBTrailFadeExp: 0.5
+    - _OMBTrailFadeExp: 1.3
     - _OMBTrailOpacity: 0.504
     - _OMBTrailing: 1
     - _OMBTransparent: 1

@@ -164,7 +164,8 @@ namespace CaveSystem
             bool modifiedA = false;
             bool modifiedB = false;
 
-            float snapDist = A.voxelSize * 0.55f;
+            // [Phase 1] Soft Snap 잔류 갭(±0.25m) 흡수를 위해 0.55→0.75
+            float snapDist = A.voxelSize * 0.75f;
             var indicesA = A.boundaryIndices[dirA];
             var indicesB = B.boundaryIndices[dirB];
 

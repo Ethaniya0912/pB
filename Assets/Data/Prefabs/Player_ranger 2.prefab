@@ -2876,11 +2876,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
   debugForceIdleStretch: 0
-  shutterAngle: 360
+  shutterAngle: 240
   targetFPS: 60
-  globalIntensity: 2
-  blurIntensity: 2
-  maxBlurLength: 0.25
+  globalIntensity: 1
+  blurIntensity: 1
+  maxBlurLength: 0.1
   minBlurFloor: 0.005
   currentState: 0
   isLockedOn: 0
@@ -2896,15 +2896,15 @@ MonoBehaviour:
   smoothDecayHeavy: 0.999
   blurEventResponse: {fileID: 11400000, guid: d7ee20a2f30cd8447b03e1ed36a907d5, type: 2}
   _dbgRawSpeed: 0
-  _dbgSmoothedSpeed: 0
-  _dbgEffMult: 0
+  _dbgSmoothedSpeed: 1.1598219e-37
+  _dbgEffMult: 9.4042185e-14
   _dbgStretchEst: 0
-  _dbgExpTime: 0
-  _dbgWeightBufConnected: 0
-  _dbgRendererName: None
+  _dbgExpTime: 0.016666668
+  _dbgWeightBufConnected: 1
+  _dbgRendererName: character
   _dbgBlurState: Idle
-  _dbgShutterMult: 0.5
-  _dbgEffectiveMult: 0
+  _dbgShutterMult: 0
+  _dbgEffectiveMult: 9.404217e-14
 --- !u!114 &9202242292753928654
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -38,14 +38,14 @@ namespace CaveSystem
         private ComputeBuffer gameplaySculptBuffer;
 
         // --- 커널 캐싱 ---
-        private int kernelClearHermite  = -1;   // [FIX-D]
+        private int kernelClearHermite = -1;   // [FIX-D]
         private int kernelCollectHermite = -1;
-        private int kernelSolveQEF      = -1;
+        private int kernelSolveQEF = -1;
         private int kernelGenerateQuads = -1;
 
         private CaveComputeDispatcher baseDispatcher;
-        private int   currentPointsPerAxis = 0;
-        private bool  _isDestroyed = false;     // [FIX-F]
+        private int currentPointsPerAxis = 0;
+        private bool _isDestroyed = false;     // [FIX-F]
 
         private void Awake()
         {
@@ -75,10 +75,10 @@ namespace CaveSystem
         // ==================================================================
         private void InitializeDCKernels()
         {
-            kernelClearHermite   = dcComputeShader.FindKernel("ClearHermiteBuffer"); // [FIX-D]
+            kernelClearHermite = dcComputeShader.FindKernel("ClearHermiteBuffer"); // [FIX-D]
             kernelCollectHermite = dcComputeShader.FindKernel("CollectHermiteData");
-            kernelSolveQEF       = dcComputeShader.FindKernel("SolveQEF");
-            kernelGenerateQuads  = dcComputeShader.FindKernel("GenerateQuads");
+            kernelSolveQEF = dcComputeShader.FindKernel("SolveQEF");
+            kernelGenerateQuads = dcComputeShader.FindKernel("GenerateQuads");
 
             Debug.Log($"[DCPipeline] 커널 초기화: Clear={kernelClearHermite}, Hermite={kernelCollectHermite}, QEF={kernelSolveQEF}, Quad={kernelGenerateQuads}");
         }
@@ -92,21 +92,22 @@ namespace CaveSystem
             ReleaseBuffers();
 
             currentPointsPerAxis = pointsPerAxis;
-            int N3       = pointsPerAxis * pointsPerAxis * pointsPerAxis;
+            int N3 = pointsPerAxis * pointsPerAxis * pointsPerAxis;
             int maxEdges = N3 * 3;
 
-            int hermiteStride = Marshal.SizeOf(typeof(DCHermiteEdge)); // 32
-            int vertexStride  = Marshal.SizeOf(typeof(DCVertex));      // 56
-            int quadStride    = Marshal.SizeOf(typeof(DCQuad));        // 16
-            int sculptStride  = Marshal.SizeOf(typeof(GameplaySculptData)); // 16
+            int hermiteStride = 16; // [O3] DCHermiteEdge 압축: 32B→16B (intersectionNormal Oct16 인코딩)
+            int vertexStride = 32; // [O1] DCVertex 압축: 56B→32B (Marshal.SizeOf 대신 하드코딩)
+                                   // position(12)+normal(12)+featureType(4)+materialIndex(4)
+            int quadStride = Marshal.SizeOf(typeof(DCQuad));        // 16
+            int sculptStride = Marshal.SizeOf(typeof(GameplaySculptData)); // 16
 
-            hermiteEdgeBuffer  = new ComputeBuffer(maxEdges, hermiteStride);
-            dcVertexBuffer     = new ComputeBuffer(N3,       vertexStride);
-            dcQuadBuffer       = new ComputeBuffer(N3,       quadStride);    // N3: FIX-7과 동기화
-            quadCountBuffer    = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
+            hermiteEdgeBuffer = new ComputeBuffer(maxEdges, hermiteStride);
+            dcVertexBuffer = new ComputeBuffer(N3, vertexStride);
+            dcQuadBuffer = new ComputeBuffer(N3, quadStride);    // N3: FIX-7과 동기화
+            quadCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
 
             var graphBuilder = CaveNodeGraphBuilder.Instance;
-            int sculptCount  = Mathf.Max(1,
+            int sculptCount = Mathf.Max(1,
                 graphBuilder != null ? graphBuilder.nodesData.Count + graphBuilder.edgesData.Count : 64);
             gameplaySculptBuffer = new ComputeBuffer(sculptCount, sculptStride);
 
@@ -115,10 +116,10 @@ namespace CaveSystem
 
         private void ReleaseBuffers()
         {
-            hermiteEdgeBuffer?.Release();  hermiteEdgeBuffer  = null;
-            dcVertexBuffer?.Release();     dcVertexBuffer     = null;
-            dcQuadBuffer?.Release();       dcQuadBuffer       = null;
-            quadCountBuffer?.Release();    quadCountBuffer    = null;
+            hermiteEdgeBuffer?.Release(); hermiteEdgeBuffer = null;
+            dcVertexBuffer?.Release(); dcVertexBuffer = null;
+            dcQuadBuffer?.Release(); dcQuadBuffer = null;
+            quadCountBuffer?.Release(); quadCountBuffer = null;
             gameplaySculptBuffer?.Release(); gameplaySculptBuffer = null;
             currentPointsPerAxis = 0;
         }
@@ -184,18 +185,18 @@ namespace CaveSystem
             int threadGroups = Mathf.CeilToInt(pointsPerAxis / 8.0f);
 
             // --- Stage 2: Hermite Data 수집 ---
-            dcComputeShader.SetBuffer(kernelCollectHermite, "_VoxelBuffer",       voxelBuffer);
+            dcComputeShader.SetBuffer(kernelCollectHermite, "_VoxelBuffer", voxelBuffer);
             dcComputeShader.SetBuffer(kernelCollectHermite, "_HermiteEdgeBuffer", hermiteEdgeBuffer);
-            dcComputeShader.SetInt  ("_PointsPerAxis", pointsPerAxis);
-            dcComputeShader.SetFloat("_ChunkSize",     chunkWorldSize); // [FIX-A, FIX-B]
+            dcComputeShader.SetInt("_PointsPerAxis", pointsPerAxis);
+            dcComputeShader.SetFloat("_ChunkSize", chunkWorldSize); // [FIX-A, FIX-B]
             // [FIX-B] _ChunkOffset 전달 제거 — 셰이더는 순수 로컬 좌표만 사용
             dcComputeShader.Dispatch(kernelCollectHermite, threadGroups, threadGroups, threadGroups);
 
             // --- Stage 3: QEF 풀기 ---
             // [FIX-C] _VoxelBuffer를 SolveQEF에도 바인딩 (oreType, 그래디언트 읽기)
-            dcComputeShader.SetBuffer(kernelSolveQEF, "_VoxelBuffer",       voxelBuffer);
+            dcComputeShader.SetBuffer(kernelSolveQEF, "_VoxelBuffer", voxelBuffer);
             dcComputeShader.SetBuffer(kernelSolveQEF, "_HermiteEdgeBuffer", hermiteEdgeBuffer);
-            dcComputeShader.SetBuffer(kernelSolveQEF, "_DCVertexBuffer",    dcVertexBuffer);
+            dcComputeShader.SetBuffer(kernelSolveQEF, "_DCVertexBuffer", dcVertexBuffer);
             dcComputeShader.SetBuffer(kernelSolveQEF, "_GameplaySculptBuffer", gameplaySculptBuffer);
             // _PointsPerAxis, _ChunkSize는 이미 위에서 설정됨 (uniform 유지)
             dcComputeShader.Dispatch(kernelSolveQEF, threadGroups, threadGroups, threadGroups);
@@ -203,10 +204,10 @@ namespace CaveSystem
             // --- Stage 4: 쿼드 생성 ---
             quadCountBuffer.SetData(new int[] { 0 });
             // [FIX-C] _VoxelBuffer를 GenerateQuads에도 바인딩 (밀도 부호 읽기)
-            dcComputeShader.SetBuffer(kernelGenerateQuads, "_VoxelBuffer",  voxelBuffer);
+            dcComputeShader.SetBuffer(kernelGenerateQuads, "_VoxelBuffer", voxelBuffer);
             dcComputeShader.SetBuffer(kernelGenerateQuads, "_DCVertexBuffer", dcVertexBuffer);
             dcComputeShader.SetBuffer(kernelGenerateQuads, "_DCQuadBuffer", dcQuadBuffer);
-            dcComputeShader.SetBuffer(kernelGenerateQuads, "_QuadCount",    quadCountBuffer);
+            dcComputeShader.SetBuffer(kernelGenerateQuads, "_QuadCount", quadCountBuffer);
             dcComputeShader.Dispatch(kernelGenerateQuads, threadGroups, threadGroups, threadGroups);
         }
 
@@ -269,8 +270,8 @@ namespace CaveSystem
         }
 
         public bool IsInitialized => kernelCollectHermite >= 0;
-        public ComputeBuffer DCVertexBuffer      => dcVertexBuffer;
-        public ComputeBuffer DCQuadBuffer        => dcQuadBuffer;
+        public ComputeBuffer DCVertexBuffer => dcVertexBuffer;
+        public ComputeBuffer DCQuadBuffer => dcQuadBuffer;
         public ComputeBuffer GameplaySculptBuffer => gameplaySculptBuffer;
     }
 }

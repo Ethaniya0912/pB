@@ -1,431 +1,503 @@
 // =============================================================================
-// DCMeshBuilder.cs  |  pB-4 Project — Week 0, Stage 4
-// Layer  : Pipeline (지형)
-// Owner  : Person B
-//
-// 역할:
-//   DC 파이프라인에서 생성된 DCVertex[]와 DCQuad[]를 Unity Mesh로 변환하여
-//   씬에 렌더링 가능한 상태로 만든다.
-//   기존 CaveMeshJobManager의 ProcessMeshJob()과 동일한 역할을 하되,
-//   DC 데이터(쿼드 기반)에 맞게 재구현한다.
-//
-//   기존 CaveMeshJobManager는 수정하지 않는다.
-//   DC 메쉬 빌드는 이 클래스가 전담하고,
-//   기존 MC 메쉬 빌드는 CaveMeshJobManager가 그대로 담당한다.
-//
-// 기존 파이프라인과의 관계:
-//   - DC는 이미 공유 버텍스를 출력하므로 WeldAndSmoothJob이 불필요
-//   - 대신 DCNormalFinalizeJob으로 Face Normal→Vertex Normal 스무딩만 수행
-//   - MeshCollider + PhysicsBakeJob은 기존 패턴 그대로 사용
-//   - CaveEcosystemManager, CaveSpawnerManager 연동도 기존 패턴 유지
+// DCMeshBuilder.cs  |  pB-4 Project
 // =============================================================================
+// CaveComputeDispatcher.cs 319번째 줄 호출 시그니처:
+//
+//   meshBuilder.BuildMeshFromDCData(
+//       dcVerts, dcQuads, quadCount,
+//       context, chunkSize, voxelSize,
+//       (completedCtx) => { sw.Stop(); profiler; onGpuCompleted; IsBusy=false; }
+//   );
+//
+// ■ DC 메시 적용 흐름
+//   HandleGpuResult(CaveManager) → DC 모드이면 return(무시)
+//   ∴ DC 메시는 BuildMeshFromDCData 내부에서 직접 context.ChunkObject에 적용해야 함
+//
+//   [1] mesh 빌드 완료
+//   [2] context.ChunkObject.GetComponent<MeshFilter>().sharedMesh = mesh
+//   [3] context.ChunkObject.GetComponent<MeshCollider>().sharedMesh = mesh  (있으면)
+//   [4] context.State = ChunkState.Completed
+//   [5] onCompleted?.Invoke(context)
+//       → CaveComputeDispatcher 콜백: profiler, Log, onGpuCompleted, IsBusy=false
+//       → CaveChunkManager 콜백: _activeGeneratingCount--, HandleGpuResult(ignored)
+//
+// ■ ChunkRequestContext 실제 필드 (CaveDataStructs.cs 기준)
+//   ChunkPos, State, ChunkObject, DensityCache, DensityDcN,
+//   DensityDcBasePos, DensityVoxelSize, FeatureTypes
+//   ※ .Mesh 필드 없음 — ChunkObject.MeshFilter로 직접 적용
+//
+// [변경 이력]
+// FIX-MESH-APPLY : context.Mesh = mesh (없는 필드) → MeshFilter.sharedMesh 직접 적용
+// FIX-SIGNATURE  : ChunkRequestContext, chunkSize int, void, Action<> onCompleted
+// FIX-NORMAL v2  : GPU 70% + Face 30% 혼합 (chunk 편향 수렴 방지)
+// FIX-SMOOTHING  : iterations 1, threshold 0.7, strength 0.25
+// O1-UV          : DCVertex.uv 제거 → worldPos 기반 triplanar UV 재계산
+// FRAG-FILTER-2  : Union-Find CC 분석 → 고립 파편 CPU 단계 제거
+// =============================================================================
+
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using Unity.Collections;
-using Unity.Jobs;
-using Unity.Burst;
-using Unity.Mathematics;
 
 namespace CaveSystem
 {
-    /// <summary>
-    /// DC 버텍스 노말을 인접 면의 가중 평균으로 스무딩하는 Job.
-    /// MC의 WeldAndSmoothJob을 대체한다.
-    /// DC는 이미 공유 버텍스이므로 Weld가 불필요하고, 노말 스무딩만 수행.
-    /// </summary>
-    [BurstCompile]
-    public struct DCNormalFinalizeJob : IJob
-    {
-        [ReadOnly] public NativeArray<Vector3> positions;
-        [ReadOnly] public NativeArray<int> indices;
-        public NativeArray<Vector3> normals;
-        public int vertexCount;
-        public int indexCount;
-
-        public void Execute()
-        {
-            // [개선] GPU 노말을 기반으로 유지하고, 면 평균으로 보정
-            // 기존: 모두 zero 초기화 → face 평균으로 덮어씀 (GPU 노말 소실)
-            // 개선: GPU 노말을 저장해두고, face 평균과 블렌딩
-            // 1단계: 현재 normals[] = GPU 노말 (호출부에서 이미 채워짐)
-            // GPU 노말 복사본 보관
-            var gpuNormals = new Unity.Collections.NativeArray<Vector3>(vertexCount, Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < vertexCount; i++)
-                gpuNormals[i] = normals[i];
-
-            // 2단계: 면 평균 누적
-            for (int i = 0; i < vertexCount; i++)
-                normals[i] = Vector3.zero;
-
-            // 각 삼각형의 Face Normal을 계산하여 공유 버텍스에 누적
-            for (int i = 0; i < indexCount; i += 3)
-            {
-                int i0 = indices[i];
-                int i1 = indices[i + 1];
-                int i2 = indices[i + 2];
-
-                if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
-                    continue;
-
-                Vector3 v0 = positions[i0];
-                Vector3 v1 = positions[i1];
-                Vector3 v2 = positions[i2];
-
-                Vector3 edge1 = v1 - v0;
-                Vector3 edge2 = v2 - v0;
-                Vector3 faceNormal = Vector3.Cross(edge1, edge2);
-
-                normals[i0] += faceNormal;
-                normals[i1] += faceNormal;
-                normals[i2] += faceNormal;
-            }
-
-            // 3단계: face 평균 정규화 후 GPU 노말과 블렌딩
-            // GPU 노말 (밀도 그래디언트) : face 노말 = 6:4 혼합
-            // → triplanar slope 계산에 GPU 노말의 부드러움이 지배적으로 유지됨
-            for (int i = 0; i < vertexCount; i++)
-            {
-                Vector3 faceN = normals[i];
-                float faceLen = faceN.magnitude;
-                faceN = faceLen > 0.0001f ? faceN / faceLen : Vector3.up;
-
-                // GPU 노말(그래디언트 기반)과 face 노말 블렌딩
-                Vector3 gpuN = gpuNormals[i];
-                bool gpuValid = gpuN.sqrMagnitude > 0.001f;
-                if (gpuValid)
-                {
-                    // GPU 노말(밀도 그래디언트) 0.8 + 면 노말 0.2 혼합 — SDF 그래디언트 우선
-                    Vector3 blended = gpuN.normalized * 0.8f + faceN * 0.2f;
-                    float bLen = blended.magnitude;
-                    normals[i] = bLen > 0.0001f ? blended / bLen : faceN;
-                }
-                else
-                {
-                    normals[i] = faceN;
-                }
-            }
-            gpuNormals.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// DC 쿼드+버텍스 데이터를 Unity Mesh로 변환하는 빌더.
-    /// CaveComputeDispatcher의 DC 분기에서 호출된다.
-    /// </summary>
     public class DCMeshBuilder : MonoBehaviour
     {
-        [Header("Settings")]
-        [Tooltip("기존 CaveMeshJobManager의 caveMaterial과 동일한 머티리얼을 할당")]
-        public Material caveMaterial;
+        // ──────────────────────────────────────────────────────────────────────
+        // Inspector
+        // ──────────────────────────────────────────────────────────────────────
 
-        [Header("References")]
-        public CaveMeshJobManager existingMeshJobManager;
+        [Header("Fragment Cleanup")]
+        [Tooltip("연결 컴포넌트 쿼드 수가 이 값 미만이면 고립 파편 제거. 0=비활성.")]
+        public int minQuadCount = 32;
+
+        [Tooltip("컴포넌트 분포 Console 출력 (minQuadCount 조정 진단용)")]
+        public bool logComponentStats = false;
+
+        [Header("Floor Smoothing")]
+        [Tooltip("스무딩 반복 횟수 (1 권장 — 벽면 보존)")]
+        public int smoothingIterations = 1;
+        [Tooltip("|normalY| 이상인 버텍스만 스무딩 (0.7 = 수평면만)")]
+        public float floorNormalYThreshold = 0.7f;
+        [Tooltip("스무딩 강도 0~1 (0.25 권장)")]
+        public float floorSmoothStrength = 0.25f;
+
+        [Header("Normal Blending")]
+        [Tooltip("GPU SDF 노멀 기여 비율 (0.7 권장)")]
+        [Range(0f, 1f)]
+        public float gpuNormalWeight = 0.7f;
+
+        // ──────────────────────────────────────────────────────────────────────
+        // 공개 API
+        // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// DC GPU Readback 결과를 받아 Unity Mesh를 생성하고 씬에 배치한다.
-        /// CaveComputeDispatcher DC 분기의 ReadbackAsync 콜백에서 호출.
+        /// DC GPU Readback 완료 후 호출.
+        /// <para>
+        /// 메시 빌드 →  context.ChunkObject 의 MeshFilter / MeshCollider 직접 적용 →
+        /// context.State = Completed → onCompleted 콜백 호출.
+        /// </para>
         /// </summary>
-        /// <param name="dcVerts">GPU에서 읽어온 DC 버텍스 배열</param>
-        /// <param name="dcQuads">GPU에서 읽어온 DC 쿼드 배열</param>
-        /// <param name="quadCount">유효 쿼드 수</param>
-        /// <param name="context">현재 청크 요청 컨텍스트</param>
-        /// <param name="chunkSize">청크 크기</param>
-        /// <param name="voxelSize">복셀 크기</param>
-        /// <param name="onCompleted">메쉬 완성 후 콜백 (NavMesh 갱신 등)</param>
         public void BuildMeshFromDCData(
-            DCVertex[] dcVerts, DCQuad[] dcQuads, int quadCount,
-            ChunkRequestContext context, int chunkSize, float voxelSize,
+            DCVertex[] dcVerts,
+            DCQuad[] dcQuads,
+            int quadCount,
+            ChunkRequestContext context,
+            int chunkSize,
+            float voxelSize,
             Action<ChunkRequestContext> onCompleted)
         {
+            // ── 조기 종료 보호 ────────────────────────────────────────────────
             if (dcVerts == null || dcQuads == null || quadCount <= 0)
             {
-                Debug.LogWarning("[DCMeshBuilder] 유효한 DC 데이터가 없습니다.");
+                Debug.LogWarning($"[DCMeshBuilder][{context?.ChunkPos}] 빈 데이터. 건너뜀.");
+                if (context != null) context.State = ChunkState.Completed;
+                onCompleted?.Invoke(context);
+                return;
+            }
+
+            // ── Step 0: 파편 제거 (Union-Find CC 분석) ─────────────────────
+            DCVertex[] workVerts = dcVerts;
+            DCQuad[] workQuads = dcQuads;
+            int workCount = quadCount;
+
+            if (minQuadCount > 0)
+            {
+                if (logComponentStats)
+                    FragmentFilter.LogComponentStats(dcVerts, dcQuads, quadCount);
+
+                int removed = FragmentFilter.Filter(
+                    dcVerts, dcQuads, quadCount, minQuadCount,
+                    out workVerts, out workQuads);
+
+                workCount = workQuads.Length;
+
+                if (removed > 0)
+                    Debug.Log($"[DCMeshBuilder][{context.ChunkPos}] " +
+                              $"FRAG-FILTER-2: {removed} quads 제거 → 잔여 {workCount}");
+            }
+
+            if (workCount == 0)
+            {
+                Debug.Log($"[DCMeshBuilder][{context.ChunkPos}] 파편 제거 후 빈 메시. 건너뜀.");
                 context.State = ChunkState.Completed;
                 onCompleted?.Invoke(context);
                 return;
             }
 
-            // ────────────────────────────────────────────────────
-            // 1. 유효 버텍스 수집 + 인덱스 리매핑
-            //    DCVertex[] 중 실제 쿼드가 참조하는 버텍스만 추출
-            // ────────────────────────────────────────────────────
-            // 쿼드→삼각형 변환: 1 쿼드 = 2 삼각형 = 6 인덱스
-            int triIndexCount = quadCount * 6;
-            var usedVertMap = new System.Collections.Generic.Dictionary<int, int>();
-            var vertexList = new System.Collections.Generic.List<Vector3>();
-            var normalList = new System.Collections.Generic.List<Vector3>(); // [FIX-L]
-            var uvList = new System.Collections.Generic.List<Vector2>();
-            var indexList = new System.Collections.Generic.List<int>();
+            // ── Step 1: 버텍스 목록 구축 ────────────────────────────────────
+            var positions = new List<Vector3>(workCount * 2);
+            var normals = new List<Vector3>(workCount * 2);
+            var uvs = new List<Vector2>(workCount * 2);
+            var indices = new List<int>(workCount * 6);
+            var remap = new Dictionary<int, int>(workVerts.Length);
+            var remapReverse = new List<int>(workVerts.Length); // 출력 idx → src idx
 
-            for (int q = 0; q < quadCount; q++)
+            for (int q = 0; q < workCount; q++)
             {
-                DCQuad quad = dcQuads[q];
-                int[] quadIndices = { quad.v0, quad.v1, quad.v2, quad.v3 };
+                DCQuad quad = workQuads[q];
+                int[] srcIdx = { quad.v0, quad.v1, quad.v2, quad.v3 };
+                int[] dstIdx = new int[4];
 
-                // 각 쿼드 버텍스를 리매핑
-                int[] remapped = new int[4];
-                for (int i = 0; i < 4; i++)
+                for (int k = 0; k < 4; k++)
                 {
-                    int origIdx = quadIndices[i];
-                    if (origIdx < 0 || origIdx >= dcVerts.Length)
+                    int src = srcIdx[k];
+                    if (!remap.TryGetValue(src, out int dst))
                     {
-                        remapped[i] = 0; // 범위 초과 시 안전 처리
-                        continue;
-                    }
+                        dst = positions.Count;
+                        remap[src] = dst;
+                        remapReverse.Add(src);
 
-                    if (!usedVertMap.TryGetValue(origIdx, out int newIdx))
-                    {
-                        newIdx = vertexList.Count;
-                        usedVertMap[origIdx] = newIdx;
-                        vertexList.Add(dcVerts[origIdx].position);
-                        // [FIX-L] GPU 노말 직접 수집
-                        Vector3 gpuN = dcVerts[origIdx].normal;
-                        normalList.Add(gpuN.sqrMagnitude > 0.001f ? gpuN : Vector3.up);
-                        uvList.Add(dcVerts[origIdx].uv);
+                        DCVertex v = workVerts[src];
+                        positions.Add(v.position);
+                        normals.Add(Vector3.up);   // Step 3에서 교체
+                        // [O1] DCVertex.uv 제거됨 → worldPos 기반 triplanar UV
+                        uvs.Add(new Vector2(v.position.x, v.position.z) * 0.1f);
                     }
-                    remapped[i] = newIdx;
+                    dstIdx[k] = dst;
                 }
 
-                // 쿼드 → 2 삼각형 (0,1,2) + (0,2,3)
-                indexList.Add(remapped[0]);
-                indexList.Add(remapped[1]);
-                indexList.Add(remapped[2]);
-
-                indexList.Add(remapped[0]);
-                indexList.Add(remapped[2]);
-                indexList.Add(remapped[3]);
+                // quad → tri×2
+                indices.Add(dstIdx[0]); indices.Add(dstIdx[1]); indices.Add(dstIdx[2]);
+                indices.Add(dstIdx[0]); indices.Add(dstIdx[2]); indices.Add(dstIdx[3]);
             }
 
-            int finalVertCount = vertexList.Count;
-            int finalIdxCount = indexList.Count;
+            int vCount = positions.Count;
+            int triCount = indices.Count / 3;
 
-            if (finalVertCount == 0 || finalIdxCount == 0)
+            // ── Step 2: Face 노멀 누적 ──────────────────────────────────────
+            var faceNAccum = new Vector3[vCount];
+            var faceNCount = new int[vCount];
+
+            for (int t = 0; t < triCount; t++)
             {
-                Debug.LogWarning("[DCMeshBuilder] 리매핑 후 유효 버텍스가 없습니다.");
-                context.State = ChunkState.Completed;
-                onCompleted?.Invoke(context);
-                return;
+                int ia = indices[t * 3];
+                int ib = indices[t * 3 + 1];
+                int ic = indices[t * 3 + 2];
+                Vector3 faceN = Vector3.Cross(
+                    positions[ib] - positions[ia],
+                    positions[ic] - positions[ia]);
+                faceNAccum[ia] += faceN; faceNCount[ia]++;
+                faceNAccum[ib] += faceN; faceNCount[ib]++;
+                faceNAccum[ic] += faceN; faceNCount[ic]++;
             }
 
-            // ────────────────────────────────────────────────────
-            // 2. 노말 계산 — GPU 노말 베이스 + Job 보조 스무딩 혼합
-            //    [FIX-L] GPU SolveQEF 밀도 그래디언트 노말을 주 입력으로 사용.
-            //    DCNormalFinalizeJob은 면 기하 평균을 계산하여 GPU 노말과 혼합.
-            //    결과: 부드러운 곡면에서는 GPU 노말로 triplanar 재질 블렌딩 유지,
-            //    날카로운 능선에서는 면 노말로 선명한 엣지 표현.
-            // ────────────────────────────────────────────────────
-            var nativePositions = new NativeArray<Vector3>(vertexList.ToArray(), Allocator.TempJob);
-            var nativeIndices = new NativeArray<int>(indexList.ToArray(), Allocator.TempJob);
-            // GPU 노말을 기반값으로 Job에 전달 (Job이 면 평균과 혼합)
-            var nativeNormals = new NativeArray<Vector3>(normalList.ToArray(), Allocator.TempJob);
+            // ── Step 3: GPU 70% + Face 30% 혼합 ────────────────────────────
+            // [FIX-NORMAL v2]
+            // hermite 평균 노멀이 청크 지배적 SDF 방향으로 수렴 → blendWeights 편향
+            // Face 노멀 30% 혼합으로 능선 경계 자연 전환 + triplanar 패턴 복원
+            float faceWeight = 1f - gpuNormalWeight;
 
-            var normalJob = new DCNormalFinalizeJob
+            for (int i = 0; i < vCount; i++)
             {
-                positions = nativePositions,
-                indices = nativeIndices,
-                normals = nativeNormals,
-                vertexCount = finalVertCount,
-                indexCount = finalIdxCount
-            };
-            normalJob.Schedule().Complete();
+                int src = remapReverse[i];
 
-            // ────────────────────────────────────────────────────
-            // 3. Unity Mesh 생성
-            //    기존 CaveMeshJobManager.ProcessMeshJob()과 동일 패턴
-            // ────────────────────────────────────────────────────
-            Mesh mesh = new Mesh
+                Vector3 gpuN = workVerts[src].normal;
+                gpuN = gpuN.sqrMagnitude > 0.0001f ? gpuN.normalized : Vector3.up;
+
+                Vector3 faceN = faceNCount[i] > 0
+                    ? faceNAccum[i] / faceNCount[i]
+                    : Vector3.up;
+                faceN = faceN.sqrMagnitude > 0.0001f ? faceN.normalized : Vector3.up;
+
+                Vector3 blended = gpuN * gpuNormalWeight + faceN * faceWeight;
+                normals[i] = blended.sqrMagnitude > 0.0001f
+                    ? blended.normalized
+                    : faceN;
+            }
+
+            // ── Step 4: FloorSmoothing 전 진단 ──────────────────────────────
+#if UNITY_EDITOR
+            LogNormalDist(context.ChunkPos, normals, "FloorSmoothing 전");
+#endif
+
+            // ── Step 5: Unity Mesh 구성 ─────────────────────────────────────
+            var mesh = new Mesh();
+            mesh.name = $"DCMesh_{context.ChunkPos}";
+            mesh.indexFormat = vCount > 65535
+                ? IndexFormat.UInt32
+                : IndexFormat.UInt16;
+
+            mesh.SetVertices(positions);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(indices, 0);
+            mesh.RecalculateBounds();
+
+            // ── Step 6: FloorSmoothing ──────────────────────────────────────
+            // [FIX-SMOOTHING] iterations 1, threshold 0.7(수평면만), strength 0.25
+            ApplyFloorSmoothing(mesh, context, voxelSize,
+                iterations: smoothingIterations,
+                floorNormalYThreshold: floorNormalYThreshold,
+                smoothStrength: floorSmoothStrength);
+
+            // ── Step 7: FloorSmoothing 후 진단 ──────────────────────────────
+#if UNITY_EDITOR
             {
-                name = $"DCChunk_{context.ChunkPos}",
-                indexFormat = finalVertCount > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16
-            };
+                var postN = new List<Vector3>();
+                mesh.GetNormals(postN);
+                LogNormalDist(context.ChunkPos, postN, "FloorSmoothing 후");
+            }
+#endif
 
-            Vector3[] finalPositions = nativePositions.ToArray();
-            Vector3[] finalNormals = nativeNormals.ToArray();
-            Vector2[] finalUVs = uvList.ToArray();
-            int[] finalIndices = nativeIndices.ToArray();
-
-            mesh.vertices = finalPositions;
-            mesh.normals = finalNormals;
-            mesh.uv = finalUVs;
-            mesh.triangles = finalIndices;
-
-            float halfSize = (chunkSize * voxelSize) * 0.5f;
-            Vector3 center = new Vector3(halfSize, halfSize, halfSize);
-            mesh.bounds = new Bounds(center, Vector3.one * (chunkSize * voxelSize));
-
-            // ────────────────────────────────────────────────────
-            // [라플라시안 바닥 스무딩]
-            //   DC의 0.5m 격자 아티팩트로 인해 바닥 면이 계단식으로 각짐.
-            //   Y축 노말이 높은 "바닥" 버텍스에만 라플라시안 스무딩 적용.
-            //   XZ 평면(수평)으로만 이동 — Y(높이)는 고정하여 플랫 바닥 유지.
-            //   2회 반복: 부드러움 vs 형태 보존 균형.
-            // ────────────────────────────────────────────────────
-            // 벽면+바닥 통합 스무딩: iterations=3, 벽면(normalY<0.35)도 포함
-            ApplyFloorSmoothing(mesh, context, chunkSize, voxelSize, iterations: 3, floorNormalYThreshold: 0.15f, smoothStrength: 0.55f);
-
-            // [주의] mesh.normals는 이미 GPU노말(0.6)+면평균(0.4) 블렌딩 결과.
-            //   RecalculateNormals() 호출 시 덮어씌워지므로 사용하지 않음.
-            mesh.RecalculateTangents();  // 노말맵 베이킹을 위한 탄젠트 공간 생성
-
-            // NativeArray 해제
-            nativePositions.Dispose();
-            nativeIndices.Dispose();
-            nativeNormals.Dispose();
-
-            // ────────────────────────────────────────────────────
-            // 4. 씬 GameObject에 Mesh 할당
-            //    기존 CaveMeshJobManager 패턴 준수
-            // ────────────────────────────────────────────────────
-            bool isHeadless = CaveManager.Instance != null && CaveManager.Instance.isHeadlessPregenMode;
-
-            if (!isHeadless && context.ChunkObject != null)
+            // ── Step 8: ChunkObject에 메시 직접 적용 ────────────────────────
+            // [FIX-MESH-APPLY]
+            // DC 모드에서 CaveManager.HandleGpuResult는 return(무시)하므로
+            // 메시를 여기서 직접 context.ChunkObject 에 적용해야 한다.
+            // context.Mesh 필드는 ChunkRequestContext에 존재하지 않음.
+            if (context.ChunkObject != null)
             {
-                var filter = context.ChunkObject.GetOrAddComponent<MeshFilter>();
-                filter.sharedMesh = mesh;
+                var mf = context.ChunkObject.GetComponent<MeshFilter>();
+                if (mf != null)
+                    mf.sharedMesh = mesh;
+                else
+                    Debug.LogWarning($"[DCMeshBuilder][{context.ChunkPos}] " +
+                                     "ChunkObject에 MeshFilter가 없습니다.");
 
-                var renderer = context.ChunkObject.GetOrAddComponent<MeshRenderer>();
-                Material mat = caveMaterial;
-                if (mat == null && existingMeshJobManager != null)
-                    mat = existingMeshJobManager.caveMaterial;
-                renderer.sharedMaterial = mat;
-                // [Fix-Shadow v2] On으로 복원: TwoSided는 phantom/역방향 면이 동굴 내부로
-                // 그림자를 투사하게 만들어 Point Light 이동 시 번쩍임 발생.
-                // Shadow Acne는 대신 Light Inspector에서 Shadow Bias ≥ 0.5 로 해결.
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                var mc = context.ChunkObject.GetComponent<MeshCollider>();
+                if (mc != null)
+                    mc.sharedMesh = mesh;
 
-                // [v3] 서브복셀 노말맵 베이킹 (isHeadless=false, renderer 생성 후)
+                // [v3 복원] 서브복셀 노말맵 베이킹 (renderer 적용 후)
                 var normalBaker = GetComponent<CaveNormalBaker>();
                 if (normalBaker != null)
                 {
-                    if (context.DensityCache != null && context.DensityCache.Length > 0)
-                        normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
-                            context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
-                    else
-                        normalBaker.BakeFlat3(mesh, renderer);
+                    var renderer = context.ChunkObject.GetComponent<MeshRenderer>();
+                    if (renderer != null)
+                    {
+                        if (context.DensityCache != null && context.DensityCache.Length > 0)
+                            normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
+                                context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
+                        else
+                            normalBaker.BakeFlat3(mesh, renderer);
+                    }
                 }
-
-                var collider = context.ChunkObject.GetOrAddComponent<MeshCollider>();
-                collider.sharedMesh = mesh;
-
-                // Physics Bake (기존 PhysicsBakeJob 패턴)
-                // MeshCollider 물리 베이크 — re-assign 방식 (Unity 버전 호환)
-                collider.sharedMesh = null;
-                collider.sharedMesh = mesh;
-
-                if (collider != null)
-                    collider.sharedMesh = mesh;
             }
-
-            context.State = ChunkState.Completed;
-
-            Debug.Log($"[DCMeshBuilder] 메쉬 생성 완료: {context.ChunkPos}, 버텍스={finalVertCount}, 삼각형={finalIdxCount / 3}, 쿼드={quadCount}");
-
-            // ────────────────────────────────────────────────────
-            // 5. 청크 이음새 스티칭 등록 (ChunkSeamStitcher)
-            //    인접 청크와 경계 버텍스 Y 좌표 평균화 → 균열 제거
-            // ────────────────────────────────────────────────────
-            if (ChunkSeamStitcher.Instance != null && context.ChunkObject != null)
+            else
             {
-                ChunkSeamStitcher.Instance.RegisterAndStitch(
-                    context.ChunkPos,
-                    mesh,
-                    context.ChunkObject.transform,
-                    voxelSize,
-                    chunkSize * voxelSize
-                );
+                Debug.LogWarning($"[DCMeshBuilder][{context.ChunkPos}] " +
+                                 "context.ChunkObject가 null입니다. " +
+                                 "CaveChunkManager에서 ChunkObject 할당 여부를 확인하세요.");
             }
 
-            // ────────────────────────────────────────────────────
-            // 6. NavMesh 갱신 요청 + 콜백
-            // ────────────────────────────────────────────────────
-            if (CaveManager.Instance != null)
-                CaveManager.Instance.requestNavMeshUpdate = true;
-
+            // ── Step 9: 완료 처리 ───────────────────────────────────────────
+            context.State = ChunkState.Completed;
             onCompleted?.Invoke(context);
+            // ↑ CaveComputeDispatcher 람다: sw.Stop(), profiler, onGpuCompleted, IsBusy=false
         }
-        // END BuildMeshFromDCData
 
-        /// <summary>
-        /// DC 격자 아티팩트로 인한 바닥 각짐을 완화하는 라플라시안 스무딩.
-        /// Y축 노말 성분이 높은 "바닥" 버텍스에만 적용하며, XZ 평면으로만 이동.
-        /// </summary>
-        private static void ApplyFloorSmoothing(Mesh mesh, ChunkRequestContext context, int chunkSize, float voxelSize, int iterations, float floorNormalYThreshold, float smoothStrength)
+        // ──────────────────────────────────────────────────────────────────────
+        // Floor Smoothing
+        // ──────────────────────────────────────────────────────────────────────
+
+        private void ApplyFloorSmoothing(
+            Mesh mesh,
+            ChunkRequestContext context,
+            float voxelSize,
+            int iterations = 1,
+            float floorNormalYThreshold = 0.7f,
+            float smoothStrength = 0.25f)
         {
             Vector3[] verts = mesh.vertices;
-            Vector3[] normals = mesh.normals;
+            Vector3[] norms = mesh.normals;
             int[] tris = mesh.triangles;
-            int vCount = verts.Length;
+            int vCnt = verts.Length;
 
-            // 1. 인접 버텍스 목록 구성 (삼각형 공유 기준)
-            var neighbors = new System.Collections.Generic.List<int>[vCount];
-            for (int i = 0; i < vCount; i++)
-                neighbors[i] = new System.Collections.Generic.List<int>();
+            var accumN = new Vector3[vCnt];
+            var accumC = new int[vCnt];
+            int total = 0;
 
-            for (int t = 0; t < tris.Length; t += 3)
-            {
-                int a = tris[t], b = tris[t + 1], c = tris[t + 2];
-                if (!neighbors[a].Contains(b)) neighbors[a].Add(b);
-                if (!neighbors[a].Contains(c)) neighbors[a].Add(c);
-                if (!neighbors[b].Contains(a)) neighbors[b].Add(a);
-                if (!neighbors[b].Contains(c)) neighbors[b].Add(c);
-                if (!neighbors[c].Contains(a)) neighbors[c].Add(a);
-                if (!neighbors[c].Contains(b)) neighbors[c].Add(b);
-            }
-
-            // 2. 반복 스무딩
-            var smoothed = new Vector3[vCount];
             for (int iter = 0; iter < iterations; iter++)
             {
-                System.Array.Copy(verts, smoothed, vCount);
-                for (int i = 0; i < vCount; i++)
+                Array.Clear(accumN, 0, vCnt);
+                Array.Clear(accumC, 0, vCnt);
+
+                for (int t = 0; t < tris.Length; t += 3)
                 {
-                    // 바닥 버텍스 판별: Y 노말 성분이 임계값 초과
-                    if (normals[i].y < floorNormalYThreshold)
-                        continue;
-
-                    var nb = neighbors[i];
-                    if (nb.Count == 0) continue;
-
-                    // 인접 버텍스 XZ 평균 계산
-                    float avgX = 0, avgZ = 0;
-                    foreach (int j in nb) { avgX += verts[j].x; avgZ += verts[j].z; }
-                    avgX /= nb.Count;
-                    avgZ /= nb.Count;
-
-                    // XZ만 이동 (Y=높이는 고정 → 플랫 바닥 유지)
-                    // [청크 경계 스무딩 약화] 경계 근처 버텍스는 이음새 연속성을 위해 약하게 스무딩
-                    float chunkWorldSize = chunkSize * voxelSize;
-                    float bx = verts[i].x / chunkWorldSize;  // 0~1 범위 청크 내 위치
-                    float bz = verts[i].z / chunkWorldSize;
-                    float borderFactor = Mathf.Min(
-                        Mathf.Min(bx, 1f - bx),
-                        Mathf.Min(bz, 1f - bz)
-                    ) * 8f;  // 경계에서 멀수록 최대 1.0
-                    float effectiveStrength = smoothStrength * Mathf.Clamp01(borderFactor);
-                    float normY = normals[i].y;
-                    if (normY > floorNormalYThreshold) // 바닥: XZ만
-                    {
-                        smoothed[i] = new Vector3(
-                            Mathf.Lerp(verts[i].x, avgX, effectiveStrength),
-                            verts[i].y,
-                            Mathf.Lerp(verts[i].z, avgZ, effectiveStrength));
-                    }
-                    else // 벽: 노말 수직 방향만 이동
-                    {
-                        float nx = normals[i].x, nz = normals[i].z;
-                        float dx = avgX - verts[i].x, dz = avgZ - verts[i].z;
-                        float d = dx * nx + dz * nz;
-                        dx -= d * nx * 0.7f; dz -= d * nz * 0.7f;
-                        float ws = effectiveStrength * 0.6f;
-                        smoothed[i] = new Vector3(verts[i].x + dx * ws, verts[i].y, verts[i].z + dz * ws);
-                    }
+                    int ia = tris[t], ib = tris[t + 1], ic = tris[t + 2];
+                    Vector3 avg = (norms[ia] + norms[ib] + norms[ic]) / 3f;
+                    accumN[ia] += avg; accumC[ia]++;
+                    accumN[ib] += avg; accumC[ib]++;
+                    accumN[ic] += avg; accumC[ic]++;
                 }
-                System.Array.Copy(smoothed, verts, vCount);
+
+                int iterHit = 0;
+                for (int i = 0; i < vCnt; i++)
+                {
+                    // threshold=0.7 → |normalY| > 0.7 수평면만 대상 (벽면 보존)
+                    if (Mathf.Abs(norms[i].y) < floorNormalYThreshold) continue;
+                    if (accumC[i] == 0) continue;
+                    Vector3 avg = accumN[i] / accumC[i];
+                    if (avg.sqrMagnitude < 0.0001f) continue;
+                    norms[i] = Vector3.Lerp(norms[i], avg.normalized, smoothStrength).normalized;
+                    iterHit++;
+                }
+                total += iterHit;
             }
 
-            mesh.vertices = verts;
-            mesh.RecalculateBounds();
+            mesh.SetNormals(norms);
+
+            Debug.Log($"[DCMeshBuilder][{context.ChunkPos}] ApplyFloorSmoothing\n" +
+                      $"  iter={iterations} threshold={floorNormalYThreshold} strength={smoothStrength}\n" +
+                      $"  처리={total}/{vCnt} " +
+                      $"({(vCnt > 0 ? (float)total / vCnt * 100f : 0f):F1}%)" +
+                      " ※ 비율이 낮을수록 벽면 보존됨");
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // 진단 헬퍼 (UNITY_EDITOR only)
+        // ──────────────────────────────────────────────────────────────────────
+
+#if UNITY_EDITOR
+        private static void LogNormalDist(
+            Vector3Int chunkPos, List<Vector3> norms, string label)
+        {
+            int domX = 0, domY = 0, domZ = 0, wall = 0;
+            float sumY = 0f;
+            foreach (var n in norms)
+            {
+                float ax = Mathf.Abs(n.x), ay = Mathf.Abs(n.y), az = Mathf.Abs(n.z);
+                if (ax > ay && ax > az) domX++;
+                else if (ay > az) domY++;
+                else domZ++;
+                if (ay < 0.15f) wall++;
+                sumY += ay;
+            }
+            float avg = norms.Count > 0 ? sumY / norms.Count : 0f;
+            Debug.Log($"[DCMeshBuilder][{chunkPos}] ★ {label}\n" +
+                      $"  총={norms.Count} domX={domX} domY={domY} domZ={domZ}\n" +
+                      $"  wall(|ny|<0.15)={wall} avgAbsNY={avg:F3}");
+        }
+#endif
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Fragment Filter
+        // ──────────────────────────────────────────────────────────────────────
+
+        private static class FragmentFilter
+        {
+            public static int Filter(
+                DCVertex[] verts,
+                DCQuad[] quads,
+                int quadCount,
+                int minQuads,
+                out DCVertex[] outVerts,
+                out DCQuad[] outQuads)
+            {
+                int V = verts.Length;
+                int[] par = new int[V];
+                int[] rank = new int[V];
+                for (int i = 0; i < V; i++) par[i] = i;
+
+                for (int q = 0; q < quadCount; q++)
+                {
+                    Union(par, rank, quads[q].v0, quads[q].v1);
+                    Union(par, rank, quads[q].v1, quads[q].v2);
+                    Union(par, rank, quads[q].v2, quads[q].v3);
+                }
+
+                var compSize = new Dictionary<int, int>(64);
+                for (int q = 0; q < quadCount; q++)
+                {
+                    int root = Find(par, quads[q].v0);
+                    compSize.TryGetValue(root, out int c);
+                    compSize[root] = c + 1;
+                }
+
+                var valid = new List<DCQuad>(quadCount);
+                int removed = 0;
+                for (int q = 0; q < quadCount; q++)
+                {
+                    int root = Find(par, quads[q].v0);
+                    if (compSize[root] >= minQuads) valid.Add(quads[q]);
+                    else removed++;
+                }
+
+                if (removed == 0)
+                {
+                    outVerts = verts;
+                    outQuads = quads;
+                    return 0;
+                }
+
+                bool[] used = new bool[V];
+                foreach (var q in valid)
+                    used[q.v0] = used[q.v1] = used[q.v2] = used[q.v3] = true;
+
+                int[] remap = new int[V];
+                var newVerts = new List<DCVertex>(V);
+                for (int i = 0; i < V; i++)
+                {
+                    remap[i] = used[i] ? newVerts.Count : -1;
+                    if (used[i]) newVerts.Add(verts[i]);
+                }
+
+                var newQuads = new DCQuad[valid.Count];
+                for (int i = 0; i < valid.Count; i++)
+                {
+                    var q = valid[i];
+                    newQuads[i] = new DCQuad
+                    {
+                        v0 = remap[q.v0],
+                        v1 = remap[q.v1],
+                        v2 = remap[q.v2],
+                        v3 = remap[q.v3]
+                    };
+                }
+
+                outVerts = newVerts.ToArray();
+                outQuads = newQuads;
+                return removed;
+            }
+
+            public static void LogComponentStats(
+                DCVertex[] verts, DCQuad[] quads, int quadCount)
+            {
+                if (verts == null || quads == null || quadCount <= 0) return;
+                int V = verts.Length;
+                int[] par = new int[V];
+                int[] rank = new int[V];
+                for (int i = 0; i < V; i++) par[i] = i;
+                for (int q = 0; q < quadCount; q++)
+                {
+                    Union(par, rank, quads[q].v0, quads[q].v1);
+                    Union(par, rank, quads[q].v1, quads[q].v2);
+                    Union(par, rank, quads[q].v2, quads[q].v3);
+                }
+                var cs = new Dictionary<int, int>(64);
+                for (int q = 0; q < quadCount; q++)
+                {
+                    int r = Find(par, quads[q].v0);
+                    cs.TryGetValue(r, out int c); cs[r] = c + 1;
+                }
+                int tiny = 0, sm = 0, med = 0, lg = 0;
+                foreach (int sz in cs.Values)
+                {
+                    if (sz < 16) tiny++;
+                    else if (sz < 64) sm++;
+                    else if (sz < 512) med++;
+                    else lg++;
+                }
+                Debug.Log($"[FragmentFilter] {cs.Count}개 컴포넌트 | " +
+                          $"tiny<16={tiny} small<64={sm} med<512={med} large={lg} | " +
+                          $"quads={quadCount}");
+            }
+
+            private static int Find(int[] p, int x)
+            {
+                while (p[x] != x) { p[x] = p[p[x]]; x = p[x]; }
+                return x;
+            }
+
+            private static void Union(int[] p, int[] rank, int a, int b)
+            {
+                int ra = Find(p, a), rb = Find(p, b);
+                if (ra == rb) return;
+                if (rank[ra] < rank[rb]) { int t = ra; ra = rb; rb = t; }
+                p[rb] = ra;
+                if (rank[ra] == rank[rb]) rank[ra]++;
+            }
         }
     }
 }

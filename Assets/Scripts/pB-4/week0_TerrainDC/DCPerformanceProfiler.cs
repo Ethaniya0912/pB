@@ -132,13 +132,14 @@ namespace CaveSystem
             int maxVertices = voxelCount;
             int maxQuads = maxEdges;
 
-            long hermiteMem = maxEdges * 32L;      // DCHermiteEdge = 32B
-            long vertexMem = maxVertices * 56L;     // DCVertex = 56B
-            long quadMem = maxQuads * 16L;          // DCQuad = 16B
-            long countMem = 4L;                     // quadCount = 4B
-            long sculptMem = 64 * 16L;              // GameplaySculptData estimate
+            long voxelMem = voxelCount * 16L;     // CaveVoxel = 16B (density+oreType+padding)
+            long hermiteMem = maxEdges * 32L;     // DCHermiteEdge = 32B
+            long vertexMem = maxVertices * 32L;    // [O1] DCVertex 56B→32B (uv/qefError/padding 제거)
+            long quadMem = maxQuads * 16L;    // DCQuad = 16B
+            long countMem = 4L;                   // quadCount
+            long sculptMem = 64 * 16L;             // GameplaySculptData estimate
 
-            return hermiteMem + vertexMem + quadMem + countMem + sculptMem;
+            return voxelMem + hermiteMem + vertexMem + quadMem + countMem + sculptMem;
         }
 
         // ================================================================

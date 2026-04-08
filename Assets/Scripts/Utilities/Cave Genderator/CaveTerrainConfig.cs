@@ -61,10 +61,10 @@ namespace CaveSystem
         {
             int N = DCPointsPerAxis;
             long N3 = (long)N * N * N;
-            long voxel   = N3 * 16;
-            long hermite = N3 * 3 * 32;
-            long dcVert  = N3 * 56;
-            long dcQuad  = N3 * 16;
+            long voxel = N3 * 16;
+            long hermite = N3 * 3 * 16; // [O3] DCHermiteEdge 압축: 32B→16B
+            long dcVert = N3 * 32; // [O1] DCVertex 압축: 56B→32B
+            long dcQuad = N3 * 16;
             return (voxel + hermite + dcVert + dcQuad) / (1024f * 1024f);
         }
 
@@ -99,11 +99,11 @@ namespace CaveSystem
             Debug.Log(
                 $"[CaveTerrainConfig] ── 메모리 예측 ──\n" +
                 $"  ChunkSize={ChunkSize}  VoxelSize={voxelSize}m  WorldSize={ChunkWorldSize}m\n" +
-                $"  DC PointsPerAxis={N}  N³={N*N*N}\n" +
-                $"  voxelBuffer:      {(long)N*N*N*16/1024}KB\n" +
-                $"  hermiteEdgeBuffer:{(long)N*N*N*3*32/1024}KB\n" +
-                $"  dcVertexBuffer:   {(long)N*N*N*56/1024}KB\n" +
-                $"  dcQuadBuffer:     {(long)N*N*N*16/1024}KB\n" +
+                $"  DC PointsPerAxis={N}  N³={N * N * N}\n" +
+                $"  voxelBuffer:      {(long)N * N * N * 16 / 1024}KB\n" +
+                $"  hermiteEdgeBuffer:{(long)N * N * N * 3 * 16 / 1024}KB (O3압축)\n" +
+                $"  dcVertexBuffer:   {(long)N * N * N * 32 / 1024}KB (O1압축)\n" +
+                $"  dcQuadBuffer:     {(long)N * N * N * 16 / 1024}KB\n" +
                 $"  합계:              {EstimatedDCBufferMB:F1}MB/청크\n" +
                 $"  총 청크 {TotalChunkCount}개 × {EstimatedDCBufferMB:F1}MB = {TotalChunkCount * EstimatedDCBufferMB:F0}MB\n" +
                 $"  (단, 디스패처 버퍼는 청크 수와 무관하게 1세트 공유)"

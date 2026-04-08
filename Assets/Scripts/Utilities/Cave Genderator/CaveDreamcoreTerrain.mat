@@ -16,6 +16,7 @@ Material:
   m_InvalidKeywords:
   - _ENABLECUSTOMPOINTLIGHT_ON
   - _ENABLEPOMFADING_ON
+  - _ENABLEPOMSHADOW_ON
   - _ENABLESAFEPOM_ON
   - _REFLECTIONTOGGLE_ON
   - _SPECULARTOGGLE_ON
@@ -26,7 +27,7 @@ Material:
   stringTagMap: {}
   disabledShaderPasses:
   - MOTIONVECTORS
-  m_LockedProperties: 
+  m_LockedProperties: _HeightScale
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -157,7 +158,8 @@ Material:
     - _ClearCoatSmoothness: 0
     - _Cull: 2
     - _Cutoff: 0.5
-    - _DCNormalStrength: 0.5
+    - _DCNormalAmplify: 3
+    - _DCNormalStrength: 0.7
     - _DebugView: 0
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
@@ -168,6 +170,7 @@ Material:
     - _Dummy: 0
     - _EnableCustomPointLight: 1
     - _EnablePomFading: 1
+    - _EnablePomShadow: 1
     - _EnableSafePom: 1
     - _EnvironmentReflections: 1
     - _GlobalMadness: 0.5
@@ -176,21 +179,23 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
-    - _HeightScale: 0.08
+    - _HeightScale: 0.5
     - _Metallic: 0
     - _MetallicScale: 0
-    - _NormalScale: 0.5
+    - _NormalScale: 1
     - _OcclusionScale: 0.8
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PointLightFalloff: 9.23
-    - _PointLightWrap: 0.308
+    - _PointLightWrap: 0.3
     - _PomFadeEnd: 50
     - _PomFadeStart: 20
+    - _PomShadowSteps: 8
+    - _PomShadowStrength: 1
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _ReflectionToggle: 1
-    - _RoughnessContrast: 1.27
+    - _RoughnessContrast: 1.89
     - _RoughnessScale: 0.41
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
@@ -203,7 +208,7 @@ Material:
     - _Surface: 0
     - _Tiling: 1
     - _WorkflowMode: 1
-    - _WrapDiffuse: 0.015
+    - _WrapDiffuse: 0.07
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:

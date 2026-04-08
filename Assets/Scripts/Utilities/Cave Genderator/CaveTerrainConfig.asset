@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: CaveTerrainConfig
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveTerrainConfig
   targetWorldChunkSize: 16
-  voxelSize: 0.3
+  voxelSize: 0.15
   viewDistance: 5
   viewDistanceY: 3
