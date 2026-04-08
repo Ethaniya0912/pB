@@ -22,8 +22,7 @@ Material:
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
-  disabledShaderPasses:
-  - MOTIONVECTORS
+  disabledShaderPasses: []
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -121,7 +120,7 @@ Material:
     - _OMBMinBlur: 0.005
     - _OMBShutterMult: 1
     - _OMBTaperStrength: 0.01
-    - _OMBTrailFadeExp: 1.3
+    - _OMBTrailFadeExp: 0.5
     - _OMBTrailOpacity: 0.504
     - _OMBTrailing: 1
     - _OMBTransparent: 1
