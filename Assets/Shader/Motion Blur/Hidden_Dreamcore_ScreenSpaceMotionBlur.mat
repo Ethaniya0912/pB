@@ -12,7 +12,7 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _DEBUGMODE_OFF
+  - _DEBUGMODE_FINALBLUR
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -31,7 +31,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _BlurScale: 5
-    - _DebugMode: 0
+    - _DebugMode: 5
     - _MaxBlurUV: 0.05
     - _ObjMotionThreshold: 0.003
     - _RadialScale: 2

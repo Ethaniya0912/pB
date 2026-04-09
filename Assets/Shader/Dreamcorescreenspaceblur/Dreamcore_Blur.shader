@@ -427,6 +427,12 @@ Shader "Hidden/Dreamcore/Blur"
                 float2 toCenter     = uv - 0.5;
                 float  distFromCenter = length(toCenter);
 
+                // ── 원본 UV 깊이 (Lens Distortion 전) — 전체 공용 ──────────────
+                // 모든 깊이 기반 보호(Speed Chroma, SSMB, Distance Blur)에서 재사용
+                float linearDepthSSMB = LinearEyeDepth(
+                    SampleSceneDepth(input.texcoord), _ZBufferParams);
+                float effectiveNearDist = max(_NearDist, _SSBlurDepthNear);
+
                 // ════════════════════════════════════════════════════════
                 // STEP 2: Mipmap
                 // ════════════════════════════════════════════════════════
@@ -437,7 +443,8 @@ Shader "Hidden/Dreamcore/Blur"
                     mipLevel = max(0.0, abs(_VFXMipBias) * mipMask);
                     // [FIX] 근거리 픽셀 mip 블러 방지 — 캐릭터 mip 블러 패치
                     float _earlyD = LinearEyeDepth(SampleSceneDepth(uv), _ZBufferParams);
-                    if (_earlyD < _NearDist) mipLevel = 0.0;
+                    // effectiveNearDist 재사용 (STEP 2 이후 계산됨)
+                    if (_earlyD < effectiveNearDist) mipLevel = 0.0;
                 #endif
 
                 // ════════════════════════════════════════════════════════
@@ -454,6 +461,8 @@ Shader "Hidden/Dreamcore/Blur"
 
                 float motionBlurAmount = 0;
                 #if defined(_USE_MOTION_BLUR)
+                    // 방사형 MB: 캐릭터 포함 전체에 적용 (의도된 속도 효과)
+                    // 깊이 마스크 없음 — Distance Blur와 달리 근경 포함
                     motionBlurAmount = _PeripheralMotionBlur * _GlobalSpeedFactor * vignetteMask;
                 #endif
 
@@ -469,8 +478,12 @@ Shader "Hidden/Dreamcore/Blur"
                 else
                 {
                     #if defined(_USE_CHROMA)
-                        if (_GlobalSpeedFactor > 0.1 && vignetteMask > 0.01) {
-                            float sc = _SpeedChromaIntensity * _GlobalSpeedFactor * vignetteMask;
+                        // [FIX] Speed Chroma: 원본 UV 깊이(linearDepthSSMB)로 마스킹
+                        // distorted uv 대신 input.texcoord 기반 → 캐릭터 경계 블리드 제거
+                        float _chromaMask = (_SSBlurDepthNear < 0.01) ? 0.0
+                            : saturate((linearDepthSSMB - _SSBlurDepthNear) / max(_SSBlurDepthFade, 0.1));
+                        if (_GlobalSpeedFactor > 0.1 && vignetteMask > 0.01 && _chromaMask > 0.01) {
+                            float sc = _SpeedChromaIntensity * _GlobalSpeedFactor * vignetteMask * _chromaMask;
                             float2 cOff = toCenter * sc * _BlitTexture_TexelSize.xy;
                             float r = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv + cOff, mipLevel).r;
                             float g = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv,        mipLevel).g;
@@ -492,12 +505,30 @@ Shader "Hidden/Dreamcore/Blur"
                 float2 mv    = SAMPLE_TEXTURE2D(_MotionVectorTexture, sampler_MotionVectorTexture, input.texcoord).rg;
                 float  mvLen = length(mv);
 
-                // Debug: Motion Vector
+                // Debug: Motion Vector (전체 픽셀 적용)
                 #if defined(_DEBUGMODE_MOTIONVECTOR)
                     return float4(VisualizeVector(mv, 100.0), 1.0);
                 #endif
 
-                // Object Motion Separation: OMB 픽셀은 SSMB 스킵
+                // ── SSMB Depth Mask — skipSSMB와 무관하게 전체 픽셀에 계산 ──────
+                // [FIX] 이전 구조: depthMask가 skipSSMB 블록 안에 있어서
+                //       ObjMotionThreshold로 스킵된 픽셀(캐릭터 등)은
+                //       depthMask 계산 자체가 실행되지 않음
+                //       → DepthMask 디버그에서 캐릭터가 "보호됨"이 아닌 "제외됨"으로 보일 수 있음
+                // 수정: depthMask를 skipSSMB 판단 이전에 계산
+                // linearDepthSSMB는 STEP 2 이후 이미 계산됨 (원본 UV 기반, 재사용)
+                float depthMask = (_SSBlurDepthNear < 0.01)
+                    ? 0.0
+                    : saturate((linearDepthSSMB - _SSBlurDepthNear) / max(_SSBlurDepthFade, 0.1));
+
+                // Debug: DepthMask — 전체 픽셀 (캐릭터 포함) 정확히 표시
+                #if defined(_DEBUGMODE_DEPTHMASK)
+                    float boundary = abs(linearDepthSSMB - _SSBlurDepthNear) < 0.2 ? 1.0 : 0.0;
+                    return float4(depthMask + boundary, depthMask, depthMask, 1.0);
+                #endif
+
+                // Object Motion Separation: OMB 픽셀은 SSMB 블러 스킵
+                // (depthMask 계산은 이미 위에서 완료)
                 bool skipSSMB = (_ObjMotionThreshold > 0.0 && mvLen > _ObjMotionThreshold);
                 if (!skipSSMB)
                 {
@@ -521,17 +552,6 @@ Shader "Hidden/Dreamcore/Blur"
 
                     #if defined(_DEBUGMODE_BLURVECTOR)
                         return float4(VisualizeVector(blurVec, 1.0 / maxUV), 1.0);
-                    #endif
-
-                    // SSMB Depth Mask — CBUFFER로 격리됨: Material 값 정확히 읽힘
-                    float linearDepthSSMB = LinearEyeDepth(SampleSceneDepth(input.texcoord), _ZBufferParams);
-                    float depthMask = (_SSBlurDepthNear < 0.01)
-                        ? 0.0
-                        : saturate((linearDepthSSMB - _SSBlurDepthNear) / max(_SSBlurDepthFade, 0.1));
-
-                    #if defined(_DEBUGMODE_DEPTHMASK)
-                        float boundary = abs(linearDepthSSMB - _SSBlurDepthNear) < 0.2 ? 1.0 : 0.0;
-                        return float4(depthMask + boundary, depthMask, depthMask, 1.0);
                     #endif
 
                     float blurStrength = saturate(length(blurVec) / maxUV) * depthMask;
@@ -577,16 +597,28 @@ Shader "Hidden/Dreamcore/Blur"
                     #endif
 
                     #if defined(_USE_DISTANCE_BLUR)
+                        // [FIX] 원본 UV 기반 하드 게이트 ─────────────────────────────
+                        // 원인: Lens Distortion이 uv를 왜곡 → 왜곡된 uv로 깊이 샘플링 시
+                        //       캐릭터 경계 픽셀이 배경 깊이(25m)를 가리켜 Distance Blur 적용됨
+                        //       하지만 linearDepthSSMB(input.texcoord, 원본 UV)는 정확함
+                        //       (DepthMask 디버그에서 캐릭터 = 검정으로 확인됨)
+                        // 수정: linearDepthSSMB로 먼저 하드 게이트 → 통과한 픽셀만 Distance Blur
+                        // effectiveNearDist는 STEP 2 이후 이미 계산됨
+                        if (linearDepthSSMB >= effectiveNearDist)  // 근경(캐릭터) 아니면 진행
+                        {
+
                         float depth = SampleSceneDepth(uv);
                         float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
+                        // 왜곡 UV가 근경을 가리켜도 원본 UV 기준으로 추가 보호
+                        linearDepth = max(linearDepth, linearDepthSSMB);
                         float strength = 0; float mixWeight = 0; float normalizedDist = 0;
 
                         // 거리 구간별 블러 강도
-                        if (linearDepth < _NearDist) {
+                        if (linearDepth < effectiveNearDist) {
                             strength = 0; mixWeight = 0;
                         }
                         else if (linearDepth < _MidDist) {
-                            normalizedDist = saturate((linearDepth - _NearDist) / max(_MidDist - _NearDist, 0.001));
+                            normalizedDist = saturate((linearDepth - effectiveNearDist) / max(_MidDist - effectiveNearDist, 0.001));
                             mixWeight = pow(normalizedDist, _BlurExponent);
                             strength  = mixWeight * _MidBlurSize;
                         }
@@ -597,8 +629,8 @@ Shader "Hidden/Dreamcore/Blur"
                             strength  = lerp(_MidBlurSize, _FarBlurSize, farMix);
                         }
 
-                        // Near Protect Mask
-                        float nearProtectMask = smoothstep(_NearDist - 0.5, _NearDist + 0.5, linearDepth);
+                        // Near Protect Mask (effectiveNearDist 기준)
+                        float nearProtectMask = smoothstep(effectiveNearDist - 0.5, effectiveNearDist + 0.5, linearDepth);
                         mixWeight *= nearProtectMask;
                         strength  *= nearProtectMask;
 
@@ -626,6 +658,31 @@ Shader "Hidden/Dreamcore/Blur"
                             return float4(mixWeight, mixWeight * 0.5, 0, 1);
                         #endif
 
+                        // ── Foreground Edge Suppression ─────────────────
+                        // 배경 픽셀(25m)의 Dream Blur 커널이 캐릭터 경계에
+                        // 닿을 때 bright halo 생성 → 캐릭터가 블러에 묻히는 현상
+                        // 해결: 현재 픽셀 주변에 근경 오브젝트가 있으면 blur 억제
+                        // samplingRadius: 커널 반경과 동일 (strength 기반)
+                        if (mixWeight > 0.001)
+                        {
+                            float samplingRadius = max(strength * 0.5, 1.0);
+                            float2 edgeDirs[4] = {
+                                float2( 1, 0), float2(-1, 0),
+                                float2( 0, 1), float2( 0,-1)
+                            };
+                            float minNearDepth = linearDepth;
+                            [unroll]
+                            for (int ek = 0; ek < 4; ek++) {
+                                float2 eUV = uv + edgeDirs[ek] * _BlitTexture_TexelSize.xy * samplingRadius;
+                                float  eD  = LinearEyeDepth(SampleSceneDepth(eUV), _ZBufferParams);
+                                minNearDepth = min(minNearDepth, eD);
+                            }
+                            // 주변에 근경 오브젝트가 있으면 blur 억제 (effectiveNearDist 기반)
+                            float edgeSuppression = saturate((minNearDepth - effectiveNearDist) / max(effectiveNearDist * 0.05, 1.0));
+                            mixWeight *= edgeSuppression;
+                            strength  *= edgeSuppression;
+                        }
+
                         // Distance Blur 커널 적용
                         if (mixWeight > 0.001)
                         {
@@ -644,6 +701,7 @@ Shader "Hidden/Dreamcore/Blur"
 
                             color = lerp(color, blurredColor, mixWeight);
                         }
+                        } // end if (linearDepthSSMB >= effectiveNearDist)
                     #endif
                 }
 

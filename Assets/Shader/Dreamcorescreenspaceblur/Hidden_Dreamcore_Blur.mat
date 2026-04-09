@@ -13,12 +13,13 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _BLURTYPE_DREAM
-  - _DEBUGMODE_OFF
+  - _DEBUGMODE_FINALBLUR
   - _FILTERTYPE_NONE
   - _USE_CHROMA
   - _USE_DISTANCE_BLUR
   - _USE_DISTORTION
   - _USE_MIPMAP
+  - _USE_MOTION_BLUR
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -36,7 +37,7 @@ Material:
     - _BlurScale: 3
     - _BlurType: 4
     - _CenterBlurScale: 0.2
-    - _DebugMode: 0
+    - _DebugMode: 5
     - _DepthThreshold: 0.1
     - _DreamChroma: 0.48
     - _DreamHaze: 0.114
@@ -76,7 +77,7 @@ Material:
     - _UseDistanceBlur: 1
     - _UseDistortion: 1
     - _UseMipmap: 1
-    - _UseMotionBlur: 0
+    - _UseMotionBlur: 1
     - _VignetteIntensity: 1
     - _VignetteRadiusShrink: 0.5
     - _ZoomAutoFitScale: 0.359
