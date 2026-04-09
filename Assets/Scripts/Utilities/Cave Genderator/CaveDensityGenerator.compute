@@ -405,32 +405,45 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     finalDensity = smax(finalDensity, floorPlaneClamped, guardedFloorBlend);
     finalDensity = smax(finalDensity, ceilPlaneSDF,      guardedCeilBlend);
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // [SAFE-NOISE] 통합 부호 보존 노이즈 주입 시스템
+    // ═══════════════════════════════════════════════════════════════════════
+    // 설계: CaveBiomeMath.hlsl의 SafeNoiseAdd() 유틸리티를 사용하여
+    //       모든 post-SDF 노이즈에 대해 부호 역전을 원천 방지한다.
+    //       noiseBudget은 누적 진폭을 추적하여 동적 SIGN-FLIP-GUARD 임계값을 산출.
+    //
+    // 미래 전환 경로: §3 SDF 5레이어 전체 재설계(안 C) 시
+    //   SafeNoiseAdd 호출을 제거하고 smax 이전으로 노이즈를 이동하면 됨.
+    //
+    // 규칙: finalDensity += X → finalDensity = SafeNoiseAdd(..., X, maxX, noiseBudget)
+    //       smax/smin 연산은 그대로 유지 (SDF 합성 연산이므로)
+    // ═══════════════════════════════════════════════════════════════════════
+    float noiseBudget = 0.0;
+
     // (structuralDensity 제거 — v2에서 baseSDF 기준으로 변경됨)
-    // [FIX-EROSION-TUNNEL] baseSDF 기반 guard 추가: 통로/방 내부에서 erosion 차단
-    float erosionDepthGuard = saturate(1.0 + baseSDF / 2.0);
+    // [FIX-EROSION-TUNNEL] baseSDF 기반 guard → SafeNoiseAdd로 통합
     float erosionMask = saturate(1.0 - abs(finalDensity) * 0.5);
     float erosionNoise = snoise2D(worldPos.xz * 0.6 + float2(3.1, 7.4)) * 0.35
                        + snoise2D(worldPos.xz * 1.3 + float2(5.5, 2.2)) * 0.12;
-    finalDensity += erosionNoise * erosionMask * 0.7 * erosionDepthGuard;
+    float erosionVal = erosionNoise * erosionMask * 0.7;
+    finalDensity = SafeNoiseAdd(finalDensity, baseSDF,
+        erosionVal, 0.35, noiseBudget);
 
     // [FLOOR-DETAIL] 바닥 표면 노이즈 — 바위/요철 (바닥 기준선 불변)
-    // 원리: dist_to_floor=0(바닥 표면)에서 진폭 최대, radius 이상에서 0
-    //       snoise2D(xz * 0.07) → 90m 주기 → 10~20m 규모 완만한 바위 구획
-    //       기준선 이동 없이 바닥 위에 local 요철만 추가
-    // [FIX-FLOORMASK-v2] 바닥 아래에서 floorMask 완전 비활성화
-    //   이전 max(0,...) 방식의 수학 오류:
-    //     max(0, negative) = 0 → 1 - 0/r = 1.0 → 바닥 아래 전체에서 마스크 최대!
-    //     → ±amplitude 노이즈가 통로 표면(density≈0)을 양수로 역전 → 파편 생성
-    //   수정: rawDist < 0 (바닥 아래)이면 명시적으로 0 반환
-    //     rawDist >= 0 (바닥 위)이면 기존 감쇠 로직 유지
+    // [FIX-FLOORMASK-v2] 바닥 아래(rawDist<0)에서 floorMask=0 유지
+    // [FIX-FRAGMENT-BAND] SafeNoiseAdd가 baseSDF<0 영역에서 점진 억제
+    //   이전 버그: baseSDF ∈ [-0.3, 0)에서 ±1.5m 노이즈가 밀도를 역전 → 파편층
+    //   해결: SafeNoiseAdd(maxAmplitude=1.5)가 자동 보호
     if (_FloorDetailAmplitude > 0.001)
     {
         float rawDist = worldPos.y - _FloorAltitude;
         float floorMask = (rawDist >= 0.0)
             ? saturate(1.0 - rawDist / max(_FloorDetailRadius, 0.1))
             : 0.0;
-        float floorDetail = snoise2D(worldPos.xz * max(_FloorDetailFrequency, 0.001)) * _FloorDetailAmplitude;
-        finalDensity += floorDetail * floorMask;
+        float floorDetail = snoise2D(worldPos.xz * max(_FloorDetailFrequency, 0.001))
+                            * _FloorDetailAmplitude * floorMask;
+        finalDensity = SafeNoiseAdd(finalDensity, baseSDF,
+            floorDetail, _FloorDetailAmplitude, noiseBudget);
     }
 
     if (_SinkholeProb > 0.01 && hash2D(_ChunkBasePosition.xz).x < _SinkholeProb)
@@ -444,18 +457,23 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         float angle = atan2(worldPos.z - _ChunkBasePosition.z, worldPos.x - _ChunkBasePosition.x);
         float spiral = sin(worldPos.y * max(_SpiralFrequency, 0.01) + angle * 3.0) * _SpiralAmplitude;
         
+        // smax는 SDF 합성 연산 → SafeNoiseAdd 대상 아님
         finalDensity = smax(finalDensity, -sinkholeSDF, max(_SinkholeSmoothness, 0.1));
-        finalDensity += (terrace + spiral) * sinkholeMask;
+        // terrace+spiral은 additive 노이즈 → SafeNoiseAdd 적용
+        float sinkNoise = (terrace + spiral) * sinkholeMask;
+        finalDensity = SafeNoiseAdd(finalDensity, baseSDF,
+            sinkNoise, _SpiralAmplitude + _LedgeStepHeight, noiseBudget);
 
         if (distToSinkhole < sinkholeRadius)
             closestRoomType = 4;
     }
 
-    // [SIGN-FLIP-GUARD-v3] 터널 내부 밀도 강제 음수 — 모든 파편 근본 차단
-    // baseSDF < -0.3 = 스켈레톤 표면에서 0.3m 이상 안쪽 = 확실히 터널 내부
-    // 이 영역에서 finalDensity가 양수(고체)가 되는 것은 어떤 경우든 파편
-    // 0.3m 마진: 터널 표면의 거칠기(±0.3m)는 허용하되 내부 파편은 불가
-    if (baseSDF < -0.3)
+    // [SIGN-FLIP-GUARD-v4] 동적 임계값 — noiseBudget 기반 자동 확장
+    // 1차 방어: SafeNoiseAdd()가 각 노이즈를 개별 보호
+    // 2차 방어: 본 GUARD가 SafeNoiseAdd 없이 추가된 노이즈까지 보험 처리
+    // noiseBudget = Σ(각 SafeNoiseAdd의 maxAmplitude)
+    // 임계값 = -(noiseBudget + 0.3): 표면 거칠기 0.3m + 전체 노이즈 예산
+    if (baseSDF < -(noiseBudget + 0.3))
         finalDensity = min(finalDensity, -0.001);
 
     if (isnan(finalDensity) || isinf(finalDensity))

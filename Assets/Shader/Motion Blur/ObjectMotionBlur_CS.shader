@@ -1041,7 +1041,7 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 // [Fix-6 FINAL] 루트 이동 + GVB 버텍스 delta 합산
                 float3 velWS = _OMBVelocityWS;
                 #if defined(_OMB_ENABLED)
-                    velWS += TransformObjectToWorldDir(_OMBVelocityBuffer[input.vertexID]);
+                    velWS -= TransformObjectToWorldDir(_OMBVelocityBuffer[input.vertexID]);
                 #endif
                 float3 posPrevWS = posWS - velWS;
 

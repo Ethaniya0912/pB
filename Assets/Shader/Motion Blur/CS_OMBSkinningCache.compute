@@ -37,5 +37,5 @@ void ComputeVelocityDirect(uint3 id : SV_DispatchThreadID)
     float3 prev = ReadPosition(_PrevSkinBuffer, vid);
 
     // vel = 현재 - 이전 = 1프레임 이동 벡터
-    _OMBVelocityBuffer[vid] = curr - prev;
+    _OMBVelocityBuffer[vid] = prev - curr;
 }

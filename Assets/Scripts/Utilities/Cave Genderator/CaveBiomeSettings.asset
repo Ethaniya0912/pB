@@ -22,8 +22,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 23062ff654eafe2438553c5eb819c6e9, type: 2}
   depthLayers:
   - layerName: 1F
-    maxAltitude: -10
-    minAltitude: -30
+    maxAltitude: 15
+    minAltitude: -5
     floorBlendRadius: 8
     ceilBlendRadius: 8
     floorBumpAmplitude: 0.3
