@@ -269,43 +269,4 @@ float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, float normalY, 
     return detailSDF;
 }
 
-// ===============================================================================
-// [SAFE-NOISE] 통합 부호 보존 노이즈 주입 유틸리티
-// ===============================================================================
-// 목적: post-SDF 노이즈(FloorDetail, Erosion, Sinkhole 등)가
-//       baseSDF ∈ [-0.3, 0) 구간에서 밀도를 양수로 역전시키는 것을 방지.
-//
-// 설계 원칙:
-//   baseSDF ≥ 0 (고체 암반 / 바닥 표면): surfaceGuard = 1.0 → 노이즈 100% 적용
-//   baseSDF < 0 (동굴 내부): 깊이에 비례하여 점진 억제
-//   maxAmplitude: 해당 노이즈의 최대 진폭 → 보호 반경 결정
-//   noiseBudget: inout 누적 진폭 → 동적 SIGN-FLIP-GUARD 임계값 산출용
-//
-// 기존 패턴과의 일관성:
-//   depthMask(L102): saturate(1.0 + baseSDF / 3.0)
-//   erosionDepthGuard(L410): saturate(1.0 + baseSDF / 2.0)
-//   SafeNoiseAdd: saturate(1.0 + baseSDF / max(maxAmplitude + 0.3, 0.5))
-//
-// 미래 전환 경로:
-//   §3 SDF 5레이어 전체 재설계(안 C) 시 SafeNoiseAdd 호출을 제거하면 됨.
-//   smax 이전으로 노이즈를 이동시키면 SafeNoiseAdd 자체가 불필요해짐.
-// ===============================================================================
-
-float SafeNoiseAdd(
-    float density,
-    float baseSDF,
-    float noise,
-    float maxAmplitude,
-    inout float noiseBudget)
-{
-    // baseSDF=0 (표면): guard=1.0 → 바닥 디테일 100% 보존
-    // baseSDF=-0.15: guard ≈ 0.92 → 8% 억제 (파편 위험 구간)
-    // baseSDF=-maxAmplitude: guard ≈ 0.37 → 63% 억제
-    // baseSDF=-(maxAmplitude+0.3)*2: guard=0.0 → 완전 억제
-    float guardRadius = max(maxAmplitude + 0.3, 0.5);
-    float guard = saturate(1.0 + baseSDF / guardRadius);
-    noiseBudget += maxAmplitude;
-    return density + noise * guard;
-}
-
 #endif // CAVE_BIOME_MATH_INCLUDED
