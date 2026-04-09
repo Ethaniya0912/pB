@@ -213,10 +213,36 @@ namespace CaveSystem
             // 바닥 요철 파라미터
             densityShader.SetFloat("_FloorBumpAmplitude", currentLayer.floorBumpAmplitude);
             densityShader.SetFloat("_FloorBumpFrequency", currentLayer.floorBumpFrequency);
+            // [FLOOR-DETAIL] 바닥 표면 바위/요철 — SO DepthLayer 직결 (Inspector 조절 가능)
+            densityShader.SetFloat("_FloorDetailAmplitude", currentLayer.floorDetailAmplitude);
+            densityShader.SetFloat("_FloorDetailFrequency", currentLayer.floorDetailFrequency);
+            densityShader.SetFloat("_FloorDetailRadius", currentLayer.floorDetailRadius);
+            // [CORRIDOR-SURFACE] 통로 표면 스타일 — 0=smooth(이미지5) / 0.3~0.5=organic(이미지6)
+            densityShader.SetFloat("_CorridorSurface", currentLayer.corridorSurface);
+            // [SEDIMENT-PROFILE] 통로 U자 퇴적 구배 진폭 (0=비활성)
+            densityShader.SetFloat("_SedimentAmplitude", currentLayer.sedimentAmplitude);
+            // [TUNNEL-SCALE] 통로 크기 배율 (1.0=기본)
+            float tunnelScale = currentLayer.tunnelWidthScale > 0.01f ? currentLayer.tunnelWidthScale : 1.0f;
+            densityShader.SetFloat("_TunnelWidthScale", tunnelScale);
+            // [ROOM-SCALE] 방 크기 배율 (1.0=기본)
+            float roomScale = currentLayer.roomSizeScale > 0.01f ? currentLayer.roomSizeScale : 1.0f;
+            densityShader.SetFloat("_RoomSizeScale", roomScale);
+
+            // [FIX-SINKHOLE] 싱크홀/레지/스파이럴 uniform — 미설정 시 GPU 기본값 0으로
+            // _SinkholeProb=0 → if(_SinkholeProb > 0.01) 항상 false → 싱크홀 코드 비활성
+            densityShader.SetFloat("_SinkholeProb", currentLayer.sinkholeProbability);
+            densityShader.SetFloat("_SinkholeMinRadius", currentLayer.sinkholeMinRadius);
+            densityShader.SetFloat("_SinkholeMaxRadius", currentLayer.sinkholeMaxRadius);
+            densityShader.SetFloat("_SinkholeSmoothness", currentLayer.sinkholeSmoothness);
+            densityShader.SetFloat("_LedgeStepHeight", currentLayer.ledgeStepHeight);
+            densityShader.SetFloat("_SpiralFrequency", currentLayer.spiralFrequency);
+            densityShader.SetFloat("_SpiralAmplitude", currentLayer.spiralAmplitude);
 
             // 3D 스레드 실행 (PointsPerAxis를 기준으로 넉넉하게 할당하여 유령 복셀 구역 연산)
             int threadGroups3D = Mathf.CeilToInt(pointsPerAxis / 8.0f);
             densityShader.SetFloat("_WarpAmplitude", warpAmplitude);
+            // [CaveDCDebugger] 파라미터 로그 — Dispatch 직전 실행
+            GetComponent<CaveDCDebugger>()?.OnBeforeDispatch(densityShader, currentLayer, context.ChunkPos);
             densityShader.Dispatch(kernelGenerateDensity, threadGroups3D, threadGroups3D, threadGroups3D);
 
             // ═══════════════════════════════════════════════════════════════
@@ -255,7 +281,30 @@ namespace CaveSystem
                 densityShader.SetFloat("_CeilBlendRadius", currentLayer.ceilBlendRadius);
                 densityShader.SetFloat("_FloorBumpAmplitude", currentLayer.floorBumpAmplitude);
                 densityShader.SetFloat("_FloorBumpFrequency", currentLayer.floorBumpFrequency);
+                // [FLOOR-DETAIL + CORRIDOR-SURFACE] DC 패스 동일 SO 값 주입
+                densityShader.SetFloat("_FloorDetailAmplitude", currentLayer.floorDetailAmplitude);
+                densityShader.SetFloat("_FloorDetailFrequency", currentLayer.floorDetailFrequency);
+                densityShader.SetFloat("_FloorDetailRadius", currentLayer.floorDetailRadius);
+                densityShader.SetFloat("_CorridorSurface", currentLayer.corridorSurface);
+                // [SEDIMENT-PROFILE] DC 패스 동일 값 주입
+                densityShader.SetFloat("_SedimentAmplitude", currentLayer.sedimentAmplitude);
+                // [TUNNEL-SCALE] DC 패스 동일 값 주입
+                float dcTunnelScale = currentLayer.tunnelWidthScale > 0.01f ? currentLayer.tunnelWidthScale : 1.0f;
+                densityShader.SetFloat("_TunnelWidthScale", dcTunnelScale);
+                // [ROOM-SCALE] DC 패스 동일 값 주입
+                float dcRoomScale = currentLayer.roomSizeScale > 0.01f ? currentLayer.roomSizeScale : 1.0f;
+                densityShader.SetFloat("_RoomSizeScale", dcRoomScale);
                 densityShader.SetFloat("_WarpAmplitude", warpAmplitude);
+                // [FIX-SINKHOLE] DC 패스도 동일하게 싱크홀 uniform 주입
+                densityShader.SetFloat("_SinkholeProb", currentLayer.sinkholeProbability);
+                densityShader.SetFloat("_SinkholeMinRadius", currentLayer.sinkholeMinRadius);
+                densityShader.SetFloat("_SinkholeMaxRadius", currentLayer.sinkholeMaxRadius);
+                densityShader.SetFloat("_SinkholeSmoothness", currentLayer.sinkholeSmoothness);
+                densityShader.SetFloat("_LedgeStepHeight", currentLayer.ledgeStepHeight);
+                densityShader.SetFloat("_SpiralFrequency", currentLayer.spiralFrequency);
+                densityShader.SetFloat("_SpiralAmplitude", currentLayer.spiralAmplitude);
+                // [CaveDCDebugger] DC 패스 파라미터 로그
+                GetComponent<CaveDCDebugger>()?.OnBeforeDispatch(densityShader, currentLayer, context.ChunkPos);
                 densityShader.Dispatch(kernelGenerateDensity, dcTG, dcTG, dcTG);
 
                 // 침식도 DC에 적용

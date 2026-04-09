@@ -49,8 +49,9 @@ namespace CaveSystem
         // ──────────────────────────────────────────────────────────────────────
 
         [Header("Fragment Cleanup")]
-        [Tooltip("연결 컴포넌트 쿼드 수가 이 값 미만이면 고립 파편 제거. 0=비활성.")]
-        public int minQuadCount = 32;
+        [Tooltip("연결 컴포넌트 쿼드 수가 이 값 미만이면 고립 파편 제거. 0=비활성.\n" +
+                 "[FIX] 128→256: 파편 잔존 개선 — 로그상 7,965개 제거에도 소규모 파편 남음")]
+        public int minQuadCount = 256;
 
         [Tooltip("컴포넌트 분포 Console 출력 (minQuadCount 조정 진단용)")]
         public bool logComponentStats = false;
@@ -134,10 +135,33 @@ namespace CaveSystem
             var remap = new Dictionary<int, int>(workVerts.Length);
             var remapReverse = new List<int>(workVerts.Length); // 출력 idx → src idx
 
+            // [SPIKE-FILTER] 최대 엣지 길이 초과 쿼드 제거
+            // voxelSize=0.15m 기준, 정상 최대 엣지 = 대각선 ≈ 0.52m (√3×0.3)
+            // threshold = voxelSize×20 = 3.0m → 이 이상이면 QEF 발산으로 판단
+            float spikeMaxEdgeSq = voxelSize * voxelSize * 400f; // (voxelSize×20)²
+            int spikeRemovedCount = 0;
+
             for (int q = 0; q < workCount; q++)
             {
                 DCQuad quad = workQuads[q];
                 int[] srcIdx = { quad.v0, quad.v1, quad.v2, quad.v3 };
+
+                // [SPIKE-FILTER] 4변 + 2대각선 검사 (어느 엣지라도 초과 시 쿼드 전체 제거)
+                Vector3 p0 = workVerts[srcIdx[0]].position;
+                Vector3 p1 = workVerts[srcIdx[1]].position;
+                Vector3 p2 = workVerts[srcIdx[2]].position;
+                Vector3 p3 = workVerts[srcIdx[3]].position;
+                if ((p1 - p0).sqrMagnitude > spikeMaxEdgeSq ||
+                    (p2 - p1).sqrMagnitude > spikeMaxEdgeSq ||
+                    (p3 - p2).sqrMagnitude > spikeMaxEdgeSq ||
+                    (p0 - p3).sqrMagnitude > spikeMaxEdgeSq ||
+                    (p2 - p0).sqrMagnitude > spikeMaxEdgeSq ||
+                    (p3 - p1).sqrMagnitude > spikeMaxEdgeSq)
+                {
+                    spikeRemovedCount++;
+                    continue; // 이 쿼드 건너뜀 — vertex remap도 하지 않음
+                }
+
                 int[] dstIdx = new int[4];
 
                 for (int k = 0; k < 4; k++)
@@ -162,6 +186,10 @@ namespace CaveSystem
                 indices.Add(dstIdx[0]); indices.Add(dstIdx[1]); indices.Add(dstIdx[2]);
                 indices.Add(dstIdx[0]); indices.Add(dstIdx[2]); indices.Add(dstIdx[3]);
             }
+
+            if (spikeRemovedCount > 0)
+                Debug.Log($"[DCMeshBuilder][{context.ChunkPos}] " +
+                          $"SPIKE-FILTER: {spikeRemovedCount}개 쿼드 제거 (엣지>{voxelSize * 20f:F1}m)");
 
             int vCount = positions.Count;
             int triCount = indices.Count / 3;
@@ -259,19 +287,18 @@ namespace CaveSystem
                 if (mc != null)
                     mc.sharedMesh = mesh;
 
-                // [v3 복원] 서브복셀 노말맵 베이킹 (renderer 적용 후)
+                // ── Step 8b: NormalBaker 호출 ──────────────────────────────
+                // [FIX-NORMALBAKER] final 버전에서 호출 누락 복원.
+                // autoAssignToShader=true라도 이 호출 자체가 없으면 텍스처 할당 불가.
                 var normalBaker = GetComponent<CaveNormalBaker>();
                 if (normalBaker != null)
                 {
                     var renderer = context.ChunkObject.GetComponent<MeshRenderer>();
-                    if (renderer != null)
-                    {
-                        if (context.DensityCache != null && context.DensityCache.Length > 0)
-                            normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
-                                context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
-                        else
-                            normalBaker.BakeFlat3(mesh, renderer);
-                    }
+                    if (context.DensityCache != null && context.DensityCache.Length > 0)
+                        normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
+                            context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
+                    else
+                        normalBaker.BakeFlat3(mesh, renderer);
                 }
             }
             else

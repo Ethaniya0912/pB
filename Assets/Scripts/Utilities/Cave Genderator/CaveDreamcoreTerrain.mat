@@ -16,7 +16,6 @@ Material:
   m_InvalidKeywords:
   - _ENABLECUSTOMPOINTLIGHT_ON
   - _ENABLEPOMFADING_ON
-  - _ENABLEPOMSHADOW_ON
   - _ENABLESAFEPOM_ON
   - _REFLECTIONTOGGLE_ON
   - _SPECULARTOGGLE_ON
@@ -170,7 +169,7 @@ Material:
     - _Dummy: 0
     - _EnableCustomPointLight: 1
     - _EnablePomFading: 1
-    - _EnablePomShadow: 1
+    - _EnablePomShadow: 0
     - _EnableSafePom: 1
     - _EnvironmentReflections: 1
     - _GlobalMadness: 0.5
@@ -187,7 +186,7 @@ Material:
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PointLightFalloff: 9.23
-    - _PointLightWrap: 0.3
+    - _PointLightWrap: 0
     - _PomFadeEnd: 50
     - _PomFadeStart: 20
     - _PomShadowSteps: 8

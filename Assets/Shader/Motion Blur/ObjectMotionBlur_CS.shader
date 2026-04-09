@@ -710,6 +710,7 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
             #pragma vertex   vertShadow
             #pragma fragment fragShadow
             #pragma shader_feature_local _OMB_ENABLED
+            #pragma shader_feature_local _OMB_TRAILING  // [FIX-TRAILING]
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -808,7 +809,16 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 }
 
                 #if defined(_OMB_ENABLED)
-                    posWS += blurDir * finalStretchS;
+                    // [FIX-TRAILING] Pass 1과 동일한 trailing 로직:
+                    // trailing face(이동 반대쪽)만 뒤로 밀어냄 → Shadow Depth 정렬
+                    #if defined(_OMB_TRAILING)
+                        float3 normalWS_S    = TransformObjectToWorldNormal(input.normalOS);
+                        float  dotNBlur_S    = dot(normalWS_S, blurDir);
+                        float  trailNormal_S = smoothstep(0.0, -0.5, dotNBlur_S);
+                        posWS += -blurDir * finalStretchS * trailNormal_S;
+                    #else
+                        posWS += blurDir * finalStretchS;
+                    #endif
                 #endif
 
                 float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
@@ -847,6 +857,7 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
             #pragma vertex   vertDepth
             #pragma fragment fragDepth
             #pragma shader_feature_local _OMB_ENABLED
+            #pragma shader_feature_local _OMB_TRAILING  // [FIX-TRAILING]
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -881,6 +892,7 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
             struct DepthAttributes
             {
                 float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;      // [FIX-TRAILING] trailing 방향 판별용
                 uint   vertexID   : SV_VertexID;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
@@ -943,7 +955,16 @@ Shader "Dreamcore/ObjectMotionBlur_CS"
                 }
 
                 #if defined(_OMB_ENABLED)
-                    posWS += blurDir * finalStretchD;
+                    // [FIX-TRAILING] Pass 1과 동일한 trailing 로직:
+                    // trailing face(이동 반대쪽)만 뒤로 밀어냄 → Depth Buffer 정렬
+                    #if defined(_OMB_TRAILING)
+                        float3 normalWS_D    = TransformObjectToWorldNormal(input.normalOS);
+                        float  dotNBlur_D    = dot(normalWS_D, blurDir);
+                        float  trailNormal_D = smoothstep(0.0, -0.5, dotNBlur_D);
+                        posWS += -blurDir * finalStretchD * trailNormal_D;
+                    #else
+                        posWS += blurDir * finalStretchD;
+                    #endif
                 #endif
 
                 output.positionCS = TransformWorldToHClip(posWS);

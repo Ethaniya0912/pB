@@ -17,7 +17,6 @@ Material:
   - _USE_CHROMA
   - _USE_DISTANCE_BLUR
   - _USE_DISTORTION
-  - _USE_MIPMAP
   m_InvalidKeywords:
   - _USE_SNN
   m_LightmapFlags: 4
@@ -44,6 +43,8 @@ Material:
     - _FarDist: 50
     - _FarPixelScale: 1
     - _FilterType: 0
+    - _FocusBlurFalloff: 2
+    - _FocusBlurStrength: 1.5
     - _IdleLensDistortion: 0
     - _IdleMipmapRange: 0.105
     - _JitterIntensity: 0
@@ -58,17 +59,20 @@ Material:
     - _MoireReduction: 0.012
     - _MosaicMode: 0
     - _NearDist: 20
+    - _NearSampleCutoffRatio: 0.5
     - _PeripheralMotionBlur: 0.2
     - _PixelCurve: 0.1
     - _PixelScale: 1
+    - _PlayerProtectRadius: 1.5
     - _SafeZone: 5.1
     - _SpeedChromaIntensity: 10
     - _SpeedLensDistortion: 0.1
     - _SprintMipmapRange: 0.256
+    - _TargetProtectRadius: 1.5
     - _UseChroma: 1
     - _UseDistanceBlur: 1
     - _UseDistortion: 1
-    - _UseMipmap: 1
+    - _UseMipmap: 0
     - _UseMotionBlur: 0
     - _UseSNN: 1
     - _VignetteIntensity: 1

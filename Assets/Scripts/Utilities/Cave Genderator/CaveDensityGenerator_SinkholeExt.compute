@@ -21,6 +21,18 @@
 // 데이터 구조
 // ─────────────────────────────────────────────────────────────────────────────
 
+// [FIX-BUFTYPE] 실제 voxelBuffer의 원소 타입과 일치시킴
+// 기존: RWStructuredBuffer<float> _DensityBuffer (stride=4B) → CaveVoxel(16B)와 불일치
+// 수정: CaveVoxel 구조체 재선언 후 동일 stride로 접근
+struct CaveVoxel
+{
+    float density;   // 4B
+    int   oreType;   // 4B
+    float pad0;      // 4B  (padding)
+    float pad1;      // 4B  (padding)
+    // total: 16B — CaveDataStructs.hlsl의 CaveVoxel과 동일
+};
+
 // Room 노드 데이터 (CaveNodeGraphBuilder에서 Room 타입만 필터해서 전달)
 struct RoomNodeData
 {
@@ -46,8 +58,8 @@ StructuredBuffer<CorridorNodeData> _CorridorNodes;
 int _RoomNodeCount;
 int _CorridorNodeCount;
 
-// 메인 밀도 버퍼 (읽기/쓰기)
-RWStructuredBuffer<float> _DensityBuffer; // CaveDensityGenerator의 출력 밀도 버퍼
+// [FIX-BUFTYPE] float→CaveVoxel으로 교체 (stride 4B→16B, CaveComputeDispatcher의 voxelBuffer와 일치)
+RWStructuredBuffer<CaveVoxel> _VoxelBuffer;
 
 // 그리드 파라미터
 int   _PointsPerAxis;
@@ -61,14 +73,21 @@ float _SinholeBlendK;       // smoothSubtraction k값 (권장: 1.0~2.0)
 // 유틸리티 함수
 // ─────────────────────────────────────────────────────────────────────────────
 
+// [FIX-FLATIDX] X-major → Z-major로 수정
+// 기존: id.x * N * N + id.y * N + id.z  (X-major)
+// 수정: id.x + id.y * N + id.z * N * N  (Z-major, CaveDensityGenerator의 GetVoxelIndex와 동일)
 int FlatIndex(int3 id, int N)
 {
-    return id.x * N * N + id.y * N + id.z;
+    return id.x + id.y * N + id.z * N * N;
 }
 
 float3 VoxelWorldPos(int3 id, int N)
 {
-    return _ChunkOrigin + (float3(id) / float(N - 1)) * (_VoxelSize * float(N - 1));
+    // [FIX-WORLDPOS] CaveDensityGenerator.compute의 계산과 동일하게 맞춤
+    // 기존: (float3(id) / float(N-1)) * (_VoxelSize * float(N-1)) → _VoxelSize 약분 후 동일하나
+    //       N=1 엣지케이스에서 0 나누기 가능
+    // 수정: id * _VoxelSize 단순화 (CaveDensityGenerator: worldPos = _ChunkBasePosition + id * _VoxelSize)
+    return _ChunkOrigin + float3(id) * _VoxelSize;
 }
 
 // smoothSubtraction: base SDF에서 subtractor를 부드럽게 빼냄
@@ -114,7 +133,8 @@ void ApplySinkholesMasked(uint3 id : SV_DispatchThreadID)
     int   flatIdx = FlatIndex((int3)id, N);
     float3 worldP = VoxelWorldPos((int3)id, N);
 
-    float currentDensity = _DensityBuffer[flatIdx];
+    // [FIX-BUFTYPE] _DensityBuffer → _VoxelBuffer[flatIdx].density
+    float currentDensity = _VoxelBuffer[flatIdx].density;
 
     // ── Step 1: 가장 가까운 Room 노드 찾기 ─────────────────────────────────
     float  nearestRoomDist  = 1e9;
@@ -164,7 +184,8 @@ void ApplySinkholesMasked(uint3 id : SV_DispatchThreadID)
 
             // smoothSubtraction: 싱크홀 내부를 부드럽게 air로 만듦
             // currentDensity > 0 (암석)이고 sinkSDF < 0 (싱크홀 내부)인 곳이 뚫림
-            _DensityBuffer[flatIdx] = SmoothSubtraction(currentDensity, -sinkSDF, _SinholeBlendK);
+            // [FIX-BUFTYPE] _DensityBuffer → _VoxelBuffer[flatIdx].density
+            _VoxelBuffer[flatIdx].density = SmoothSubtraction(currentDensity, -sinkSDF, _SinholeBlendK);
         }
     }
     // Corridor 영역: 아무것도 하지 않음 → 통로 형태 보존
@@ -219,7 +240,7 @@ void ClearSinkholeBuffer(uint3 id : SV_DispatchThreadID)
 //
 //     sinkholeShader.SetBuffer(kernelSinkhole, "_RoomNodes",     roomBuffer);
 //     sinkholeShader.SetBuffer(kernelSinkhole, "_CorridorNodes", corridorBuffer);
-//     sinkholeShader.SetBuffer(kernelSinkhole, "_DensityBuffer", densityBuffer);
+//     sinkholeShader.SetBuffer(kernelSinkhole, "_VoxelBuffer",   voxelBuffer); // [FIX] _DensityBuffer → _VoxelBuffer (CaveVoxel stride=16B)
 //     sinkholeShader.SetInt(   "_RoomNodeCount",     roomNodes.Length);
 //     sinkholeShader.SetInt(   "_CorridorNodeCount", corridorNodes.Length);
 //     sinkholeShader.SetInt(   "_PointsPerAxis",     N);

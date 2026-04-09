@@ -39,6 +39,7 @@ namespace CaveSystem
 
         // --- 커널 캐싱 ---
         private int kernelClearHermite = -1;   // [FIX-D]
+        private int kernelClearVertex = -1;   // [FIX-VERT] GPU 버텍스 클리어
         private int kernelCollectHermite = -1;
         private int kernelSolveQEF = -1;
         private int kernelGenerateQuads = -1;
@@ -76,11 +77,12 @@ namespace CaveSystem
         private void InitializeDCKernels()
         {
             kernelClearHermite = dcComputeShader.FindKernel("ClearHermiteBuffer"); // [FIX-D]
+            kernelClearVertex = dcComputeShader.FindKernel("ClearVertexBuffer");  // [FIX-VERT]
             kernelCollectHermite = dcComputeShader.FindKernel("CollectHermiteData");
             kernelSolveQEF = dcComputeShader.FindKernel("SolveQEF");
             kernelGenerateQuads = dcComputeShader.FindKernel("GenerateQuads");
 
-            Debug.Log($"[DCPipeline] 커널 초기화: Clear={kernelClearHermite}, Hermite={kernelCollectHermite}, QEF={kernelSolveQEF}, Quad={kernelGenerateQuads}");
+            Debug.Log($"[DCPipeline] 커널 초기화: Clear={kernelClearHermite}, ClearVert={kernelClearVertex}, Hermite={kernelCollectHermite}, QEF={kernelSolveQEF}, Quad={kernelGenerateQuads}");
         }
 
         // ==================================================================
@@ -134,18 +136,25 @@ namespace CaveSystem
             dcComputeShader.Dispatch(kernelClearHermite, groups, 1, 1);
         }
 
-        // [FIX-E] DCVertex 버퍼 클리어 (featureType=-1 마커 보장)
+        // [FIX-VERT] DCVertex 버퍼 GPU 클리어 — CPU SetData 대체
+        // 기존 CPU 방식: new DCVertex[N3] 생성 후 SetData → 주 스레드 블로킹 0.3ms
+        // 신규 GPU 방식: ClearVertexBuffer 커널 → 병렬 초기화 ~0.01ms
         private void ClearDCVertexBuffer(int pointsPerAxis)
         {
-            // GPU에서 모든 원소를 -1로 초기화하는 가장 간단한 방법:
-            // DCVertex.featureType 오프셋(24바이트)을 포함한 56바이트 구조체를
-            // 전체 0으로 채우면 featureType=0(유효)로 보임 → 문제.
-            // 대신 CPU에서 -1 마킹한 배열로 SetData.
-            int N3 = pointsPerAxis * pointsPerAxis * pointsPerAxis;
-            var cleared = new DCVertex[N3];
-            for (int i = 0; i < N3; i++)
-                cleared[i].featureType = -1;
-            dcVertexBuffer.SetData(cleared);
+            if (kernelClearVertex < 0)
+            {
+                // 폴백: GPU 커널 미초기화 시 CPU 방식 유지
+                int N3 = pointsPerAxis * pointsPerAxis * pointsPerAxis;
+                var cleared = new DCVertex[N3];
+                for (int i = 0; i < N3; i++) cleared[i].featureType = -1;
+                dcVertexBuffer.SetData(cleared);
+                return;
+            }
+            int total = pointsPerAxis * pointsPerAxis * pointsPerAxis;
+            dcComputeShader.SetBuffer(kernelClearVertex, "_DCVertexBuffer", dcVertexBuffer);
+            // _PointsPerAxis는 이미 ClearHermiteEdgeBuffer 이후 설정됨
+            int groups = Mathf.CeilToInt(total / 256.0f);
+            dcComputeShader.Dispatch(kernelClearVertex, groups, 1, 1);
         }
 
         // ==================================================================
@@ -177,9 +186,11 @@ namespace CaveSystem
             float chunkWorldSize = (float)(pointsPerAxis - 1) * voxelSize;
 
             // [FIX-D] Hermite 버퍼 클리어 (이전 청크 잔존 데이터 제거)
+            // _PointsPerAxis를 먼저 설정 → ClearHermite / ClearVertex 공용
+            dcComputeShader.SetInt("_PointsPerAxis", pointsPerAxis);
             ClearHermiteEdgeBuffer(pointsPerAxis);
 
-            // [FIX-E] DCVertex 버퍼 클리어 (featureType=-1 초기화)
+            // [FIX-VERT] DCVertex 버퍼 GPU 클리어 (featureType=-1 초기화)
             ClearDCVertexBuffer(pointsPerAxis);
 
             int threadGroups = Mathf.CeilToInt(pointsPerAxis / 8.0f);
@@ -187,7 +198,7 @@ namespace CaveSystem
             // --- Stage 2: Hermite Data 수집 ---
             dcComputeShader.SetBuffer(kernelCollectHermite, "_VoxelBuffer", voxelBuffer);
             dcComputeShader.SetBuffer(kernelCollectHermite, "_HermiteEdgeBuffer", hermiteEdgeBuffer);
-            dcComputeShader.SetInt("_PointsPerAxis", pointsPerAxis);
+            // _PointsPerAxis는 클리어 단계에서 이미 설정됨
             dcComputeShader.SetFloat("_ChunkSize", chunkWorldSize); // [FIX-A, FIX-B]
             // [FIX-B] _ChunkOffset 전달 제거 — 셰이더는 순수 로컬 좌표만 사용
             dcComputeShader.Dispatch(kernelCollectHermite, threadGroups, threadGroups, threadGroups);
@@ -211,7 +222,15 @@ namespace CaveSystem
             dcComputeShader.Dispatch(kernelGenerateQuads, threadGroups, threadGroups, threadGroups);
         }
 
-        /// <summary>비동기 GPU 읽기</summary>
+        /// <summary>비동기 GPU 읽기 — Partial Readback
+        /// [PARTIAL-READBACK]
+        ///   구 방식: dcVertexBuffer 전량(N³×32B=41MB) + dcQuadBuffer 전량(N³×16B=20MB) = 61MB
+        ///   신 방식: Step1 quad 부분 읽기(quadCount×16B≈0.7MB)
+        ///            → Step2 유효 vertex 인덱스 범위 계산
+        ///            → Step3 vertex 부분 읽기([minIdx,maxIdx]×32B)
+        ///            → quad 인덱스를 -minIdx 오프셋 적용 후 콜백
+        ///   기대 절감: quad 97% + vertex 30~70% 절감
+        /// </summary>
         public void ReadbackAsync(System.Action<DCVertex[], DCQuad[], int> onComplete)
         {
             if (quadCountBuffer == null || dcVertexBuffer == null || dcQuadBuffer == null)
@@ -221,10 +240,10 @@ namespace CaveSystem
                 return;
             }
 
+            // ── Step 1: quadCount 읽기 ────────────────────────────────────────
             AsyncGPUReadback.Request(quadCountBuffer, (countReq) =>
             {
-                // [FIX-F] Play 종료 후 콜백 진입 차단
-                if (_isDestroyed || quadCountBuffer == null) return;
+                if (_isDestroyed || quadCountBuffer == null) return;  // [FIX-F]
                 if (countReq.hasError)
                 {
                     Debug.LogError("[DCPipeline] QuadCount readback 실패");
@@ -233,32 +252,98 @@ namespace CaveSystem
                 }
 
                 int quadCount = countReq.GetData<int>()[0];
-                if (quadCount == 0)
+                if (quadCount <= 0)
                 {
                     onComplete?.Invoke(null, null, 0);
                     return;
                 }
 
-                AsyncGPUReadback.Request(dcVertexBuffer, (vertReq) =>
+                // ── Step 2: quad 부분 읽기 (quadCount × 16B만) ───────────────
+                // [PARTIAL-QUAD] 기존 N³×16B=20MB → quadCount×16B≈0.7MB
+                const int kQuadStride = 16; // sizeof(DCQuad) = 4×int
+                int quadReadBytes = quadCount * kQuadStride;
+                // 버퍼 상한 초과 방지 (quadCount가 잘못 클 때 안전망)
+                quadReadBytes = Mathf.Min(quadReadBytes, dcQuadBuffer.count * kQuadStride);
+
+                AsyncGPUReadback.Request(dcQuadBuffer, quadReadBytes, 0, (quadReq) =>
                 {
-                    if (_isDestroyed || dcVertexBuffer == null) return;
-                    if (vertReq.hasError)
+                    if (_isDestroyed || dcQuadBuffer == null) return;
+                    if (quadReq.hasError)
                     {
+                        Debug.LogError("[DCPipeline] Quad partial readback 실패");
                         onComplete?.Invoke(null, null, 0);
                         return;
                     }
-                    var verts = vertReq.GetData<DCVertex>().ToArray();
 
-                    AsyncGPUReadback.Request(dcQuadBuffer, (quadReq) =>
+                    // [FIX-DISPOSED] NativeArray는 이 콜백 스코프 안에서만 유효.
+                    // 내부 vertex 콜백(b__2)이 quadsRaw를 클로저로 캡처하면
+                    // quad 콜백 리턴 시 Unity가 NativeArray를 해제 → ObjectDisposedException.
+                    // 해결: 즉시 ToArray()로 관리형 배열에 복사 → 수명 보장.
+                    var quadsRaw = quadReq.GetData<DCQuad>().ToArray();
+
+                    // ── Step 3: 유효 vertex 인덱스 범위 계산 ─────────────────
+                    int N3 = currentPointsPerAxis * currentPointsPerAxis * currentPointsPerAxis;
+                    int minIdx = int.MaxValue;
+                    int maxIdx = int.MinValue;
+
+                    for (int i = 0; i < quadsRaw.Length; i++)
                     {
-                        if (_isDestroyed || dcQuadBuffer == null) return;
-                        if (quadReq.hasError)
+                        DCQuad q = quadsRaw[i];
+                        // 범위 밖 인덱스는 GPU 버그 → 무시
+                        if (q.v0 >= 0 && q.v0 < N3) { if (q.v0 < minIdx) minIdx = q.v0; if (q.v0 > maxIdx) maxIdx = q.v0; }
+                        if (q.v1 >= 0 && q.v1 < N3) { if (q.v1 < minIdx) minIdx = q.v1; if (q.v1 > maxIdx) maxIdx = q.v1; }
+                        if (q.v2 >= 0 && q.v2 < N3) { if (q.v2 < minIdx) minIdx = q.v2; if (q.v2 > maxIdx) maxIdx = q.v2; }
+                        if (q.v3 >= 0 && q.v3 < N3) { if (q.v3 < minIdx) minIdx = q.v3; if (q.v3 > maxIdx) maxIdx = q.v3; }
+                    }
+
+                    if (minIdx > maxIdx)
+                    {
+                        // 유효 인덱스 없음 (전부 범위 밖)
+                        onComplete?.Invoke(null, null, 0);
+                        return;
+                    }
+
+                    // ── Step 4: vertex 부분 읽기 [minIdx, maxIdx] ─────────────
+                    // [PARTIAL-VERT] 기존 N³×32B=41MB → (maxIdx-minIdx+1)×32B
+                    const int kVertStride = 32; // sizeof(DCVertex)
+                    int vertRangeCount = maxIdx - minIdx + 1;
+                    int vertReadBytes = vertRangeCount * kVertStride;
+                    int vertReadOffset = minIdx * kVertStride;
+
+                    float savedQuadMB = (dcQuadBuffer.count - quadCount) * kQuadStride / 1048576f;
+                    float savedVertMB = (N3 - vertRangeCount) * kVertStride / 1048576f;
+                    Debug.Log($"[DCPipeline][Partial] quad={quadCount}개({quadReadBytes / 1048576f:F1}MB↓{savedQuadMB:F0}MB절감) " +
+                              $"vert=[{minIdx}~{maxIdx}]({vertReadBytes / 1048576f:F1}MB↓{savedVertMB:F0}MB절감)");
+
+                    AsyncGPUReadback.Request(dcVertexBuffer, vertReadBytes, vertReadOffset, (vertReq) =>
+                    {
+                        if (_isDestroyed || dcVertexBuffer == null) return;
+                        if (vertReq.hasError)
                         {
+                            Debug.LogError("[DCPipeline] Vertex partial readback 실패");
                             onComplete?.Invoke(null, null, 0);
                             return;
                         }
-                        var quads = quadReq.GetData<DCQuad>().ToArray();
-                        onComplete?.Invoke(verts, quads, quadCount);
+
+                        // vertsPartial[i] = vertex at FlatIndex (minIdx + i)
+                        var vertsPartial = vertReq.GetData<DCVertex>().ToArray();
+
+                        // ── Step 5: quad 인덱스 -minIdx 오프셋 적용 ──────────
+                        // [PARTIAL-OFFSET] DCMeshBuilder는 workVerts[q.vN]으로 접근
+                        //   → 기존 FlatIndex 기준 → 부분 배열 기준으로 재조정
+                        var quadsAdj = new DCQuad[quadsRaw.Length];
+                        for (int i = 0; i < quadsRaw.Length; i++)
+                        {
+                            quadsAdj[i] = new DCQuad
+                            {
+                                v0 = quadsRaw[i].v0 - minIdx,
+                                v1 = quadsRaw[i].v1 - minIdx,
+                                v2 = quadsRaw[i].v2 - minIdx,
+                                v3 = quadsRaw[i].v3 - minIdx,
+                            };
+                        }
+
+                        onComplete?.Invoke(vertsPartial, quadsAdj, quadCount);
                     });
                 });
             });

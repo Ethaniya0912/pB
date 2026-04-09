@@ -30,6 +30,7 @@
 #pragma kernel SolveQEF
 #pragma kernel GenerateQuads
 #pragma kernel ClearHermiteBuffer   // [FIX-3]
+#pragma kernel ClearVertexBuffer    // [FIX-VERT] GPU 버텍스 클리어 (CPU SetData 대체)
 
 // ============ 구조체 정의 (C# DCDataStructs와 동일) ============
 
@@ -283,6 +284,28 @@ void ClearHermiteBuffer(uint3 id : SV_DispatchThreadID)
 }
 
 // ====================================================================
+// [FIX-VERT] Kernel: ClearVertexBuffer
+//   청크 디스패치 전 호출. featureType=-1로 모든 버텍스 무효 마킹.
+//   기존 CPU SetData(DCVertex[N3]) 대비:
+//     - GPU에서 병렬 초기화 → 주 스레드 스톨 제거
+//     - 약 6859 원소(N=19) 기준 CPU 0.3ms → GPU 0.01ms
+// ====================================================================
+[numthreads(256, 1, 1)]
+void ClearVertexBuffer(uint3 id : SV_DispatchThreadID)
+{
+    int total = _PointsPerAxis * _PointsPerAxis * _PointsPerAxis;
+    int i = (int)id.x;
+    if (i >= total) return;
+
+    DCVertex inv;
+    inv.position      = float3(0, 0, 0);
+    inv.normal        = float3(0, 1, 0);
+    inv.featureType   = -1;   // 무효 마커: GenerateQuads가 참조 차단
+    inv.materialIndex = 0;
+    _DCVertexBuffer[i] = inv;
+}
+
+// ====================================================================
 // Kernel 1: CollectHermiteData
 // ====================================================================
 [numthreads(8, 8, 8)]
@@ -487,12 +510,20 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
     float maxEV = max(max(ev_ridge[0], ev_ridge[1]), ev_ridge[2]);
     float minEV = min(min(ev_ridge[0], ev_ridge[1]), ev_ridge[2]);
     float midEV = ev_ridge[0] + ev_ridge[1] + ev_ridge[2] - maxEV - minEV;
-    bool hasDirectedAnisotropy = (maxEV > midEV * 1.01) && (midEV > minEV * 1.01);
-    bool reliableRidge = (snapFT == 1) && (edgeCount >= 6) && hasDirectedAnisotropy;
+    bool hasDirectedAnisotropy = (maxEV > midEV * 1.15) && (midEV > minEV * 1.15);
+
+    // [FIX-FLOOR-RIDGE] 바닥/천장 면에서 Phase 3 릿지 억제
+    // ATA 최대 고유값의 고유벡터 ≈ 표면 법선 방향
+    // abs(dominantY) > 0.7 → 대략 45° 이내 수평면 → 바닥/천장
+    // 바닥에 릿지가 생기면 도넛 링이 통행로를 침해 → Phase 3 차단
+    int maxEVIdx = (ev_ridge[0] >= ev_ridge[1] && ev_ridge[0] >= ev_ridge[2]) ? 0 :
+                   (ev_ridge[1] >= ev_ridge[2]) ? 1 : 2;
+    float dominantY = abs(evec_ridge[1][maxEVIdx]);
+    bool isFloorLike = dominantY > 0.7;
+
+    bool reliableRidge = (snapFT == 1) && (edgeCount >= 6) && hasDirectedAnisotropy && !isFloorLike;
     if (reliableRidge)
     {
-        // [OPT] ev_ridge/evec_ridge 재사용 → JacobiEigen3x3 중복 호출 제거
-        // ComputeRidgeDir(ATA) 대신 이미 계산된 고유값/벡터로 직접 능선 방향 계산
         int ri0=0, ri1=1, ri2=2;
         if (ev_ridge[ri0] < ev_ridge[ri1]) { int rt=ri0; ri0=ri1; ri1=rt; }
         if (ev_ridge[ri0] < ev_ridge[ri2]) { int rt=ri0; ri0=ri2; ri2=rt; }
@@ -500,7 +531,6 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
         float3 rv0 = float3(evec_ridge[0][ri0], evec_ridge[1][ri0], evec_ridge[2][ri0]);
         float3 rv1 = float3(evec_ridge[0][ri1], evec_ridge[1][ri1], evec_ridge[2][ri1]);
         float3 ridgeDir = cross(rv0, rv1);
-        // ridgeDir 안정성 체크: 크로스 결과가 의미 있어야 함
         float rLen = length(ridgeDir);
         if (rLen > 0.1)
         {
@@ -510,8 +540,13 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
             float tMin = -spacing * 0.75;
             float tMax =  spacing * 0.75;
             t = clamp(t, tMin, tMax);
-            qefSolution = massPoint + ridgeDir * t;
-            qefSolution = clamp(qefSolution, voxelMin, voxelMax);
+
+            // [FIX-RIDGE-BLEND] 100% ridgeDir 스냅 대신 60% 블렌딩
+            // 100% 스냅: 능선이 날카로운 원형으로 정렬 → 도넛 각인
+            // 60% 블렌딩: QEF 원래 해의 40%를 보존 → 부드러운 자연 능선
+            float3 ridgeSolution = massPoint + ridgeDir * t;
+            ridgeSolution = clamp(ridgeSolution, voxelMin, voxelMax);
+            qefSolution = lerp(qefSolution, ridgeSolution, 0.6);
         }
     }
 

@@ -21,8 +21,8 @@ Shader "Hidden/Dreamcore/ScreenSpaceMotionBlur"
         [Range(0, 6)] _RadialScale ("Radial Scale (방사형 강도)", Float) = 2.0
 
         [Header(Depth Mask)]
-        // 대조군: 가까운 타일도 블러됨 → Depth Near = 0 권장
-        [Range(0, 5)] _SSBlurDepthNear ("Depth Near (블러 제외 거리 m, 0=전체적용)", Float) = 0.0
+        // [FIX-1] 기본값 0.0 → 6.0. 0이면 초기화 시점에 전체 블러 취약점.
+        [Range(0, 10)] _SSBlurDepthNear ("Depth Near (블러 제외 거리 m)", Float) = 6.0
         [Range(0.1, 5)] _SSBlurDepthFade ("Depth Fade Range (전환 범위 m)", Float) = 2.0
 
         [Header(Object Motion Separation)]
@@ -51,16 +51,25 @@ Shader "Hidden/Dreamcore/ScreenSpaceMotionBlur"
             TEXTURE2D(_BlitTexture);        SAMPLER(sampler_BlitTexture);
             TEXTURE2D(_MotionVectorTexture); SAMPLER(sampler_MotionVectorTexture);
 
-            // 머티리얼 파라미터
-            float _BlurScale;
-            float _SSMBSamples;
-            float _MaxBlurUV;
-            float _RadialScale;
-            float _SSBlurDepthNear;
-            float _SSBlurDepthFade;
-            float _ObjMotionThreshold;
+            // ── [ROOT CAUSE FIX] 머티리얼 파라미터를 CBUFFER로 격리 ──────────────
+            // 진단 결과: _SSBlurDepthNear 글로벌값 = 0 (초기화 안 됨)
+            // 원인: CBUFFER 없이 plain float 선언 → Unity가 글로벌값(0)을 우선 읽음
+            //       → 머티리얼의 _SSBlurDepthNear=6 이 완전히 무시됨
+            //       → depthMask=1.0 (전체 블러) → 캐릭터 보호 실패
+            // 수정: CBUFFER_START(UnityPerMaterial) 로 격리
+            //       → 글로벌 Shader.SetGlobalFloat 가 덮어쓸 수 없음
+            //       → 머티리얼 값(6m)을 항상 정확히 읽음
+            CBUFFER_START(UnityPerMaterial)
+                float _BlurScale;
+                float _SSMBSamples;
+                float _MaxBlurUV;
+                float _RadialScale;
+                float _SSBlurDepthNear;   // 머티리얼 격리 — 글로벌 override 차단
+                float _SSBlurDepthFade;   // 머티리얼 격리 — 글로벌 override 차단
+                float _ObjMotionThreshold;
+            CBUFFER_END
 
-            // 전역 파라미터 (ShaderCoordinationManager 주입)
+            // 전역 파라미터 (ShaderCoordinationManager 주입 — 의도적으로 글로벌)
             // 락온 시 배경 블러 강도 배율 (1.0=정상, 0.25=락온 중 억제)
             // UpdateLockOnBlur()에서 Shader.SetGlobalFloat("_SSMBIntensityScale") 주입
             float _SSMBIntensityScale;
@@ -156,10 +165,12 @@ Shader "Hidden/Dreamcore/ScreenSpaceMotionBlur"
                 #endif
 
                 // ── 5. 깊이 마스크 ─────────────────────────────────────────
-                // Depth Near = 0이면 전체 적용 (대조군과 일치)
+                // [FIX-3] Near < 0.01 폴백: 1.0(전체 블러) → 0.0(전체 보호)
+                // CBUFFER 수정(FIX-2)으로 정상 경로에서는 이 분기에 진입하지 않음.
+                // 방어용 폴백: 혹시라도 Near≈0이 들어오면 블러 대신 보호.
                 float linearDepth = LinearEyeDepth(SampleSceneDepth(uv), _ZBufferParams);
                 float depthMask   = (_SSBlurDepthNear < 0.01)
-                    ? 1.0  // Near=0이면 마스킹 없음 — 전체 적용
+                    ? 0.0  // [FIX-3] Near≈0 → 전체 보호 (이전: 1.0 = 전체 블러)
                     : saturate((linearDepth - _SSBlurDepthNear) / max(_SSBlurDepthFade, 0.1));
 
                 // ── Debug: 깊이마스크 ──────────────────────────────────────

@@ -92,7 +92,7 @@ MonoBehaviour:
   settings:
     material: {fileID: 2100000, guid: da23e24da1283e440a682c49e2cf6884, type: 2}
     samples: 16
-    passEvent: 550
+    passEvent: 600
     applyInSceneView: 1
 --- !u!114 &-2110443298746002646
 MonoBehaviour:

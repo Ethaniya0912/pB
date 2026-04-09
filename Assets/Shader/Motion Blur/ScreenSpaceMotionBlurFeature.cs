@@ -82,6 +82,19 @@ public class ScreenSpaceMotionBlurFeature : ScriptableRendererFeature
     {
         _pass = new SSMBPass(settings);
         _pass.renderPassEvent = settings.passEvent;
+
+        // [FIX] 글로벌 _SSBlurDepthNear 초기화
+        // Blitter.BlitTexture는 MaterialPropertyBlock을 사용하므로
+        // 프로퍼티 우선순위: MPB > Global > Material CBUFFER
+        // 글로벌이 초기화되지 않으면 0이 되어 캐릭터 depthMask=1.0 (무방비)
+        // Create()에서 머티리얼의 올바른 값을 글로벌로 주입
+        if (settings.material != null)
+        {
+            float near = settings.material.GetFloat("_SSBlurDepthNear");
+            float fade = settings.material.GetFloat("_SSBlurDepthFade");
+            Shader.SetGlobalFloat("_SSBlurDepthNear", near > 0.01f ? near : 6.0f);
+            Shader.SetGlobalFloat("_SSBlurDepthFade",  fade > 0.01f ? fade : 2.0f);
+        }
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -156,6 +169,15 @@ public class ScreenSpaceMotionBlurFeature : ScriptableRendererFeature
 
             // Material에 샘플 수 설정 (전역 파라미터가 아닌 Material 파라미터)
             _settings.material.SetFloat(SamplesID, _settings.samples);
+
+            // [FIX] 매 프레임 depthNear/Fade 글로벌 동기화
+            // Create()에서도 주입하지만, 다른 시스템이 리셋할 경우를 대비해 매 프레임 재주입
+            {
+                float near = _settings.material.GetFloat("_SSBlurDepthNear");
+                float fade = _settings.material.GetFloat("_SSBlurDepthFade");
+                Shader.SetGlobalFloat("_SSBlurDepthNear", near > 0.01f ? near : 6.0f);
+                Shader.SetGlobalFloat("_SSBlurDepthFade",  fade > 0.01f ? fade : 2.0f);
+            }
 
             // ── Pass 1: 블러 적용 (src → tmp) ───────────────────────
             using (var builder = renderGraph.AddRasterRenderPass<PassData>(

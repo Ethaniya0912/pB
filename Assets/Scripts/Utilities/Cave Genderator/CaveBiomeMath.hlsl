@@ -73,6 +73,12 @@ float sdCanyonNode(float3 p, float3 center, float r)
 }
 
 
+// [CORRIDOR-SURFACE] smooth(0) ↔ organic(1) 파라미터
+// CaveComputeDispatcher.cs에서 SetFloat("_CorridorSurface", ...) 로 주입
+// 이곳에 선언하는 이유: CaveDensityGenerator.compute의 #include "CaveBiomeMath.hlsl"이
+// uniform 선언 블록보다 먼저 처리되어, CDG에서 선언하면 미선언 오류 발생
+float _CorridorSurface;
+
 // ----------------------------------------------------
 // 2. 다중 지대(Biome) 형태 분기 라우터 (Dual SDF 적용 대상)
 // ----------------------------------------------------
@@ -83,6 +89,17 @@ float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, float normalY, 
     
     float safeFreq = max(p.noiseFrequency, 0.001);
     float safeYComp = max(p.yCompression, 0.001);
+
+    // [P1-DEPTHMASK] 통로/방 내부에서 biome 노이즈 진폭 억제
+    // 근거: edge.width=4m 기준 rMod 최솟값 ≈ 0.50 → 통로 중심 baseSDF ≈ -2.0m
+    //       Case1 biome noise 최대 진폭 ±2.1m → 통로 내부 밀도가 양수로 역전 가능
+    //       depthMask: baseSDF=-2.0m → 0.33, baseSDF=0m → 1.0 (표면에서 full strength)
+    //       통로 중심부(깊은 내부)에서 점진적으로 노이즈 억제 → 도넛 방지
+    // saturate(1.0 + baseSDF / 3.0):
+    //   baseSDF =  0.0m → 1.0  (표면: full noise)
+    //   baseSDF = -1.5m → 0.5  (통로 중간: 50% 억제)
+    //   baseSDF = -3.0m → 0.0  (통로 깊은 내부: 완전 억제)
+    float depthMask = saturate(1.0 + baseSDF / 3.0);
     
     switch (noiseType)
     {
@@ -91,8 +108,8 @@ float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, float normalY, 
             // [바닥자연화] Case 0도 wallMask 추가: 바닥에 과도한 노이즈 방지
             float wallMask0 = smoothstep(0.7, 0.25, abs(normalY));
             float karstNoise = fBm(float3(pos.x, pos.y * safeYComp, pos.z) * safeFreq, 4, 2.0, 0.5);
-            // 바닥: baseSDF 유지(wallMask0=0). 벽: 최대 ±2.0m 요철(5.0→2.0)
-            detailSDF += karstNoise * 2.0 * wallMask0;
+            // [P1] depthMask 추가: 통로 내부 노이즈 억제
+            detailSDF += karstNoise * 2.0 * wallMask0 * depthMask;
             break;
         }
             
@@ -137,17 +154,27 @@ float ApplyBiomeDetail(int noiseType, float3 pos, float baseSDF, float normalY, 
             float terracedY = floor(pos.y * safeTerrace) / safeTerrace;
 
             // yOscillation: terracedY에 추가하여 계단 위상을 XZ마다 변조
-            // A=0.43 < 1/freq(=0.455) → 단조성 보장: ∂strataY/∂y_min = 0.054 > 0
-            float yPhase = snoise2D(pos.xz * 0.13) * 4.7;
+            // [FIX-HELIX] yPhase amplitude 4.7 → 1.5 (나선형 억제)
+            float yPhase = snoise2D(pos.xz * 0.13) * 1.5;
             float yOscillation = sin(pos.y * 2.2 + yPhase) * 0.43;
-            float strataY = terracedY + yOscillation;  // terraceSteps + 위상 변조
+            float strataY = terracedY + yOscillation;
             float3 strataPos = float3(warpedPos.x, strataY, warpedPos.z);
 
-            // [핵심] abs() 제거: 부호 있는 noise → 올록볼록한 지층 요철
-            float faultNoise = fBm(strataPos * safeFreq, 3, 2.0, 0.5);
+            // [FIX-DONUT-RING] terraceSteps 기반 strata와 3D fBm을 _CorridorSurface로 blend
+            //
+            // 문제: fBm(strataPos) 방식은 terracedY의 1m 주기 불연속 경계가
+            //       원통 단면 전체에 동일 Y로 나타나 동심원 링 생성
+            //       → terraceSteps=1 → 1m마다 경계 기울기 4.0/m × 1.2amp = ±0.6m 점프 → 링 확정
+            //
+            // 해결: fBm3D(pos)는 Y 방향 연속 → 링 없음
+            //       _CorridorSurface=0   → fBm3D 100% → smooth 표면 (이미지5)
+            //       _CorridorSurface=0.3 → 70%/30% blend → organic 자연 요철 (이미지6)
+            //       _CorridorSurface=1.0 → strata 100% → 수평 지층 강조 (링 발생 가능)
+            float faultNoise3D    = fBm(float3(warpedPos.x, pos.y, warpedPos.z) * safeFreq, 3, 2.0, 0.5);
+            float faultNoiseStrata = fBm(strataPos * safeFreq, 3, 2.0, 0.5);
+            float faultNoise = lerp(faultNoise3D, faultNoiseStrata, _CorridorSurface);
 
-            // wallMask: 벽면만 거칠게, 바닥은 baseSDF 유지
-            detailSDF += faultNoise * 1.2 * wallMask1;
+            detailSDF += faultNoise * 1.2 * wallMask1 * depthMask;
             break;
         }
 
