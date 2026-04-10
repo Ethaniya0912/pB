@@ -69,7 +69,11 @@ namespace TDA.Character.AI
 
             // 이동 파라미터 동기화는 AICharacterLocomotionManager.SyncAnimatorParameters()
             // 가 담당합니다. 여기서는 락온 여부에 따른 보조 파라미터만 처리합니다.
-            if (_ai == null || !_ai.IsSpawned) return;
+            // [pB-4 수정] 오프라인/테스트 씬에서는 IsSpawned=false이므로
+            // NetworkManager가 활성화된 경우에만 IsSpawned를 체크합니다.
+            bool isNetworkActive = Unity.Netcode.NetworkManager.Singleton != null &&
+                                   Unity.Netcode.NetworkManager.Singleton.IsListening;
+            if (_ai == null || (isNetworkActive && !_ai.IsSpawned)) return;
 
             SyncLockOnParameter();
         }

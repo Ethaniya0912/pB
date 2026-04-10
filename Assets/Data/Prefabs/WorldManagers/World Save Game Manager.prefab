@@ -44,4 +44,139 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 88702b02d93b1724e8bed2b138825c65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  player: {fileID: 0}
+  selectedSceneIndex: 0
+  sceneNames:
+  - Scene_main_menu_01
+  - Scene_World_01
+  - Scene_S6
+  - Scene_S13
+  - Scene_S11
+  - Scene_pB2
+  saveGame: 0
+  loadGame: 0
   worldSceneIndex: 1
+  itemDatabase: {fileID: 0}
+  currentCharacterSlotBeingUsed: 0
+  currentCharacterData:
+    sceneIndex: 1
+    characterName: Character
+    secondsPlayed: 0
+    xPosition: 0
+    yPosition: 0
+    zPosition: 0
+    currentHealth: 0
+    currentStamina: 0
+    vitality: 0
+    endurance: 0
+    inventoryItems: []
+    currentRightHandWeaponID: -1
+    currentLeftHandWeaponID: -1
+    currentHelmetID: -1
+    currentChestArmorID: -1
+    currentPantsID: -1
+    currentLeggingsID: -1
+    currentBackpackID: -1
+  currentWorldSlotBeingUsed: 0
+  currentWorldData:
+    sceneName: 
+    removedInteractableIDs: 
+    objectStates:
+      keys: 
+      values: []
+    droppedItems: []
+  characterSlots01:
+    sceneIndex: 1
+    characterName: Character
+    secondsPlayed: 0
+    xPosition: 0
+    yPosition: 0
+    zPosition: 0
+    currentHealth: 0
+    currentStamina: 0
+    vitality: 0
+    endurance: 0
+    inventoryItems: []
+    currentRightHandWeaponID: -1
+    currentLeftHandWeaponID: -1
+    currentHelmetID: -1
+    currentChestArmorID: -1
+    currentPantsID: -1
+    currentLeggingsID: -1
+    currentBackpackID: -1
+  characterSlots02:
+    sceneIndex: 1
+    characterName: Character
+    secondsPlayed: 0
+    xPosition: 0
+    yPosition: 0
+    zPosition: 0
+    currentHealth: 0
+    currentStamina: 0
+    vitality: 0
+    endurance: 0
+    inventoryItems: []
+    currentRightHandWeaponID: -1
+    currentLeftHandWeaponID: -1
+    currentHelmetID: -1
+    currentChestArmorID: -1
+    currentPantsID: -1
+    currentLeggingsID: -1
+    currentBackpackID: -1
+  characterSlots03:
+    sceneIndex: 1
+    characterName: Character
+    secondsPlayed: 0
+    xPosition: 0
+    yPosition: 0
+    zPosition: 0
+    currentHealth: 0
+    currentStamina: 0
+    vitality: 0
+    endurance: 0
+    inventoryItems: []
+    currentRightHandWeaponID: -1
+    currentLeftHandWeaponID: -1
+    currentHelmetID: -1
+    currentChestArmorID: -1
+    currentPantsID: -1
+    currentLeggingsID: -1
+    currentBackpackID: -1
+  characterSlots04:
+    sceneIndex: 1
+    characterName: Character
+    secondsPlayed: 0
+    xPosition: 0
+    yPosition: 0
+    zPosition: 0
+    currentHealth: 0
+    currentStamina: 0
+    vitality: 0
+    endurance: 0
+    inventoryItems: []
+    currentRightHandWeaponID: -1
+    currentLeftHandWeaponID: -1
+    currentHelmetID: -1
+    currentChestArmorID: -1
+    currentPantsID: -1
+    currentLeggingsID: -1
+    currentBackpackID: -1
+  characterSlots05:
+    sceneIndex: 1
+    characterName: Character
+    secondsPlayed: 0
+    xPosition: 0
+    yPosition: 0
+    zPosition: 0
+    currentHealth: 0
+    currentStamina: 0
+    vitality: 0
+    endurance: 0
+    inventoryItems: []
+    currentRightHandWeaponID: -1
+    currentLeftHandWeaponID: -1
+    currentHelmetID: -1
+    currentChestArmorID: -1
+    currentPantsID: -1
+    currentLeggingsID: -1
+    currentBackpackID: -1

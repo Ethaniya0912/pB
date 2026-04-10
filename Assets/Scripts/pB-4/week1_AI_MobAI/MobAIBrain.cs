@@ -24,6 +24,19 @@
 //   - L2 Router(AICharacterManager)가 UpdateDecision() 호출 시점을 결정
 //   - 이 클래스는 순수 L3 Domain: 수치 계산과 BT 실행만 담당
 //   - VFX/SFX 직접 호출 절대 금지 (4계층 규칙 준수)
+//
+// [버그 수정 - Bug 2]
+//   기존: MobAIBrain.Update()가 0.2초마다 UpdateDecision()을 자체 호출하고
+//         PB4DecisionAdapter.Update()도 0.5초마다 mobBrain.UpdateDecision()을
+//         별도로 호출하여 이중 실행 발생.
+//   문제: 두 타이머가 비동기적으로 currentState를 갱신하여
+//         Adapter가 BB에 기록하는 시점과 Brain이 계산을 완료한 시점이 어긋남.
+//         특히 PB4DecisionAdapter가 useBehaviorGraph=true 모드일 때
+//         Brain의 자체 Update가 불필요하게 연산을 중복 수행함.
+//   수정: externallyTicked 플래그 추가.
+//         PB4DecisionAdapter가 Brain을 직접 틱할 때 이 플래그를 true로 설정하면
+//         Brain의 자체 Update()가 스킵되어 이중 호출이 방지된다.
+//         기존 단독 사용(Adapter 없이) 시에는 false 유지로 기존 동작 그대로.
 // =============================================================================
 using UnityEngine;
 using TDA.PB4.AI;
@@ -77,6 +90,26 @@ namespace TDA.PB4.AI.Mob
         private const float DECISION_INTERVAL = 0.2f;
 
         // ==================================================================
+        // [버그 수정 - Bug 2] 외부 틱 제어 플래그
+        // ==================================================================
+        /// <summary>
+        /// [Bug 2 수정] PB4DecisionAdapter가 이 Brain을 직접 틱할 때 true로 설정.
+        ///
+        /// true일 때: MobAIBrain.Update()의 자체 UpdateDecision() 호출이 스킵됨.
+        ///            PB4DecisionAdapter가 UpdateDecision() 호출 시점을 단독 관리.
+        ///            → 이중 호출 방지, 타이머 충돌 제거.
+        ///
+        /// false일 때(기본값): 기존 동작 유지.
+        ///            MobAIBrain이 DECISION_INTERVAL(0.2초)마다 자체 틱.
+        ///            Adapter 없이 Brain을 단독으로 사용하는 경우에 해당.
+        ///
+        /// PB4DecisionAdapter.Awake() 또는 Start()에서
+        ///   mobBrain.externallyTicked = true;
+        /// 로 설정할 것.
+        /// </summary>
+        [HideInInspector] public bool externallyTicked = false;
+
+        // ==================================================================
         // Lifecycle
         // ==================================================================
         protected override void Awake()
@@ -101,6 +134,11 @@ namespace TDA.PB4.AI.Mob
 
         private void Update()
         {
+            // [Bug 2 수정] PB4DecisionAdapter가 외부에서 틱을 관리하는 경우
+            // Brain의 자체 Update()를 스킵하여 UpdateDecision() 이중 호출을 방지한다.
+            // externallyTicked = true이면 Adapter가 UpdateDecision() 호출 시점을 단독 관리.
+            if (externallyTicked) return;
+
             decisionTimer += Time.deltaTime;
             if (decisionTimer >= DECISION_INTERVAL)
             {
@@ -119,8 +157,8 @@ namespace TDA.PB4.AI.Mob
 
             // 유틸리티 점수 산출
             u_attack = (1.0f - fear) * aggressionThreshold * factionAggNorm;
-            u_flee   = fear * fleeThreshold;
-            u_idle   = (1.0f - hunger) * (1.0f - fatigue) * 0.3f;
+            u_flee = fear * fleeThreshold;
+            u_idle = (1.0f - hunger) * (1.0f - fatigue) * 0.3f;
             u_patrol = (1.0f - fear) * (1.0f - fatigue) * 0.2f;
 
             // 타겟이 없으면 공격 불가
@@ -130,10 +168,10 @@ namespace TDA.PB4.AI.Mob
             float maxU = Mathf.Max(u_attack, Mathf.Max(u_flee, Mathf.Max(u_idle, u_patrol)));
 
             MobBTState newState;
-            if (maxU == u_attack)      newState = MobBTState.Attack;
-            else if (maxU == u_flee)   newState = MobBTState.Flee;
+            if (maxU == u_attack) newState = MobBTState.Attack;
+            else if (maxU == u_flee) newState = MobBTState.Flee;
             else if (maxU == u_patrol) newState = MobBTState.Patrol;
-            else                       newState = MobBTState.Idle;
+            else newState = MobBTState.Idle;
 
             if (newState != currentState)
             {

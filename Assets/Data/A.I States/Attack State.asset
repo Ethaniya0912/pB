@@ -13,22 +13,20 @@ MonoBehaviour:
   m_Name: Attack State
   m_EditorClassIdentifier: Assembly-CSharp::AttackState
   combatStanceState: {fileID: 11400000, guid: ea02bb1a676545b41b6572252f07da84, type: 2}
-  aiAttacks:
-  - actionStateID: 1
-    attackAnimation: Slash_Attack_Left
-    attackType: 0
-    minimumDistance: 0
-    maximumDistance: 2
-    weight: 50
-    attackCooldown: 1.5
-    isComboAttack: 0
-    isChargeAttack: 0
-  - actionStateID: 2
-    attackAnimation: Slash_Attack_Right
-    attackType: 1
-    minimumDistance: 0
-    maximumDistance: 2
-    weight: 50
-    attackCooldown: 2
-    isComboAttack: 0
-    isChargeAttack: 0
+  attackActions:
+  - attackActionID: 1
+    minimumAttackDistance: 0
+    maximumAttackDistance: 1
+    minimumAttackAngle: 0
+    maximumAttackAngle: 1
+    poiseDamage: 1
+    enablePoiseDuringAttack: 0
+    rotationSpeedDuringAttack: 3
+  - attackActionID: 2
+    minimumAttackDistance: 0
+    maximumAttackDistance: 1
+    minimumAttackAngle: 0
+    maximumAttackAngle: 1
+    poiseDamage: 1
+    enablePoiseDuringAttack: 0
+    rotationSpeedDuringAttack: 3

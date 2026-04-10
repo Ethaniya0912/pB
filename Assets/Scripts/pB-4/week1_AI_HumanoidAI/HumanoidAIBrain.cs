@@ -13,6 +13,13 @@
 // PersonalityMatrix 5축:
 //   control(자제력), stability(안정성), openness(개방성),
 //   agreeable(우호성), directness(직설성) — 각 0.0~1.0
+//
+// [버그 수정 - Bug 2]
+//   기존: HumanoidAIBrain.Update()가 0.3초마다 UpdateDecision()을 자체 호출.
+//         PB4DecisionAdapter도 0.5초마다 UpdateDecision()을 별도 호출 → 이중 실행.
+//   수정: externallyTicked 플래그 추가 (MobAIBrain과 동일한 패턴).
+//         PB4DecisionAdapter.Awake()에서 humanoidBrain.externallyTicked = true 설정 시
+//         Brain의 자체 Update() 틱이 스킵되어 이중 호출이 방지된다.
 // =============================================================================
 using UnityEngine;
 using TDA.PB4.AI;
@@ -89,6 +96,24 @@ namespace TDA.PB4.AI.Humanoid
         private const float DECISION_INTERVAL = 0.3f; // HumanoidAI는 0.3초 간격
 
         // ==================================================================
+        // [버그 수정 - Bug 2] 외부 틱 제어 플래그 (MobAIBrain과 동일한 패턴)
+        // ==================================================================
+        /// <summary>
+        /// [Bug 2 수정] PB4DecisionAdapter가 이 Brain을 직접 틱할 때 true로 설정.
+        ///
+        /// true일 때: HumanoidAIBrain.Update()의 자체 UpdateDecision() 호출이 스킵됨.
+        ///            PB4DecisionAdapter가 UpdateDecision() 호출 시점을 단독 관리.
+        ///            → 이중 호출 방지, 타이머 충돌 제거.
+        ///
+        /// false일 때(기본값): 기존 동작 유지.
+        ///            HumanoidAIBrain이 DECISION_INTERVAL(0.3초)마다 자체 틱.
+        ///            Adapter 없이 Brain을 단독으로 사용하는 경우에 해당.
+        ///
+        /// PB4DecisionAdapter.Awake()에서 자동으로 true가 설정된다.
+        /// </summary>
+        [HideInInspector] public bool externallyTicked = false;
+
+        // ==================================================================
         // Lifecycle
         // ==================================================================
         protected override void Awake()
@@ -99,6 +124,10 @@ namespace TDA.PB4.AI.Humanoid
 
         private void Update()
         {
+            // [Bug 2 수정] PB4DecisionAdapter가 외부에서 틱을 관리하는 경우
+            // Brain의 자체 Update()를 스킵하여 UpdateDecision() 이중 호출을 방지한다.
+            if (externallyTicked) return;
+
             decisionTimer += Time.deltaTime;
             if (decisionTimer >= DECISION_INTERVAL)
             {
@@ -119,9 +148,9 @@ namespace TDA.PB4.AI.Humanoid
             float greedMod = 1.0f - personality.control;        // 자제력 낮으면 탐욕적
 
             u_attack = (1.0f - fear * fearMod) * aggressionMod * 0.8f;
-            u_flee   = fear * fearMod * 0.9f;
-            u_loot   = greed * greedMod * (currentTarget != null ? 0.0f : 0.7f); // 전투 중엔 루팅 안 함
-            u_move   = (1.0f - fatigue) * personality.openness * 0.3f;
+            u_flee = fear * fearMod * 0.9f;
+            u_loot = greed * greedMod * (currentTarget != null ? 0.0f : 0.7f); // 전투 중엔 루팅 안 함
+            u_move = (1.0f - fatigue) * personality.openness * 0.3f;
 
             if (currentTarget == null) u_attack = 0f;
 
@@ -129,11 +158,11 @@ namespace TDA.PB4.AI.Humanoid
             float maxU = Mathf.Max(u_attack, Mathf.Max(u_flee, Mathf.Max(u_loot, u_move)));
 
             HumanoidBTState newState;
-            if (maxU == u_attack)      newState = HumanoidBTState.Attack;
-            else if (maxU == u_flee)   newState = HumanoidBTState.Flee;
-            else if (maxU == u_loot)   newState = HumanoidBTState.Loot;
-            else if (maxU == u_move)   newState = HumanoidBTState.Move;
-            else                       newState = HumanoidBTState.Idle;
+            if (maxU == u_attack) newState = HumanoidBTState.Attack;
+            else if (maxU == u_flee) newState = HumanoidBTState.Flee;
+            else if (maxU == u_loot) newState = HumanoidBTState.Loot;
+            else if (maxU == u_move) newState = HumanoidBTState.Move;
+            else newState = HumanoidBTState.Idle;
 
             if (newState != currentState)
             {
@@ -155,7 +184,7 @@ namespace TDA.PB4.AI.Humanoid
                 case "Move":    /* NavMesh 기반 이동 */ break;
                 case "FollowCommand": /* Week 4에서 신뢰도 기반 명령 복종 */ break;
                 case "Idle":
-                default:        break;
+                default: break;
             }
         }
 
@@ -166,9 +195,9 @@ namespace TDA.PB4.AI.Humanoid
         public void PivotPersonality(float[] delta)
         {
             if (delta == null || delta.Length != 5) return;
-            personality.control   = Mathf.Clamp01(personality.control + delta[0]);
+            personality.control = Mathf.Clamp01(personality.control + delta[0]);
             personality.stability = Mathf.Clamp01(personality.stability + delta[1]);
-            personality.openness  = Mathf.Clamp01(personality.openness + delta[2]);
+            personality.openness = Mathf.Clamp01(personality.openness + delta[2]);
             personality.agreeable = Mathf.Clamp01(personality.agreeable + delta[3]);
             personality.directness = Mathf.Clamp01(personality.directness + delta[4]);
         }

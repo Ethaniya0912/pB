@@ -44,6 +44,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a4e1f8850cac4a9cb2fbf6e377985c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bloodSplatterVFX: {fileID: 8892902281893112677, guid: 9ce1322c72be6ec4c8d7542fcf8b663a,
+    type: 3}
+  hitsparkVFX: {fileID: 8892902281893112677, guid: 9cf1c983ffa3325479a49b8a5fa1a491,
+    type: 3}
+  vfxRegistry: {fileID: 11400000, guid: 5cbdf62e96a30304e9ad92a702f931e5, type: 2}
+  gpuSparkPrefab: {fileID: 0}
   takeDamageEffect: {fileID: 11400000, guid: 5ccb0034b77b1d14ba24ebb4926b123d, type: 2}
   instantEffects:
   - {fileID: 11400000, guid: ad2b50a3ba7b24809b9bb4576606032d, type: 2}

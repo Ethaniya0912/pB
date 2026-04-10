@@ -15,6 +15,7 @@
 // =============================================================================
 using System;
 using System.Collections.Generic;
+using UnityEngine;   // Vector3, Transform
 
 namespace TDA.PB4.Core
 {
@@ -66,6 +67,25 @@ namespace TDA.PB4.Core
             => OnBiomeSpawnCompleted?.Invoke(chunkIndex);
 
         // ==================================================================
+        // [7] 소리 이벤트 — AI 청각 인지 트리거 (설계 문서 M2)
+        // SoundEventEmitter 가 발행 → AIPerceptionSystem / SoundPerception 이 구독
+        // ==================================================================
+        public static event Action<Vector3, TDA.PB4.AI.Perception.SoundType, float> OnSoundEmitted;
+        public static void RaiseSoundEmitted(
+            Vector3 position,
+            TDA.PB4.AI.Perception.SoundType type,
+            float volume)
+            => OnSoundEmitted?.Invoke(position, type, volume);
+
+        // ==================================================================
+        // [8] 팩션 감지 이벤트 — AI 가 플레이어를 처음 발견할 때 (설계 문서 M2)
+        // AIPerceptionSystem 이 발행 → FactionDetectionSFXManager / BT 가 구독
+        // ==================================================================
+        public static event Action<Transform> OnFactionDetectedPlayer;
+        public static void RaiseFactionDetectedPlayer(Transform detectedTransform)
+            => OnFactionDetectedPlayer?.Invoke(detectedTransform);
+
+        // ==================================================================
         // 씬 전환 시 모든 구독 강제 해제 (안전망)
         // ==================================================================
         public static void ClearAll()
@@ -76,6 +96,8 @@ namespace TDA.PB4.Core
             OnEscalationTriggered = null;
             OnFactionStateChanged = null;
             OnBiomeSpawnCompleted = null;
+            OnSoundEmitted = null;  // [M2]
+            OnFactionDetectedPlayer = null;  // [M2]
         }
     }
 }

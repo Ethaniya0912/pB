@@ -121,7 +121,7 @@ namespace TDA.EditorTools
     // CustomEditor Inspector
     // =========================================================================
     [CustomEditor(typeof(CharacterManagerDebugger), true)]
-    public class CharacterManagerDebuggerInspector : Editor
+    public class CharacterManagerDebuggerInspector : UnityEditor.Editor
     {
         private static readonly Color HeaderColor = new Color(0.12f, 0.22f, 0.38f);
         private static readonly Color AccentColor = new Color(0.18f, 0.46f, 0.71f);
@@ -307,7 +307,9 @@ namespace TDA.EditorTools
                 var ai = c as AICharacterManager;
                 if (ai != null)
                 {
-                    NullRow("defaultState", ai.defaultState == null, true);
+                    // [Phase 5 FSM 탈락] defaultState 제거 → BehaviorGraphAgent 체크로 교체
+                    var btAgent = ai.GetComponent<Unity.Behavior.BehaviorGraphAgent>();
+                    NullRow("BehaviorGraphAgent", btAgent == null, true);
                     NullRow("aiCharacterCombatManager", ai.aiCharacterCombatManager == null, true);
                     NullRow("navMeshAgent", ai.navMeshAgent == null, true);
                 }

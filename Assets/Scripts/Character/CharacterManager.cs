@@ -88,7 +88,16 @@ public class CharacterManager : NetworkBehaviour
     // =========================================================================
     protected virtual void Awake()
     {
-        DontDestroyOnLoad(this);
+        // [pB-4 수정] 오프라인/테스트 씬에서는 DontDestroyOnLoad를 적용하지 않습니다.
+        // NetworkManager가 활성화된 멀티플레이 환경에서만 씬 전환 시 오브젝트를 유지합니다.
+        // 테스트 씬에서 DontDestroyOnLoad를 적용하면 오브젝트가 DontDestroyOnLoad 씬으로
+        // 이동하면서 position이 (0,0,0)으로 리셋되는 문제가 발생합니다.
+        bool isNetworkActive = Unity.Netcode.NetworkManager.Singleton != null &&
+                               Unity.Netcode.NetworkManager.Singleton.IsListening;
+        if (isNetworkActive)
+        {
+            DontDestroyOnLoad(this);
+        }
 
         characterController = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
@@ -113,6 +122,17 @@ public class CharacterManager : NetworkBehaviour
 
     public virtual void Update()
     {
+        // [Bug 4] 네트워크 미초기화 환경 보호
+        if (characterNetworkManager == null) return;
+
+        // [Bug 5 — 0,0,0 스냅 수정]
+        // 원인: networkPosition 초기값=Vector3.zero, AI는 IsOwner=false
+        //       → else 분기에서 transform.position을 매 프레임 (0,0,0)으로 SmoothDamp
+        // 수정: 실제 네트워크 세션에서만 위치 동기화 블록 실행
+        bool isNetworkActive = Unity.Netcode.NetworkManager.Singleton != null &&
+                               Unity.Netcode.NetworkManager.Singleton.IsListening;
+        if (!isNetworkActive) return;
+
         // 캐릭터가 내쪽에서 움직일 경우, 네트워크포지션에 내 포지션을 할당
         if (IsOwner)
         {

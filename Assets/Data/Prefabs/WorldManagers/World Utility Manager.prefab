@@ -46,7 +46,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characterLayers:
     serializedVersion: 2
-    m_Bits: 192
+    m_Bits: 448
   enviroLayers:
     serializedVersion: 2
     m_Bits: 1
