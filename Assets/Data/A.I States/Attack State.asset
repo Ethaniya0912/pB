@@ -16,17 +16,17 @@ MonoBehaviour:
   attackActions:
   - attackActionID: 1
     minimumAttackDistance: 0
-    maximumAttackDistance: 1
+    maximumAttackDistance: 1.5
     minimumAttackAngle: 0
-    maximumAttackAngle: 1
+    maximumAttackAngle: 90
     poiseDamage: 1
     enablePoiseDuringAttack: 0
     rotationSpeedDuringAttack: 3
   - attackActionID: 2
     minimumAttackDistance: 0
-    maximumAttackDistance: 1
+    maximumAttackDistance: 1.5
     minimumAttackAngle: 0
-    maximumAttackAngle: 1
+    maximumAttackAngle: 90
     poiseDamage: 1
     enablePoiseDuringAttack: 0
     rotationSpeedDuringAttack: 3

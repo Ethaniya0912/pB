@@ -1280,6 +1280,11 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!54 &151631553
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -4920,6 +4925,11 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!54 &870814259
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -7141,6 +7151,11 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!54 &1212716413
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -9529,6 +9544,11 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!54 &1503385257
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -12805,6 +12825,11 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!114 &2844583270722843679
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12852,6 +12877,11 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!1 &2928474710253796437
 GameObject:
   m_ObjectHideFlags: 0

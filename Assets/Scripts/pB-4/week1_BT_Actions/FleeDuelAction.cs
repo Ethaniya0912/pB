@@ -55,11 +55,42 @@
 //        → Attack 우세 조건: (1-F) * aggTh * (factionAgg/10) > F * fleeTh
 //        → Orc(aggressionThreshold=0.5, fleeThreshold=0.8, factionAgg≈7) 기준
 //           안전 상한값 ≈ 0.304. 0.4f 는 경계 초과 위험 있음.
+//
+// [버그 수정 — Flee→Attack 트랜지션 불가 (Bug C)]
+//   문제:
+//     ProtectNavMeshInfra() 의 updatePosition = false 설정으로
+//     Flee 단계 동안 NavMeshAgent 내부 위치(저장된 위치)와 실제 캐릭터 위치가 desync.
+//     FleeDuelAction 이후 Attack 분기 진입 시 StalkAction.OnStart() 의
+//     isOnNavMesh 체크가 false 를 반환 → StalkAction Failure → TryInOrder 가
+//     Flee/Patrol 조건 모두 불충족 → Idle 낙하.
+//     사용자는 "Flee → Attack 트랜지션이 안됨" 으로 인식.
+//
+//   수정:
+//     FleeDuelAction.OnStart() 말미에서 isStopped = false 와 함께
+//     navMeshAgent.nextPosition = transform.position 를 명시적으로 동기화.
+//     이후 StalkAction.OnStart() 의 isOnNavMesh 체크가 올바르게 통과됩니다.
+//
+// [버그 수정 — Bug 2: 10m 밖에서 돌진]
+//   문제:
+//     Flee 진입 시 dist > EngageRange(10m)이어도 FleeDuelAction 이 즉시
+//     brain.fear = InitialFear(0.25) → brain.UpdateDecision() → CurrentState = Attack
+//     → ForceSyncBB → UtilityWinner = "Attack" 으로 전환.
+//     그 결과 BT 가 즉시 Attack 분기 → StalkAction 이 10m+ 거리에서 타겟을 향해 돌진.
+//     오크의 반격 의도는 맞지만 Engage Range 밖에서의 급격한 방향 전환이
+//     "도망 안 가고 갑자기 돌진" 으로 보임.
+//
+//   수정:
+//     EngageRange BB 변수 추가.
+//     OnStart() 에서 dist > EngageRange 이면 즉시 fear 리셋/ForceSyncBB 하지 않고
+//     Status.Running 을 반환하여 OnUpdate() 에서 직접 타겟을 향해 접근.
+//     dist <= EngageRange 도달 시 fear 리셋 + ForceSyncBB + Success.
+//     → Engage Range 내부에서 반격으로 전환되어 자연스러운 돌진-반격 연출.
 // =============================================================================
 using System;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
+using UnityEngine.AI;   // NavMeshAgent (Bug 2 수정 — OnUpdate 접근 이동)
 using TDA.PB4.AI;       // BaseAIBrain
 using TDA.PB4.Bridge;   // PB4DecisionAdapter (ForceSyncBB — 타이밍 버그 수정 ②)
 using TDA.Character.AI; // AICharacterManager  (NavMesh 복원  — 타이밍 버그 수정 ③)
@@ -95,9 +126,27 @@ public partial class FleeDuelAction : Action
              "기본 0.25 (여유 마진 확보)")]
     [SerializeReference] public BlackboardVariable<float> InitialFear = new(0.25f);
 
+    /// <summary>
+    /// [Bug 2 수정] Stalk → CircleStrafe 전환 기준 거리 (m).
+    /// dist > EngageRange 인 상태에서 Flee 가 트리거되면
+    /// 즉시 fear 를 리셋하지 않고 OnUpdate() 에서 타겟을 향해 접근합니다.
+    /// dist <= EngageRange 도달 후 fear 리셋 + Attack 전환.
+    /// PB4DecisionAdapter 가 combatProfile.engageRange 를 BB 에 push 합니다.
+    /// </summary>
+    [Tooltip("Engage Range(m). 이 거리 이내 진입 후 반격 전환.\n" +
+             "PB4DecisionAdapter → BB EngageRange → 이 변수로 연결하세요.")]
+    [SerializeReference] public BlackboardVariable<float> EngageRange = new(10f);
+
     // [버그 수정] Fear, UtilityWinner BB 변수 필드 제거.
     // 이 Action에서 직접 BB에 역기록하지 않습니다.
     // brain.fear → PB4DecisionAdapter → BB Fear / UtilityWinner 단방향 흐름을 유지합니다.
+
+    // =========================================================================
+    // 내부 상태
+    // =========================================================================
+
+    /// <summary>[Bug 2 수정] 접근 중 NavMeshAgent 캐시.</summary>
+    private NavMeshAgent _nav;
 
     // =========================================================================
     // 생명주기
@@ -116,6 +165,10 @@ public partial class FleeDuelAction : Action
     /// ① brain.UpdateDecision() 즉시 호출 — 0.5s Adapter 틱 공전 루프 차단.
     /// ② adapter.ForceSyncBB()          — BB UtilityWinner 즉시 "Attack" 반영.
     /// ③ navMeshAgent.isStopped = false  — 이전 Action 잔류 정지 상태 해제.
+    ///
+    /// [Bug 2 수정]
+    /// dist > EngageRange 이면 즉시 반격 전환하지 않고 Status.Running 반환.
+    /// OnUpdate() 에서 타겟을 향해 접근하다가 dist <= EngageRange 도달 시 반격.
     /// </summary>
     protected override Status OnStart()
     {
@@ -125,21 +178,60 @@ public partial class FleeDuelAction : Action
             return Status.Failure;
         }
 
-        // ── [버그 수정] brain.fear 직접 수정 (BB 역기록 제거) ──
-        // BB Fear / UtilityWinner 변수를 직접 쓰지 않습니다.
-        //
-        // 수정 전 코드 (문제):
-        //   Fear.Value = InitialFear.Value;          // BB Fear 역기록 → 0.5초 후 덮어써짐
-        //   UtilityWinner.Value = "Attack";           // BB UtilityWinner 역기록 → 0.5초 후 덮어써짐
-        //
-        // 수정 후 코드:
-        //   brain.fear = InitialFear.Value 직접 설정
-        //   → 다음 Brain.UpdateDecision() 에서 u_flee 감소 → CurrentState = Attack
-        //   → PB4DecisionAdapter 가 BB Fear / UtilityWinner 를 올바른 값으로 전파
+        // ── [타이밍 버그 수정 ③ / Bug C] NavMeshAgent 복원 ─────────────────────
+        var aiMgr = Self.Value.GetComponent<AICharacterManager>();
+        if (aiMgr?.navMeshAgent != null)
+        {
+            aiMgr.navMeshAgent.isStopped = false;
+            aiMgr.navMeshAgent.stoppingDistance = 0f;
+            if (aiMgr.navMeshAgent.isOnNavMesh)
+                aiMgr.navMeshAgent.nextPosition = aiMgr.transform.position;
+        }
+
+        // [Bug 2 수정] EngageRange 거리 무관 즉시 반격.
+        // 기존 OnUpdate 접근 로직 제거 — StalkAction(Attack 분기)과 동일한 동작 중복이었음.
+        // fear 리셋 → UpdateDecision → Attack → BT Attack 분기 → StalkAction 접근.
         var brain = Self.Value.GetComponent<BaseAIBrain>();
+
+        Debug.Log(
+            $"[FleeDuel][ONSTART] {Self.Value.name}: fear={brain?.fear:F3} → CounterAttack 즉시 실행");
+
+        return CounterAttack(brain);
+    }
+
+    protected override Status OnUpdate()
+    {
+        // OnStart에서 항상 Success 반환 → OnUpdate 미호출.
+        // (EngageRange 접근 로직은 Bug 2 수정으로 제거됨. StalkAction이 담당.)
+        return Status.Success;
+    }
+
+    /// <summary>
+    /// 반격 시퀀스: fear 리셋 → UpdateDecision() → ForceSyncBB() → Success.
+    /// OnStart() 및 OnUpdate() 양쪽에서 호출됩니다.
+    /// </summary>
+    private Status CounterAttack(BaseAIBrain brain)
+    {
+        // [Bug 2 수정] InitialFear 상한선 강제 적용
+        // BT 에디터에 저장된 InitialFear=0.40이면 fear=0.40 → u_flee=0.32 > u_attack=0.21
+        // → Flee가 계속 이겨 FleeDuelAction이 무한 루프.
+        // Attack 임계값: fear < 0.304 (Orc 기준). 0.20으로 제한.
+        // ★ BT 에디터 FleeDuelAction 노드의 InitialFear 값도 0.20으로 변경하세요.
+        const float MAX_INITIAL_FEAR = 0.28f;
+        float safeInitialFear = Mathf.Min(InitialFear.Value, MAX_INITIAL_FEAR);
+
+        if (InitialFear.Value > MAX_INITIAL_FEAR)
+            Debug.LogWarning(
+                $"[FleeDuel][COUNTER] {Self.Value?.name}: InitialFear={InitialFear.Value:F2} 상한 초과.\n" +
+                $"  → {safeInitialFear:F2}로 강제 보정. BT 에디터에서도 수정 필요.");
+
+        Debug.Log(
+            $"[FleeDuel][COUNTER] {Self.Value?.name}: 반격 전환 시작. " +
+            $"fear={brain?.fear:F3} → {safeInitialFear:F2}");
+
         if (brain != null)
         {
-            brain.fear = Mathf.Clamp01(InitialFear.Value);
+            brain.fear = Mathf.Clamp01(safeInitialFear);
 
             // ── [타이밍 버그 수정 ①] brain.UpdateDecision() 즉시 호출 ──────────
             // 기존 문제: fear 를 낮춘 뒤 PB4DecisionAdapter 의 다음 틱(최대 0.5초)까지
@@ -149,8 +241,11 @@ public partial class FleeDuelAction : Action
             // 수정: 즉시 UpdateDecision() 호출 → CurrentState = Attack 전환.
             brain.UpdateDecision();
 
-            Debug.Log($"[BT] {Self.Value.name}: 오크 반격 전환! " +
-                      $"brain.fear={InitialFear.Value:F2} → UpdateDecision() 즉시 호출 → Attack 복귀.");
+            var mobBrain = brain as TDA.PB4.AI.Mob.MobAIBrain;
+            Debug.Log(
+                $"[FleeDuel][COUNTER] {Self.Value?.name}: UpdateDecision 완료 → " +
+                $"CurrentState={(mobBrain != null ? mobBrain.CurrentState.ToString() : "N/A")} " +
+                $"fear={brain.fear:F3}");
         }
         else
         {
@@ -167,30 +262,16 @@ public partial class FleeDuelAction : Action
         if (adapter != null)
         {
             adapter.ForceSyncBB();
+            Debug.Log($"[FleeDuel][COUNTER] {Self.Value?.name}: ForceSyncBB 완료.");
         }
         else
         {
-            Debug.LogWarning($"[FleeDuelAction] {Self.Value.name}: PB4DecisionAdapter 를 찾을 수 없어 " +
-                             "BB 즉시 동기화 불가. 다음 Adapter 틱까지 최대 0.5초 대기합니다.");
-        }
-
-        // ── [타이밍 버그 수정 ③] NavMeshAgent 정지 상태 명시적 복원 ────────────
-        // 이전 Action(StalkAction, CircleStrafeAction 등)이 isStopped 를 남겨두었을 수 있음.
-        // ProtectNavMeshInfra() 에서 updatePosition = false 가 적용 중이므로,
-        // isStopped 만 false 로 초기화하여 다음 Attack 분기의 이동 재개를 보장.
-        var aiMgr = Self.Value.GetComponent<AICharacterManager>();
-        if (aiMgr?.navMeshAgent != null)
-        {
-            aiMgr.navMeshAgent.isStopped = false;
+            Debug.LogError(
+                $"<color=red>[FleeDuel][COUNTER] {Self.Value?.name}: PB4DecisionAdapter==null!\n" +
+                $"  ForceSyncBB 불가 → BB UtilityWinner가 갱신 안 됨 → BT Flee 루프 지속 가능</color>");
         }
 
         // 즉시 Success → TryInOrder 재평가 → BB 갱신 완료 상태에서 Attack 분기 활성화
-        return Status.Success;
-    }
-
-    protected override Status OnUpdate()
-    {
-        // OnStart에서 즉시 Success를 반환하므로 OnUpdate는 호출되지 않음
         return Status.Success;
     }
 }

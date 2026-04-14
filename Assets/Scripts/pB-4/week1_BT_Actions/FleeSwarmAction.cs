@@ -68,6 +68,22 @@ public partial class FleeSwarmAction : Action
     // 도착 판정 거리 — 목적지에 이만큼 가까워지면 새 목적지를 설정
     private const float ARRIVE_DISTANCE = 2.0f;
 
+    /// <summary>
+    /// 이 거리 이상 타겟에서 멀어지면 도주 성공으로 Success 반환.
+    /// 0 이면 비활성 (도주 계속). 권장: 고블린 15~20m.
+    /// </summary>
+    [Tooltip("도주 성공 판정 거리(m). 타겟에서 이 이상 멀어지면 Success. 0=비활성.")]
+    [SerializeReference] public BlackboardVariable<float> SafeFleeDistance = new(15f);
+
+    // ── Stuck 감지 ────────────────────────────────────────────────────────────
+    private Vector3 _lastPosition;
+    private float _stuckTimer;
+    private int _stuckCount;           // 연속 stuck 횟수
+    private const float STUCK_CHECK_INTERVAL = 0.5f;   // 위치 비교 주기 (초)
+    private const float STUCK_MOVE_THRESHOLD = 0.3f;   // 이 거리 미만이면 stuck
+    private const float STUCK_MAX_TIME = 1.5f;   // stuck 유지 시 방향 전환
+    private const int STUCK_GIVE_UP = 4;      // 이 횟수 이상이면 Failure
+
     protected override Status OnStart()
     {
         if (Self.Value == null)
@@ -103,6 +119,11 @@ public partial class FleeSwarmAction : Action
         // 즉시 첫 목적지 설정
         SetFleeDestination(_fixedFleeDir);
 
+        // Stuck 감지 초기화
+        _lastPosition = _selfTransform.position;
+        _stuckTimer = 0f;
+        _stuckCount = 0;
+
         if (DebugLog.Value)
             Debug.Log($"[FleeSwarm] {Self.Value.name}: OnStart. " +
                       $"Speed={FleeSprintSpeed.Value} FleeDir={_fixedFleeDir} " +
@@ -120,17 +141,70 @@ public partial class FleeSwarmAction : Action
         if (_nav == null || !_nav.isOnNavMesh)
             return Status.Failure;
 
-        // ── Target이 있으면 실시간으로 도주 방향 갱신 ──
-        // [버그 수정] _selfTransform.position = _nav.nextPosition 제거
-        // 이 라인은 CharacterController.Move()로 이동한 위치를 덮어써서
-        // RootMotion 이동과 충돌을 일으킵니다.
-        // 위치 이동은 AICharacterLocomotionManager.OnAnimatorMove()가 전담합니다.
-        // Target이 있는 경우에만 방향을 업데이트 (없으면 OnStart에서 고정된 방향 유지)
+        Vector3 selfPos = _selfTransform.position;
+
+        // ── [수정 1] SafeFleeDistance — 충분히 멀어졌으면 도주 성공 ────────────
+        // 기존: 무한 도주 → NavMesh 경계 도달 → 제자리 회전
+        // 수정: 타겟에서 SafeFleeDistance 이상 벌어지면 Success 반환
+        if (SafeFleeDistance.Value > 0f && Target.Value != null)
+        {
+            float distToTarget = Vector3.Distance(selfPos, Target.Value.position);
+            if (distToTarget >= SafeFleeDistance.Value)
+            {
+                if (DebugLog.Value)
+                    Debug.Log($"[FleeSwarm] {Self.Value.name}: 도주 완료. " +
+                              $"dist={distToTarget:F1}m >= safe={SafeFleeDistance.Value:F1}m → Success");
+                return Status.Success;
+            }
+        }
+
+        // ── [수정 2] Stuck 감지 — 일정 시간 이동 없으면 방향 전환 ────────────
+        _stuckTimer += Time.deltaTime;
+        if (_stuckTimer >= STUCK_CHECK_INTERVAL)
+        {
+            float moved = Vector3.Distance(selfPos, _lastPosition);
+            _lastPosition = selfPos;
+            _stuckTimer = 0f;
+
+            if (moved < STUCK_MOVE_THRESHOLD)
+            {
+                _stuckCount++;
+                if (DebugLog.Value)
+                    Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: Stuck 감지 " +
+                                     $"(moved={moved:F2}m, count={_stuckCount})");
+
+                if (_stuckCount >= STUCK_GIVE_UP)
+                {
+                    // 너무 오래 막혔으면 Failure → BT가 다른 행동으로 전환
+                    Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: Stuck {STUCK_GIVE_UP}회 → Failure");
+                    return Status.Failure;
+                }
+
+                // 경계에 막혔을 가능성 → 수직 방향으로 탈출 시도
+                Vector3 perpDir = Vector3.Cross(_fixedFleeDir, Vector3.up).normalized;
+                perpDir = (_stuckCount % 2 == 0) ? perpDir : -perpDir;
+                Vector3 escapeDir = (_fixedFleeDir * 0.6f + perpDir * 0.4f).normalized;
+                SetFleeDestination(escapeDir);
+                _fixedFleeDir = escapeDir;
+
+                if (DebugLog.Value)
+                    Debug.Log($"[FleeSwarm] {Self.Value.name}: 경계 우회 → escapeDir={escapeDir}");
+            }
+            else
+            {
+                // 정상 이동 중 → stuck 카운터 리셋
+                _stuckCount = Mathf.Max(0, _stuckCount - 1);
+            }
+        }
+
+        // ── Target이 있으면 실시간으로 도주 방향 갱신 ────────────────────────
+        // [스핀 버그 수정] Angle 기준 30° → 60°, 최소 재계산 간격 1.5초 추가.
+        // 기존: 30° 변화마다 SetDestination → 경로 재계산 중 desiredVelocity 진동 → 스핀.
+        // 수정: 60° 이상 변화하고 1.5초 경과 후에만 재계산.
         if (Target.Value != null)
         {
-            Vector3 newDir = (_selfTransform.position - Target.Value.position).normalized;
-            // 방향이 크게 바뀐 경우에만 목적지 재설정 (불필요한 경로 계산 방지)
-            if (Vector3.Angle(_fixedFleeDir, newDir) > 30f)
+            Vector3 newDir = (selfPos - Target.Value.position).normalized;
+            if (Vector3.Angle(_fixedFleeDir, newDir) > 60f)
             {
                 _fixedFleeDir = newDir;
                 SetFleeDestination(_fixedFleeDir);
@@ -138,7 +212,7 @@ public partial class FleeSwarmAction : Action
         }
         else
         {
-            // Target 없음 — 목적지에 도착했을 때만 같은 방향으로 다음 목적지 설정
+            // Target 없음 — 목적지 도달 시 같은 방향으로 계속
             if (!_nav.pathPending && _nav.remainingDistance < ARRIVE_DISTANCE)
             {
                 SetFleeDestination(_fixedFleeDir);
@@ -155,6 +229,8 @@ public partial class FleeSwarmAction : Action
     protected override void OnEnd()
     {
         _fixedFleeDir = Vector3.zero;
+        _stuckTimer = 0f;
+        _stuckCount = 0;
     }
 
     // =========================================================================
@@ -189,11 +265,14 @@ public partial class FleeSwarmAction : Action
     /// </summary>
     private void SetFleeDestination(Vector3 dir)
     {
-        // 거리를 줄여가며 NavMesh 위의 유효한 목적지를 찾음
-        for (float dist = 8f; dist >= 2f; dist -= 2f)
+        // [스핀 버그 수정] 목적지를 8m → 30m으로 크게 늘림.
+        // 기존 8m: 1.3초마다 목적지 도달 → 재계산 시 desiredVelocity 진동 → 스핀.
+        // 30m: 5초 이상 같은 목적지 유지 → 경로 안정, desiredVelocity 일정 방향 유지.
+        // SamplePosition radius를 3f로 줄여 원치 않는 스냅 방지.
+        for (float dist = 30f; dist >= 4f; dist -= 6f)
         {
             Vector3 dest = _selfTransform.position + dir * dist;
-            if (NavMesh.SamplePosition(dest, out NavMeshHit hit, 15f, NavMesh.AllAreas))
+            if (NavMesh.SamplePosition(dest, out NavMeshHit hit, 3f, NavMesh.AllAreas))
             {
                 _nav.SetDestination(hit.position);
 
@@ -204,9 +283,13 @@ public partial class FleeSwarmAction : Action
             }
         }
 
+        // 모든 거리 실패 → 가까운 점이라도 설정 (NavMesh 경계 근처)
+        Vector3 fallback = _selfTransform.position + dir * 4f;
+        if (NavMesh.SamplePosition(fallback, out NavMeshHit fbHit, 15f, NavMesh.AllAreas))
+            _nav.SetDestination(fbHit.position);
+
         if (DebugLog.Value)
-            Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: SamplePosition 실패 — " +
-                             $"모든 거리에서 NavMesh 없음.");
+            Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: 원거리 SamplePosition 실패 — 폴백 사용.");
     }
 
     // =========================================================================

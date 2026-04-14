@@ -152,6 +152,11 @@ namespace TDA.Character.AI
         {
             base.Update();
 
+            // ── AI 스태미나 재생 ───────────────────────────────────────────────────
+            // CharacterStatsManager.RegenerateStamina()는 !IsOwner → AI에서 작동 안 함.
+            // 네트워크 세션 유무와 무관하게 서버 또는 에디터 단독 실행 모두 지원합니다.
+            RegenerateAIStamina();
+
             if (!IsServer) return;
 
             // [Phase 5 FSM 탈락] currentState.Tick() 제거
@@ -203,6 +208,165 @@ namespace TDA.Character.AI
 #if UNITY_EDITOR
             Debug.Log($"<color=yellow>[AICharacterManager:{name}]</color> {msg}");
 #endif
+        }
+
+        // =====================================================================
+        // AI 스태미나 재생 (IsServer 전용)
+        // =====================================================================
+
+        // ── 스태미나 재생 파라미터 ───────────────────────────────────────────
+        private float _staminaRegenTimer = 0f;
+        private float _staminaTickTimer = 0f;
+        private float _staminaDebugTimer = 0f;  // 스태미나 상태 주기 출력용
+
+        [Header("AI Stamina Regen (Server)")]
+        [Tooltip("스태미나 재생 시작까지 대기 시간 (초).")]
+        public float aiStaminaRegenDelay = 2f;
+        [Tooltip("0.1초마다 재생되는 스태미나 양.")]
+        public int aiStaminaRegenAmount = 2;
+        [Tooltip("공격 1회당 소모되는 스태미나 양. 0=소모 없음.")]
+        public int aiStaminaDrainPerAttack = 15;
+
+        [Header("AI Stamina Debug")]
+        [Tooltip("체크하면 스태미나 소모/재생/차단 사유를 Console에 출력합니다.")]
+        public bool debugStamina = false;
+        [Tooltip("debugStamina=true일 때 현재 스태미나 상태를 출력하는 주기 (초).")]
+        public float debugStaminaInterval = 1f;
+
+        private void RegenerateAIStamina()
+        {
+            if (characterNetworkManager == null)
+            {
+                if (debugStamina)
+                    Debug.LogWarning($"<color=orange>[Stamina] {name}: characterNetworkManager == null → 재생 불가</color>");
+                return;
+            }
+
+            // ── 주기적 상태 출력 ───────────────────────────────────────────
+            if (debugStamina)
+            {
+                _staminaDebugTimer += Time.deltaTime;
+                if (_staminaDebugTimer >= debugStaminaInterval)
+                {
+                    _staminaDebugTimer = 0f;
+                    float cur = characterNetworkManager.currentStamina.Value;
+                    float max = characterNetworkManager.maxStamina.Value;
+                    Debug.Log(
+                        $"<color=cyan>[Stamina] {name}</color>\n" +
+                        $"  IsServer={IsServer}  IsOwner={IsOwner}\n" +
+                        $"  currentSP={cur:F0} / maxSP={max:F0}  ({(max > 0 ? cur / max : 0):P0})\n" +
+                        $"  regenTimer={_staminaRegenTimer:F2}s / delay={aiStaminaRegenDelay:F1}s\n" +
+                        $"  isPerformingAction={isPerformingAction}\n" +
+                        $"  drainPerAttack={aiStaminaDrainPerAttack}");
+                }
+            }
+
+            // NGO 활성 시 서버만, 비활성(에디터 단독 테스트) 시 무조건 실행
+            bool _regenNetworked = Unity.Netcode.NetworkManager.Singleton != null
+                                && Unity.Netcode.NetworkManager.Singleton.IsListening;
+            if (_regenNetworked && !IsServer) return;
+
+            // 행동 중에는 재생 타이머 리셋
+            if (isPerformingAction)
+            {
+                if (debugStamina && _staminaRegenTimer > 0f)
+                    Debug.Log($"<color=orange>[Stamina] {name}: isPerformingAction=true → 재생 타이머 리셋</color>");
+                _staminaRegenTimer = 0f;
+                _staminaTickTimer = 0f;
+                return;
+            }
+
+            _staminaRegenTimer += Time.deltaTime;
+            if (_staminaRegenTimer < aiStaminaRegenDelay) return;
+
+            float spCur = characterNetworkManager.currentStamina.Value;
+            float spMax = characterNetworkManager.maxStamina.Value;
+            if (spCur >= spMax)
+            {
+                if (debugStamina)
+                    Debug.Log($"<color=grey>[Stamina] {name}: 스태미나 만충 ({spCur:F0}/{spMax:F0})</color>");
+                return;
+            }
+
+            _staminaTickTimer += Time.deltaTime;
+            if (_staminaTickTimer < 0.1f) return;
+
+            _staminaTickTimer = 0f;
+            float before = spCur;
+            characterNetworkManager.currentStamina.Value =
+                Mathf.Min(spMax, spCur + aiStaminaRegenAmount);
+
+            if (debugStamina)
+                Debug.Log($"<color=lime>[Stamina] {name}: 재생 +{aiStaminaRegenAmount} → {before:F0} → {characterNetworkManager.currentStamina.Value:F0}/{spMax:F0}</color>");
+        }
+
+        /// <summary>
+        /// 공격 실행 시 스태미나를 소모합니다.
+        /// StrikeAction.TryExecuteAttack()에서 공격 확정 직후 호출하세요.
+        /// </summary>
+        public void DrainStaminaForAttack()
+        {
+            if (characterNetworkManager == null)
+            {
+                if (debugStamina)
+                    Debug.LogWarning($"<color=red>[Stamina] {name}: DrainStaminaForAttack — characterNetworkManager == null!</color>");
+                return;
+            }
+
+            // NGO 활성 시 서버만, 비활성(에디터 단독 테스트) 시 무조건 실행
+            bool _isNetworked = Unity.Netcode.NetworkManager.Singleton != null
+                             && Unity.Netcode.NetworkManager.Singleton.IsListening;
+            if (_isNetworked && !IsServer)
+            {
+                if (debugStamina)
+                    Debug.LogWarning($"<color=red>[Stamina] {name}: DrainStaminaForAttack — IsServer=false (NGO 활성). 소모 불가.\n" +
+                                     "  Host로 실행하세요. 에디터 단독 실행 시 NGO를 Start하지 않으면 이 경로입니다.</color>");
+                return;
+            }
+
+            if (aiStaminaDrainPerAttack <= 0)
+            {
+                if (debugStamina)
+                    Debug.Log($"<color=grey>[Stamina] {name}: DrainStaminaForAttack — drainPerAttack={aiStaminaDrainPerAttack}, 소모 없음.</color>");
+                return;
+            }
+
+            float before = characterNetworkManager.currentStamina.Value;
+            characterNetworkManager.currentStamina.Value = Mathf.Max(0f, before - aiStaminaDrainPerAttack);
+            float after = characterNetworkManager.currentStamina.Value;
+
+            // 재생 딜레이 리셋
+            _staminaRegenTimer = 0f;
+
+            Debug.Log(
+                $"<color=red>[Stamina] {name}: 공격 소모 -{aiStaminaDrainPerAttack}</color>\n" +
+                $"  {before:F0} → {after:F0} / {characterNetworkManager.maxStamina.Value:F0}\n" +
+                $"  재생 딜레이 리셋 ({aiStaminaRegenDelay:F1}s 후 재생 재개)");
+        }
+        /// <summary>Inspector 컨텍스트 메뉴 또는 코드에서 호출해 스태미나 상태를 즉시 출력합니다.</summary>
+        [ContextMenu("Log Stamina Status")]
+        public void LogStaminaStatus()
+        {
+            bool _isNetworked = Unity.Netcode.NetworkManager.Singleton != null
+                             && Unity.Netcode.NetworkManager.Singleton.IsListening;
+            if (characterNetworkManager == null)
+            {
+                Debug.LogWarning($"[Stamina Check] {name}: characterNetworkManager == null");
+                return;
+            }
+            float cur = characterNetworkManager.currentStamina.Value;
+            float max = characterNetworkManager.maxStamina.Value;
+            float hp = characterNetworkManager.currentHealth.Value;
+            float maxHp = characterNetworkManager.maxHealth.Value;
+            Debug.Log(
+                $"<color=cyan>[Stamina Check] {name}</color>\n" +
+                $"  SP: {cur:F0} / {max:F0}  ({(max > 0 ? cur / max : 0f):P0})\n" +
+                $"  HP: {hp:F0} / {maxHp:F0}  ({(maxHp > 0 ? hp / maxHp : 0f):P0})\n" +
+                $"  IsServer={IsServer}  IsOwner={IsOwner}  NGO={_isNetworked}\n" +
+                $"  isPerformingAction={isPerformingAction}\n" +
+                $"  regenDelay={aiStaminaRegenDelay:F1}s  regenAmount={aiStaminaRegenAmount}  " +
+                $"drainPerAttack={aiStaminaDrainPerAttack}\n" +
+                $"  debugStamina={debugStamina}");
         }
     }
 }

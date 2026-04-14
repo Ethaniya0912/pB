@@ -256,12 +256,6 @@ namespace TDA.PB4.Diagnostics
         private Vector2 _mainLastBase;
         private Vector2 _mainDragStart, _charDragStart, _groupDragStart, _btDragStart;
         private Vector2 _mainDragOff, _charDragOff, _groupDragOff, _btDragOff;
-
-        // ── Scene View 전용 AI Info 드래그 상태 (Game View _mainDragOff와 분리) ─
-        // Scene View에서도 AI Info 패널을 드래그할 수 있도록 별도 관리
-        private bool _svInfoDragging;
-        private Vector2 _svInfoDragStart, _svInfoDragOff;
-
         // ── 패널 커스텀 크기 (우·하단 핸들 드래그 리사이즈) ─────────────────
         private float _mainCustomW = 0f;   // 0 = 컨텐츠 자동 크기
         private float _mainCustomH = 0f;
@@ -269,6 +263,10 @@ namespace TDA.PB4.Diagnostics
         private Vector2 _rsMouse;               // resize 드래그 시작 마우스 위치
         private float _rsStartW, _rsStartH;     // resize 드래그 시작 크기
         private const float RS_HANDLE = 7f;     // 핸들 영역 두께 (px)
+
+        // ── Scene View 전용 AI Info 드래그 상태 ──────────────────────────────
+        private bool _svInfoDragging;
+        private Vector2 _svInfoDragStart, _svInfoDragOff;
 
         // 스냅 위치 캐시 (연결선 렌더링용)
         private Rect _lastMainPanelRect;
@@ -794,13 +792,6 @@ namespace TDA.PB4.Diagnostics
             float padH = 16f, padV = 12f;
             float pw = Mathf.Max(cSize.x + padH * 2f, 160f), ph = cSize.y + padV * 2f + TITLE_H;
 
-            // ── FocusOnly 조기 반환 ─────────────────────────────────────────
-            {
-                var _earlyMode = _fss?.overlapMode ?? AIDebuggerSettings.OverlapMode.Auto;
-                if (_earlyMode == AIDebuggerSettings.OverlapMode.FocusOnly && _pinnedAI != gameObject)
-                    return;  // 핀되지 않은 AI는 FocusOnly 모드에서 패널 숨김
-            }
-
             // ── 스냅 위치 계산 (unscaled 좌표) ─────────────────────────
             // onRight: _lastPanelOnRight로 초기화 → _mainDragging=true 경로에서 미할당 방지
             bool onRight = _lastPanelOnRight;
@@ -813,11 +804,8 @@ namespace TDA.PB4.Diagnostics
                 var evT = Event.current.type;
 
                 // ── Layout 이벤트에서만 위치 계산·갱신 ───────────────────────
-                // Repaint 에서도 갱신하면 Layout과 Repaint가 서로 다른 dict 상태를
-                // 참조해 패널이 흔들리는 문제 발생 → Layout에서만 갱신, 나머지는 캐시 사용
                 if (evT != EventType.Layout)
                 {
-                    // Layout 이 아닌 이벤트: 캐시된 위치 재사용
                     snapBase = _mainLastBase;
                     onRight = _lastPanelOnRight;
                     OverlapResolver.Register(GetInstanceID(),
@@ -829,7 +817,6 @@ namespace TDA.PB4.Diagnostics
                     if (oMode == AIDebuggerSettings.OverlapMode.SnapSide ||
                         oMode == AIDebuggerSettings.OverlapMode.Auto)
                     {
-                        // SnapSide: 캐릭터 X위치 기반 좌·우 결정 → 이후 Y축 분리로 마무리
                         float halfSW = Screen.width * 0.5f;
                         float pw_s = pw * pScale, ph_s = ph * pScale;
                         float ox2 = _fss?.snapOffsetX ?? 16f;
@@ -841,7 +828,6 @@ namespace TDA.PB4.Diagnostics
                             : Mathf.Clamp(sp.x - ox2 - pw_s, 4f, Screen.width - pw_s - 4f);
                         onRight = charOnLeft;
 
-                        // 같은 쪽에 몰릴 때 Y축 분리 — SnapSide와 Auto 모두 적용
                         Rect c2 = new Rect(snapX, baseY2, pw_s, ph_s);
                         for (int i = 0; i < 10; i++)
                         {
@@ -863,8 +849,6 @@ namespace TDA.PB4.Diagnostics
                     }
                     else if (oMode == AIDebuggerSettings.OverlapMode.SeparateForce)
                     {
-                        // SeparateForce: X·Y 2D 반발력으로 자연스럽게 분산
-                        // GridJitter와 달리 양 축 모두 밀어내므로 시각적으로 다른 패턴
                         float cW3 = pw * pScale, cH3 = ph * pScale;
                         Rect c3 = new Rect(snapBase.x, snapBase.y, cW3, cH3);
                         float strength = _fss?.separateForceStrength ?? 0.5f;
@@ -878,7 +862,6 @@ namespace TDA.PB4.Diagnostics
                             c3.x = Mathf.Clamp(c3.x, 4f, Screen.width - cW3 - 4f);
                             c3.y = Mathf.Clamp(c3.y, 4f, Screen.height - cH3 - 4f);
                         }
-                        // 반발력 후에도 겹치면 Y축 밀기로 마무리 (이전 프레임 등록이 없을 때 대비)
                         for (int _oi = 0; _oi < 10; _oi++)
                         {
                             if (!OverlapResolver.CheckOverlap(c3, GetInstanceID())) break;
@@ -889,7 +872,6 @@ namespace TDA.PB4.Diagnostics
                     }
                     else if (oMode == AIDebuggerSettings.OverlapMode.GridJitter)
                     {
-                        // GridJitter: Y축 단방향 순차 밀기 (가장 단순·예측 가능)
                         float cW = pw * pScale, cH = ph * pScale;
                         Rect candR = new Rect(snapBase.x, snapBase.y, cW, cH);
                         for (int _oi = 0; _oi < 10; _oi++)
@@ -910,38 +892,34 @@ namespace TDA.PB4.Diagnostics
                         candR.y = Mathf.Clamp(candR.y, 4f, Screen.height - cH - 4f);
                         snapBase = new Vector2(candR.x, candR.y);
                     }
-                    // None / FocusOnly: 해소 없이 CalcSnapPosition 결과 그대로 사용
 
-                    // ── 몹 가림 방지 (Layout에서만 적용) ──────────────────────
-                    // 캐릭터의 화면 예상 영역과 패널이 겹치면 바깥으로 밀어냄.
-                    // 자신의 캐릭터만 회피 (다른 AI 캐릭터는 OverlapResolver가 처리).
+                    // ── 몹 가림 방지 ──────────────────────────────────────────
                     if (_fss?.avoidMobOcclusion ?? true)
                     {
                         float mW = (_fss?.mobExclusionW ?? 100f) * pScale;
                         float mH = (_fss?.mobExclusionH ?? 220f) * pScale;
-                        // sp = 캐릭터 허리 높이 기준 → 몸 중앙 기준 rect
                         Rect mobR = new Rect(sp.x - mW * 0.5f, sp.y - mH * 0.6f, mW, mH);
                         Rect panR = new Rect(snapBase.x, snapBase.y, pw * pScale, ph * pScale);
-
                         for (int _mi = 0; _mi < 6; _mi++)
                         {
                             if (!panR.Overlaps(mobR)) break;
-                            // 겹침 방향: 수평 or 수직 중 오버랩이 작은 쪽으로 밀어냄
                             float dx = panR.center.x - mobR.center.x;
                             float dy = panR.center.y - mobR.center.y;
                             float ovX = (panR.width + mobR.width) * 0.5f - Mathf.Abs(dx);
                             float ovY = (panR.height + mobR.height) * 0.5f - Mathf.Abs(dy);
-                            if (ovX < ovY)
-                                panR.x += Mathf.Sign(dx) * (ovX + 4f);
-                            else
-                                panR.y += Mathf.Sign(dy) * (ovY + 4f);
+                            if (ovX < ovY) panR.x += Mathf.Sign(dx) * (ovX + 4f);
+                            else panR.y += Mathf.Sign(dy) * (ovY + 4f);
                             panR.x = Mathf.Clamp(panR.x, 4f, Screen.width - panR.width - 4f);
                             panR.y = Mathf.Clamp(panR.y, 4f, Screen.height - panR.height - 4f);
                         }
                         snapBase = new Vector2(panR.x, panR.y);
                     }
 
-                    // Layout에서만 안정 위치 저장 + 등록
+                    // ── FocusOnly 조기 반환 ───────────────────────────────────
+                    var _earlyMode = _fss?.overlapMode ?? AIDebuggerSettings.OverlapMode.Auto;
+                    if (_earlyMode == AIDebuggerSettings.OverlapMode.FocusOnly && _pinnedAI != gameObject)
+                        return;
+
                     OverlapResolver.Register(GetInstanceID(),
                         new Rect(snapBase.x, snapBase.y, pw * pScale, ph * pScale));
                     _mainLastBase = snapBase;
@@ -1051,8 +1029,10 @@ namespace TDA.PB4.Diagnostics
             float oy = sett?.snapOffsetY ?? 0f;
             var side = sett?.snapSide ?? AIDebuggerSettings.PanelSnapSide.Auto;
 
+            // 패널 수직 중앙 = 캐릭터 스크린 Y (패널이 캐릭터 옆에 자연스럽게 붙음)
             float baseY = Mathf.Clamp(guiPos.y - vh * 0.5f + oy, 4f, Screen.height - vh - 4f);
 
+            // 우측 / 좌측 후보 위치
             float rx = guiPos.x + ox;
             float lx = guiPos.x - ox - vw;
 
@@ -1072,7 +1052,7 @@ namespace TDA.PB4.Diagnostics
                 return new Vector2(fx, baseY);
             }
 
-            // Auto: 우측 우선, 겹치면 좌측 — excludeId를 넘겨 자기 자신과 충돌 방지
+            // Auto: 우측 우선, 우측이 화면 밖이거나 겹치면 좌측
             bool rightFits = (rx + vw) < Screen.width - 4f;
             bool rightClear = rightFits && !OverlapResolver.CheckOverlap(rightRect, excludeId);
             bool leftFits = lx >= 4f;
@@ -1080,6 +1060,7 @@ namespace TDA.PB4.Diagnostics
             if (rightClear) { right = true; return new Vector2(rx, baseY); }
             if (leftFits && !OverlapResolver.CheckOverlap(leftRect, excludeId))
             { right = false; return new Vector2(lx, baseY); }
+            // 둘 다 겹치면 우측 강제 (겹침은 Resolve가 Y축으로 처리)
             right = rightFits;
             float fallX = right ? Mathf.Clamp(rx, 4f, Screen.width - vw - 4f)
                                 : Mathf.Clamp(lx, 4f, Screen.width - vw - 4f);
@@ -1101,7 +1082,6 @@ namespace TDA.PB4.Diagnostics
             Rect hBottom = new Rect(panel.x, panel.yMax - hs, panel.width, hs);
             Rect hCorner = new Rect(panel.xMax - hs, panel.yMax - hs, hs, hs);
 
-            // 핸들 시각화
             var ev = Event.current;
             bool hoverR = hRight.Contains(ev.mousePosition);
             bool hoverB = hBottom.Contains(ev.mousePosition);
@@ -1151,8 +1131,7 @@ namespace TDA.PB4.Diagnostics
         }
 
         private void DrawConnectorLine(Rect panelRect, bool onRight, Vector2 charGuiPos,
-                                       AIDebuggerSettings sett, Color? colorOvr = null,
-                                       float vpW = 0f, float vpH = 0f)
+                                       AIDebuggerSettings sett, Color? colorOvr = null)
         {
             if (sett == null || !sett.showConnectorLine) return;
             EnsureConnMat(); if (_connMat == null) return;
@@ -1167,17 +1146,9 @@ namespace TDA.PB4.Diagnostics
             float dash = sett.connectorDash;
             float dotR = sett.connectorDotR;
 
-            // GL 픽셀 매트릭스:
-            // · Game View(OnGUI)  → Screen.width/height (게임 해상도와 IMGUI 좌표 일치)
-            // · Scene View        → vpW/vpH (sv.position.width/height) 를 받아야
-            //   IMGUI 좌표계와 GL 좌표계가 일치함.
-            //   Screen.width/height는 게임 해상도이므로 Scene View에서 사용 불가.
-            float _glW = vpW > 0f ? vpW : Screen.width;
-            float _glH = vpH > 0f ? vpH : Screen.height;
-
             _connMat.SetPass(0);
             GL.PushMatrix();
-            GL.LoadPixelMatrix(0, _glW, _glH, 0);
+            GL.LoadPixelMatrix(0, Screen.width, Screen.height, 0);
             GL.Begin(GL.QUADS);
 
             // 점선 / 실선 그리기
@@ -1549,59 +1520,40 @@ namespace TDA.PB4.Diagnostics
                 : 0f;
 
             // ── ② 그룹 바운딩 박스 (AI Info + BT Graph 세로 스택) ────────────
+            // Char 패널은 우측에 붙으므로 세로 스택에서 제외
             float groupW = sMainW + 8f;
             float groupH = sMainH + (showBT ? btEstH + 4f : 0f);
 
-            // ── ③ 캐릭터 스크린 앵커 ───────────────────────────────────────────
-            // HandleUtility.WorldToGUIPoint: 해당 SceneView의 로컬 GUI 좌표 반환
-            // 허리 높이(1.2f) 기준 → 줌인 시 패널이 화면 위로 튀어나가는 문제 억제
+            // ── ③ 캐릭터 스크린 앵커 (허리 높이 1.2f) ─────────────────────────
+            // 기존 2.8f(머리 위) → 줌인 시 화면 위로 벗어나는 문제 해결
             Vector2 charPt = HandleUtility.WorldToGUIPoint(transform.position + Vector3.up * 1.2f);
 
-            // ── ④ 자연 위치: 캐릭터 우측에 바로 스냅 (원본 방식 유지) ──────────
-            // ※ 좌우 전환 로직(sv.position.width 비교)은 좌표계 불일치로 오동작 →
-            //   단순히 우측 고정 후 Y만 클램프. 우측 공간 부족은 SVGroupResolver가 처리.
+            // ── ④ 자연 위치: 캐릭터 바로 우측 스냅 ───────────────────────────
             float ox = sett?.snapOffsetX ?? 16f;
             float natX = charPt.x + ox;
-            float natY = charPt.y - sMainH * 0.5f;   // 패널 세로 중앙을 캐릭터 Y에 맞춤
+            // Y: 캐릭터가 화면 하단부(60% 이하)이면 그룹 상단을 캐릭터 Y에 맞춤
+            //    상단부이면 그룹 중앙을 캐릭터 Y에 맞춤 → 어느 방향이든 화면 안에 위치
+            float natY = charPt.y > sv.position.height * 0.6f
+                ? charPt.y - sMainH            // 하단부: 패널 위쪽이 캐릭터 위치
+                : charPt.y - sMainH * 0.4f;    // 상단부: 패널 중앙이 캐릭터보다 약간 위
+
+            // 우측 공간 부족 시 좌측으로 전환
+            if (natX + groupW + 4f > sv.position.width)
+                natX = charPt.x - ox - groupW;
+            natX = Mathf.Clamp(natX, 4f, Mathf.Max(sv.position.width - groupW - 4f, 4f));
             natY = Mathf.Clamp(natY, 4f, Mathf.Max(sv.position.height - groupH - 4f, 4f));
 
             // ── ⑤ 다중 AI 그룹 겹침 해소 (SVGroupResolver) ────────────────────
+            // 같은 캐릭터에 속한 패널들(AI Info + BT + Char)은 하나의 그룹으로 이동
             Vector2 origin = SVGroupResolver.Resolve(
                 GetInstanceID(), new Vector2(natX, natY),
                 groupW, groupH, sv.position.height);
 
-            // 해소 후 Y만 클램프 (X는 원본처럼 우측 고정, 화면 밖으로 나가더라도 허용)
+            // 해소 후 화면 경계 재클램프 (SVGroupResolver가 밀어낸 결과가 화면 밖일 경우 대비)
+            origin.x = Mathf.Clamp(origin.x, 4f, Mathf.Max(sv.position.width - groupW - 4f, 4f));
             origin.y = Mathf.Clamp(origin.y, 4f, Mathf.Max(sv.position.height - groupH - 4f, 4f));
 
-            // ── 몹 가림 방지 (Scene View) ─────────────────────────────────
-            // 캐릭터의 Scene View GUI 예상 영역과 패널 그룹이 겹치면 바깥으로 밀어냄
-            if (sett?.avoidMobOcclusion ?? true)
-            {
-                float svMW = sett?.mobExclusionW ?? 100f;
-                float svMH = sett?.mobExclusionH ?? 220f;
-                // charPt = 허리 높이 기준 → 몸 중앙 rect
-                Rect svMobR = new Rect(charPt.x - svMW * 0.5f, charPt.y - svMH * 0.6f, svMW, svMH);
-                Rect svPanR = new Rect(origin.x, origin.y, groupW, groupH);
-
-                for (int _smi = 0; _smi < 6; _smi++)
-                {
-                    if (!svPanR.Overlaps(svMobR)) break;
-                    float dxS = svPanR.center.x - svMobR.center.x;
-                    float dyS = svPanR.center.y - svMobR.center.y;
-                    float ovXS = (svPanR.width + svMobR.width) * 0.5f - Mathf.Abs(dxS);
-                    float ovYS = (svPanR.height + svMobR.height) * 0.5f - Mathf.Abs(dyS);
-                    if (ovXS < ovYS)
-                        svPanR.x += Mathf.Sign(dxS) * (ovXS + 4f);
-                    else
-                        svPanR.y += Mathf.Sign(dyS) * (ovYS + 4f);
-                    svPanR.x = Mathf.Clamp(svPanR.x, 4f, sv.position.width - groupW - 4f);
-                    svPanR.y = Mathf.Clamp(svPanR.y, 4f, sv.position.height - groupH - 4f);
-                }
-                origin = new Vector2(svPanR.x, svPanR.y);
-            }
-
-            float px = origin.x + _svInfoDragOff.x;
-            float py = origin.y + _svInfoDragOff.y;
+            float px = origin.x, py = origin.y;
             Rect aiScaled = new Rect(px, py, sMainW, sMainH);
 
             // ── ⑥ IMGUI 패널 렌더링 ─────────────────────────────────────────
@@ -1609,20 +1561,18 @@ namespace TDA.PB4.Diagnostics
 
             if (_debugMode != DebugMode.Minimum)
             {
-                // AI Info 패널 — Scene View 전용 드래그 오프셋(_svInfoDragOff) 적용
+                // AI Info 패널
                 Matrix4x4 mat0 = GUI.matrix;
                 if (useScale && svScale < 0.999f)
                     GUIUtility.ScaleAroundPivot(Vector2.one * svScale, new Vector2(px, py));
                 DrawPanelTitled(new Rect(px, py, mainPW, mainPH), "AI Info", content,
                                 _stylePanel, _styleText,
-                                ref _svInfoDragging, ref _svInfoDragStart, ref _svInfoDragOff);
+                                ref _mainDragging, ref _mainDragStart, ref _mainDragOff);
                 GUI.matrix = mat0;
 
                 // 연결선: AI Info 좌측 → 캐릭터 스크린 위치
-                // sv.position.width/height 전달 → GL LoadPixelMatrix가 Scene View 좌표계와 일치
                 if (sett?.showConnectorLine ?? true)
-                    DrawConnectorLine(aiScaled, true, charPt, sett, GetCharColor(gameObject.name),
-                                      sv.position.width, sv.position.height);
+                    DrawConnectorLine(aiScaled, true, charPt, sett, GetCharColor(gameObject.name));
 
                 // Char 패널 (AI Info 우측에 붙임)
                 bool showChar = (sett?.showCharacterPanel ?? false) || _charPanelVisible;
@@ -1699,29 +1649,74 @@ namespace TDA.PB4.Diagnostics
                 "Patrol" => new Color(0.35f, 0.60f, 1f),
                 _ => Color.gray
             };
-            Vector3 pos = transform.position + Vector3.up * 2.9f;
+            string wHex = winner switch
+            {
+                "Attack" => "#FF4545",
+                "Flee" => "#45EF70",
+                "Patrol" => "#45AAFF",
+                _ => "#9AA0AE"
+            };
+
+            Vector3 pos = transform.position + Vector3.up * 3.0f;
+
+            // ── 상태 원형 인디케이터 ──
             Handles.color = c;
-            Handles.DrawSolidDisc(pos, Vector3.up, minimal ? 0.06f : 0.09f);
-            string label = minimal
-                ? $"[{winner}] {gameObject.name}"
-                : $"[{winner}] {gameObject.name}\nFear:{GetFear():F2}  {GetAwareness()}";
-            Handles.Label(pos + Vector3.up * 0.18f, label);
+            Handles.DrawSolidDisc(pos, Vector3.up, minimal ? 0.07f : 0.11f);
+            Handles.color = new Color(c.r, c.g, c.b, 0.25f);
+            Handles.DrawWireDisc(pos, Vector3.up, minimal ? 0.15f : 0.22f);
+
+            // ── 라벨 (Rich Text + 큰 폰트) ──
+            var st = new GUIStyle(GUI.skin.label)
+            {
+                richText = true,
+                fontSize = minimal ? 11 : 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+            };
+            st.normal.textColor = Color.white;
+
+            if (minimal)
+            {
+                string txt = $"<color={wHex}>[{winner}]</color>  <color=#E8E8E8>{gameObject.name}</color>";
+                Handles.Label(pos + Vector3.up * 0.22f, txt, st);
+            }
+            else
+            {
+                float fear = GetFear();
+                string fearHex = fear > 0.7f ? "#FF4545" : fear > 0.4f ? "#FFA520" : "#45EF70";
+                string fearState = fear > 0.7f ? "⚠ Flee 임박" : fear > 0.4f ? "경계" : "안정";
+                string txt =
+                    $"<color={wHex}><b>[{winner}]</b></color>  <color=#E8E8E8>{gameObject.name}</color>\n" +
+                    $"<color={fearHex}>Fear {fear:F2}  {fearState}</color>  " +
+                    $"<color=#9AA0AE>{GetAwareness()}</color>";
+                Handles.Label(pos + Vector3.up * 0.24f, txt, st);
+            }
         }
-        /// <summary>Fear 수치를 3D 바 형태로 AI 머리 위에 렌더링한다.</summary>
+        /// <summary>Fear 바 — DrawStateLabel에 통합. 여기서는 카메라 방향 수평 바로만 표시.</summary>
         private void DrawFearBar3D()
         {
             float fear = GetFear();
             Vector3 camR = CamRight();
-            Vector3 root = transform.position + Vector3.up * 2.4f;
-            // 배경 바 (회색)
-            Handles.color = new Color(0.3f, 0.3f, 0.3f, 0.45f);
-            Handles.DrawAAPolyLine(5f, root, root + camR * 2.2f);
-            // 값 바 (cyan→red 그라디언트)
-            Handles.color = Color.Lerp(Color.cyan, Color.red, fear);
-            Handles.DrawAAPolyLine(5f, root, root + camR * (fear * 2.2f));
-            string state = fear > 0.7f ? "⚠ Flee 임박" : fear > 0.4f ? "경계" : "안정";
-            Handles.Label(root + camR * (fear * 2.2f) + Vector3.up * 0.14f,
-                $"<color=#FFA520>Fear {fear:F2}</color> {state}", RichLabel());
+            const float BAR_LEN = 2.8f;
+            const float BAR_W = 6f;
+            Vector3 root = transform.position + Vector3.up * 2.5f;
+
+            // 배경 트랙
+            Handles.color = new Color(0.18f, 0.18f, 0.22f, 0.80f);
+            Handles.DrawAAPolyLine(BAR_W, root, root + camR * BAR_LEN);
+
+            // 값 바
+            Color barCol = Color.Lerp(new Color(0.28f, 1f, 0.55f), new Color(1f, 0.28f, 0.28f), fear);
+            Handles.color = barCol;
+            if (fear > 0.005f)
+                Handles.DrawAAPolyLine(BAR_W, root, root + camR * (fear * BAR_LEN));
+
+            // Fear 레이블
+            var st = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 11, fontStyle = FontStyle.Bold };
+            st.normal.textColor = Color.white;
+            string hex = fear > 0.7f ? "#FF4545" : fear > 0.4f ? "#FFA520" : "#45EF70";
+            string label = $"<color={hex}>Fear {fear:F2}</color>";
+            Handles.Label(root + camR * (BAR_LEN + 0.08f) + Vector3.up * 0.02f, label, st);
         }
         /// <summary>선택된 AI의 시야각 아크를 3D Handles로 렌더링한다.</summary>
         private void DrawPerceptionArc3D()
@@ -1847,18 +1842,112 @@ namespace TDA.PB4.Diagnostics
         private void DrawUtilityBars3D()
         {
             if (_brain == null) return;
-            float fear = GetFear();
-            Vector3 camR = CamRight(); Vector3 up = Vector3.up;
-            Vector3 origin = transform.position + camR * 1.8f + up * 1.0f;
-            Handles.color = new Color(0.04f, 0.04f, 0.06f, 0.82f);
-            Handles.DrawSolidRectangleWithOutline(new Vector3[] { origin + up * (-0.08f) + camR * (-0.42f), origin + up * 1.12f + camR * (-0.42f), origin + up * 1.12f + camR * (1.35f + 0.22f), origin + up * (-0.08f) + camR * (1.35f + 0.22f) }, new Color(0.04f, 0.04f, 0.06f, 0.82f), new Color(0.28f, 0.76f, 1f, 0.55f));
-            var lblSt = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 10, alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold }; lblSt.normal.textColor = Color.white;
-            var valSt = new GUIStyle(lblSt) { alignment = TextAnchor.MiddleLeft };
-            void Bar(Vector3 p, float sc, Color col, string lbl) { Handles.color = new Color(0.15f, 0.15f, 0.18f, 0.95f); Handles.DrawAAPolyLine(7f, p, p + camR * 1.35f); Handles.color = sc > 0.01f ? col : new Color(col.r, col.g, col.b, 0.2f); if (sc > 0.01f) Handles.DrawAAPolyLine(7f, p, p + camR * (sc * 1.35f)); Handles.Label(p + camR * (-0.38f) + up * 0.02f, $"<color=#E0E8FF><b>{lbl}</b></color>", lblSt); Handles.Label(p + camR * (1.35f + 0.06f) + up * 0.02f, $"<color=#FFE88A>{sc:F2}</color>", valSt); }
-            Bar(origin + up * 0.9f, Mathf.Clamp01((1f - fear) * 0.8f), new Color(1f, 0.28f, 0.28f, 0.95f), "Atk");
-            Bar(origin + up * 0.6f, Mathf.Clamp01(fear * 1.2f), new Color(0.28f, 1f, 0.45f, 0.95f), "Fle");
-            Bar(origin + up * 0.3f, Mathf.Clamp01(0.5f - fear * 0.4f), new Color(0.35f, 0.60f, 1f, 0.95f), "Pat");
-            Bar(origin, Mathf.Clamp01(0.3f - fear * 0.2f), new Color(0.75f, 0.75f, 0.78f, 0.95f), "Idl");
+
+            // ── 실제 Utility 점수 읽기 ────────────────────────────────────────
+            // 기존 코드: fear에서 근사값 계산 (부정확)
+            // 수정: ReadUtility()로 MobAIBrain의 실제 u_attack/u_flee/u_idle/u_patrol 사용
+            float uAtk = ReadUtility("u_attack");
+            float uFle = ReadUtility("u_flee");
+            float uPat = ReadUtility("u_patrol");
+            float uIdl = ReadUtility("u_idle");
+
+            Vector3 camR = CamRight();
+            Vector3 up = Vector3.up;
+
+            // ── 패널 위치: 오크 머리 위, 카메라 오른쪽 ─────────────────────────
+            // up * 1.0f → 3.2f: 지면에 묻히지 않도록 머리 위로 올림
+            const float BAR_LEN = 2.0f;   // 바 최대 길이 (월드 단위)
+            const float BAR_W = 8f;     // 바 두께 (픽셀)
+            const float ROW_GAP = 0.38f;  // 행 간격
+            const float LBL_OFFX = -0.52f; // 레이블 X 오프셋 (왼쪽)
+            const float VAL_OFFX = 0.10f; // 값 X 오프셋 (바 오른쪽)
+
+            Vector3 origin = transform.position + camR * 2.2f + up * 3.2f;
+
+            // ── 배경 패널 ─────────────────────────────────────────────────────
+            float panW = BAR_LEN + 0.8f;
+            float panH = ROW_GAP * 3 + 0.28f;
+            Handles.color = new Color(0.05f, 0.06f, 0.10f, 0.88f);
+            Handles.DrawSolidRectangleWithOutline(
+                new Vector3[]
+                {
+                    origin + up * (-0.14f) + camR * (LBL_OFFX - 0.04f),
+                    origin + up * (panH)   + camR * (LBL_OFFX - 0.04f),
+                    origin + up * (panH)   + camR * (BAR_LEN + VAL_OFFX + 0.36f),
+                    origin + up * (-0.14f) + camR * (BAR_LEN + VAL_OFFX + 0.36f),
+                },
+                new Color(0.05f, 0.06f, 0.10f, 0.88f),
+                new Color(0.28f, 0.76f, 1.00f, 0.60f));
+
+            // ── 헤더: "Utility" 타이틀 ───────────────────────────────────────
+            var titleSt = new GUIStyle(GUI.skin.label)
+            {
+                richText = true,
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+            };
+            titleSt.normal.textColor = new Color(0.60f, 0.85f, 1.00f);
+            Handles.Label(origin + up * (panH - 0.01f) + camR * (LBL_OFFX),
+                          "<color=#6EC8FF><b>Utility Score</b></color>", titleSt);
+
+            // ── 바 렌더링 헬퍼 ───────────────────────────────────────────────
+            var lblSt = new GUIStyle(GUI.skin.label)
+            {
+                richText = true,
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleRight,
+            };
+            lblSt.normal.textColor = Color.white;
+
+            var valSt = new GUIStyle(lblSt)
+            {
+                fontSize = 11,
+                alignment = TextAnchor.MiddleLeft,
+            };
+            valSt.normal.textColor = new Color(1.00f, 0.92f, 0.55f);
+
+            void Bar(Vector3 p, float score, Color col, string lbl)
+            {
+                score = Mathf.Clamp01(score);
+
+                // 배경 트랙
+                Handles.color = new Color(0.18f, 0.18f, 0.22f, 0.90f);
+                Handles.DrawAAPolyLine(BAR_W, p, p + camR * BAR_LEN);
+
+                // 값 바
+                if (score > 0.005f)
+                {
+                    Handles.color = col;
+                    Handles.DrawAAPolyLine(BAR_W, p, p + camR * (score * BAR_LEN));
+                }
+
+                // Winner 하이라이트 (가장 큰 값 강조)
+                // → 호출부에서 winner 색상 보정
+
+                // 레이블 (왼쪽)
+                Handles.Label(p + camR * LBL_OFFX + up * 0.02f,
+                              $"<color=#C8E0FF><b>{lbl}</b></color>", lblSt);
+
+                // 값 (오른쪽)
+                Handles.Label(p + camR * (BAR_LEN + VAL_OFFX) + up * 0.02f,
+                              $"<color=#FFE88A>{score:F2}</color>", valSt);
+            }
+
+            // ── 최대값 강조 색상 ─────────────────────────────────────────────
+            // 실제 winner를 가장 밝게, 나머지는 약간 dim
+            string winner = GetWinner();
+            Color atkCol = new Color(1.00f, 0.30f, 0.30f, winner == "Attack" ? 1.0f : 0.55f);
+            Color fleCol = new Color(0.28f, 1.00f, 0.50f, winner == "Flee" ? 1.0f : 0.55f);
+            Color patCol = new Color(0.35f, 0.65f, 1.00f, winner == "Patrol" ? 1.0f : 0.55f);
+            Color idlCol = new Color(0.75f, 0.75f, 0.80f, winner == "Idle" ? 1.0f : 0.55f);
+
+            // ── 4개 바 출력 (위→아래: Atk / Fle / Pat / Idl) ────────────────
+            Bar(origin + up * ROW_GAP * 3, uAtk, atkCol, "Atk");
+            Bar(origin + up * ROW_GAP * 2, uFle, fleCol, "Fle");
+            Bar(origin + up * ROW_GAP * 1, uPat, patCol, "Pat");
+            Bar(origin + up * ROW_GAP * 0, uIdl, idlCol, "Idl");
         }
         private void DrawActionIndicator3D() { Handles.color = new Color(1f, 0.90f, 0.10f, 0.65f); Handles.DrawWireDisc(transform.position + Vector3.up * 0.06f, Vector3.up, 0.58f); Handles.Label(transform.position + Vector3.up * 0.75f, "<color=#FFE510><b>⚡ ACTION</b></color>", RichLabel()); }
         private static GUIStyle s_richLabel;
@@ -2512,14 +2601,42 @@ namespace TDA.PB4.Diagnostics
             private static readonly string[] STA_CUR = { "currentStamina", "CurrentStamina", "stamina", "Stamina", "baseStamina", "BaseStamina", "maxStamina" };
             private static readonly string[] STA_MAX = { "maxStamina", "MaxStamina", "baseStamina", "BaseStamina", "staminaMax", "maxSta" };
             private static MemberInfo s_hpCur, s_hpMax, s_staCur, s_staMax;
+            private static System.Type s_cachedStatsType;  // 캐시된 타입 추적 - 타입 변경 시 무효화
 
             private static float ReadStat(object target, ref MemberInfo cache, string[] names)
             {
                 if (target == null) return 0f;
                 var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-                if (cache == null) { var t = target.GetType(); foreach (var name in names) { var fi = t.GetField(name, flags); if (fi != null) { cache = fi; break; } var pi = t.GetProperty(name, flags); if (pi != null) { cache = pi; break; } } }
+
+                // 타입이 바뀌면 캐시 전체 무효화 (다른 AI 오브젝트 선택 시 재탐색)
+                var targetType = target.GetType();
+                if (s_cachedStatsType != targetType)
+                {
+                    s_cachedStatsType = targetType;
+                    s_hpCur = s_hpMax = s_staCur = s_staMax = null;
+                    cache = null;
+                }
+
+                if (cache == null)
+                {
+                    var t = target.GetType();
+                    foreach (var name in names)
+                    {
+                        // 프로퍼티 우선 탐색 (NetworkVariable 프록시 프로퍼티가 필드보다 우선)
+                        var pi = t.GetProperty(name, flags);
+                        if (pi != null) { cache = pi; break; }
+                        var fi = t.GetField(name, flags);
+                        if (fi != null) { cache = fi; break; }
+                    }
+                }
                 if (cache == null) return 0f;
-                try { object val = cache is FieldInfo fi2 ? fi2.GetValue(target) : cache is PropertyInfo pi2 ? pi2.GetValue(target) : 0f; return Convert.ToSingle(val); } catch { return 0f; }
+                try
+                {
+                    object val = cache is FieldInfo fi2 ? fi2.GetValue(target)
+                               : cache is PropertyInfo pi2 ? pi2.GetValue(target) : 0f;
+                    return Convert.ToSingle(val);
+                }
+                catch { return 0f; }
             }
 
             // ── 애니메이션 이벤트 감지 ──────────────────────────────────────

@@ -46,6 +46,24 @@
 //     BT Action 노드가 brain 상태를 직접 변경한 직후 0.5s 틱 대기 없이
 //     BB 를 즉시 동기화할 수 있도록 함.
 //     FleeDuelAction.OnStart() 에서 호출 → Orc 정지 현상 해결.
+//   Fix-G (Bug A/B/C — Flee→Attack 트랜지션 불가):
+//     Bug A: FireFearBoost/FireFearReset 이 UpdateDecision 후 ForceSyncBB 를 호출하지 않아
+//            BB 가 최대 0.5초 동안 구버전 상태를 유지 → BT 가 즉시 반응하지 못함.
+//            → PerceptionProbeWindow.FireFearBoost/FireFearReset 에서 ForceSyncBB 즉시 호출.
+//     Bug B: ForceSyncBB() 내부의 UpdateUtilityDecision() 이중 호출.
+//            → UpdateUtilityDecision() 제거. 호출 측이 미리 UpdateDecision 완료해야 함.
+//     Bug C: ProtectNavMeshInfra() 의 updatePosition=false 로 NavMesh 위치 desync.
+//            StalkAction.OnStart() 의 isOnNavMesh 체크 실패 → Attack 분기 즉시 Failure.
+//            → FleeDuelAction.OnStart() 에서 nextPosition 재동기화 추가.
+//   Fix-H (Bug 1/2/3/4 — 4개 복합 버그):
+//     Bug 1: CircleStrafeAction 이 타이머만 보고 Strike 전환 → 9.5m 허공 칼질.
+//            → AttackRange BB push 추가 (SetBB("AttackRange", combatProfile.attackRange)).
+//     Bug 2: FleeDuelAction 이 EngageRange 밖에서도 즉시 fear 리셋 → 10m+ 돌진.
+//            → EngageRange BB 변수 추가 + OnUpdate() 접근 로직 추가.
+//     Bug 3/4: PanicChainRadius/Multiplier 미push → FleeSwarmAction 기본값(5/2.0) 사용
+//              → Orc 패닉 전파 cascade + speed=0 Freeze + Attack↔Flee 진동.
+//              → SetBB("PanicChainRadius"), SetBB("PanicChainMultiplier") 추가.
+//              → FactionPolicyType 설정 후 read-back 검증 추가 (Swarm fallback 조기 탐지).
 //
 // 네임스페이스: TDA.PB4.Bridge
 // =============================================================================
@@ -166,6 +184,17 @@ namespace TDA.PB4.Bridge
         /// <summary>BB 초기화 완료 여부. IEnumerator Start()가 true로 설정합니다.</summary>
         private bool _bbInitialized = false;
 
+        /// <summary>FleeSwarmAction 등 외부에서 BB 초기화 완료 여부를 확인할 때 사용.</summary>
+        public bool IsBBInitialized => _bbInitialized;
+
+        /// <summary>
+        /// [Fix-H] DetectPolicyType() 으로 감지된 팩션 정책 타입을 캐시합니다.
+        /// FleeSwarmAction 등 BB 변수 연결 없이 정책을 읽어야 하는 코드에서 사용.
+        /// BB "FactionPolicyType" 변수가 BT 에디터에서 연결되지 않아도 신뢰할 수 있음.
+        /// InitializeBlackboard() 완료 전에는 기본값 Swarm 을 반환합니다.
+        /// </summary>
+        public FactionPolicyType DetectedPolicyType { get; private set; } = FactionPolicyType.Swarm;
+
         /// <summary>Update 경과 타이머. updateInterval마다 유틸리티 계산·BB 갱신을 수행합니다.</summary>
         private float _timer;
 
@@ -276,6 +305,14 @@ namespace TDA.PB4.Bridge
 
             // ── BB 초기값 설정 ─────────────────────────────────────────────────
             InitializeBlackboard();
+
+            // ── [Shared BB 진단] UtilityWinner, Fear 등이 Shared 변수인지 확인 ──────
+            // 이 오류가 보이면: BT 에디터 Blackboard 패널에서
+            // UtilityWinner / Fear / HasTarget / Target 의 [Shared] 토글을 해제하세요.
+            // Shared 변수는 같은 BT 그래프를 쓰는 모든 에이전트가 공유합니다.
+            // Orc_01이 "Flee"를 쓰면 Orc_02, Orc_03도 "Flee"로 읽히는 원인입니다.
+            CheckSharedVariables();
+
             _bbInitialized = true;
 
             if (debugLog)
@@ -296,8 +333,56 @@ namespace TDA.PB4.Bridge
             // ── FactionPolicyType 감지 ────────────────────────────────────────────────
             // [Enum 전환] string → FactionPolicyType Enum (BT Switch 노드 호환)
             FactionPolicyType policyType = DetectPolicyType();
+            DetectedPolicyType = policyType; // [Fix-H] 컴포넌트 직접 참조용 캐시
+
+            Debug.Log(
+                $"[PB4Adapter][POLICY] {name}: DetectedPolicyType={policyType}\n" +
+                $"  combatProfile={(combatProfile != null ? combatProfile.name : "NULL")}\n" +
+                $"  policyTypeOverride=\"{policyTypeOverride}\"\n" +
+                $"  ★ Orc는 반드시 Duel이어야 합니다. Swarm이면 FleeSwarmAction 오실행 원인.");
 
             SetBB("FactionPolicyType", policyType);
+
+            // ── [Bug 3&4 수정] FactionPolicyType 설정 검증 read-back ───────────────
+            // SetBB() 가 조용히 실패하면 BB 에 Swarm(=0) 기본값이 남습니다.
+            // 그 경우 Orc(Duel) 가 FleeSwarmAction 을 실행 → speed=0 Freeze + 패닉 전파.
+            // 설정 직후 BB 를 다시 읽어 불일치 시 즉시 오류를 출력합니다.
+            //
+            // 실패 원인 1: BT Blackboard 에 "FactionPolicyType" 변수가 없음
+            //   → BT 에디터에서 FactionPolicyType(enum) 타입 변수를 추가하세요.
+            // 실패 원인 2: 변수 타입이 int/string 으로 잘못 생성됨
+            //   → 변수를 삭제하고 FactionPolicyType(BlackboardEnum) 타입으로 재생성하세요.
+            // 실패 원인 3: [BlackboardEnum] 어트리뷰트 누락
+            //   → PolicyType.cs 의 FactionPolicyType enum 에 [BlackboardEnum] 이 있는지 확인.
+            if (btAgent != null)
+            {
+                // [Bug 3&4 수정] FactionPolicyType 설정 검증 read-back
+                // BlackboardReference?.GetVariable() 에서 null-conditional(?.) 로 인해
+                // BlackboardReference 가 null 이면 out 변수가 할당되지 않아 CS0165 발생.
+                // → 먼저 null 로 초기화한 뒤 GetVariable 을 호출합니다.
+                BlackboardVariable<FactionPolicyType> policyVar = null;
+                btAgent.BlackboardReference?.GetVariable("FactionPolicyType", out policyVar);
+
+                if (policyVar == null)
+                {
+                    Debug.LogError(
+                        $"<color=red>[PB4Adapter] {name}: ⛔ BB 'FactionPolicyType' 변수가 없거나 타입 불일치!</color>\n" +
+                        "  → BT Blackboard 에 FactionPolicyType(enum) 타입 변수가 있는지 확인하세요.\n" +
+                        "  → 변수 부재 시 Switch 노드 기본값(Swarm=0)으로 실행 → FleeSwarmAction 오실행.\n" +
+                        "  → Bug 3(패닉 전파 + Freeze), Bug 4(Attack↔Flee 진동)의 원인이 됩니다.");
+                }
+                else if (policyVar.Value != policyType)
+                {
+                    Debug.LogError(
+                        $"<color=red>[PB4Adapter] {name}: ⛔ FactionPolicyType 기록/읽기 불일치!</color>\n" +
+                        $"  기록: {policyType}  읽기: {policyVar.Value}\n" +
+                        "  → SetVariableValue() 실패. BB 변수 타입을 확인하세요.");
+                }
+                else if (debugLog)
+                {
+                    Debug.Log($"[PB4Adapter] {name}: FactionPolicyType={policyType} BB 검증 완료.");
+                }
+            }
             SetBB("UtilityWinner", "Idle");
             SetBB("HasTarget", false);
             SetBB("Fear", 0f);
@@ -312,6 +397,26 @@ namespace TDA.PB4.Bridge
                 SetBB("StrafeAngularSpeed", combatProfile.strafeAngularSpeed);
                 SetBB("StrikeTriggerTime", combatProfile.strikeTriggerTime);
                 SetBB("FleeSprintSpeed", combatProfile.fleeSprintSpeed);
+
+                // ── [Bug 1 수정] AttackRange BB push 추가 ────────────────────────
+                // CircleStrafeAction 이 StrikeTriggerTime 만료 후 dist <= AttackRange 조건을
+                // 추가로 검사하기 위해 combatProfile.attackRange 를 BB 에 전달합니다.
+                // 이전 코드: AttackRange 가 BB 에 push 되지 않아 CircleStrafeAction 이
+                //            기본값(2.5m)을 사용하거나 BB 변수 자체가 없어 검사 불가.
+                SetBB("AttackRange", combatProfile.attackRange);
+
+                // ── [Bug 3&4 수정] PanicChain BB push 추가 ───────────────────────
+                // FleeSwarmAction 이 BB 에서 PanicChainRadius / PanicChainMultiplier 를 읽습니다.
+                // 이전 코드: 이 두 값이 BB 에 push 되지 않아 FleeSwarmAction 의 기본값
+                //            (radius=5, multiplier=2.0)이 사용됐음.
+                // Orc SO 에서 panicChainRadius=5, panicChainMultiplier=2 는 잘못된 값 —
+                // FactionCombatProfileSO 주석 기준 Orc 는 radius=3, multiplier=0.5 이어야 합니다.
+                // SO 에셋의 값을 수정하거나 이 push 를 통해 SO 값이 실제로 적용되도록 합니다.
+                // ⚠ Duel 정책 오크는 FleeSwarmAction 을 실행하지 않으므로 이 값이
+                //   실제로 사용되는 경우는 FactionPolicyType 감지 오류 상황입니다.
+                //   BB 에 정확한 값을 넣어 두면 감지 오류 시에도 파급 범위를 최소화합니다.
+                SetBB("PanicChainRadius", combatProfile.panicChainRadius);
+                SetBB("PanicChainMultiplier", combatProfile.panicChainMultiplier);
             }
             else
             {
@@ -330,6 +435,9 @@ namespace TDA.PB4.Bridge
                 SetBB("StrafeAngularSpeed", 60.0f); // 선회 각속도 (도/초)
                 SetBB("StrikeTriggerTime", 1.5f);  // 공격 트리거 시간 (초)
                 SetBB("FleeSprintSpeed", 6.0f);  // 도주 최대 속도
+                SetBB("AttackRange", 2.5f);       // [Bug 1 수정] 공격 사거리 기본값
+                SetBB("PanicChainRadius", 0f);    // [Bug 3&4 수정] 패닉 전파 비활성 (안전)
+                SetBB("PanicChainMultiplier", 0f);
             }
 
             // ── AttackState SO → BB 등록 ───────────────────────────────────────
@@ -440,11 +548,21 @@ namespace TDA.PB4.Bridge
         ///   BB UtilityWinner 가 이전 값(예: "Flee")으로 고정되어 BT 공전 루프가 발생함.
         ///
         /// 동작:
-        ///   UpdateUtilityDecision() → UpdateBlackboard() 를 즉시 실행하고
+        ///   SyncTarget() + UpdateBlackboard() 를 즉시 실행하고
         ///   _timer 를 0으로 리셋하여 직후 중복 틱을 방지합니다.
         ///
-        /// 호출 시점:
-        ///   BT Action 노드의 OnStart() 말미에서 호출. 예) FleeDuelAction.OnStart().
+        /// [Bug B 수정] UpdateUtilityDecision() 이중 호출 제거.
+        ///   호출 전에 반드시 brain.UpdateDecision() 을 먼저 호출해야 합니다.
+        ///   ForceSyncBB() 는 이미 계산 완료된 CurrentState 를 BB 에 복사하는 역할만 합니다.
+        ///   이전 코드에서 UpdateUtilityDecision() 을 내부에서 재호출했으나,
+        ///   이중 호출은 상태 변화 조건(newState != currentState)을 false 로 만들어
+        ///   ExecuteBTNode() 를 누락시키는 부작용이 있으므로 제거합니다.
+        ///
+        /// 호출 시점 (올바른 순서):
+        ///   1. brain.fear 조정
+        ///   2. brain.UpdateDecision()       ← 상태 계산
+        ///   3. adapter.ForceSyncBB()        ← BB 반영 (계산 없음)
+        ///   예) FleeDuelAction.OnStart(), PerceptionProbeWindow.FireFearBoost()
         ///
         /// 주의:
         ///   _bbInitialized = false 인 Start() 코루틴 완료 이전에는 아무 동작도 하지 않습니다.
@@ -453,8 +571,10 @@ namespace TDA.PB4.Bridge
         {
             if (!_bbInitialized) return;
 
-            // brain.UpdateDecision() 재호출 포함 — CurrentState 최신값 보장
-            UpdateUtilityDecision();
+            // [Bug B 수정] UpdateUtilityDecision() 제거.
+            // 호출 측에서 이미 brain.UpdateDecision() 을 완료한 상태여야 합니다.
+            // 이중 호출 시 두 번째 UpdateDecision 은 newState == currentState 이므로
+            // ExecuteBTNode() 가 호출되지 않아 상태 전파가 불완전해집니다.
 
             // BB UtilityWinner / Fear / HasTarget / Target 즉시 갱신
             SyncTarget();
@@ -631,19 +751,123 @@ namespace TDA.PB4.Bridge
         {
             if (btAgent == null) return;
 
-            // 1단계: BT 노드 실행용 BB에 기록
+            // ── [공유 BB 진단] BT 런타임이 Shared 변수를 읽는지 확인 ─────────────────
+            // 로그에서 Orc_02 BT:Winner=Flee (Orc_01이 쓴 값) / pB4:Attack 불일치가 보이면
+            // UtilityWinner 등이 Shared 변수임. 모든 오크가 같은 값을 읽음.
+            // → BT 에디터에서 해당 변수의 Shared 체크를 해제해야 합니다.
+
+            // 1단계: 인스턴스 레벨 override 먼저 시도 (Shared 변수 오염 차단)
+            bool wroteInstance = TryWriteInstanceOverride(key, value);
+
+            // 2단계: SetVariableValue (Shared 변수면 전체 오크에 전파됨)
             bool success = btAgent.SetVariableValue(key, value);
             if (!success && debugLog)
                 Debug.LogWarning(
                     $"[PB4Adapter] {name}: SetVariableValue BB.{key}({typeof(T).Name}) 실패.\n" +
                     $"Blackboard에 '{key}' 변수가 정의되어 있는지 확인하세요.");
 
-            // 2단계: [Fix-C] Inspector 실시간 표시용 m_BlackboardOverrides 동기화
 #if UNITY_EDITOR
             if (Application.isPlaying)
                 SyncBlackboardOverrideForInspector(key, value);
 #endif
         }
+
+        /// <summary>
+        /// [Shared BB 수정] 인스턴스 레벨 override를 직접 기록합니다.
+        /// Shared 변수에 SetVariableValue를 쓰면 모든 에이전트에 전파되므로,
+        /// 이 메서드로 per-agent 값을 먼저 설정하여 Shared 오염을 차단합니다.
+        ///
+        /// 작동 원리:
+        ///   Unity Behavior는 GetVariable 시 m_BlackboardOverrides(인스턴스) 를
+        ///   Shared BB보다 우선 읽습니다. 여기서 override 엔트리를 만들어두면
+        ///   SetVariableValue가 Shared BB를 오염시켜도 이 에이전트는 자신의 값을 읽습니다.
+        ///
+        /// 실패 시 로그:
+        ///   "[SHARED_BB] m_BlackboardOverrides 필드 없음" → Unity Behavior 버전 이슈.
+        ///   → BT 에디터에서 해당 변수의 Shared 체크를 반드시 해제하세요.
+        /// </summary>
+        private bool TryWriteInstanceOverride<T>(string key, T value)
+        {
+            if (btAgent == null) return false;
+
+            // GUID 획득
+            if (!_bbGuidCache.TryGetValue(key, out var guid))
+            {
+                if (!btAgent.GetVariableID(key, out guid)) return false;
+                _bbGuidCache[key] = guid;
+            }
+
+            // m_BlackboardOverrides 필드 최초 1회 탐색
+            if (_bbOverridesField == null && !_bbOverrideFieldSearched)
+            {
+                _bbOverrideFieldSearched = true;
+                _bbOverridesField = typeof(BehaviorGraphAgent).GetField(
+                    "m_BlackboardOverrides",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (_bbOverridesField == null)
+                {
+                    // 필드명이 다를 수 있음 — 실제 필드명 열거해서 로그 출력
+                    var allFields = typeof(BehaviorGraphAgent)
+                        .GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+                    var matched = System.Array.FindAll(allFields,
+                        f => f.Name.ToLower().Contains("blackboard") ||
+                             f.Name.ToLower().Contains("override") ||
+                             f.Name.ToLower().Contains("variable"));
+                    var nameList = new string[matched.Length];
+                    for (int i = 0; i < matched.Length; i++) nameList[i] = matched[i].Name;
+                    var bbRelated = string.Join(", ", nameList);
+
+                    Debug.LogError(
+                        $"<color=red>[PB4Adapter][SHARED_BB] {name}: " +
+                        $"m_BlackboardOverrides 필드를 찾지 못했습니다!\n" +
+                        $"  Unity Behavior 버전({Application.unityVersion})에서 필드명이 변경됐을 수 있습니다.\n" +
+                        $"  BehaviorGraphAgent 관련 필드: {(string.IsNullOrEmpty(bbRelated) ? "없음" : bbRelated)}\n" +
+                        $"  → 인스턴스 override를 만들 수 없어 Shared BB 오염이 계속됩니다.\n" +
+                        $"  → BT 에디터에서 UtilityWinner, Fear, HasTarget, Target 변수의\n" +
+                        $"     [Shared] 체크를 해제하는 것이 근본 해결책입니다.</color>");
+                }
+                else if (debugLog)
+                {
+                    Debug.Log($"[PB4Adapter] {name}: m_BlackboardOverrides 필드 발견. 인스턴스 override 활성화.");
+                }
+            }
+
+            if (_bbOverridesField == null) return false;
+
+            var overrides = _bbOverridesField.GetValue(btAgent)
+                as Dictionary<SerializableGUID, BlackboardVariable>;
+            if (overrides == null) return false;
+
+            if (overrides.TryGetValue(guid, out var existing))
+            {
+                existing.ObjectValue = value;
+                return true;
+            }
+
+            if (!btAgent.GetVariable<T>(key, out var runtimeVar) || runtimeVar == null)
+                return false;
+
+            var newEntry = new BlackboardVariable<T>(value)
+            {
+                GUID = guid,
+                Name = runtimeVar.Name,
+            };
+            overrides[guid] = newEntry;
+
+            // List 동기화
+            _bbListField ??= typeof(BehaviorGraphAgent).GetField(
+                "m_BlackboardVariableOverridesList",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            var list = _bbListField?.GetValue(btAgent) as List<BlackboardVariable>;
+            if (list != null && !list.Exists(v => v != null && v.GUID == guid))
+                list.Add(newEntry);
+
+            return true;
+        }
+
+        /// <summary>TryWriteInstanceOverride의 GetField 탐색 완료 여부. 중복 탐색 방지.</summary>
+        private bool _bbOverrideFieldSearched = false;
 
         // ── Reflection 캐시 (매 프레임 GetField 비용 방지) ──────────────────────
         private FieldInfo _bbOverridesField;
@@ -713,6 +937,66 @@ namespace TDA.PB4.Bridge
             EditorUtility.SetDirty(btAgent);
         }
 #endif
+
+        // =====================================================================
+        // [Shared BB 진단] Shared 변수 탐지
+        // =====================================================================
+
+        /// <summary>
+        /// UtilityWinner, Fear, HasTarget, Target이 Shared 변수인지 확인합니다.
+        /// Shared이면 모든 오크가 같은 값을 읽어 Flee↔Attack 진동이 발생합니다.
+        ///
+        /// 수정 방법:
+        ///   BT 에디터(MobAI_BehaviorGraph) → Blackboard 패널 →
+        ///   UtilityWinner / Fear / HasTarget / Target 각각 선택 →
+        ///   하단 [Shared] 토글 해제.
+        /// </summary>
+        private void CheckSharedVariables()
+        {
+            if (btAgent?.BlackboardReference?.Blackboard == null) return;
+
+            // Unity Behavior에서 Shared 변수는 BlackboardReference.Blackboard가 아닌
+            // Graph 레벨 Blackboard에 존재합니다.
+            // GetVariableID로 GUID를 얻은 후, 해당 GUID가 Graph 공유 BB에 있으면 Shared.
+            var perInstanceKeys = new[] { "UtilityWinner", "Fear", "HasTarget", "Target" };
+
+            foreach (var key in perInstanceKeys)
+            {
+                if (!btAgent.GetVariableID(key, out _))
+                {
+                    Debug.LogWarning($"[PB4Adapter][SHARED_BB] {name}: BB 변수 '{key}' 없음. BT Blackboard에 추가하세요.");
+                    continue;
+                }
+
+                // Variable이 Shared인지 확인: 같은 BT 그래프를 쓰는 다른 에이전트와
+                // GUID가 동일한 변수를 공유하면 Shared입니다.
+                // 직접 API가 없으므로 프록시로 Blackboard.Variables 열거를 사용합니다.
+                bool foundInGraphBB = false;
+                if (btAgent.BlackboardReference?.Blackboard?.Variables != null)
+                {
+                    foreach (var v in btAgent.BlackboardReference.Blackboard.Variables)
+                    {
+                        if (v.Name == key)
+                        {
+                            foundInGraphBB = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (foundInGraphBB)
+                {
+                    Debug.LogError(
+                        $"<color=red>[PB4Adapter][SHARED_BB] {name}: " +
+                        $"'{key}' 가 Shared(공유) 변수로 확인됩니다!\n" +
+                        $"  이 변수가 Shared이면 {name}이 쓴 값이 씬 내 모든 오크에 전파됩니다.\n" +
+                        $"  증상: Orc_01 공포 주입 → Orc_02/03 BT도 Flee 진입 → 전체 진동.\n" +
+                        $"  ▶ 수정: BT 에디터(MobAI_BehaviorGraph) → Blackboard → '{key}' 선택\n" +
+                        $"           → 하단 [Shared] 토글 OFF\n" +
+                        $"  이 수정 없이는 코드 레벨 픽스만으로 해결되지 않습니다.</color>");
+                }
+            }
+        }
 
         // =====================================================================
         // FactionPolicyType 감지

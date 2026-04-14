@@ -169,20 +169,29 @@ public partial class StrikeAction : Action
 
             if (!executed)
             {
-                // ── 폴백: 1.5초 더미 대기 후 Success ──
-                Debug.LogWarning(
-                    $"[StrikeAction] {Self.Value.name}: AttackState 를 찾을 수 없습니다.\n" +
-                    "해결 방법:\n" +
-                    "  1. PB4DecisionAdapter Inspector → PursueState → CombatStanceState → AttackState 필드 연결 확인\n" +
-                    "  2. BT 에디터에서 Blackboard 에 'AttackStateConfig'(Object 타입) 변수 추가\n" +
-                    "     → AttackConfig 필드를 해당 변수에 연결\n" +
-                    "  3. 또는 AttackConfig 에 AttackState SO 를 직접 설정\n" +
-                    "현재: 1.5초 더미 대기 후 Success 반환(애니메이션 없음).");
-                _aiManager.isPerformingAction = true;
-                _aiManager.canMove = false;
+                // [Bug 1 수정] TryExecuteAttack 실패 케이스 분기
+                AttackState _chkState = ResolveAttackState();
+                if (_chkState == null)
+                {
+                    // AttackState SO 자체 없음 → 설정 오류. 원래 더미 대기.
+                    Debug.LogWarning(
+                        $"[StrikeAction] {Self.Value.name}: AttackState 없음. Inspector 설정을 확인하세요.");
+                    _aiManager.isPerformingAction = true;
+                    _aiManager.canMove = false;
+                    _attackTriggered = true;
+                }
+                else
+                {
+                    // dist > maximumAttackDistance → 아직 사거리 밖.
+                    // Failure 반환 → BT Sequence 재시작 → Stalk/CircleStrafe 재진입.
+                    // 이동 상태 유지 (canMove, isPerformingAction 건드리지 않음).
+                    return Status.Failure;
+                }
             }
-
-            _attackTriggered = true;
+            else
+            {
+                _attackTriggered = true;
+            }
         }
 
         // ── 공격 모션 완료 대기 ──
@@ -300,25 +309,13 @@ public partial class StrikeAction : Action
         // [진단됨] ConditionalGuard 가 EngageRange 이내를 보장하지만
         // AttackAction 의 minimumAttackDistance/maximumAttackDistance 와 실제 거리가
         // 다를 수 있습니다 (예: 고블린 공격 범위가 스켈레톤에 그대로 적용된 경우).
+        // [Bug 1 수정] 유효 공격 없으면 false 반환. 랜덤 폴백 제거.
+        // dist > maximumAttackDistance이면 공격 불가 → Failure.
+        // CircleStrafeAction이 AttackRange 내로 접근 보장 후 재진입.
         if (validAttacks.Count == 0)
-        {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"[StrikeAction] {Self.Value.name}: 현재 거리/각도에 유효한 공격이 없습니다.");
-            sb.AppendLine($"  현재 dist={dist:F1}m  angle={angle:F0}°");
-            sb.AppendLine($"  AttackState '{attackState.name}' 의 attackActions 목록:");
-            foreach (var a in attackState.attackActions)
-                sb.AppendLine($"    ActionID={a.attackActionID}  " +
-                              $"dist=[{a.minimumAttackDistance:F1}~{a.maximumAttackDistance:F1}m]  " +
-                              $"angle=[{a.minimumAttackAngle:F0}~{a.maximumAttackAngle:F0}°]");
-            sb.AppendLine("  → 전체 목록에서 랜덤 선택으로 폴백합니다.");
-            Debug.LogWarning(sb.ToString());
-        }
+            return false;
 
-        // 조건 충족 공격 없으면 전체 목록에서 랜덤 폴백
-        // (거리/각도 조건 미충족이더라도 Sequence가 이미 이 노드까지 도달했으므로 시도)
-        AIAttackAction chosen = validAttacks.Count > 0
-            ? validAttacks[UnityEngine.Random.Range(0, validAttacks.Count)]
-            : attackState.attackActions[UnityEngine.Random.Range(0, attackState.attackActions.Count)];
+        AIAttackAction chosen = validAttacks[UnityEngine.Random.Range(0, validAttacks.Count)];
 
         // ── Poise 연동 (설계 문서 A3) ──
         // enablePoiseDuringAttack=true 이면 공격 모션 중 피격되어도 경직 없음 (강공격 등)
@@ -357,6 +354,11 @@ public partial class StrikeAction : Action
         Debug.Log($"[BT] {Self.Value.name}: Strike! 공격 모션 실행. " +
                   $"ActionID={chosen.attackActionID} dist={dist:F1}m angle={angle:F0}° " +
                   $"(대상: {Target.Value?.name ?? "null"})");
+
+        // ── 스태미나 소모 ──────────────────────────────────────────────────────
+        // AICharacterManager.DrainStaminaForAttack()으로 공격당 스태미나를 차감합니다.
+        // TacticalRepositionAction이 스태미나 비율을 읽어 회복 후퇴 트리거로 사용합니다.
+        _aiManager.DrainStaminaForAttack();
 
         return true;
     }

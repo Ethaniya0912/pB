@@ -58,7 +58,35 @@ namespace TDA.Character.AI
         }
 
         // =========================================================================================
-        // 향후 몬스터 티어(일반, 엘리트, 보스)에 따른 스탯 보정이나 
+        // AIPerceptionDebugger 연동 — NetworkVariable 프록시 프로퍼티
+        // =========================================================================================
+        // AIPerceptionDebugger.ReadStat()이 리플렉션으로 "currentStamina" / "maxStamina" 등의
+        // 이름을 가진 필드·프로퍼티를 탐색합니다.
+        // 실제 값은 characterNetworkManager.currentStamina.Value에 있으므로,
+        // 아래 프로퍼티를 통해 디버거가 NetworkVariable 값을 읽을 수 있도록 노출합니다.
+        //
+        // STA_CUR 탐색 목록: "currentStamina", "CurrentStamina", "stamina", ...
+        // STA_MAX 탐색 목록: "maxStamina", "MaxStamina", ...
+        // → "currentStamina" / "maxStamina" 프로퍼티가 가장 먼저 매칭됩니다.
+
+        /// <summary>디버거용: 현재 스태미나 (NetworkVariable 실시간 값).</summary>
+        public float currentStamina =>
+            aiCharacter?.characterNetworkManager?.currentStamina.Value ?? 0f;
+
+        /// <summary>디버거용: 최대 스태미나 (NetworkVariable 실시간 값).</summary>
+        public float maxStamina =>
+            aiCharacter?.characterNetworkManager?.maxStamina.Value ?? (float)baseStamina;
+
+        /// <summary>디버거용: 현재 체력 (NetworkVariable 실시간 값).</summary>
+        public float currentHealth =>
+            aiCharacter?.characterNetworkManager?.currentHealth.Value ?? 0f;
+
+        /// <summary>디버거용: 최대 체력 (NetworkVariable 실시간 값).</summary>
+        public float maxHealth =>
+            aiCharacter?.characterNetworkManager?.maxHealth.Value ?? (float)baseHealth;
+
+        // =========================================================================================
+        // 향후 몬스터 티어(일반, 엘리트, 보스)에 따른 스탯 보정이나
         // 페이즈 전환 시 체력 회복 등의 특수 로직을 이 클래스에 추가하시면 됩니다.
         // =========================================================================================
     }

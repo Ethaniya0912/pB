@@ -175,6 +175,12 @@ namespace TDA.PB4.AI.Mob
 
             if (newState != currentState)
             {
+                Debug.Log(
+                    $"[MobAIBrain][STATE] {name}: {currentState} → {newState}\n" +
+                    $"  fear={fear:F3} u_attack={u_attack:F3} u_flee={u_flee:F3} " +
+                    $"u_idle={u_idle:F3} u_patrol={u_patrol:F3}\n" +
+                    $"  target={(currentTarget != null ? currentTarget.name : "null")}\n" +
+                    $"  ★ Attack→Flee 반복 시 HandlePanicChain이 fear를 계속 올리는 중");
                 currentState = newState;
                 ExecuteBTNode(currentState.ToString());
             }

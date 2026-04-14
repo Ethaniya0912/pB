@@ -66,6 +66,10 @@ namespace TDA.PB4.Editor
              "[BT강제/효과직접] brain.fear 직접 수정. HandlePanicChain() 경유 불가 (FleeSwarmAction private)"),
             ("🎯", "강제 전투 진입", "Alt+7", false,
              "[BT강제] ForceSetAwareness(Combat) + BB 직접 갱신. Attack 3단계 플로우 테스트"),
+            ("🏔️", "NarrowPath 주입", "Alt+8", false,
+             "[BT강제] TerrainTags BB = NarrowPath. CircleStrafe 반경x0.4 + Strike 타이밍x0.5 검증. Zone: Ctrl+클릭"),
+            ("🔓", "NarrowPath 해제", "Alt+9", false,
+             "[BT강제] TerrainTags BB 클리어. NarrowPath 상태 종료 후 정상 CircleStrafe 복귀 확인."),
         };
 
         // =====================================================================
@@ -77,6 +81,16 @@ namespace TDA.PB4.Editor
         private Vector3 _mouseWorldPos;
         private bool _mouseHitValid;
         private Vector2 _logScroll;
+
+        // ── NarrowPath Zone ───────────────────────────────────────────────────
+        private bool _narrowZoneActive = false;      // Zone 활성 여부
+        private Vector3 _narrowZoneCenter;           // Zone 중심
+        private float _narrowZoneWidth = 3f;        // 통로 폭 (m)
+        private float _narrowZoneLength = 8f;        // 통로 길이 (m)
+        private float _narrowZoneHeight = 3f;        // 통로 높이 (m)
+        private bool _narrowZoneDragging = false;    // Ctrl+드래그 중
+        private Vector3 _narrowZoneDragStart;
+        private bool _narrowZoneAutoUpdate = true;   // AI 위치 감지 자동 적용
 
         // ── AI 목록 패널 ─────────────────────────────────────────────────
         private Vector2 _mobListScroll;
@@ -175,6 +189,11 @@ namespace TDA.PB4.Editor
                 EditorGUILayout.Space(4);
                 DrawFearSlider();
             }
+            if (_selectedProbe == 7 || _selectedProbe == 8)
+            {
+                EditorGUILayout.Space(4);
+                DrawNarrowZonePanel();
+            }
             EditorGUILayout.Space(6);
             DrawRealtimeStatus();
             EditorGUILayout.Space(6);
@@ -183,6 +202,69 @@ namespace TDA.PB4.Editor
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        // ── NarrowPath Zone 설정 패널 ──────────────────────────────────────────
+        private void DrawNarrowZonePanel()
+        {
+            var boxStyle = new GUIStyle(GUI.skin.box);
+            EditorGUILayout.BeginVertical(boxStyle);
+
+            // 헤더
+            EditorGUILayout.LabelField("🏔️  NarrowPath Zone 설정",
+                new GUIStyle(EditorStyles.boldLabel) { fontSize = 11 });
+            EditorGUILayout.Space(2);
+
+            // Zone 활성 토글
+            EditorGUILayout.BeginHorizontal();
+            bool newActive = EditorGUILayout.Toggle("Zone 활성", _narrowZoneActive,
+                GUILayout.Width(140));
+            if (newActive != _narrowZoneActive)
+            {
+                _narrowZoneActive = newActive;
+                if (!newActive)
+                    AddLog("🔓 NarrowPath Zone 비활성화");
+            }
+            GUILayout.Label("(Ctrl+클릭: Scene에 배치)", EditorStyles.miniLabel);
+            EditorGUILayout.EndHorizontal();
+
+            if (_narrowZoneActive)
+            {
+                // 크기 슬라이더
+                _narrowZoneWidth = EditorGUILayout.Slider("폭 (m)", _narrowZoneWidth, 1f, 8f);
+                _narrowZoneLength = EditorGUILayout.Slider("길이 (m)", _narrowZoneLength, 2f, 20f);
+                _narrowZoneHeight = EditorGUILayout.Slider("높이 (m)", _narrowZoneHeight, 1f, 6f);
+
+                EditorGUILayout.Space(2);
+                _narrowZoneAutoUpdate = EditorGUILayout.Toggle("AI 자동 감지 (Play중)", _narrowZoneAutoUpdate);
+
+                // 위치 표시
+                EditorGUILayout.LabelField("중심",
+                    $"({_narrowZoneCenter.x:F1}, {_narrowZoneCenter.y:F1}, {_narrowZoneCenter.z:F1})",
+                    EditorStyles.miniLabel);
+
+                EditorGUILayout.Space(4);
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("선택 AI에 주입", GUILayout.Height(26)))
+                    FireNarrowPathInject(GetTargetAIs());
+                if (GUILayout.Button("선택 AI 해제", GUILayout.Height(26)))
+                    FireNarrowPathClear(GetTargetAIs());
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Zone 제거", GUILayout.Height(22)))
+                {
+                    _narrowZoneActive = false;
+                    FireNarrowPathClear(GetTargetAIs());
+                }
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.HelpBox(
+                    "CircleStrafe가 NarrowPath 감지 시:\n  · OrbitRadius × 0.4 (배회 반경 60% 축소)\n  · StrikeTriggerTime × 0.5 (Strike 전환 50% 빠름)",
+                    MessageType.Info);
+            }
+
+            EditorGUILayout.EndVertical();
         }
 
         // ── 대상 AI ──
@@ -638,6 +720,8 @@ namespace TDA.PB4.Editor
                     KeyCode.Alpha5 => 4,
                     KeyCode.Alpha6 => 5,
                     KeyCode.Alpha7 => 6,
+                    KeyCode.Alpha8 => 7,
+                    KeyCode.Alpha9 => 8,
                     _ => -1
                 };
                 if (idx >= 0)
@@ -650,6 +734,80 @@ namespace TDA.PB4.Editor
             }
 
             DrawPersistentGizmos();
+            DrawNarrowZoneGizmo(sv);
+            HandleNarrowZoneDrag(sv);
+            UpdateNarrowZone();
+        }
+
+        // ── NarrowPath Zone Gizmo 렌더링 ─────────────────────────────────────
+        private void DrawNarrowZoneGizmo(SceneView sv)
+        {
+            if (!_narrowZoneActive) return;
+
+            var half = new Vector3(_narrowZoneWidth * 0.5f,
+                                   _narrowZoneHeight * 0.5f,
+                                   _narrowZoneLength * 0.5f);
+            Vector3 c = _narrowZoneCenter;
+
+            // 외곽선 박스
+            Handles.color = new Color(0.85f, 0.55f, 0.10f, 0.90f);
+            Handles.DrawWireCube(c + Vector3.up * half.y, new Vector3(_narrowZoneWidth, _narrowZoneHeight, _narrowZoneLength));
+
+            // 반투명 면 채우기 (앞/뒤 벽)
+            Handles.color = new Color(0.85f, 0.55f, 0.10f, 0.12f);
+            Vector3[] front = {
+                c + new Vector3(-half.x, 0,        half.z),
+                c + new Vector3( half.x, 0,        half.z),
+                c + new Vector3( half.x, half.y*2, half.z),
+                c + new Vector3(-half.x, half.y*2, half.z),
+            };
+            Vector3[] back = {
+                c + new Vector3(-half.x, 0,        -half.z),
+                c + new Vector3( half.x, 0,        -half.z),
+                c + new Vector3( half.x, half.y*2, -half.z),
+                c + new Vector3(-half.x, half.y*2, -half.z),
+            };
+            Handles.DrawSolidRectangleWithOutline(front,
+                new Color(0.85f, 0.55f, 0.10f, 0.10f),
+                new Color(0.85f, 0.55f, 0.10f, 0.80f));
+            Handles.DrawSolidRectangleWithOutline(back,
+                new Color(0.85f, 0.55f, 0.10f, 0.10f),
+                new Color(0.85f, 0.55f, 0.10f, 0.80f));
+
+            // 레이블
+            Handles.color = Color.white;
+            Handles.Label(c + Vector3.up * (_narrowZoneHeight + 0.3f),
+                $"NarrowPath Zone  W:{_narrowZoneWidth:F1}m  L:{_narrowZoneLength:F1}m  H:{_narrowZoneHeight:F1}m  Auto:{(_narrowZoneAutoUpdate ? "ON" : "OFF")}",
+                new GUIStyle(GUI.skin.label) { richText = false, fontSize = 11, fontStyle = FontStyle.Bold });
+
+            // 중심 이동 핸들
+            EditorGUI.BeginChangeCheck();
+            Vector3 newCenter = Handles.PositionHandle(_narrowZoneCenter, Quaternion.identity);
+            if (EditorGUI.EndChangeCheck())
+                _narrowZoneCenter = new Vector3(newCenter.x, _narrowZoneCenter.y, newCenter.z);
+
+            // 폭/길이 핸들
+            Handles.color = new Color(0.85f, 0.55f, 0.10f, 0.80f);
+            float newW = Handles.ScaleValueHandle(_narrowZoneWidth,
+                c + Vector3.right * half.x, Quaternion.identity, 0.5f, Handles.CubeHandleCap, 0.1f);
+            float newL = Handles.ScaleValueHandle(_narrowZoneLength,
+                c + Vector3.forward * half.z, Quaternion.identity, 0.5f, Handles.CubeHandleCap, 0.1f);
+            _narrowZoneWidth = Mathf.Max(newW, 0.5f);
+            _narrowZoneLength = Mathf.Max(newL, 0.5f);
+        }
+
+        // ── NarrowPath Zone Ctrl+클릭으로 빠른 배치 ────────────────────────────
+        private void HandleNarrowZoneDrag(SceneView sv)
+        {
+            var ev = Event.current;
+            if (ev.type == EventType.MouseDown && ev.button == 0 && ev.control && _mouseHitValid)
+            {
+                _narrowZoneCenter = _mouseWorldPos;
+                _narrowZoneActive = true;
+                AddLog($"🏔️ NarrowPath Zone 배치: {_mouseWorldPos:F1}  W={_narrowZoneWidth:F1}m L={_narrowZoneLength:F1}m");
+                ev.Use();
+                sv.Repaint();
+            }
         }
 
         // [B8 Fix] List + reverse-remove — 매 프레임 new Queue 생성 제거
@@ -697,6 +855,8 @@ namespace TDA.PB4.Editor
                 case 4: FireMemoryInject(pos, primary); break;
                 case 5: FirePanicPropagate(pos); break;
                 case 6: FireForceCombat(primary); break;
+                case 7: FireNarrowPathInject(targets); break;
+                case 8: FireNarrowPathClear(targets); break;
             }
             SceneView.RepaintAll();
         }
@@ -858,6 +1018,137 @@ namespace TDA.PB4.Editor
                 "🎯 [COMBAT]  강제 진입");
             AddLog($"🎯 강제전투 {ai.name}"
                    + (_cachedPlayer != null ? $" → {_cachedPlayer.name}" : " (Player 없음)"));
+        }
+
+        // ── [BT강제] NarrowPath 태그 주입 ──────────────────────────────────────
+        private void FireNarrowPathInject(List<AICharacterManager> targets)
+        {
+            if (targets.Count == 0)
+            {
+                AddLog("⚠️ FireNarrowPathInject: 대상 AI를 선택하세요.");
+                return;
+            }
+            foreach (var ai in targets)
+            {
+                var btAgent = ai.GetComponent<BehaviorGraphAgent>();
+                if (btAgent?.BlackboardReference == null) continue;
+
+                // TerrainTags BB 변수에 "NarrowPath" 설정
+                try
+                {
+                    btAgent.BlackboardReference.GetVariable("TerrainTags",
+                        out BlackboardVariable<string> tagVar);
+                    if (tagVar != null)
+                    {
+                        string cur = tagVar.Value ?? "";
+                        if (!cur.Contains("NarrowPath"))
+                            tagVar.Value = string.IsNullOrEmpty(cur)
+                                ? "NarrowPath"
+                                : cur + ",NarrowPath";
+                    }
+                    else
+                    {
+                        btAgent.SetVariableValue("TerrainTags", "NarrowPath");
+                    }
+                }
+                catch
+                {
+                    btAgent.SetVariableValue("TerrainTags", "NarrowPath");
+                }
+
+                EnqueueGizmo(ai.transform.position, 1.5f,
+                    new Color(0.85f, 0.55f, 0.10f, 0.80f),
+                    "🏔️ [NARROW] CircleStrafe×0.4 Strike×0.5");
+                AddLog($"🏔️ NarrowPath 주입 → {ai.name}  (반경×0.4 / Strike×0.5)");
+            }
+        }
+
+        // ── [BT강제] NarrowPath 태그 해제 ──────────────────────────────────────
+        private void FireNarrowPathClear(List<AICharacterManager> targets)
+        {
+            if (targets.Count == 0)
+            {
+                AddLog("⚠️ FireNarrowPathClear: 대상 AI를 선택하세요.");
+                return;
+            }
+            foreach (var ai in targets)
+            {
+                var btAgent = ai.GetComponent<BehaviorGraphAgent>();
+                if (btAgent?.BlackboardReference == null) continue;
+
+                try
+                {
+                    btAgent.BlackboardReference.GetVariable("TerrainTags",
+                        out BlackboardVariable<string> tagVar);
+                    if (tagVar != null)
+                    {
+                        string cleared = (tagVar.Value ?? "")
+                            .Replace("NarrowPath", "")
+                            .Trim(',').Trim();
+                        tagVar.Value = cleared;
+                    }
+                    else
+                    {
+                        btAgent.SetVariableValue("TerrainTags", "");
+                    }
+                }
+                catch
+                {
+                    btAgent.SetVariableValue("TerrainTags", "");
+                }
+
+                EnqueueGizmo(ai.transform.position, 0f,
+                    new Color(0.28f, 1f, 0.55f, 0.80f), "🔓 [NARROW CLEAR]");
+                AddLog($"🔓 NarrowPath 해제 → {ai.name}");
+            }
+        }
+
+        // ── NarrowPath Zone 자동 업데이트 ────────────────────────────────────
+        // Zone이 활성화된 경우 매 SceneView 갱신마다 호출
+        // Zone 안에 있는 AI는 자동으로 NarrowPath 주입, 밖이면 해제
+        private void UpdateNarrowZone()
+        {
+            if (!_narrowZoneActive || !Application.isPlaying) return;
+            if (!_narrowZoneAutoUpdate) return;
+
+            // Zone 방향: Z축 기준 Box
+            var half = new Vector3(_narrowZoneWidth * 0.5f,
+                                   _narrowZoneHeight * 0.5f,
+                                   _narrowZoneLength * 0.5f);
+
+            foreach (var ai in GameObject.FindObjectsByType<AICharacterManager>(
+                         FindObjectsSortMode.None))
+            {
+                Vector3 local = ai.transform.position - _narrowZoneCenter;
+                bool inside = Mathf.Abs(local.x) <= half.x
+                           && Mathf.Abs(local.y) <= half.y
+                           && Mathf.Abs(local.z) <= half.z;
+
+                var btAgent = ai.GetComponent<BehaviorGraphAgent>();
+                if (btAgent?.BlackboardReference == null) continue;
+
+                try
+                {
+                    btAgent.BlackboardReference.GetVariable("TerrainTags",
+                        out BlackboardVariable<string> tagVar);
+                    if (tagVar == null) continue;
+
+                    string cur = tagVar.Value ?? "";
+                    bool hasTag = cur.Contains("NarrowPath");
+
+                    if (inside && !hasTag)
+                    {
+                        tagVar.Value = string.IsNullOrEmpty(cur) ? "NarrowPath" : cur + ",NarrowPath";
+                        AddLog($"🏔️ Zone 진입 → {ai.name}");
+                    }
+                    else if (!inside && hasTag)
+                    {
+                        tagVar.Value = cur.Replace("NarrowPath", "").Trim(',').Trim();
+                        AddLog($"🔓 Zone 이탈 → {ai.name}");
+                    }
+                }
+                catch { }
+            }
         }
 
         // =====================================================================
