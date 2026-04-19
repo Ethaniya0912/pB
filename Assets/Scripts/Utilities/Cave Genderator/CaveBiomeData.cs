@@ -23,10 +23,8 @@ namespace CaveSystem
         [Tooltip("Y축 압착률. 1.0 미만 시 지형이 위아래로 눌려 단층(Fault-line) 느낌을 줍니다.")]
         [Range(0.1f, 2.0f)] public float yCompression = 1.0f;
 
-        [Tooltip("방과 통로가 융합되는 부드러움의 정도 (smin K값).\n" +
-                 "⚠️ 5.0 초과 시 smin 전이대가 통로 폭을 넘어 biome 노이즈(±2.1m)와 상호작용 → 파편화·도넛화 악화.\n" +
-                 "권장값: 2.0~4.0")]
-        [Range(0.1f, 6.0f)] public float sminStrength = 2.5f;
+        [Tooltip("방과 통로가 융합되는 부드러움의 정도 (smin K값).")]
+        [Range(0.1f, 10.0f)] public float sminStrength = 2.5f;
 
         [Tooltip("퇴적암 층리(Terrace) 단계. 0이면 사용하지 않으며, 높을수록 계단이 촘촘해집니다.")]
         [Range(0.0f, 10.0f)] public float terraceSteps = 0.0f;
@@ -51,15 +49,6 @@ namespace CaveSystem
             if (Application.isPlaying)
             {
                 OnBiomeModified?.Invoke();
-            }
-
-            // [P6] sminStrength 과대 경고
-            // 5.0 초과: smin 전이대(±k/2) > 통로 반경(2~4m) → biome noise와 상호작용으로 도넛·파편화 악화
-            if (sminStrength > 5.0f)
-            {
-                Debug.LogWarning($"[CaveBiomeData '{biomeName}'] sminStrength={sminStrength:F1} > 5.0 — " +
-                                 "smin 전이대가 통로 폭을 초과합니다. biome 노이즈(±2.1m)와 결합 시 " +
-                                 "도넛화·파편화가 악화됩니다. 권장값: 2.0~4.0");
             }
         }
 

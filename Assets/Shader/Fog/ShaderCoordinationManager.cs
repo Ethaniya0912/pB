@@ -480,7 +480,10 @@ public class ShaderCoordinationManager : MonoBehaviour
         }
         else
         {
-            Shader.SetGlobalFloat(NearDistID,     defaultNearDist);
+            // [FIX-D] 비락온 시 _NearDist 글로벌 주입 제거
+            // CBUFFER_START(UnityPerMaterial)가 머티리얼 값(20m)을 격리하므로
+            // 글로벌 주입은 불필요하며, 값 불일치 위험만 생성함.
+            // 이전: Shader.SetGlobalFloat(NearDistID, defaultNearDist);
             Shader.SetGlobalFloat(LockOnActiveID, 0f);
         }
 
@@ -642,7 +645,9 @@ public class ShaderCoordinationManager : MonoBehaviour
     [Header("7. Lock-On Depth Blur Protection")]
     [Tooltip("락온 해제 시 복원할 DepthBlur NearDist 기본값.\n" +
              "DepthBlur 머티리얼의 Near Distance 값과 일치시켜야 합니다.")]
-    public float defaultNearDist = 7f;
+    // [FIX-D] 머티리얼 _NearDist=20과 동기화 (기존 7f → 20f)
+    // CBUFFER 누수 시 글로벌 값이 읽히므로, 머티리얼과 동일한 값을 유지해야 함
+    public float defaultNearDist = 20f;
 
     [Header("7. Lock-On Gizmo (Scene View)")]
     [Tooltip("씬 뷰에서 락온 SSMB 영향 범위 기즈모를 표시합니다.")]

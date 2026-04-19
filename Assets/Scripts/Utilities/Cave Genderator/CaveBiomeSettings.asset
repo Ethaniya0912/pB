@@ -20,30 +20,30 @@ MonoBehaviour:
   macroBiomeScale: 500
   globalBiomes:
   - {fileID: 11400000, guid: 23062ff654eafe2438553c5eb819c6e9, type: 2}
+  - {fileID: 11400000, guid: 2e0520f991830f042949f12073e0b060, type: 2}
   depthLayers:
   - layerName: 1F
     maxAltitude: 15
     minAltitude: -5
-    floorBlendRadius: 8
-    ceilBlendRadius: 8
+    floorBlendRadius: 18
+    ceilBlendRadius: 10
     floorBumpAmplitude: 0.3
     floorBumpFrequency: 0.07
-    floorDetailAmplitude: 1.5
-    floorDetailFrequency: 0.07
-    floorDetailRadius: 3
-    corridorSurface: 0
-    sedimentAmplitude: 0.5
-    tunnelWidthScale: 0.5
-    roomSizeScale: 0
     noiseFrequency: 0.05
     sdfSmoothness: 2.5
-    sinkholeProbability: 0
+    sinkholeProbability: 0.146
     sinkholeMinRadius: 6
     sinkholeMaxRadius: 12
     sinkholeSmoothness: 5
     ledgeStepHeight: 2.5
     spiralFrequency: 0.5
     spiralAmplitude: 2
+    tunnelWidthScale: 1
+    roomSizeScale: 1
+    sedimentAmplitude: 0.1
+    floorDetailAmplitude: 0.045
+    floorDetailFrequency: 0.084
+    floorDetailRadius: 0.93
     layerFogColor: {r: 0.22745098, g: 0.20784314, b: 0.1882353, a: 0}
     waterLevel: -4
     oreDistributions: []

@@ -9,28 +9,21 @@
 // FIX-5: 버텍스 노말 = 밀도 그래디언트 부호 반전 (동굴 내부 방향)
 // FIX-6: 와인딩 = (d0>0) == (axis==1)  (d>0=암석 관례, 수학적 검증)
 // FIX-7: GenerateQuads 버퍼 오버플로우 방지 (appendIdx 범위 체크)
-// -----------------------------------------------------------------------------
-// [O3 최적화 버그 수정]
-// FIX-PHANTOM : SolveQEF — packedNormal==0u 직접 체크 추가
-//   DecodeNormalOct16(0) = float3(0,0,-1) (length=1.0) 이므로 기존 length<0.01
-//   가드로는 클리어된 슬롯이 걸러지지 않아 셀당 ~20개 팬텀 (0,0,-1) 기여 주입
-//   → ATA[2][2]만 폭등, 모든 버텍스 Z좌표가 로컬 원점으로 snap → 블록형 메쉬
-//   수정: if (edge.packedNormal == 0u) continue; 를 decode 이전에 삽입
-// FIX-DC-A   : SolveQEF DC-A 블록 — ATA += 이전 bool로 ATb 조건 캡처
-//   기존 코드는 ATA[i][i] += λ 이후 갱신된 값으로 ATb 조건 재평가
-//   → 임계값 경계 셀에서 ATA·ATb λ 불일치 → QEF 해 왜곡
-//   수정: weakX/Y/Z = (ATA[i][i] < diag_max*0.1) 를 += 이전에 캡처
-// FIX-RIDGE  : hasDirectedAnisotropy 임계값 1.05 → 1.01
-//   1.05이면 완만한 능선(두 고유값 5% 이내 유사)도 Phase 3 차단
-//   → cave 지형 대부분의 floor-wall 전환부에서 Phase 3 미적용 → 능선 소멸
-//   수정: 1.01로 완화, 순수 등방성 구면만 차단
 // =============================================================================
 
 #pragma kernel CollectHermiteData
 #pragma kernel SolveQEF
 #pragma kernel GenerateQuads
 #pragma kernel ClearHermiteBuffer   // [FIX-3]
-#pragma kernel ClearVertexBuffer    // [FIX-VERT] GPU 버텍스 클리어 (CPU SetData 대체)
+#pragma kernel ClearDCVertexBuffer  // [P0.5-A] GPU Clear
+#pragma kernel SplitVoxelBuffer     // [P1-A] CaveVoxel 16B → density 4B + ore 4B
+#pragma kernel CompactAndRemap     // [P1-B] 유효 vertex compact + remapTable
+#pragma kernel RemapQuads          // [P1-B] quad 인덱스 리매핑
+
+// [O3] DCHermiteEdge 압축 토글 — 32B→16B
+#pragma multi_compile _ COMPRESSED_HERMITE
+// [O1] DCVertex 압축 토글 — 56B→32B
+#pragma multi_compile _ COMPRESSED_VERTEX
 
 // ============ 구조체 정의 (C# DCDataStructs와 동일) ============
 
@@ -41,52 +34,155 @@ struct CaveVoxel
     float2 padding;
 };
 
-// ──────────────────────────────────────────────────────────────────
-// [O3] DCHermiteEdge 압축: 32B → 16B
-//   intersectionNormal (float3 12B) → Oct16 packed uint (4B)
-//   edgeAxis (4B) 제거: SolveQEF에서 미사용, edgeIdx로 내포
-//   padding (4B) 제거
-// ──────────────────────────────────────────────────────────────────
+// [O3] 비압축 구조체 (enableCompressedHermite=OFF 시 사용)
 struct DCHermiteEdge
 {
-    float3 intersectionPoint;  // 12B  교차점 로컬 좌표
-    uint   packedNormal;       //  4B  Oct16 인코딩 법선 (상위16=u, 하위16=v)
-    // 합계: 16B (이전 32B)
+    float3 intersectionPoint;
+    float3 intersectionNormal;
+    int edgeAxis;
+    float padding;
 };
-// ── Oct16 인코딩/디코딩 (단위벡터 ↔ uint) ────────────────────────
-float2 OctWrap(float2 v) {
-    // [수정] HLSL bool2 삼항 연산자 버그 수정
-    // 이전: (v.xy >= 0.0 ? 1.0 : -1.0) → bool2가 0/1로 처리돼 -1이 안 나옴
-    // 이후: (2.0 * (float2)(v.xy >= 0.0) - 1.0) → 올바른 +1/-1 생성
-    float2 signV = 2.0 * (float2)(v.xy >= 0.0) - 1.0;
-    return (1.0 - abs(v.yx)) * signV;
+
+// ============ [O3] OctWrap 인코딩 (노말 float3 → uint, ~10bit/축) ============
+// 주의: HLSL 벡터 ternary 버그 수정 — 축별 개별 비교 (n.x, n.y 독립)
+//   미수정 시 n.x>0, n.y<0인 경우 90° 노말 오류 → 파편 직결
+
+float2 _OctWrap(float2 v)
+{
+    return float2(
+        (1.0 - abs(v.y)) * (v.x >= 0.0 ? 1.0 : -1.0),
+        (1.0 - abs(v.x)) * (v.y >= 0.0 ? 1.0 : -1.0)
+    );
 }
-uint EncodeNormalOct16(float3 n) {
+
+uint OctEncode(float3 n)
+{
     n /= (abs(n.x) + abs(n.y) + abs(n.z));
-    float2 oct = n.z >= 0.0 ? n.xy : OctWrap(n.xy);
-    oct = oct * 0.5 + 0.5;  // [-1,1] → [0,1]
-    uint ux = (uint)(saturate(oct.x) * 65535.0 + 0.5);
-    uint uy = (uint)(saturate(oct.y) * 65535.0 + 0.5);
-    return (ux << 16) | uy;
+    float2 oct = n.xy;
+    if (n.z < 0.0) oct = _OctWrap(oct);
+    uint2 u = (uint2)(saturate(oct * 0.5 + 0.5) * 65535.0);
+    return (u.x & 0xFFFF) | ((u.y & 0xFFFF) << 16);
 }
-float3 DecodeNormalOct16(uint packed) {
-    float u = (float)((packed >> 16) & 0xFFFF) / 65535.0;
-    float v = (float)(packed & 0xFFFF) / 65535.0;
-    float2 oct = float2(u, v) * 2.0 - 1.0;  // [0,1] → [-1,1]
-    float3 n = float3(oct.x, oct.y, 1.0 - abs(oct.x) - abs(oct.y));
-    if (n.z < 0.0) { float2 w = OctWrap(n.xy); n.x = w.x; n.y = w.y; }
+
+float3 OctDecode(uint packed)
+{
+    float2 oct;
+    oct.x = (float)(packed & 0xFFFF) / 65535.0 * 2.0 - 1.0;
+    oct.y = (float)((packed >> 16) & 0xFFFF) / 65535.0 * 2.0 - 1.0;
+    float3 n = float3(oct, 1.0 - abs(oct.x) - abs(oct.y));
+    if (n.z < 0.0)
+    {
+        float2 w = _OctWrap(n.xy);
+        n.x = w.x; n.y = w.y;
+    }
     return normalize(n);
 }
 
+// ============ [O3] Half pack 헬퍼 ============
+
+uint PackHalf2(float2 v) { return f32tof16(v.x) | (f32tof16(v.y) << 16); }
+float2 UnpackHalf2(uint p) { return float2(f16tof32(p), f16tof32(p >> 16)); }
+
+// ============ [O3] 버퍼 선언 (압축/비압축 분기) ============
+
+#ifdef COMPRESSED_HERMITE
+// 압축 16B: uint4(posXY, posZAxis, octNormal, pad)
+//   posXY = PackHalf2(relPos.xy)
+//   posZAxis = f32tof16(relPos.z) | (axis << 16)  [axis=3 → invalid]
+//   octNormal = OctEncode(normal)
+RWStructuredBuffer<uint4> _HermiteEdgeBuffer;
+#else
+RWStructuredBuffer<DCHermiteEdge> _HermiteEdgeBuffer;
+#endif
+
+// ============ [O3] Hermite Read/Write 헬퍼 ============
+
+void WriteHermiteEdge(int edgeIdx, float3 iPos, float3 iNrm, int axis, float3 voxelCorner)
+{
+#ifdef COMPRESSED_HERMITE
+    float3 relPos = iPos - voxelCorner;
+    uint posXY    = PackHalf2(relPos.xy);
+    uint posZAxis = f32tof16(relPos.z) | ((uint)axis << 16);
+    uint octN     = OctEncode(iNrm);
+    _HermiteEdgeBuffer[edgeIdx] = uint4(posXY, posZAxis, octN, 0);
+#else
+    DCHermiteEdge edge;
+    edge.intersectionPoint  = iPos;
+    edge.intersectionNormal = iNrm;
+    edge.edgeAxis           = axis;
+    edge.padding            = 0;
+    _HermiteEdgeBuffer[edgeIdx] = edge;
+#endif
+}
+
+void ReadHermiteEdge(int edgeIdx, float3 voxelCorner,
+                     out float3 iPos, out float3 iNrm, out int axis)
+{
+#ifdef COMPRESSED_HERMITE
+    uint4 packed = _HermiteEdgeBuffer[edgeIdx];
+    uint rawAxis = (packed.y >> 16) & 0xFFFF;
+    if (rawAxis > 2)
+    {
+        // Invalid (cleared) edge → zero normal for SolveQEF skip
+        iPos = float3(0, 0, 0);
+        iNrm = float3(0, 0, 0);
+        axis  = 0;
+        return;
+    }
+    float2 relXY = UnpackHalf2(packed.x);
+    float  relZ  = f16tof32(packed.y & 0xFFFF);
+    axis = (int)rawAxis;
+    iPos = float3(relXY, relZ) + voxelCorner;
+    iNrm = OctDecode(packed.z);
+#else
+    DCHermiteEdge edge = _HermiteEdgeBuffer[edgeIdx];
+    iPos = edge.intersectionPoint;
+    iNrm = edge.intersectionNormal;
+    axis  = edge.edgeAxis;
+#endif
+}
+
+void ClearHermiteEdgeAt(int i)
+{
+#ifdef COMPRESSED_HERMITE
+    // axis=3 → ReadHermiteEdge에서 invalid 판정 → normal=(0,0,0) → SolveQEF skip
+    _HermiteEdgeBuffer[i] = uint4(0, (uint)3 << 16, 0, 0);
+#else
+    DCHermiteEdge cleared;
+    cleared.intersectionPoint  = float3(0, 0, 0);
+    cleared.intersectionNormal = float3(0, 0, 0);
+    cleared.edgeAxis           = 0;
+    cleared.padding            = 0;
+    _HermiteEdgeBuffer[i] = cleared;
+#endif
+}
 
 struct DCVertex
 {
-    float3 position;      // 12B
-    float3 normal;        // 12B
-    int    featureType;   //  4B  -1=무효, 0=Smooth, 1=Edge, 2=Corner
-    int    materialIndex; //  4B
-    // 합계: 32B (이전 56B 대비 43% 절약)
-    // 제거: uv(8B,worldPos재계산) qefError(4B,미사용) padding(12B)
+    float3 position;
+    float3 normal;
+    float2 uv;
+    int featureType;    // -1=무효, 0=Smooth, 1=Edge, 2=Corner  [FIX-4]
+    int materialIndex;
+    float qefError;
+    float3 padding;
+};
+
+// [O1] DCVertex 압축 구조체 (32B)
+//   position float3 유지 (12B) — AABB/SeamStitcher/FloorSmoothing 정밀도 필수
+//   normal → OctWrap uint (4B, ~10bit/축, 오차 <0.002)
+//   uv → half2 (4B)
+//   featureType 유지 (4B) — FloorSmoothing 가드
+//   qefError(half) + materialIndex(ushort) 패킹 (4B)
+//   padding (4B) → 32B 정렬
+struct DCVertexCompressed
+{
+    float3 position;    // 12B
+    uint   octNormal;   // 4B
+    uint   uvPacked;    // 4B (PackHalf2)
+    int    featureType; // 4B
+    uint   errMat;      // 4B (lower16=half(qefError), upper16=materialIndex)
+    uint   padding;     // 4B
 };
 
 struct DCQuad
@@ -105,17 +201,127 @@ struct GameplaySculptData
 // ============ 버퍼 ============
 
 RWStructuredBuffer<CaveVoxel>       _VoxelBuffer;
-RWStructuredBuffer<DCHermiteEdge>   _HermiteEdgeBuffer;
-RWStructuredBuffer<DCVertex>        _DCVertexBuffer;
+// _HermiteEdgeBuffer: 위의 #ifdef COMPRESSED_HERMITE 블록에서 선언됨
+#ifdef COMPRESSED_VERTEX
+RWStructuredBuffer<DCVertexCompressed> _DCVertexBuffer;
+#else
+RWStructuredBuffer<DCVertex>           _DCVertexBuffer;
+#endif
 RWStructuredBuffer<DCQuad>          _DCQuadBuffer;
 RWByteAddressBuffer                 _QuadCount;
 StructuredBuffer<GameplaySculptData> _GameplaySculptBuffer;
+
+// [P1-A] 압축 버퍼 (enableCompressedVoxel=ON 시 사용)
+RWStructuredBuffer<float> _DensityBuffer;   // density만 (4B/voxel)
+RWStructuredBuffer<int>   _OreBuffer;       // oreType만 (4B/voxel, LUT)
+
+// [P1-B] Compaction 버퍼
+#ifdef COMPRESSED_VERTEX
+RWStructuredBuffer<DCVertexCompressed> _CompactVertexBuffer;
+#else
+RWStructuredBuffer<DCVertex> _CompactVertexBuffer;
+#endif
+RWStructuredBuffer<int>      _RemapTable;           // flatIdx → compactIdx (-1=무효)
+RWByteAddressBuffer          _ValidVertexCount;     // atomic counter
 
 // ============ 유니폼 ============
 
 int   _PointsPerAxis;
 float _ChunkSize;       // = (PointsPerAxis - 1) * voxelSize  [FIX-1, FIX-2]
 int   _HermiteBufferSize; // ClearHermiteBuffer용
+
+// ============ Phase 2 — DC 품질 토글 ============
+int   _EnableVisualSmooth;   // [Phase 2-A] 0=OFF(±2 기존), 1=ON(±3 확장)
+int   _EnableMassPointA;     // [Phase 2-C-A] 0=OFF, 1=ON(eigenvalue confidence blend)
+int   _EnableMassPointB;     // [Phase 2-C-B] 0=OFF, 1=ON(lambda 0.01→0.1)
+
+// ═════════════════════════════════════════════════════════════
+// [Phase 2 — Mass Point QEF (Schaefer/Warren 2005)] 
+//   수학: min ||Ax - b||² + λ_mp ||x - c_m||²
+//          → (AᵀA + (λ_reg + λ_mp)·I) x = Aᵀb + λ_mp·c_m
+//
+//   기존 MassPointA/B와의 차이 (규칙 #19 명시):
+//     MassPointA: QEF 해를 구한 후 massPoint와 lerp (사후 blend)
+//     MassPointB: λ_reg 값만 증가 (Tikhonov 정규화 강화, mass point 무관)
+//     Phase 2  : normal equation 자체에 λ_mp·c_m 추가 — 수학적 정통
+//
+//   효과 (fragC_strategic_evaluation.html §4 T3-3):
+//     - 양쪽 chunk가 같은 edge intersection → 같은 massPoint 중심으로 수렴
+//     - ATA rank-deficient 시 vertex가 voxel 바깥으로 날아가지 않고 massPoint로 bias
+//     - FragC-γ (float 오차) + FragB 원인 1 잔존 + FragA 일부 완화
+//
+//   규칙 #6: _EnablePhase2MassPointQEF=0 시 기존 SolveQEF_Cholesky 경로 bit-identical.
+//   규칙 #3: GenerateQuads 미수정 (SolveQEF 커널 내부만 확장).
+//   규칙 #19: intersection point (p) + normal (n) + massPoint (c_m) 만 사용.
+//             합성 bulk SDF 지표 미사용.
+// ═════════════════════════════════════════════════════════════
+int   _EnablePhase2MassPointQEF;    // 0=OFF(원본), 1=ON(Mass Point bias 통합)
+float _Phase2MassPointStrength;     // λ_mp — mass point bias 강도 (권장 0.1~1.0)
+
+// [P1-A] 압축 토글
+int   _UseCompressedVoxel;   // 0=OFF(원본 _VoxelBuffer), 1=ON(압축 _DensityBuffer+_OreBuffer)
+
+// ============ [P1-A] 밀도/광석 읽기 헬퍼 ============
+// OFF: ReadDensity(idx) (원본 16B 접근, 비트 동일)
+// ON:  _DensityBuffer[idx] (압축 4B 접근, 캐시 4× 효율)
+float ReadDensity(int idx)
+{
+    return (_UseCompressedVoxel == 1) ? _DensityBuffer[idx] : _VoxelBuffer[idx].density;
+}
+int ReadOreType(int idx)
+{
+    return (_UseCompressedVoxel == 1) ? _OreBuffer[idx] : _VoxelBuffer[idx].oreType;
+}
+
+// ============ [O1] DCVertex Write/Read 헬퍼 ============
+// 버퍼 선언 후 위치 — _DCVertexBuffer 접근 가능
+
+void WriteDCVertex(int idx, float3 pos, float3 nrm, float2 uv,
+                   int ft, int matIdx, float qefErr)
+{
+#ifdef COMPRESSED_VERTEX
+    DCVertexCompressed cv;
+    cv.position   = pos;
+    cv.octNormal  = OctEncode(nrm);
+    cv.uvPacked   = PackHalf2(uv);
+    cv.featureType = ft;
+    cv.errMat     = (f32tof16(qefErr) & 0xFFFF) | (((uint)matIdx & 0xFFFF) << 16);
+    cv.padding    = 0;
+    _DCVertexBuffer[idx] = cv;
+#else
+    DCVertex v;
+    v.position      = pos;
+    v.normal        = nrm;
+    v.uv            = uv;
+    v.featureType   = ft;
+    v.materialIndex = matIdx;
+    v.qefError      = qefErr;
+    v.padding       = float3(0, 0, 0);
+    _DCVertexBuffer[idx] = v;
+#endif
+}
+
+void ReadDCVertex(int idx, out float3 pos, out float3 nrm, out float2 uv,
+                  out int ft, out int matIdx, out float qefErr)
+{
+#ifdef COMPRESSED_VERTEX
+    DCVertexCompressed cv = _DCVertexBuffer[idx];
+    pos    = cv.position;
+    nrm    = OctDecode(cv.octNormal);
+    uv     = UnpackHalf2(cv.uvPacked);
+    ft     = cv.featureType;
+    qefErr = f16tof32(cv.errMat & 0xFFFF);
+    matIdx = (int)((cv.errMat >> 16) & 0xFFFF);
+#else
+    DCVertex v = _DCVertexBuffer[idx];
+    pos    = v.position;
+    nrm    = v.normal;
+    uv     = v.uv;
+    ft     = v.featureType;
+    matIdx = v.materialIndex;
+    qefErr = v.qefError;
+#endif
+}
 
 // ============ 헬퍼 함수 ============
 
@@ -149,6 +355,63 @@ float3 SolveQEF_Cholesky(float3x3 ATA, float3 ATb, float regLambda)
     ATA[1][1] += regLambda;
     ATA[2][2] += regLambda;
 
+    float l00 = sqrt(max(ATA[0][0], 1e-10));
+    float l10 = ATA[1][0] / l00;
+    float l11 = sqrt(max(ATA[1][1] - l10 * l10, 1e-10));
+    float l20 = ATA[2][0] / l00;
+    float l21 = (ATA[2][1] - l20 * l10) / l11;
+    float l22 = sqrt(max(ATA[2][2] - l20 * l20 - l21 * l21, 1e-10));
+
+    float y0 = ATb.x / l00;
+    float y1 = (ATb.y - l10 * y0) / l11;
+    float y2 = (ATb.z - l20 * y0 - l21 * y1) / l22;
+
+    float x2 = y2 / l22;
+    float x1 = (y1 - l21 * x2) / l11;
+    float x0 = (y0 - l10 * x1 - l20 * x2) / l00;
+
+    return float3(x0, x1, x2);
+}
+
+
+// ═════════════════════════════════════════════════════════════
+// [Phase 2] Mass Point QEF — Schaefer/Warren 2005 정통 공식
+//
+// 수학 유도:
+//   원래 QEF 최소화: E(x) = Σᵢ (nᵢ·(x - pᵢ))² = ||Ax - b||²
+//     A: edge normal 행렬 (k×3), b: dot(nᵢ, pᵢ) 벡터
+//     정규방정식: AᵀA·x = Aᵀb
+//
+//   Mass Point 보강: E'(x) = E(x) + λ_mp·||x - c_m||²
+//     c_m = (1/k) Σᵢ pᵢ (intersection centroid)
+//     미분: 2·AᵀA·x - 2·Aᵀb + 2·λ_mp·(x - c_m) = 0
+//     정규방정식: (AᵀA + λ_mp·I)·x = Aᵀb + λ_mp·c_m
+//
+//   λ_reg(Tikhonov) + λ_mp(MassPoint) 합산 정규화:
+//     최종: (AᵀA + (λ_reg + λ_mp)·I)·x = Aᵀb + λ_mp·c_m
+//
+//   λ_mp = 0 이면 기존 SolveQEF_Cholesky와 수학적으로 동일.
+//   λ_mp → ∞ 이면 x = c_m (massPoint 해).
+//
+// 기존 SolveQEF_Cholesky와의 관계:
+//   λ_mp=0 + massPoint=(0,0,0) 전달 시 기존 함수와 bit-identical.
+//   But _EnablePhase2MassPointQEF=0 시 이 함수를 호출하지 않으므로
+//   기존 경로는 완전히 변하지 않음 (규칙 #6).
+// ═════════════════════════════════════════════════════════════
+float3 SolveQEF_Cholesky_MassPoint(
+    float3x3 ATA, float3 ATb, float regLambda,
+    float3 massPoint, float massPointLambda)
+{
+    // λ_reg (Tikhonov) + λ_mp (Mass Point) 합산 정규화
+    float totalLambda = regLambda + massPointLambda;
+    ATA[0][0] += totalLambda;
+    ATA[1][1] += totalLambda;
+    ATA[2][2] += totalLambda;
+
+    // RHS에 λ_mp·c_m 추가 (Mass Point bias)
+    ATb += massPointLambda * massPoint;
+
+    // Cholesky 분해 + 해 복원 (SolveQEF_Cholesky와 동일 수치 로직)
     float l00 = sqrt(max(ATA[0][0], 1e-10));
     float l10 = ATA[1][0] / l00;
     float l11 = sqrt(max(ATA[1][1] - l10 * l10, 1e-10));
@@ -233,14 +496,14 @@ float SampleSDF_Safe(float3 pos_local, float spacing)
     int3 c = (int3)floor(pos_v);
     float3 f = frac(pos_v);
     // 8코너 trilinear 보간
-    float d000 = _VoxelBuffer[FlatIndex(c                  )].density;
-    float d100 = _VoxelBuffer[FlatIndex(c + int3(1, 0, 0)) ].density;
-    float d010 = _VoxelBuffer[FlatIndex(c + int3(0, 1, 0)) ].density;
-    float d110 = _VoxelBuffer[FlatIndex(c + int3(1, 1, 0)) ].density;
-    float d001 = _VoxelBuffer[FlatIndex(c + int3(0, 0, 1)) ].density;
-    float d101 = _VoxelBuffer[FlatIndex(c + int3(1, 0, 1)) ].density;
-    float d011 = _VoxelBuffer[FlatIndex(c + int3(0, 1, 1)) ].density;
-    float d111 = _VoxelBuffer[FlatIndex(c + int3(1, 1, 1)) ].density;
+    float d000 = ReadDensity(FlatIndex(c                  ));
+    float d100 = ReadDensity(FlatIndex(c + int3(1, 0, 0)));
+    float d010 = ReadDensity(FlatIndex(c + int3(0, 1, 0)));
+    float d110 = ReadDensity(FlatIndex(c + int3(1, 1, 0)));
+    float d001 = ReadDensity(FlatIndex(c + int3(0, 0, 1)));
+    float d101 = ReadDensity(FlatIndex(c + int3(1, 0, 1)));
+    float d011 = ReadDensity(FlatIndex(c + int3(0, 1, 1)));
+    float d111 = ReadDensity(FlatIndex(c + int3(1, 1, 1)));
     float dx00 = lerp(d000, d100, f.x);
     float dx10 = lerp(d010, d110, f.x);
     float dx01 = lerp(d001, d101, f.x);
@@ -269,40 +532,47 @@ int ClassifyFeature(float3x3 ATA)
 // ====================================================================
 // [FIX-3] Kernel 0: ClearHermiteBuffer
 //   청크 디스패치 전 반드시 호출.
-//   packedNormal = 0 → SolveQEF의 packedNormal==0 가드에서 자동 스킵. [O3]
+//   intersectionNormal = (0,0,0) → SolveQEF의 length < 0.01 가드에서 자동 스킵.
 // ====================================================================
 [numthreads(256, 1, 1)]
 void ClearHermiteBuffer(uint3 id : SV_DispatchThreadID)
 {
     int i = (int)id.x;
     if (i >= _HermiteBufferSize) return;
-
-    DCHermiteEdge cleared;
-    cleared.intersectionPoint = float3(0, 0, 0);
-    cleared.packedNormal      = 0; // [O3] 0 → SolveQEF에서 packedNormal==0 체크로 스킵
-    _HermiteEdgeBuffer[i] = cleared;
+    ClearHermiteEdgeAt(i);  // [O3] 압축/비압축 분기 헬퍼
 }
 
 // ====================================================================
-// [FIX-VERT] Kernel: ClearVertexBuffer
-//   청크 디스패치 전 호출. featureType=-1로 모든 버텍스 무효 마킹.
-//   기존 CPU SetData(DCVertex[N3]) 대비:
-//     - GPU에서 병렬 초기화 → 주 스레드 스톨 제거
-//     - 약 6859 원소(N=19) 기준 CPU 0.3ms → GPU 0.01ms
+// [P0.5-A] Kernel: ClearDCVertexBuffer  (enableGpuClear=ON 시 사용)
+//   CPU SetData(71MB) 18ms → GPU Dispatch 0.5ms
+//   모든 필드를 C# struct default와 비트 동일하게 초기화
+//   featureType=-1 → GenerateQuads에서 무효 vertex 스킵
 // ====================================================================
-[numthreads(256, 1, 1)]
-void ClearVertexBuffer(uint3 id : SV_DispatchThreadID)
-{
-    int total = _PointsPerAxis * _PointsPerAxis * _PointsPerAxis;
-    int i = (int)id.x;
-    if (i >= total) return;
+int _DCVertexBufferSize;
 
-    DCVertex inv;
-    inv.position      = float3(0, 0, 0);
-    inv.normal        = float3(0, 1, 0);
-    inv.featureType   = -1;   // 무효 마커: GenerateQuads가 참조 차단
-    inv.materialIndex = 0;
-    _DCVertexBuffer[i] = inv;
+[numthreads(256, 1, 1)]
+void ClearDCVertexBuffer(uint3 id : SV_DispatchThreadID)
+{
+    int i = (int)id.x;
+    if (i >= _DCVertexBufferSize) return;
+    // [O1] WriteDCVertex — 압축/비압축 분기 헬퍼 (featureType=-1 → 무효 마커)
+    WriteDCVertex(i, float3(0,0,0), float3(0,0,0), float2(0,0), -1, 0, 0.0);
+}
+
+// ====================================================================
+// [P1-A] Kernel: SplitVoxelBuffer
+//   CaveVoxel(16B) → _DensityBuffer(4B) + _OreBuffer(4B) 분리
+//   enableCompressedVoxel=ON 시 DispatchDC 직전에 1회 실행
+// ====================================================================
+int _SplitBufferSize;  // N³
+
+[numthreads(256, 1, 1)]
+void SplitVoxelBuffer(uint3 id : SV_DispatchThreadID)
+{
+    int i = (int)id.x;
+    if (i >= _SplitBufferSize) return;
+    _DensityBuffer[i] = _VoxelBuffer[i].density;
+    _OreBuffer[i]     = _VoxelBuffer[i].oreType;
 }
 
 // ====================================================================
@@ -317,7 +587,7 @@ void CollectHermiteData(uint3 id : SV_DispatchThreadID)
 
     int3 sid = (int3)id;
     int  idx = FlatIndex(sid);
-    float d0 = _VoxelBuffer[idx].density;
+    float d0 = ReadDensity(idx);
 
     int3 axisNeighbors[3];
     axisNeighbors[0] = int3(1, 0, 0);
@@ -330,7 +600,7 @@ void CollectHermiteData(uint3 id : SV_DispatchThreadID)
         if (nid.x >= N || nid.y >= N || nid.z >= N)
             continue;
 
-        float d1 = _VoxelBuffer[FlatIndex(nid)].density;
+        float d1 = ReadDensity(FlatIndex(nid));
 
         if ((d0 > 0.0) == (d1 > 0.0))
             continue;
@@ -363,21 +633,41 @@ void CollectHermiteData(uint3 id : SV_DispatchThreadID)
         int3 pz2 = clamp(sid + int3(0,0,2), int3(0,0,0), int3(N-1,N-1,N-1));
         int3 pzm2= clamp(sid - int3(0,0,2), int3(0,0,0), int3(N-1,N-1,N-1));
         float3 grad = float3(
-            (_VoxelBuffer[FlatIndex(px1)].density - _VoxelBuffer[FlatIndex(px0)].density)*0.8
-            + (_VoxelBuffer[FlatIndex(px2)].density - _VoxelBuffer[FlatIndex(pxm2)].density)*0.2,
-            (_VoxelBuffer[FlatIndex(py1)].density - _VoxelBuffer[FlatIndex(py0)].density)*0.8
-            + (_VoxelBuffer[FlatIndex(py2)].density - _VoxelBuffer[FlatIndex(pym2)].density)*0.2,
-            (_VoxelBuffer[FlatIndex(pz1)].density - _VoxelBuffer[FlatIndex(pz0)].density)*0.8
-            + (_VoxelBuffer[FlatIndex(pz2)].density - _VoxelBuffer[FlatIndex(pzm2)].density)*0.2
+            (ReadDensity(FlatIndex(px1)) - ReadDensity(FlatIndex(px0)))*0.8
+            + (ReadDensity(FlatIndex(px2)) - ReadDensity(FlatIndex(pxm2)))*0.2,
+            (ReadDensity(FlatIndex(py1)) - ReadDensity(FlatIndex(py0)))*0.8
+            + (ReadDensity(FlatIndex(py2)) - ReadDensity(FlatIndex(pym2)))*0.2,
+            (ReadDensity(FlatIndex(pz1)) - ReadDensity(FlatIndex(pz0)))*0.8
+            + (ReadDensity(FlatIndex(pz2)) - ReadDensity(FlatIndex(pzm2)))*0.2
         );
+
+        // [Phase 2-A] VisualSmooth: ±3 확장 gradient 혼합
+        // OFF: 기존 ±1/±2 가중 차분만 사용
+        // ON:  ±3 추가 → 전이대 gradient 안정화 → normalFlip 감소
+        if (_EnableVisualSmooth == 1)
+        {
+            int3 px3  = clamp(sid + int3(3,0,0), int3(0,0,0), int3(N-1,N-1,N-1));
+            int3 pxm3 = clamp(sid - int3(3,0,0), int3(0,0,0), int3(N-1,N-1,N-1));
+            int3 py3  = clamp(sid + int3(0,3,0), int3(0,0,0), int3(N-1,N-1,N-1));
+            int3 pym3 = clamp(sid - int3(0,3,0), int3(0,0,0), int3(N-1,N-1,N-1));
+            int3 pz3  = clamp(sid + int3(0,0,3), int3(0,0,0), int3(N-1,N-1,N-1));
+            int3 pzm3 = clamp(sid - int3(0,0,3), int3(0,0,0), int3(N-1,N-1,N-1));
+            float3 grad3 = float3(
+                ReadDensity(FlatIndex(px3))  - ReadDensity(FlatIndex(pxm3)),
+                ReadDensity(FlatIndex(py3))  - ReadDensity(FlatIndex(pym3)),
+                ReadDensity(FlatIndex(pz3))  - ReadDensity(FlatIndex(pzm3))
+            );
+            // 가중치: ±1=0.6, ±2=0.15, ±3=0.1 (합산 ≈ 원래 크기 유지)
+            grad = grad * 0.882 + grad3 * 0.118;
+        }
+
         float gLen = length(grad);
         float3 normal = gLen > 1e-6 ? -grad / gLen : float3(0, 1, 0);
 
         int edgeIdx = FlatIndex(sid) * 3 + axis;
-        DCHermiteEdge edge;
-        edge.intersectionPoint = intersection;
-        edge.packedNormal      = EncodeNormalOct16(normal); // [O3] Oct16 압축
-        _HermiteEdgeBuffer[edgeIdx] = edge;
+        // [O3] WriteHermiteEdge — 압축 시 relPos+OctWrap, 비압축 시 원본 구조체
+        float3 voxelCorner = GetVoxelLocalPos((uint3)sid);
+        WriteHermiteEdge(edgeIdx, intersection, normal, axis, voxelCorner);
     }
 }
 
@@ -398,7 +688,6 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
     float3 ATb = float3(0, 0, 0);
     float3 massPoint = float3(0, 0, 0);
     int edgeCount = 0;
-    float3 hermiteNormalSum = float3(0, 0, 0); // [FIX-NORMAL] hermite edge 법선 누적합
 
     for (int dx = 0; dx <= 1; dx++)
     for (int dy = 0; dy <= 1; dy++)
@@ -412,18 +701,13 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
         for (int axis = 0; axis < 3; axis++)
         {
             int edgeIdx = nIdx * 3 + axis;
-            DCHermiteEdge edge = _HermiteEdgeBuffer[edgeIdx];
+            // [O3] ReadHermiteEdge — 압축 시 relPos+OctDecode, 비압축 시 원본 구조체
+            float3 voxelCorner = GetVoxelLocalPos((uint3)nid);
+            float3 p, n; int edgeAxis;
+            ReadHermiteEdge(edgeIdx, voxelCorner, p, n, edgeAxis);
 
-            // [FIX-PHANTOM] 미기록 슬롯 직접 차단
-            // DecodeNormalOct16(0) = float3(0,0,-1) (length=1.0) 이므로
-            // 기존 length<0.01 가드는 팬텀 슬롯을 전혀 걸러내지 못함.
-            // → raw 값을 먼저 확인하고, 0이면 즉시 스킵.
-            if (edge.packedNormal == 0u) continue;
-            // [O3] Oct16 디코딩: packedNormal → float3
-            float3 n = DecodeNormalOct16(edge.packedNormal);
-            if (length(n) < 0.01) continue; // 디코딩 결과 비정상 법선 추가 방어
-
-            float3 p = edge.intersectionPoint;
+            if (length(n) < 0.01)
+                continue;
 
             ATA[0][0] += n.x * n.x; ATA[0][1] += n.x * n.y; ATA[0][2] += n.x * n.z;
             ATA[1][0] += n.y * n.x; ATA[1][1] += n.y * n.y; ATA[1][2] += n.y * n.z;
@@ -434,7 +718,6 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
 
             massPoint += p;
             edgeCount++;
-            hermiteNormalSum += n; // [FIX-NORMAL] 교차점 법선 누적
         }
     }
 
@@ -442,39 +725,50 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
     //   기존: return; → dcVertexBuffer[idx] = 버퍼 기본값(0) → featureType=0(유효로 오해)
     if (edgeCount == 0)
     {
-        DCVertex invalid;
-        invalid.position     = float3(0, 0, 0);
-        invalid.normal       = float3(0, 1, 0);
-        invalid.featureType  = -1;  // 무효 마커 (uv/qefError/padding 제거됨)
-        invalid.materialIndex = 0;
-        _DCVertexBuffer[idx] = invalid;
+        WriteDCVertex(idx, float3(0,0,0), float3(0,1,0), float2(0,0), -1, 0, -1.0);
         return;
     }
 
     massPoint /= (float)edgeCount;
 
-    // [DC-A] 불균등 λ regularization — 단일 축 지배 방지
-    // 순수 단방향 표면에서 약한 두 축에 강한 regularization → massPoint 방향 안정화
-    // normal 자체를 오염시키지 않고 QEF 해의 약한 축을 안정화
-    //
-    // [FIX-DC-A] ATb 조건을 ATA += 이전에 캡처
-    // 기존 코드는 ATA[i][i] += 이후 갱신된 값으로 ATb 조건을 재평가,
-    // 임계값 경계 근방 셀에서 ATA와 ATb의 λ 불일치 → QEF 해 왜곡.
-    // 수정: weakX/Y/Z bool을 += 이전에 확정하여 ATA·ATb 정합성 보장.
+    // [Phase 2-C-B] MassPointB: Tikhonov 정규화 강화 (lambda 0.01→0.1)
+    // OFF: 기존 lambda=0.01 (sharp feature 보존, 파편 위험)
+    // ON:  lambda=0.1 (vertex가 voxel 중심으로 수렴, 파편 감소)
+    float regLambda = (_EnableMassPointB == 1) ? 0.1 : 0.01;
+
+    // [Phase 2] Mass Point QEF 분기 (Schaefer/Warren 2005)
+    //   OFF(_EnablePhase2MassPointQEF=0): 기존 SolveQEF_Cholesky 호출 — bit-identical (규칙 #6)
+    //   ON : 정규방정식에 λ_mp·c_m bias 통합 — FragC-γ + FragB 원인 1 잔존 완화
+    float3 qefSolution;
+    if (_EnablePhase2MassPointQEF == 1)
     {
-        float diag_max = max(max(ATA[0][0], ATA[1][1]), ATA[2][2]);
-        bool weakX = (ATA[0][0] < diag_max * 0.1);
-        bool weakY = (ATA[1][1] < diag_max * 0.1);
-        bool weakZ = (ATA[2][2] < diag_max * 0.1);
-        ATA[0][0] += weakX ? 0.10 : 0.01;
-        ATA[1][1] += weakY ? 0.10 : 0.01;
-        ATA[2][2] += weakZ ? 0.10 : 0.01;
-        // ATb도 동일 비율로 massPoint 기여 추가 (Tikhonov regularization)
-        ATb.x += weakX ? 0.10 * massPoint.x : 0.01 * massPoint.x;
-        ATb.y += weakY ? 0.10 * massPoint.y : 0.01 * massPoint.y;
-        ATb.z += weakZ ? 0.10 * massPoint.z : 0.01 * massPoint.z;
+        qefSolution = SolveQEF_Cholesky_MassPoint(
+            ATA, ATb, regLambda, massPoint, _Phase2MassPointStrength);
     }
-    float3 qefSolution = SolveQEF_Cholesky(ATA, ATb, 0.0);  // λ이미 적용됨
+    else
+    {
+        qefSolution = SolveQEF_Cholesky(ATA, ATb, regLambda);
+    }
+
+    // [Phase 2-C-A] MassPointA: eigenvalue confidence blend (Schaefer 2003)
+    // OFF: QEF 해 그대로 사용
+    // ON:  ATA 조건수 기반 — 불안정할수록 massPoint, 안정적이면 QEF
+    if (_EnableMassPointA == 1)
+    {
+        float3 ev; float3x3 evec;
+        JacobiEigen3x3(ATA, ev, evec);
+        // eigenvalue 절대값으로 정렬
+        float evMin = min(abs(ev.x), min(abs(ev.y), abs(ev.z)));
+        float evMax = max(abs(ev.x), max(abs(ev.y), abs(ev.z)));
+        // confidence = min/max (0=완전 불안정, 1=완전 안정)
+        float confidence = (evMax > 1e-6) ? saturate(evMin / evMax) : 0.0;
+        // threshold 완화: spacing² × 0.5 기준 — 작은 edgeCount에서 과도한 fallback 방지
+        float spacing_sq = (_ChunkSize / (float)(_PointsPerAxis - 1));
+        spacing_sq *= spacing_sq;
+        // edgeCount < 3이면 데이터 부족 → confidence 강제 0 (massPoint fallback)
+        if (edgeCount < 3) confidence = 0.0;
+        qefSolution = lerp(massPoint, qefSolution, confidence);
+    }
 
     // 복셀 AABB 내 클램핑
     float spacing = _ChunkSize / (float)(_PointsPerAxis - 1);
@@ -497,40 +791,17 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
     // [Phase 3] Edge 셀: Ridge 방향 1D 제약 릴랙세이션
     // ridgeDir 방향으로만 버텍스 이동 허용 → 계단형 → 단일 버텍스 체인
     // T-junction 방지: 이동 범위 AABB x 1.5 이내로 클램프
-    // [Phase 3 안정성 가드 — FIX-RIDGE-GUARD v3]
-    // 고유값 비율 체크: 등방성 표면(세 고유값 완전 동일)만 Phase 3 차단
-    //
-    // [FIX-THRESHOLD] 1.05 → 1.01:
-    //   1.05이면 두 고유값이 5% 이내로 유사한 완만한 능선(floor-wall 45°)도 차단
-    //   → backup 대비 Phase 3 미적용 범위 과대 → 능선 버텍스 격자 스냅
-    //   1.01이면 수치적으로 거의 완전히 같은 세 고유값(순수 구면)만 차단
-    //   → cave 지형의 대부분 능선 셀 Phase 3 통과 → backup 수준 능선 복원
-    float3 ev_ridge; float3x3 evec_ridge;
-    JacobiEigen3x3(ATA, ev_ridge, evec_ridge);
-    float maxEV = max(max(ev_ridge[0], ev_ridge[1]), ev_ridge[2]);
-    float minEV = min(min(ev_ridge[0], ev_ridge[1]), ev_ridge[2]);
-    float midEV = ev_ridge[0] + ev_ridge[1] + ev_ridge[2] - maxEV - minEV;
-    bool hasDirectedAnisotropy = (maxEV > midEV * 1.15) && (midEV > minEV * 1.15);
-
-    // [FIX-FLOOR-RIDGE] 바닥/천장 면에서 Phase 3 릿지 억제
-    // ATA 최대 고유값의 고유벡터 ≈ 표면 법선 방향
-    // abs(dominantY) > 0.7 → 대략 45° 이내 수평면 → 바닥/천장
-    // 바닥에 릿지가 생기면 도넛 링이 통행로를 침해 → Phase 3 차단
-    int maxEVIdx = (ev_ridge[0] >= ev_ridge[1] && ev_ridge[0] >= ev_ridge[2]) ? 0 :
-                   (ev_ridge[1] >= ev_ridge[2]) ? 1 : 2;
-    float dominantY = abs(evec_ridge[1][maxEVIdx]);
-    bool isFloorLike = dominantY > 0.7;
-
-    bool reliableRidge = (snapFT == 1) && (edgeCount >= 6) && hasDirectedAnisotropy && !isFloorLike;
+    // [Phase 3 안정성 가드]
+    // ATA 행렬 크기(edgeCount 대용): trace가 너무 작으면 등방성 → ridgeDir 불안정
+    // 최소 분산(trace/3)이 임계값 이상일 때만 릴랙세이션 실행
+    float ataTrace = ATA[0][0] + ATA[1][1] + ATA[2][2];
+    // [재귀검증] ataTrace ≈ edgeCount이므로 ataTrace > 0.5는 trivial 가드.
+    // edgeCount >= 6: ATA가 충분히 결정되는 최소 에지 수. 6 미만은 릴랙세이션 제외.
+    bool reliableRidge = (snapFT == 1) && (edgeCount >= 6);
     if (reliableRidge)
     {
-        int ri0=0, ri1=1, ri2=2;
-        if (ev_ridge[ri0] < ev_ridge[ri1]) { int rt=ri0; ri0=ri1; ri1=rt; }
-        if (ev_ridge[ri0] < ev_ridge[ri2]) { int rt=ri0; ri0=ri2; ri2=rt; }
-        if (ev_ridge[ri1] < ev_ridge[ri2]) { int rt=ri1; ri1=ri2; ri2=rt; }
-        float3 rv0 = float3(evec_ridge[0][ri0], evec_ridge[1][ri0], evec_ridge[2][ri0]);
-        float3 rv1 = float3(evec_ridge[0][ri1], evec_ridge[1][ri1], evec_ridge[2][ri1]);
-        float3 ridgeDir = cross(rv0, rv1);
+        float3 ridgeDir = ComputeRidgeDir(ATA);
+        // ridgeDir 안정성 체크: 크로스 결과가 의미 있어야 함
         float rLen = length(ridgeDir);
         if (rLen > 0.1)
         {
@@ -540,13 +811,8 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
             float tMin = -spacing * 0.75;
             float tMax =  spacing * 0.75;
             t = clamp(t, tMin, tMax);
-
-            // [FIX-RIDGE-BLEND] 100% ridgeDir 스냅 대신 60% 블렌딩
-            // 100% 스냅: 능선이 날카로운 원형으로 정렬 → 도넛 각인
-            // 60% 블렌딩: QEF 원래 해의 40%를 보존 → 부드러운 자연 능선
-            float3 ridgeSolution = massPoint + ridgeDir * t;
-            ridgeSolution = clamp(ridgeSolution, voxelMin, voxelMax);
-            qefSolution = lerp(qefSolution, ridgeSolution, 0.6);
+            qefSolution = massPoint + ridgeDir * t;
+            qefSolution = clamp(qefSolution, voxelMin, voxelMax);
         }
     }
 
@@ -569,24 +835,12 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
     int featureType = ClassifyFeature(ATA);
 
     int matIdx = 0;
-    int oreType = _VoxelBuffer[idx].oreType;
+    int oreType = ReadOreType(idx);
     if (oreType > 0) matIdx = (oreType >> 24) & 0xFF;
 
-    // ── [REVERT-VNORMAL] vertex normal = vertNormal_sid 복원 ─────────────────────────
-    // hermiteNormalSum(hermite 평균)이 chunk 편향(-Z 등)으로 수렴하는 문제로 롤백.
-    //
-    // 문제 요약:
-    //   hermiteNormalSum이 chunk의 지배적 SDF 방향으로 100% 수렴
-    //   → blendWeights 단일 축 지배 → X-facing 완전 줄무늬, floor dirt 소멸
-    //
-    // vertNormal_sid가 더 나은 이유:
-    //   단일 SID 지점의 gradient → 인접 버텍스 간 SDF 변화 반영 → 더 다양
-    //   곡면 지형에서 Y:Z ≈ 50:50 수렴 → X-facing/floor/Z-facing 모두 허용 가능
-    //   hermiteNormalSum(더 넓은 영역 평균)보다 실제로 더 지역적으로 다양
-    //
-    // hermiteNormalSum은 ATA 계산에 영향을 주지 않으므로 누적 코드 유지.
-    // (ATA는 루프 내에서 n을 직접 사용, hermiteNormalSum과 무관)
-    //
+    // [FIX-5] 버텍스 노말 = 밀도 그래디언트 부호 반전
+    //   기존: normalize(ATb) → ATb가 거의 0이거나 방향 불안정
+    //   수정: 버텍스 위치의 밀도 그래디언트를 직접 샘플링, 내부 방향으로 반전
     // [개선-G] SolveQEF 버텍스 노말: ±2 가중 차분
     int3 gx1 = clamp(sid + int3(1,0,0), int3(0,0,0), int3(N-1,N-1,N-1));
     int3 gx0 = clamp(sid - int3(1,0,0), int3(0,0,0), int3(N-1,N-1,N-1));
@@ -600,27 +854,37 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
     int3 gym2= clamp(sid - int3(0,2,0), int3(0,0,0), int3(N-1,N-1,N-1));
     int3 gz2 = clamp(sid + int3(0,0,2), int3(0,0,0), int3(N-1,N-1,N-1));
     int3 gzm2= clamp(sid - int3(0,0,2), int3(0,0,0), int3(N-1,N-1,N-1));
-    float3 grad_sid = float3(
-        (_VoxelBuffer[FlatIndex(gx1)].density - _VoxelBuffer[FlatIndex(gx0)].density)*0.8
-        + (_VoxelBuffer[FlatIndex(gx2)].density - _VoxelBuffer[FlatIndex(gxm2)].density)*0.2,
-        (_VoxelBuffer[FlatIndex(gy1)].density - _VoxelBuffer[FlatIndex(gy0)].density)*0.8
-        + (_VoxelBuffer[FlatIndex(gy2)].density - _VoxelBuffer[FlatIndex(gym2)].density)*0.2,
-        (_VoxelBuffer[FlatIndex(gz1)].density - _VoxelBuffer[FlatIndex(gz0)].density)*0.8
-        + (_VoxelBuffer[FlatIndex(gz2)].density - _VoxelBuffer[FlatIndex(gzm2)].density)*0.2
+    float3 grad = float3(
+        (ReadDensity(FlatIndex(gx1)) - ReadDensity(FlatIndex(gx0)))*0.8
+        + (ReadDensity(FlatIndex(gx2)) - ReadDensity(FlatIndex(gxm2)))*0.2,
+        (ReadDensity(FlatIndex(gy1)) - ReadDensity(FlatIndex(gy0)))*0.8
+        + (ReadDensity(FlatIndex(gy2)) - ReadDensity(FlatIndex(gym2)))*0.2,
+        (ReadDensity(FlatIndex(gz1)) - ReadDensity(FlatIndex(gz0)))*0.8
+        + (ReadDensity(FlatIndex(gz2)) - ReadDensity(FlatIndex(gzm2)))*0.2
     );
-    float gradLen_sid = length(grad_sid);
-    float3 vertNormal = gradLen_sid > 1e-6 ? -grad_sid / gradLen_sid : float3(0, 1, 0);
-    // ── [REVERT-VNORMAL END] ─────────────────────────────────────────────────────────
+    float gradLen = length(grad);
+    float3 vertNormal_sid = gradLen > 1e-6 ? -grad / gradLen : float3(0, 1, 0);
 
-    // [O1+O2] DCVertex 압축: uv/qefError/padding 제거 → 56B→32B
-    DCVertex vert;
-    vert.position      = qefSolution;
-    vert.normal        = vertNormal;
-    vert.featureType   = featureType;
-    vert.materialIndex = matIdx;
+    // [S2] QEF 위치에서 trilinear SDF 그라디언트 재계산
+    // 실제 표면 위치(qefSolution)의 SDF 방향이 sid 기준보다 정확함
+    // 천장-벽 경계: sid 기준은 X+ 편향, qefSolution 기준은 올바른 -Y
+    float h = spacing * 0.5;
+    float3 grad_qef = float3(
+        SampleSDF_Safe(qefSolution + float3(h,0,0), spacing)
+      - SampleSDF_Safe(qefSolution - float3(h,0,0), spacing),
+        SampleSDF_Safe(qefSolution + float3(0,h,0), spacing)
+      - SampleSDF_Safe(qefSolution - float3(0,h,0), spacing),
+        SampleSDF_Safe(qefSolution + float3(0,0,h), spacing)
+      - SampleSDF_Safe(qefSolution - float3(0,0,h), spacing)
+    );
+    float qefGradLen = length(grad_qef);
+    // 이중 안정성 체크: S2 노말이 sid 노말의 10% 이상이어야 신뢰
+    bool useS2 = (qefGradLen > 1e-5) && (qefGradLen > gradLen * 0.1);
+    float3 vertNormal = useS2 ? -grad_qef / qefGradLen : vertNormal_sid;
 
-
-    _DCVertexBuffer[idx] = vert;
+    // [O1] WriteDCVertex — 압축/비압축 분기 헬퍼
+    float2 vertUV = float2(qefSolution.x, qefSolution.z) * 0.1;
+    WriteDCVertex(idx, qefSolution, vertNormal, vertUV, featureType, matIdx, qefError);
 }
 
 // ====================================================================
@@ -635,7 +899,7 @@ void GenerateQuads(uint3 id : SV_DispatchThreadID)
 
     int3 sid = (int3)id;
     int  idx = FlatIndex(sid);
-    float d0 = _VoxelBuffer[idx].density;
+    float d0 = ReadDensity(idx);
 
     int3 axisNeighbors[3];
     axisNeighbors[0] = int3(1, 0, 0);
@@ -648,7 +912,7 @@ void GenerateQuads(uint3 id : SV_DispatchThreadID)
         if (nid.x >= N || nid.y >= N || nid.z >= N)
             continue;
 
-        float d1 = _VoxelBuffer[FlatIndex(nid)].density;
+        float d1 = ReadDensity(FlatIndex(nid));
 
         if ((d0 > 0.0) == (d1 > 0.0))
             continue;
@@ -732,4 +996,62 @@ void GenerateQuads(uint3 id : SV_DispatchThreadID)
         if ((int)appendIdx < maxQuads)
             _DCQuadBuffer[appendIdx] = quad;
     }
+}
+
+// ====================================================================
+// [P1-B] Kernel: CompactAndRemap (옵션 D — InterlockedAdd)
+//   유효 vertex(featureType>=0)만 _CompactVertexBuffer에 기록
+//   _RemapTable[flatIdx] = compactIdx (무효=-1)
+//   enableCompaction=ON 시 GenerateQuads 이후 실행
+// ====================================================================
+int _CompactBufferSize;  // N³
+
+[numthreads(256, 1, 1)]
+void CompactAndRemap(uint3 id : SV_DispatchThreadID)
+{
+    int flatIdx = (int)id.x;
+    if (flatIdx >= _CompactBufferSize) return;
+
+    // [O1] 압축/비압축 분기 — 두 구조체 모두 featureType 필드 보유
+#ifdef COMPRESSED_VERTEX
+    DCVertexCompressed v = _DCVertexBuffer[flatIdx];
+#else
+    DCVertex v = _DCVertexBuffer[flatIdx];
+#endif
+    if (v.featureType < 0)
+    {
+        _RemapTable[flatIdx] = -1;
+        return;
+    }
+
+    uint compactIdx;
+    _ValidVertexCount.InterlockedAdd(0, 1, compactIdx);
+
+    // 오버플로우 방지 (이론상 N³ 이내)
+    if ((int)compactIdx < _CompactBufferSize)
+    {
+        _CompactVertexBuffer[compactIdx] = v;
+        _RemapTable[flatIdx] = (int)compactIdx;
+    }
+}
+
+// ====================================================================
+// [P1-B] Kernel: RemapQuads
+//   quad.v0~v3의 flatIndex를 compactIdx로 변환
+//   CompactAndRemap 이후 실행
+// ====================================================================
+int _RemapQuadCount;
+
+[numthreads(256, 1, 1)]
+void RemapQuads(uint3 id : SV_DispatchThreadID)
+{
+    int i = (int)id.x;
+    if (i >= _RemapQuadCount) return;
+
+    DCQuad q = _DCQuadBuffer[i];
+    q.v0 = _RemapTable[q.v0];
+    q.v1 = _RemapTable[q.v1];
+    q.v2 = _RemapTable[q.v2];
+    q.v3 = _RemapTable[q.v3];
+    _DCQuadBuffer[i] = q;
 }

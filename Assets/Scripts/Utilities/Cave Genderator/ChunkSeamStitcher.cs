@@ -14,6 +14,23 @@
 // [통합 방법]
 //   CaveChunkManager에 이 컴포넌트를 AddComponent 또는 MonoBehaviour에 통합
 //   DCMeshBuilder.BuildMeshFromDCData 완료 후 RegisterChunkBoundary 호출
+//
+// [Phase 1 긴급 패치 (FragC-β 대응)]
+//   감사 결과 fragC_audit_report.html 의 4개 Bug 수정:
+//     #2/#3 Snap 부족       → snap 확장 토글 (0.6/0.75 × 3.67 → 0.33m/0.41m)
+//     #5    Normal 누락      → RecalculateNormals 토글
+//     #6    Upload 누락      → UploadMeshData 토글
+//     #9    First-match      → Best-match 추적 토글
+//
+// [규칙 준수]
+//   #1  sdCapsule 교체 금지 — 본 파일 HLSL 무관 (✓)
+//   #3  GenerateQuads 불가침 — 본 파일 Compute 무관 (✓)
+//   #5  DepthLayer Range attribute — 신규 필드에 [Range] 미사용 (✓)
+//   #6  Toggle OFF = bit-identical — 4개 토글 모두 OFF 시 원본 동작
+//   #13 voxelSize 일관성 — snap 계수는 voxel 배수
+//   #15 FORMAT_VERSION — 토글 ON 최종 확정 시 2→3 승격 권장
+//   #17 Non-manifold 사전 검증 — 본 패치와 직교 (Stitcher 스테이지)
+//   #19 SDF 합성 상태 문서화 — 본 파일 SDF 무관
 // =============================================================================
 using System.Collections.Generic;
 using UnityEngine;
@@ -63,6 +80,36 @@ namespace CaveSystem
         [Header("Debug")]
         [SerializeField] private int stitchedPairCount;
 
+        // ─────────────────────────────────────────────────────────────────
+        // [Phase 1 긴급 패치] 4개 독립 토글 (규칙 #6 준수)
+        //
+        // 각 토글이 OFF인 경우 해당 부분은 원본과 bit-identical 동작.
+        // 모두 OFF 시 전체가 원본(백업)과 완전 동일.
+        // 모두 ON 시 FragC-β의 주요 버그 4개 수정.
+        // ─────────────────────────────────────────────────────────────────
+        [Header("Phase 1 Urgent Patches (FragC-β 대응)")]
+
+        [Tooltip("버그 #2/#3: Snap 거리 확장. OFF=원본(0.6/0.75). " +
+                 "ON=overlap(0.30m) 포괄. voxel=0.15 기준 boundary 0.33m / match 0.41m")]
+        public bool enablePhase1ExpandedSnap = false;
+
+        [Tooltip("Snap 확장 계수 (ExpandedSnap ON 시 적용). " +
+                 "기본 3.67: voxel×0.75×3.67 ≈ 0.41m. DC overlap 0.30m 포괄.")]
+        public float phase1SnapMultiplier = 3.67f;
+
+        [Tooltip("버그 #9: Best-match 추적. OFF=첫 매치 break(원본). " +
+                 "ON=indicesB 순회 중 최소 d² 쌍 선택 → 더 정확한 vertex pairing.")]
+        public bool enablePhase1BestMatch = false;
+
+        [Tooltip("버그 #5: Vertex 이동 후 Normal 재계산. " +
+                 "OFF=RecalculateBounds만(원본). ON=RecalculateNormals 추가. " +
+                 "주의: QEF normal을 덮어쓰므로 dcNormal 가시 품질에 따라 재확인.")]
+        public bool enablePhase1RecalculateNormals = false;
+
+        [Tooltip("버그 #6: 명시적 GPU 업로드 강제. " +
+                 "OFF=Unity 자동(원본). ON=UploadMeshData(false) → MeshRenderer 반영 즉각.")]
+        public bool enablePhase1UploadMeshData = false;
+
         // ── 싱글톤 ────────────────────────────────────────────────────────
         public static ChunkSeamStitcher Instance { get; private set; }
         private void Awake()
@@ -110,7 +157,7 @@ namespace CaveSystem
         // ─────────────────────────────────────────────────────────────────
 
         /// <summary>메쉬에서 경계 버텍스 인덱스 분류</summary>
-        private static ChunkBoundaryData BuildBoundaryData(
+        private ChunkBoundaryData BuildBoundaryData(
             Vector3Int chunkPos, Mesh mesh, Transform t,
             float voxelSize, float chunkWorldSize)
         {
@@ -124,7 +171,15 @@ namespace CaveSystem
             };
 
             Vector3[] verts = mesh.vertices;
-            float snap = voxelSize * 0.6f; // 경계 감지 거리
+
+            // [Phase 1 버그 #3] Boundary 감지 snap 확장 (규칙 #6)
+            //   OFF: voxel × 0.6 = 0.09m (원본, bit-identical)
+            //   ON : voxel × 0.6 × multiplier = 0.33m (DC overlap 포괄)
+            float snap = voxelSize * 0.6f;
+            if (enablePhase1ExpandedSnap)
+            {
+                snap *= phase1SnapMultiplier;
+            }
 
             for (int i = 0; i < verts.Length; i++)
             {
@@ -164,41 +219,91 @@ namespace CaveSystem
             bool modifiedA = false;
             bool modifiedB = false;
 
-            // [Phase 1] Soft Snap 잔류 갭(±0.25m) 흡수를 위해 0.55→0.75
+            // [Phase 1 버그 #2] Match snap 확장 (규칙 #6)
+            //   OFF: voxel × 0.75 = 0.1125m (원본, bit-identical)
+            //   ON : voxel × 0.75 × multiplier = 0.41m (DC overlap 0.30m 포괄)
             float snapDist = A.voxelSize * 0.75f;
+            if (enablePhase1ExpandedSnap)
+            {
+                snapDist *= phase1SnapMultiplier;
+            }
+
             var indicesA = A.boundaryIndices[dirA];
             var indicesB = B.boundaryIndices[dirB];
+
+            int axis = dirA / 2; // 0=X, 1=Y, 2=Z
 
             // 각 버텍스 쌍에 대해 XZ 또는 적절한 2D 위치 비교
             foreach (int iA in indicesA)
             {
                 Vector3 vA = vertsA[iA];
-                foreach (int iB in indicesB)
+
+                // [Phase 1 버그 #9] Best-match 추적 vs 원본 First-match (규칙 #6)
+                if (enablePhase1BestMatch)
                 {
-                    // B의 로컬 좌표를 A의 좌표계로 변환
-                    Vector3 vBinA = vertsB[iB] + offsetBA;
-                    float d2 = 0;
+                    // ON: 최소 d² 쌍 선택 → 더 정확한 매칭
+                    float bestD2 = snapDist * snapDist;
+                    int bestIB = -1;
 
-                    // 접합 축(dirA/2)에 수직한 2축에서 거리 계산
-                    int axis = dirA / 2; // 0=X, 1=Y, 2=Z
-                    if (axis == 0) d2 = (vA.y - vBinA.y) * (vA.y - vBinA.y) + (vA.z - vBinA.z) * (vA.z - vBinA.z);
-                    else if (axis == 1) d2 = (vA.x - vBinA.x) * (vA.x - vBinA.x) + (vA.z - vBinA.z) * (vA.z - vBinA.z);
-                    else d2 = (vA.x - vBinA.x) * (vA.x - vBinA.x) + (vA.y - vBinA.y) * (vA.y - vBinA.y);
-
-                    if (d2 < snapDist * snapDist)
+                    foreach (int iB in indicesB)
                     {
-                        // 접합 축 좌표의 평균값 적용
+                        Vector3 vBinA = vertsB[iB] + offsetBA;
+                        float d2 = 0;
+                        if (axis == 0) d2 = (vA.y - vBinA.y) * (vA.y - vBinA.y) + (vA.z - vBinA.z) * (vA.z - vBinA.z);
+                        else if (axis == 1) d2 = (vA.x - vBinA.x) * (vA.x - vBinA.x) + (vA.z - vBinA.z) * (vA.z - vBinA.z);
+                        else d2 = (vA.x - vBinA.x) * (vA.x - vBinA.x) + (vA.y - vBinA.y) * (vA.y - vBinA.y);
+
+                        if (d2 < bestD2)
+                        {
+                            bestD2 = d2;
+                            bestIB = iB;
+                        }
+                    }
+
+                    if (bestIB >= 0)
+                    {
+                        Vector3 vBinA = vertsB[bestIB] + offsetBA;
                         float avgVal;
                         if (axis == 0) avgVal = (vA.x + vBinA.x) * 0.5f;
                         else if (axis == 1) avgVal = (vA.y + vBinA.y) * 0.5f;
                         else avgVal = (vA.z + vBinA.z) * 0.5f;
 
-                        if (axis == 0) { vertsA[iA].x = avgVal; vertsB[iB].x = avgVal - offsetBA.x; }
-                        else if (axis == 1) { vertsA[iA].y = avgVal; vertsB[iB].y = avgVal - offsetBA.y; }
-                        else { vertsA[iA].z = avgVal; vertsB[iB].z = avgVal - offsetBA.z; }
+                        if (axis == 0) { vertsA[iA].x = avgVal; vertsB[bestIB].x = avgVal - offsetBA.x; }
+                        else if (axis == 1) { vertsA[iA].y = avgVal; vertsB[bestIB].y = avgVal - offsetBA.y; }
+                        else { vertsA[iA].z = avgVal; vertsB[bestIB].z = avgVal - offsetBA.z; }
 
                         modifiedA = true; modifiedB = true;
-                        break; // 가장 가까운 쌍만 처리
+                    }
+                }
+                else
+                {
+                    // OFF: 원본 경로 (첫 매치에서 break) — bit-identical
+                    foreach (int iB in indicesB)
+                    {
+                        // B의 로컬 좌표를 A의 좌표계로 변환
+                        Vector3 vBinA = vertsB[iB] + offsetBA;
+                        float d2 = 0;
+
+                        // 접합 축(dirA/2)에 수직한 2축에서 거리 계산
+                        if (axis == 0) d2 = (vA.y - vBinA.y) * (vA.y - vBinA.y) + (vA.z - vBinA.z) * (vA.z - vBinA.z);
+                        else if (axis == 1) d2 = (vA.x - vBinA.x) * (vA.x - vBinA.x) + (vA.z - vBinA.z) * (vA.z - vBinA.z);
+                        else d2 = (vA.x - vBinA.x) * (vA.x - vBinA.x) + (vA.y - vBinA.y) * (vA.y - vBinA.y);
+
+                        if (d2 < snapDist * snapDist)
+                        {
+                            // 접합 축 좌표의 평균값 적용
+                            float avgVal;
+                            if (axis == 0) avgVal = (vA.x + vBinA.x) * 0.5f;
+                            else if (axis == 1) avgVal = (vA.y + vBinA.y) * 0.5f;
+                            else avgVal = (vA.z + vBinA.z) * 0.5f;
+
+                            if (axis == 0) { vertsA[iA].x = avgVal; vertsB[iB].x = avgVal - offsetBA.x; }
+                            else if (axis == 1) { vertsA[iA].y = avgVal; vertsB[iB].y = avgVal - offsetBA.y; }
+                            else { vertsA[iA].z = avgVal; vertsB[iB].z = avgVal - offsetBA.z; }
+
+                            modifiedA = true; modifiedB = true;
+                            break; // 가장 가까운 쌍만 처리
+                        }
                     }
                 }
             }
@@ -207,6 +312,23 @@ namespace CaveSystem
             {
                 A.mesh.vertices = vertsA;
                 A.mesh.RecalculateBounds();
+
+                // [Phase 1 버그 #5] Normal 재계산 (규칙 #6)
+                //   OFF: 원본 (RecalculateBounds만)
+                //   ON : 이동된 vertex의 normal 갱신 → 조명/triplanar 아티팩트 방지
+                if (enablePhase1RecalculateNormals)
+                {
+                    A.mesh.RecalculateNormals();
+                }
+
+                // [Phase 1 버그 #6] 명시적 GPU 업로드 (규칙 #6)
+                //   OFF: Unity 자동 (원본)
+                //   ON : MeshRenderer 즉각 반영
+                if (enablePhase1UploadMeshData)
+                {
+                    A.mesh.UploadMeshData(false);
+                }
+
                 // MeshCollider 재베이크 — sharedMesh 재할당으로 강제 갱신 (PhysicsBakeJob 미사용)
                 if (A.chunkTransform != null)
                 {
@@ -218,6 +340,17 @@ namespace CaveSystem
             {
                 B.mesh.vertices = vertsB;
                 B.mesh.RecalculateBounds();
+
+                if (enablePhase1RecalculateNormals)
+                {
+                    B.mesh.RecalculateNormals();
+                }
+
+                if (enablePhase1UploadMeshData)
+                {
+                    B.mesh.UploadMeshData(false);
+                }
+
                 if (B.chunkTransform != null)
                 {
                     var col = B.chunkTransform.GetComponent<MeshCollider>();

@@ -3,20 +3,12 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
     Properties
     {
         [Header(Debug Tools)]
-        [KeywordEnum(None, Normals, Shadows, Occlusion, IndirectGI, Roughness, Specular, Height)] _DebugView ("Debug View", Float) = 0
+        [KeywordEnum(None, Normals, Shadows, Occlusion, IndirectGI, Roughness, Specular)] _DebugView ("Debug View", Float) = 0
 
         [Header(Triplanar Biome Textures)]
         _Tiling ("Triplanar Tiling", Float) = 0.2
-        // [DIAG-FIX] HeightScale 0.05→0.15
-        // 이전값 0.05(5cm)에서는 POM Self-Shadow threshold가 거의 트리거되지 않음
-        // 0.15(15cm)부터 일반 록 텍스처에서 self-shadow가 가시적으로 작동
-        // 0.20 이상은 POM 아티팩트(실루엣 끊김) 발생 가능 → 0.12~0.18 권장
-        _HeightScale ("Height Scale (POM)", Float) = 0.15
-        // [DIAG-FIX] NormalScale 1.0→1.5
-        // DC Normal Baker 출력과 메쉬 버텍스 노멀이 동일 SDF 출처이므로
-        // baseCorrectedNormal이 실질적으로 메쉬 노멀과 거의 동일함
-        // 텍스처 범프의 라이팅 기여를 높이려면 normalScale을 직접 증가시키는 것이 효과적
-        _NormalScale ("Normal Scale", Float) = 1.5
+        _HeightScale ("Height Scale (POM)", Float) = 0.05
+        _NormalScale ("Normal Scale", Float) = 1.0
         
         [Header(POM Settings)]
         [Toggle] _EnableSafePom ("Enable Safe POM", Float) = 1.0
@@ -32,15 +24,8 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         [NoScaleOffset][Normal] _DCNormalMap_X ("DC Normal X", 2D) = "bump" {}
         [NoScaleOffset][Normal] _DCNormalMap_Y ("DC Normal Y", 2D) = "bump" {}
         [NoScaleOffset][Normal] _DCNormalMap_Z ("DC Normal Z", 2D) = "bump" {}
-        // [TORCH] dcNormalStrength 0.35→0.7
-        // 횃불 환경에서 DC Normal을 1순위 법선으로 사용
-        // 맵 미할당 시 0.0으로 설정할 것
-        _DCNormalStrength ("DC Normal Strength", Range(0,1)) = 0.7
-        // [TORCH] dcNormalAmplify 신규 추가
-        // Gram-Schmidt 각도 증폭 배율: DC Normal의 접선 편차를 N배로 증폭
-        // 1.0 = lerp와 동일, 2.0~3.0 = 포인트라이트 NdotL 편차 실효화
-        // DC Normal 편차가 클수록 낮게, 작을수록 높게 설정
-        _DCNormalAmplify ("DC Normal Amplify (Point Light Contrast)", Range(1.0, 5.0)) = 3.0
+        _DCNormalStrength ("DC Normal Strength", Range(0,1)) = 0.5
+        _BandHeight ("Y-Offset Band Height (0=OFF)", Float) = 0.0
 
         [Space(10)]
         [NoScaleOffset] _DirtAlbedo ("Dirt Albedo", 2D) = "white" {}
@@ -73,22 +58,10 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         
         [Header(Lighting and Soft Shading)]
         _RampTex ("Lighting Ramp (Optional)", 2D) = "white" {}
-        // 메인 라이트(디렉셔널)용 wrap — 동굴에서 거의 미사용
-        _WrapDiffuse ("Main Light Wrap (Midtone)", Range(0.0, 0.5)) = 0.2
-        // [TORCH] 포인트라이트 전용 wrap
-        // 0.0 = 날카로운 terminator (화염 조명 최적) / 0.1~0.2 = 부드러운 전환
-        _PointLightWrap ("Point Light Wrap (Torch Contrast)", Range(0.0, 0.3)) = 0.0
+        _WrapDiffuse ("Light Wrap (Midtone)", Range(0.0, 0.5)) = 0.2
         
         [Header(Custom Cave Point Light Falloff)]
         _CaveLightFalloff ("Soft Falloff Power", Range(0.001, 1.0)) = 0.05
-        
-        [Header(POM Self Shadow)]
-        [Toggle] _EnablePomShadow ("Enable POM Self Shadow", Float) = 1.0
-        _PomShadowSteps ("Shadow Ray Steps (int)", Range(4, 16)) = 8
-        // [DIAG-FIX] ShadowStrength 0.7 유지, HeightScale 증가 후 재조정 권장
-        // HeightScale=0.08일 때 self-shadow가 거의 트리거 안 됨 (진단 확인)
-        // HeightScale=0.15로 변경 후 이 값이 너무 강하면 0.4~0.5로 낮출 것
-        _PomShadowStrength ("Shadow Strength", Range(0.0, 1.0)) = 0.7
     }
 
     SubShader
@@ -117,9 +90,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
-            #pragma multi_compile _ _FORWARD_PLUS
-            // [FIX-SHADOWCOORD] URP가 필요한 경우 vertex 보간 shadow coord를 자동 활성화
-            #pragma multi_compile _ REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR
+            #pragma multi_compile _ _FORWARD_PLUS 
             
             // 베이킹 및 섀도우마스크 처리용 필수 매크로
             #pragma multi_compile _ LIGHTMAP_ON
@@ -129,8 +100,8 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             #pragma multi_compile _ DIRLIGHTMAP_COMBINED
             #pragma multi_compile_fog
 
-            // 디버그 뷰 매크로 (Height 포함)
-            #pragma multi_compile _DEBUGVIEW_NONE _DEBUGVIEW_NORMALS _DEBUGVIEW_SHADOWS _DEBUGVIEW_OCCLUSION _DEBUGVIEW_INDIRECTGI _DEBUGVIEW_ROUGHNESS _DEBUGVIEW_SPECULAR _DEBUGVIEW_HEIGHT
+            // 디버그 뷰 매크로 (Roughness, Specular 포함)
+            #pragma multi_compile _DEBUGVIEW_NONE _DEBUGVIEW_NORMALS _DEBUGVIEW_SHADOWS _DEBUGVIEW_OCCLUSION _DEBUGVIEW_INDIRECTGI _DEBUGVIEW_ROUGHNESS _DEBUGVIEW_SPECULAR
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -146,7 +117,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             float _DirtFadeStart;
             float _DirtFadeEnd;
             float _DCNormalStrength;
-            float _DCNormalAmplify;     // [TORCH] Gram-Schmidt 각도 증폭 배율
 
             float _MetallicScale;
             float _OcclusionScale;
@@ -157,11 +127,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             float _RoughnessContrast;
             float _SpecularHDROverdrive;
             float _WrapDiffuse;
-            float _PointLightWrap;      // [TORCH] 포인트라이트 전용 wrap
             float _CaveLightFalloff;
-            float _EnablePomShadow;
-            float _PomShadowSteps;
-            float _PomShadowStrength;
 
             TEXTURE2D(_RampTex);
             SAMPLER(sampler_RampTex);
@@ -171,30 +137,28 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float4 positionOS   : POSITION;
                 float3 normalOS     : NORMAL;
                 float4 tangentOS    : TANGENT;
-                float2 lightmapUV   : TEXCOORD1; 
+                float2 lightmapUV   : TEXCOORD1;
+                float3 uv2          : TEXCOORD2; // [Phase 2-5] Per-Vertex 서브복셀 편차
             };
 
             struct Varyings
             {
-                float4 positionCS       : SV_POSITION;
-                float3 positionWS       : TEXCOORD0;
-                float3 normalWS         : TEXCOORD1;
-                // [FIX-SHADOWCOORD] shadowCoord 제거: per-fragment 계산으로 전환
-                // GetShadowCoord(vertexInput) 버텍스 보간은 _MAIN_LIGHT_SHADOWS_SCREEN 활성 시
-                // screen-space shadow를 positionCS(NDC) 기반으로 계산하지 못해 부정확.
-                // fragment에서 TransformWorldToShadowCoord 또는 GetShadowCoord를 직접 사용.
-                float2 lightmapUV       : TEXCOORD3;
-                float3 blendWeightsVS   : TEXCOORD4;
+                float4 positionCS   : SV_POSITION;
+                float3 positionWS   : TEXCOORD0;
+                float3 normalWS     : TEXCOORD1;
+                float3 perturbation : TEXCOORD2; // [Phase 2-5] Per-Vertex 편차
+                float4 shadowCoord  : TEXCOORD3;
+                float2 lightmapUV   : TEXCOORD4; 
             };
 
             // =================================================================================
-            // [TORCH] 소프트 쉐이딩 — wrapAmount 파라미터화
-            // 메인 라이트: _WrapDiffuse (동굴에서 거의 미사용)
-            // 포인트라이트: _PointLightWrap = 0.0 → 횃불 날카로운 terminator
+            // [1단계: 소프트 쉐이딩 도입] 넓은 중간톤(Midtone) 확보를 위한 Wrapped Soft Shading
             // =================================================================================
-            half3 CalculateSoftDiffuse(float NdotL, float shadowAtten, float distanceAtten, half3 lightColor, float wrapAmount) 
+            half3 CalculateSoftDiffuse(float NdotL, float shadowAtten, float distanceAtten, half3 lightColor) 
             {
-                float wrappedNdotL = saturate((NdotL + wrapAmount) / (1.0 + wrapAmount));
+                // Wrap Diffuse 적용: 빛이 90도에서 칼같이 끊기지 않고 바위 곡면을 부드럽게 타고 넘어가게 만듭니다.
+                // _WrapDiffuse 슬라이더(0.0 ~ 0.5)로 조절 가능합니다.
+                float wrappedNdotL = saturate((NdotL + _WrapDiffuse) / (1.0 + _WrapDiffuse));
                 
                 float finalAtten = shadowAtten * distanceAtten;
                 half3 rampColor = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(wrappedNdotL, 0.5)).rgb;
@@ -232,14 +196,8 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 output.positionCS = vertexInput.positionCS;
                 output.positionWS = vertexInput.positionWS;
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
-                // [FIX-SHADOWCOORD] GetShadowCoord 제거 → frag에서 per-pixel 계산
-
-                // [V3-FIX] blendWeights를 vertex에서 계산
-                {
-                    float3 n = abs(output.normalWS);
-                    float3 bw = n * n * n * n; // pow4
-                    output.blendWeightsVS = bw;
-                }
+                output.perturbation = input.uv2; // [Phase 2-5] Per-Vertex 편차 패스스루
+                output.shadowCoord = GetShadowCoord(vertexInput);
 
                 #if defined(LIGHTMAP_ON)
                     output.lightmapUV = input.lightmapUV * unity_LightmapST.xy + unity_LightmapST.zw;
@@ -255,39 +213,18 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float3 worldNormal = normalize(input.normalWS);
                 float3 viewDirWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
 
-                // [FIX-SHADOWCOORD] Forward+ URP 6 screen-space shadow 최적화
-                // _MAIN_LIGHT_SHADOWS_SCREEN 활성 시 SV_POSITION 기반 UV가 가장 정확.
-                // TransformWorldToShadowCoord(positionWS)는 world→clip 재연산 오차 발생.
-                // GetNormalizedScreenSpaceUV(positionCS)는 래스터라이저 보간값 직접 사용.
-                #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
-                    float4 shadowCoord = float4(0,0,0,0); // (Varyings에 없으므로 미사용)
-                #elif defined(_MAIN_LIGHT_SHADOWS_SCREEN)
-                    float4 shadowCoord = float4(GetNormalizedScreenSpaceUV(input.positionCS), 0, 0);
-                #elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
-                    float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
-                #else
-                    float4 shadowCoord = float4(0, 0, 0, 1);
-                #endif
-
-                // [V3-FIX] 보간된 blendWeights 재정규화
-                // vertex에서 pow4(abs(n))로 계산 후 보간 → 합≠1이 될 수 있으므로 재정규화
-                float3 blendWeightsVS = input.blendWeightsVS;
-                float bwSum = dot(blendWeightsVS, (float3)1.0);
-                blendWeightsVS = bwSum < 0.0001 ? float3(0, 1, 0) : (blendWeightsVS / bwSum);
-
                 float3 sampledAlbedo = float3(1,1,1);
                 float3 triNormal = worldNormal;
-                float4 MOHR = float4(0,1,0,1);
-                float3 pomSamplePos = input.positionWS; // [POM-SHADOW] 변위 위치
+                float4 MOHR = float4(0,1,0,1); 
                 
                 GetCaveSurfaceData(
                     input.positionWS, worldNormal, viewDirWS,
-                    blendWeightsVS,
                     _Tiling, _HeightScale, _NormalScale,
                     _EnableSafePom, _EnablePomFading, _PomFadeStart, _PomFadeEnd,
                     _DirtFadeStart, _DirtFadeEnd,
-                    _DCNormalStrength, _DCNormalAmplify,
-                    sampledAlbedo, triNormal, MOHR, pomSamplePos
+                    _DCNormalStrength,
+                    input.perturbation, // [Phase 2-5] Per-Vertex 편차
+                    sampledAlbedo, triNormal, MOHR
                 );
                 
                 worldNormal = normalize(triNormal);
@@ -297,7 +234,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 inputData.positionCS = input.positionCS;
                 inputData.normalWS = worldNormal;
                 inputData.viewDirectionWS = viewDirWS;
-                inputData.shadowCoord = shadowCoord;
+                inputData.shadowCoord = input.shadowCoord;
                 #if defined(_FORWARD_PLUS)
                 inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
                 #endif
@@ -327,14 +264,6 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     return half4(actualRoughness.xxx, 1.0);
                 #endif
 
-                // [디버깅] Height 뷰 — _RockMask.b 높이 채널 분포 확인용
-                // 전체 흰색(1.0) = 높이 데이터 없음 → POM Self-Shadow 미작동 원인
-                // 회색 그라데이션 = 정상 높이 데이터
-                #if _DEBUGVIEW_HEIGHT
-                    float dbgH = SampleTriplanar(_RockMask, sampler_RockMask, input.positionWS, blendWeightsVS, _Tiling).b;
-                    return half4(dbgH.xxx, 1.0);
-                #endif
-
                 sampledAlbedo *= finalOcclusion;
                 float3 resultColor = float3(0,0,0);
                 
@@ -361,11 +290,9 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 resultColor += indirectDiffuse;
 
                 // ---------------------------------------------------------------------------------
-                // 메인 라이트 (디렉셔널) — 동굴 환경에서 거의 미사용
-                // GetMainLight(InputData, shadowMask) 오버로드는 이 URP 버전에 없음 → 3파라미터 유지
-                // shadowCoord는 이미 위에서 _MAIN_LIGHT_SHADOWS_SCREEN 분기로 정확히 계산됨
+                // 메인 라이트 (디렉셔널)
                 // ---------------------------------------------------------------------------------
-                Light mainLight = GetMainLight(shadowCoord, input.positionWS, shadowMask);
+                Light mainLight = GetMainLight(input.shadowCoord, input.positionWS, shadowMask);
                 float mainNdotL = dot(worldNormal, mainLight.direction);
                 
                 // [디버깅] 섀도우 뷰
@@ -373,7 +300,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                     return half4(mainLight.shadowAttenuation.xxx, 1.0);
                 #endif
                 
-                float3 mainLightDiffuse = CalculateSoftDiffuse(mainNdotL, mainLight.shadowAttenuation, mainLight.distanceAttenuation, mainLight.color, _WrapDiffuse);
+                float3 mainLightDiffuse = CalculateSoftDiffuse(mainNdotL, mainLight.shadowAttenuation, mainLight.distanceAttenuation, mainLight.color);
                 resultColor += sampledAlbedo * mainLightDiffuse;
 
                 if (_SpecularToggle > 0.5) 
@@ -392,33 +319,22 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 LIGHT_LOOP_BEGIN(pixelLightCount)
                     Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
                     
+                    // [수정 핵심] Forward+에서 0을 뱉던 버퍼 배열 의존성을 제거하고 URP 물리 감쇠를 재구성
+                    // _CaveLightFalloff 슬라이더값을 Power 값으로 리맵핑하여 넓은 빛 확산을 만들어냅니다.
                     float falloffPower = max(0.1, _CaveLightFalloff * 10.0);
                     float finalDistAtten = pow(saturate(light.distanceAttenuation), falloffPower);
                     
                     float NdotL = dot(worldNormal, light.direction);
 
-                    // [POM-SHADOW] 포인트라이트별 POM 자기 그림자
-                    // samplePos에서 light.direction으로 레이를 트레이스해 마이크로 차폐 계산
-                    // steps는 int로 변환 (clamp 4~16)
-                    float pomShadowFactor = 1.0;
-                    if (_EnablePomShadow > 0.5 && NdotL > 0.0)
-                    {
-                        int shadowSteps = clamp((int)_PomShadowSteps, 4, 16);
-                        float rawShadow = ComputePOMSelfShadow(
-                            pomSamplePos, light.direction, worldNormal,
-                            blendWeightsVS, _Tiling, _HeightScale, shadowSteps);
-                        // _PomShadowStrength로 그림자 강도 조절 (1=최대, 0=무효)
-                        pomShadowFactor = lerp(1.0, rawShadow, _PomShadowStrength);
-                    }
-
-                    float3 directLightDiffuse = CalculateSoftDiffuse(NdotL, light.shadowAttenuation, finalDistAtten, light.color, _PointLightWrap);
-                    resultColor += sampledAlbedo * directLightDiffuse * pomShadowFactor;
+                    // 소프트 디퓨즈 연산 호출
+                    float3 directLightDiffuse = CalculateSoftDiffuse(NdotL, light.shadowAttenuation, finalDistAtten, light.color);
+                    resultColor += sampledAlbedo * directLightDiffuse;
                     
                     if (_SpecularToggle > 0.5) 
                     {
                         float3 spec = CalculateSpecular(light.direction, viewDirWS, worldNormal, smoothness, sampledAlbedo, finalMetallic, light.color, finalDistAtten, light.shadowAttenuation, NdotL);
-                        resultColor += spec * pomShadowFactor;
-                        totalSpecular += spec * pomShadowFactor;
+                        resultColor += spec;
+                        totalSpecular += spec;
                     }
                 LIGHT_LOOP_END
                 #endif
@@ -579,12 +495,12 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
             float _DirtFadeStart;
             float _DirtFadeEnd;
             float _DCNormalStrength;
-            float _DCNormalAmplify;     // [TORCH] ForwardLit과 동기화
 
             struct Attributes
             {
                 float4 positionOS   : POSITION;
                 float3 normalOS     : NORMAL;
+                float3 uv2          : TEXCOORD2; // [Phase 2-5] Per-Vertex 편차
             };
 
             struct Varyings
@@ -592,7 +508,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float4 positionCS   : SV_POSITION;
                 float3 positionWS   : TEXCOORD0;
                 float3 normalWS     : TEXCOORD1;
-                float3 blendWeightsVS : TEXCOORD2; // [V3-FIX]
+                float3 perturbation : TEXCOORD2; // [Phase 2-5]
             };
 
             Varyings DepthNormalsVertex(Attributes input)
@@ -602,10 +518,7 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 output.positionCS = vertexInput.positionCS;
                 output.positionWS = vertexInput.positionWS;
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
-                // [FIX-BLENDWEIGHTS-CONSISTENCY] pow8 → pow4: ForwardLit 패스와 동일하게 통일
-                // 기존 pow8은 ForwardLit(pow4)보다 훨씬 날카롭게 축 전환 → SSAO/DepthNormals 불일치
-                float3 n = abs(output.normalWS);
-                output.blendWeightsVS = n * n * n * n; // pow4 (ForwardLit과 동일)
+                output.perturbation = input.uv2;
                 return output;
             }
 
@@ -614,24 +527,18 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
                 float3 worldNormal = normalize(input.normalWS);
                 float3 viewDirWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
                 
-                // [V3-FIX] 재정규화
-                float3 blendWeightsVS = input.blendWeightsVS;
-                float bwSum = dot(blendWeightsVS, (float3)1.0);
-                blendWeightsVS = bwSum < 0.0001 ? float3(0, 1, 0) : (blendWeightsVS / bwSum);
-
                 float3 sampledAlbedo = float3(1,1,1);
                 float3 triNormal = worldNormal;
                 float4 MOHR = float4(0,1,0,1);
-                float3 dummySamplePos = input.positionWS; // DepthNormals는 POM shadow 불필요
                 
                 GetCaveSurfaceData(
                     input.positionWS, worldNormal, viewDirWS,
-                    blendWeightsVS,
                     _Tiling, _HeightScale, _NormalScale,
                     _EnableSafePom, _EnablePomFading, _PomFadeStart, _PomFadeEnd,
                     _DirtFadeStart, _DirtFadeEnd,
-                    _DCNormalStrength, _DCNormalAmplify,
-                    sampledAlbedo, triNormal, MOHR, dummySamplePos
+                    _DCNormalStrength,
+                    input.perturbation, // [Phase 2-5]
+                    sampledAlbedo, triNormal, MOHR
                 );
                 worldNormal = normalize(triNormal);
 

@@ -30,6 +30,41 @@ namespace CaveSystem
         // [Inspector] Domain Warp 진폭 — 천장/벽 형태 자연화 (권장: 0.5)
         [SerializeField] private float warpAmplitude = 0.5f;
 
+        // [AABB 최적화 토글]
+        [Header("AABB Optimization")]
+        [Tooltip("D: 적응형 마진 (smin×3+warp+2). OFF=고정 10m")]
+        public bool enableAdaptiveMargin = false;
+        [Tooltip("C: CPU 사전 필터링 (청크별 노드/엣지). OFF=전체 순회")]
+        public bool enableChunkPreFilter = false;
+
+        // [P2 1단계 — Warp Normalization]
+        [Header("P2 — Warp Normalization")]
+        [Tooltip("ON: warp × (voxelSize / 0.125) — LOD 간 voxel 단위 변위 일관성. OFF: warpAmplitude 원본값 (기존)")]
+        public bool enableWarpNormalization = false;
+        [Tooltip("정규화 기준 voxelSize (Fine 기준). 이 값에서 warp 변위가 원본과 동일")]
+        [SerializeField] private float warpNormalizationBaseVoxelSize = 0.125f;
+
+        [Header("Phase 1 — SDF Feature Toggles")]
+        [Tooltip("방/통로 크기 배율 (SO에서 값 읽기)")]
+        public bool enableScaling = false;
+        [Tooltip("per-edge 폭 ±20% 변형")]
+        public bool enableWidthVariation = false;
+        [Tooltip("U자 퇴적 (SO에서 값 읽기)")]
+        public bool enableSediment = false;
+        [Tooltip("바닥 표면 디테일 노이즈 (SO에서 값 읽기)")]
+        public bool enableFloorDetail = false;
+
+        // ─────────────────────────────────────────────────────────────
+        // [Phase 1.5 / 옵션 B Parabolic Lift] — 제거됨.
+        // 원인: finalDensity를 거리 지표로 오인 사용 → 수평층 전역 파편 유발.
+        // 대체: 옵션 A (CaveNodeGraphBuilder의 enableFloorYClamp).
+        // 본 제거 이유는 phase_15_chunk_boundary_analysis.html 참조.
+        // ─────────────────────────────────────────────────────────────
+
+        // CPU 사전 필터링용 임시 버퍼
+        private ComputeBuffer filteredNodeBuffer, filteredEdgeBuffer;
+        private int filteredNodeCount, filteredEdgeCount;
+
         private ComputeBuffer triangleBuffer;
         private ComputeBuffer oreBuffer;
         private ComputeBuffer triCountBuffer;
@@ -213,36 +248,41 @@ namespace CaveSystem
             // 바닥 요철 파라미터
             densityShader.SetFloat("_FloorBumpAmplitude", currentLayer.floorBumpAmplitude);
             densityShader.SetFloat("_FloorBumpFrequency", currentLayer.floorBumpFrequency);
-            // [FLOOR-DETAIL] 바닥 표면 바위/요철 — SO DepthLayer 직결 (Inspector 조절 가능)
-            densityShader.SetFloat("_FloorDetailAmplitude", currentLayer.floorDetailAmplitude);
-            densityShader.SetFloat("_FloorDetailFrequency", currentLayer.floorDetailFrequency);
-            densityShader.SetFloat("_FloorDetailRadius", currentLayer.floorDetailRadius);
-            // [CORRIDOR-SURFACE] 통로 표면 스타일 — 0=smooth(이미지5) / 0.3~0.5=organic(이미지6)
-            densityShader.SetFloat("_CorridorSurface", currentLayer.corridorSurface);
-            // [SEDIMENT-PROFILE] 통로 U자 퇴적 구배 진폭 (0=비활성)
-            densityShader.SetFloat("_SedimentAmplitude", currentLayer.sedimentAmplitude);
-            // [TUNNEL-SCALE] 통로 크기 배율 (1.0=기본)
-            float tunnelScale = currentLayer.tunnelWidthScale > 0.01f ? currentLayer.tunnelWidthScale : 1.0f;
-            densityShader.SetFloat("_TunnelWidthScale", tunnelScale);
-            // [ROOM-SCALE] 방 크기 배율 (1.0=기본)
-            float roomScale = currentLayer.roomSizeScale > 0.01f ? currentLayer.roomSizeScale : 1.0f;
-            densityShader.SetFloat("_RoomSizeScale", roomScale);
-
-            // [FIX-SINKHOLE] 싱크홀/레지/스파이럴 uniform — 미설정 시 GPU 기본값 0으로
-            // _SinkholeProb=0 → if(_SinkholeProb > 0.01) 항상 false → 싱크홀 코드 비활성
-            densityShader.SetFloat("_SinkholeProb", currentLayer.sinkholeProbability);
-            densityShader.SetFloat("_SinkholeMinRadius", currentLayer.sinkholeMinRadius);
-            densityShader.SetFloat("_SinkholeMaxRadius", currentLayer.sinkholeMaxRadius);
-            densityShader.SetFloat("_SinkholeSmoothness", currentLayer.sinkholeSmoothness);
-            densityShader.SetFloat("_LedgeStepHeight", currentLayer.ledgeStepHeight);
-            densityShader.SetFloat("_SpiralFrequency", currentLayer.spiralFrequency);
-            densityShader.SetFloat("_SpiralAmplitude", currentLayer.spiralAmplitude);
 
             // 3D 스레드 실행 (PointsPerAxis를 기준으로 넉넉하게 할당하여 유령 복셀 구역 연산)
             int threadGroups3D = Mathf.CeilToInt(pointsPerAxis / 8.0f);
-            densityShader.SetFloat("_WarpAmplitude", warpAmplitude);
-            // [CaveDCDebugger] 파라미터 로그 — Dispatch 직전 실행
-            GetComponent<CaveDCDebugger>()?.OnBeforeDispatch(densityShader, currentLayer, context.ChunkPos);
+
+            // [P2 1단계] warp 정규화: warp × (voxelSize / baseVoxelSize)
+            //   OFF: warpAmplitude 그대로 (원본)
+            //   ON:  LOD 간 voxel 단위 변위 일관성 보장 (Fine 기준 4 voxels)
+            float effectiveWarp = enableWarpNormalization
+                ? warpAmplitude * (voxelSize / Mathf.Max(0.001f, warpNormalizationBaseVoxelSize))
+                : warpAmplitude;
+            densityShader.SetFloat("_WarpAmplitude", effectiveWarp);
+
+            // [AABB] 적응형 마진 계산 — warp 정규화 시 effectiveWarp 사용 (규칙 #1)
+            float aabbMargin = 10.0f; // 기본 = 원본
+            if (enableAdaptiveMargin)
+            {
+                float sminMax = 2.0f; // 바이옴 sminStrength 최대 추정
+                if (caveSettings.globalBiomes?.Count > 0 && caveSettings.globalBiomes[0] != null)
+                    sminMax = caveSettings.globalBiomes[0].GetStructData().sminStrength;
+                aabbMargin = sminMax * 3f + effectiveWarp + 2f;
+            }
+            densityShader.SetFloat("_AABBMargin", aabbMargin);
+
+            // [Phase 1] SDF 토글
+            densityShader.SetInt("_EnableScaling", enableScaling ? 1 : 0);
+            densityShader.SetInt("_EnableWidthVariation", enableWidthVariation ? 1 : 0);
+            densityShader.SetInt("_EnableSediment", enableSediment ? 1 : 0);
+            densityShader.SetFloat("_TunnelWidthScale", currentLayer.tunnelWidthScale > 0.01f ? currentLayer.tunnelWidthScale : 1f);
+            densityShader.SetFloat("_RoomSizeScale", currentLayer.roomSizeScale > 0.01f ? currentLayer.roomSizeScale : 1f);
+            densityShader.SetFloat("_SedimentAmplitude", currentLayer.sedimentAmplitude);
+            densityShader.SetInt("_EnableFloorDetail", enableFloorDetail ? 1 : 0);
+            densityShader.SetFloat("_FloorDetailAmplitude", currentLayer.floorDetailAmplitude);
+            densityShader.SetFloat("_FloorDetailFrequency", currentLayer.floorDetailFrequency);
+            densityShader.SetFloat("_FloorDetailRadius", currentLayer.floorDetailRadius);
+
             densityShader.Dispatch(kernelGenerateDensity, threadGroups3D, threadGroups3D, threadGroups3D);
 
             // ═══════════════════════════════════════════════════════════════
@@ -254,6 +294,82 @@ namespace CaveSystem
             var dcExtension = GetComponent<DCPipelineExtension>();
             if (dcExtension != null && dcExtension.useDualContouring && dcExtension.IsInitialized)
             {
+                // ================================================================
+                // [N-2] DiskCache — 캐시 HIT 시 GPU 파이프라인 완전 생략
+                // ================================================================
+                var diskCache = GetComponent<CaveDiskCache>();
+                if (diskCache != null && diskCache.enableDiskCache)
+                {
+                    DepthLayer cacheLayer = caveSettings.GetLayerSettings(chunkBasePos.y);
+                    float cacheEffectiveWarp = enableWarpNormalization
+                        ? warpAmplitude * (voxelSize / 0.125f)
+                        : warpAmplitude;
+
+                    var meshBuilder = GetComponent<DCMeshBuilder>();
+                    string paramHash = diskCache.ComputeParamHash(
+                        caveSettings.seed, voxelSize, chunkSize,
+                        cacheLayer,
+                        enableScaling, enableWidthVariation, enableSediment, enableFloorDetail,
+                        enableWarpNormalization, cacheEffectiveWarp,
+                        meshBuilder != null && meshBuilder.enableReducedSmoothing,
+                        meshBuilder != null && meshBuilder.enableFloorSmoothingJob,
+                        dcExtension.enableCompressedHermite, dcExtension.enableCompressedVertex,
+                        3.0f // _DCNormalAmplify 기본값
+                    );
+                    string cacheKey = diskCache.GetCacheKey(context.ChunkPos, paramHash);
+
+                    if (diskCache.HasCache(cacheKey))
+                    {
+                        // ── 캐시 HIT: 디스크에서 로드, GPU 완전 생략 ──
+                        diskCache.LoadAsync(cacheKey, (cachedData) =>
+                        {
+                            if (cachedData == null)
+                            {
+                                // 로드 실패 → 캐시 파일 삭제, 다음 사이클에서 GPU 재생성
+                                Debug.LogWarning($"[DC-Cache] 로드 실패, 캐시 삭제: {cacheKey}");
+                                try { System.IO.File.Delete(diskCache.GetCachePath(cacheKey)); } catch { }
+                                context.State = ChunkState.Completed;
+                                onGpuCompleted?.Invoke(context, null, null);
+                                IsBusy = false;
+                                return;
+                            }
+
+                            var data = cachedData.Value;
+                            Mesh mesh = CaveDiskCache.BuildMeshFromCache(data, $"DCChunk_{context.ChunkPos}");
+                            context.FeatureTypes = data.featureTypes;
+
+                            if (meshBuilder != null)
+                            {
+                                meshBuilder.AssignCachedMeshToScene(mesh, context, chunkSize, voxelSize,
+                                    (completedCtx) =>
+                                    {
+                                        Debug.Log($"[DC-Cache] HIT: {context.ChunkPos}");
+                                        onGpuCompleted?.Invoke(completedCtx, null, null);
+                                        IsBusy = false;
+                                    });
+                            }
+                            else
+                            {
+                                context.State = ChunkState.Completed;
+                                onGpuCompleted?.Invoke(context, null, null);
+                                IsBusy = false;
+                            }
+                        });
+                        return; // GPU 파이프라인 생략
+                    }
+
+                    // ── 캐시 MISS: 인스턴스 필드 설정 → 기존 DC 경로 실행 → 완료 시 저장 ──
+                    _pendingCacheKey = cacheKey;
+                    _pendingDiskCache = diskCache;
+                    // fall through to existing DC code below
+                }
+                else
+                {
+                    _pendingCacheKey = null;
+                    _pendingDiskCache = null;
+                }
+
+                // ── DC 파이프라인 (DiskCache 유무 무관, 기존 코드) ──
                 // [FIX-H] DC는 +3 패딩 (Seamless Overlap)
                 int dcPointsPerAxis = chunkSize + 3;
                 AllocateTempBuffers(dcPointsPerAxis, chunkSize, isDCMode: true);
@@ -262,10 +378,21 @@ namespace CaveSystem
                 // DC용 밀도장 재생성 (dcBasePos = -voxelSize 오프셋으로 오버랩)
                 Vector3 dcBasePos = chunkBasePos - new Vector3(voxelSize, voxelSize, voxelSize);
                 densityShader.SetBuffer(kernelGenerateDensity, "_VoxelBuffer", voxelBuffer);
-                densityShader.SetBuffer(kernelGenerateDensity, "_NodeBuffer", nodeBuffer);
-                densityShader.SetInt("_NodeCount", CaveNodeGraphBuilder.Instance != null ? CaveNodeGraphBuilder.Instance.nodesData.Count : 0);
-                densityShader.SetBuffer(kernelGenerateDensity, "_EdgeBuffer", edgeBuffer);
-                densityShader.SetInt("_EdgeCount", CaveNodeGraphBuilder.Instance != null ? CaveNodeGraphBuilder.Instance.edgesData.Count : 0);
+
+                // [Rank 2] CPU 사전 필터링
+                if (enableChunkPreFilter)
+                {
+                    float chunkWorldSize = chunkSize * voxelSize;
+                    PreFilterForChunk(dcBasePos, chunkWorldSize + voxelSize * 3, aabbMargin + 5f);
+                    BindFilteredBuffers(kernelGenerateDensity);
+                }
+                else
+                {
+                    densityShader.SetBuffer(kernelGenerateDensity, "_NodeBuffer", nodeBuffer);
+                    densityShader.SetInt("_NodeCount", CaveNodeGraphBuilder.Instance != null ? CaveNodeGraphBuilder.Instance.nodesData.Count : 0);
+                    densityShader.SetBuffer(kernelGenerateDensity, "_EdgeBuffer", edgeBuffer);
+                    densityShader.SetInt("_EdgeCount", CaveNodeGraphBuilder.Instance != null ? CaveNodeGraphBuilder.Instance.edgesData.Count : 0);
+                }
                 densityShader.SetBuffer(kernelGenerateDensity, "_BiomeBuffer", biomeBuffer);
                 densityShader.SetInt("_BiomeCount", biomeBuffer.count);
                 densityShader.SetFloat("_MacroBiomeScale", Mathf.Max(caveSettings.macroBiomeScale, 1.0f));
@@ -281,30 +408,19 @@ namespace CaveSystem
                 densityShader.SetFloat("_CeilBlendRadius", currentLayer.ceilBlendRadius);
                 densityShader.SetFloat("_FloorBumpAmplitude", currentLayer.floorBumpAmplitude);
                 densityShader.SetFloat("_FloorBumpFrequency", currentLayer.floorBumpFrequency);
-                // [FLOOR-DETAIL + CORRIDOR-SURFACE] DC 패스 동일 SO 값 주입
+                // [P2 1단계] effectiveWarp는 MC 분기에서 이미 계산됨 (같은 DispatchChunk 호출 내)
+                densityShader.SetFloat("_WarpAmplitude", effectiveWarp);
+                densityShader.SetFloat("_AABBMargin", aabbMargin);
+                densityShader.SetInt("_EnableScaling", enableScaling ? 1 : 0);
+                densityShader.SetInt("_EnableWidthVariation", enableWidthVariation ? 1 : 0);
+                densityShader.SetInt("_EnableSediment", enableSediment ? 1 : 0);
+                densityShader.SetFloat("_TunnelWidthScale", currentLayer.tunnelWidthScale > 0.01f ? currentLayer.tunnelWidthScale : 1f);
+                densityShader.SetFloat("_RoomSizeScale", currentLayer.roomSizeScale > 0.01f ? currentLayer.roomSizeScale : 1f);
+                densityShader.SetFloat("_SedimentAmplitude", currentLayer.sedimentAmplitude);
+                densityShader.SetInt("_EnableFloorDetail", enableFloorDetail ? 1 : 0);
                 densityShader.SetFloat("_FloorDetailAmplitude", currentLayer.floorDetailAmplitude);
                 densityShader.SetFloat("_FloorDetailFrequency", currentLayer.floorDetailFrequency);
                 densityShader.SetFloat("_FloorDetailRadius", currentLayer.floorDetailRadius);
-                densityShader.SetFloat("_CorridorSurface", currentLayer.corridorSurface);
-                // [SEDIMENT-PROFILE] DC 패스 동일 값 주입
-                densityShader.SetFloat("_SedimentAmplitude", currentLayer.sedimentAmplitude);
-                // [TUNNEL-SCALE] DC 패스 동일 값 주입
-                float dcTunnelScale = currentLayer.tunnelWidthScale > 0.01f ? currentLayer.tunnelWidthScale : 1.0f;
-                densityShader.SetFloat("_TunnelWidthScale", dcTunnelScale);
-                // [ROOM-SCALE] DC 패스 동일 값 주입
-                float dcRoomScale = currentLayer.roomSizeScale > 0.01f ? currentLayer.roomSizeScale : 1.0f;
-                densityShader.SetFloat("_RoomSizeScale", dcRoomScale);
-                densityShader.SetFloat("_WarpAmplitude", warpAmplitude);
-                // [FIX-SINKHOLE] DC 패스도 동일하게 싱크홀 uniform 주입
-                densityShader.SetFloat("_SinkholeProb", currentLayer.sinkholeProbability);
-                densityShader.SetFloat("_SinkholeMinRadius", currentLayer.sinkholeMinRadius);
-                densityShader.SetFloat("_SinkholeMaxRadius", currentLayer.sinkholeMaxRadius);
-                densityShader.SetFloat("_SinkholeSmoothness", currentLayer.sinkholeSmoothness);
-                densityShader.SetFloat("_LedgeStepHeight", currentLayer.ledgeStepHeight);
-                densityShader.SetFloat("_SpiralFrequency", currentLayer.spiralFrequency);
-                densityShader.SetFloat("_SpiralAmplitude", currentLayer.spiralAmplitude);
-                // [CaveDCDebugger] DC 패스 파라미터 로그
-                GetComponent<CaveDCDebugger>()?.OnBeforeDispatch(densityShader, currentLayer, context.ChunkPos);
                 densityShader.Dispatch(kernelGenerateDensity, dcTG, dcTG, dcTG);
 
                 // 침식도 DC에 적용
@@ -388,6 +504,15 @@ namespace CaveSystem
                                     }
 
                                     Debug.Log($"[DC] 청크 완성: {context.ChunkPos}, {quadCount} quads, {sw.ElapsedMilliseconds}ms");
+
+                                    // [N-2] 캐시 MISS 후 완료 → 디스크에 저장
+                                    if (_pendingCacheKey != null && _pendingDiskCache != null)
+                                    {
+                                        var meshForCache = completedCtx.ChunkObject?.GetComponent<MeshFilter>()?.sharedMesh;
+                                        _pendingDiskCache.SaveAsync(_pendingCacheKey, meshForCache, completedCtx.FeatureTypes);
+                                        _pendingCacheKey = null;
+                                        _pendingDiskCache = null;
+                                    }
 
                                     // [FIX-I] onGpuCompleted 호출 → completedChunks 증가
                                     onGpuCompleted?.Invoke(completedCtx, null, null);
@@ -489,7 +614,74 @@ namespace CaveSystem
             if (oreBuffer != null) { oreBuffer.Release(); oreBuffer = null; }
             if (triCountBuffer != null) { triCountBuffer.Release(); triCountBuffer = null; }
             if (oreCountBuffer != null) { oreCountBuffer.Release(); oreCountBuffer = null; }
+            if (filteredNodeBuffer != null) { filteredNodeBuffer.Release(); filteredNodeBuffer = null; }
+            if (filteredEdgeBuffer != null) { filteredEdgeBuffer.Release(); filteredEdgeBuffer = null; }
         }
+
+        // ═══ [Rank 2] CPU 사전 필터링: 청크별 노드/엣지 AABB 교차 검사 ═══
+        // 청크 AABB와 노드/엣지 영향 범위가 겹치는 것만 GPU에 전달
+        // 효과: GPU 순회 ~70~90% 감소 (노드 50→5~15개, 엣지 80→10~25개)
+        public void PreFilterForChunk(Vector3 chunkWorldMin, float chunkWorldSize, float margin)
+        {
+            if (CaveNodeGraphBuilder.Instance == null) return;
+            var allNodes = CaveNodeGraphBuilder.Instance.nodesData;
+            var allEdges = CaveNodeGraphBuilder.Instance.edgesData;
+            Vector3 cMin = chunkWorldMin - Vector3.one * margin;
+            Vector3 cMax = chunkWorldMin + Vector3.one * (chunkWorldSize + margin);
+
+            var fNodes = new System.Collections.Generic.List<NodeData>();
+            var fEdges = new System.Collections.Generic.List<EdgeData>();
+
+            for (int i = 0; i < allNodes.Count; i++)
+            {
+                var n = allNodes[i];
+                float r = n.radius + margin;
+                if (n.position.x + r < cMin.x || n.position.x - r > cMax.x) continue;
+                if (n.position.y + r < cMin.y || n.position.y - r > cMax.y) continue;
+                if (n.position.z + r < cMin.z || n.position.z - r > cMax.z) continue;
+                fNodes.Add(n);
+            }
+            for (int i = 0; i < allEdges.Count; i++)
+            {
+                var e = allEdges[i];
+                Vector3 mid = (e.startPos + e.endPos) * 0.5f;
+                float halfLen = Vector3.Distance(e.startPos, e.endPos) * 0.5f;
+                float r = halfLen + e.width + margin;
+                if (mid.x + r < cMin.x || mid.x - r > cMax.x) continue;
+                if (mid.y + r < cMin.y || mid.y - r > cMax.y) continue;
+                if (mid.z + r < cMin.z || mid.z - r > cMax.z) continue;
+                fEdges.Add(e);
+            }
+
+            filteredNodeCount = fNodes.Count;
+            filteredEdgeCount = fEdges.Count;
+
+            // 최소 1개 보장 (빈 버퍼 방지)
+            if (filteredNodeCount == 0) { fNodes.Add(new NodeData()); filteredNodeCount = 0; }
+            if (filteredEdgeCount == 0) { fEdges.Add(new EdgeData()); filteredEdgeCount = 0; }
+
+            if (filteredNodeBuffer != null) filteredNodeBuffer.Release();
+            if (filteredEdgeBuffer != null) filteredEdgeBuffer.Release();
+            filteredNodeBuffer = new ComputeBuffer(fNodes.Count, System.Runtime.InteropServices.Marshal.SizeOf<NodeData>());
+            filteredEdgeBuffer = new ComputeBuffer(fEdges.Count, System.Runtime.InteropServices.Marshal.SizeOf<EdgeData>());
+            filteredNodeBuffer.SetData(fNodes);
+            filteredEdgeBuffer.SetData(fEdges);
+        }
+
+        // 사전 필터된 버퍼를 density shader에 바인딩
+        public void BindFilteredBuffers(int kernel)
+        {
+            densityShader.SetBuffer(kernel, "_NodeBuffer", filteredNodeBuffer);
+            densityShader.SetInt("_NodeCount", filteredNodeCount);
+            densityShader.SetBuffer(kernel, "_EdgeBuffer", filteredEdgeBuffer);
+            densityShader.SetInt("_EdgeCount", filteredEdgeCount);
+        }
+
+        // =====================================================================
+        // [N-2] DiskCache — pending cache save (completion callback에서 참조)
+        // =====================================================================
+        private string _pendingCacheKey = null;
+        private CaveDiskCache _pendingDiskCache = null;
 
         private void OnDestroy()
         {

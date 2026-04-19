@@ -41,17 +41,6 @@ float _CeilBlendRadius;
 
 float _FloorBumpFrequency;
 float _FloorBumpAmplitude;
-// [FLOOR-DETAIL] 바닥 표면 노이즈 파라미터 (zonalRidge 대체 — 기준선 불변)
-float _FloorDetailAmplitude; // 바위 진폭 (m)
-float _FloorDetailFrequency; // XZ 빈도 (0.07 ≈ 90m 주기)
-float _FloorDetailRadius;    // 바닥 위 영향 높이 (m)
-// _CorridorSurface는 CaveBiomeMath.hlsl에 선언됨 (include 순서 보장용)
-// [SEDIMENT] 통로 U자 퇴적 구배 진폭 — 0=비활성, 0.3~0.8m 권장
-float _SedimentAmplitude;
-// [TUNNEL-SCALE] 통로 크기 배율 — 1.0=기본, 0.5=절반
-float _TunnelWidthScale;
-// [ROOM-SCALE] 방(노드) 크기 배율 — 통로와 별도 조절
-float _RoomSizeScale;
 
 float _SinkholeProb;
 float _SinkholeMinRadius;
@@ -63,6 +52,32 @@ float _SpiralAmplitude;
 
 float _TimeY;
 int _DebugStage;
+
+// [AABB] Dispatcher가 계산한 적응형 마진 (OFF=10.0, ON=smin×3+warp+2)
+float _AABBMargin;
+
+// [Phase 1] SDF 기능 토글 — OFF 시 원본 동작
+float _TunnelWidthScale;   // Dispatcher 폴백: 0→1.0
+float _RoomSizeScale;      // 동일
+float _SedimentAmplitude;  // 0=비활성
+int _EnableScaling;        // 0=off: node.radius / edge.width 그대로
+int _EnableWidthVariation; // 0=off: wv=1.0
+int _EnableSediment;       // 0=off: dNormal 변경 없음
+int _EnableFloorDetail;    // 0=off: FloorDetail 블록 건너뜀
+float _FloorDetailAmplitude;
+float _FloorDetailFrequency;
+float _FloorDetailRadius;
+
+// ─────────────────────────────────────────────────────────────
+// [Phase 1.5 / 옵션 B Parabolic Lift] — 제거됨.
+// 원인: finalDensity를 "통로로부터의 거리" 지표로 사용한 설계 오류. 
+//       합성된 bulk SDF(room+tunnel+warp+noise smin/smax)를 원시 tunnel 거리로 
+//       오인하여 Y 전역에서 lift가 전역적으로 발동 → 수평층 파편 유발.
+// 상세: phase_15_test_analysis.html (옵션 B 설계 오류 섹션) 및
+//       본 제거 보고서 phase_15_chunk_boundary_analysis.html 참조.
+// 대체: 옵션 A (Floor Y-Clamp, CaveNodeGraphBuilder)가 같은 목적을 더 안전하게 달성.
+// 규칙 #19 (신규): SDF 단계 개입 시 합성 상태 문서화 의무.
+// ─────────────────────────────────────────────────────────────
 
 int GetVoxelIndex(int x, int y, int z)
 {
@@ -87,23 +102,27 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
     for (int i = 0; i < _NodeCount; i++)
     {
         NodeData node = _NodeBuffer[i];
-        // [ROOM-SCALE] SO에서 제어하는 방 크기 배율 적용 (통로와 별도)
-        float scaledRadius = node.radius * _RoomSizeScale;
         
         float3 distToCenter = abs(p - node.position);
-        if (max(distToCenter.x, max(distToCenter.y, distToCenter.z)) > scaledRadius + curP.sminStrength + 10.0)
+        // AABB: 항상 node.radius 기준 (Scaling이 AABB를 변경하지 않음)
+        if (max(distToCenter.x, max(distToCenter.y, distToCenter.z)) > node.radius + curP.sminStrength + _AABBMargin)
             continue;
 
-        float dNormal = length(p - node.position) - scaledRadius;
+        // [Phase 1: Scaling] OFF→node.radius, ON→node.radius×scale
+        float nodeR = (_EnableScaling == 1) ? node.radius * _RoomSizeScale : node.radius;
+        if (nodeR < 0.1) continue;
+
+        float dNormal = length(p - node.position) - nodeR;
         
         // --- 협곡 노드 변형 (최적화 포함) ---
         float3 canyonPt = node.position;
         if (p.y > node.position.y)
         {
+            // 무한히 올라가는 대신 maxCanyonHeight에서 상승을 멈춤(Ceiling 닫힘)
             canyonPt.y = min(p.y, node.position.y + maxCanyonHeight);
         }
-        float dCanyon = length(p - canyonPt) - scaledRadius;
-        float flatBottom = (node.position.y - scaledRadius * 0.7) - p.y;
+        float dCanyon = length(p - canyonPt) - nodeR;
+        float flatBottom = (node.position.y - nodeR * 0.7) - p.y;
         dCanyon = smax(dCanyon, flatBottom, 4.0);  // [바닥자연화] k=1.5→4.0: 4m 블렌딩으로 단차 완화
         // -----------------------------------
 
@@ -120,24 +139,39 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
     for (int j = 0; j < _EdgeCount; j++)
     {
         EdgeData edge = _EdgeBuffer[j];
-        // [TUNNEL-SCALE] SO에서 제어하는 통로 크기 배율 적용
-        float scaledEdgeWidth = edge.width * _TunnelWidthScale;
         
         float3 mid = (edge.startPos + edge.endPos) * 0.5;
         float3 distToMid = abs(p - mid);
         float halfLen = length(edge.endPos - edge.startPos) * 0.5;
-        if (max(distToMid.x, max(distToMid.y, distToMid.z)) > (halfLen + scaledEdgeWidth + curP.sminStrength + 10.0))
+        // AABB: 항상 edge.width 기준 (Scaling이 AABB를 변경하지 않음)
+        if (max(distToMid.x, max(distToMid.y, distToMid.z)) > (halfLen + edge.width + curP.sminStrength + _AABBMargin))
             continue;
 
-        // [P5-FIX] dNormal_base → 데드코드 주석화
-        // FIX-RMOD 이후 pa_local 기반 직접 계산으로 교체됨.
-        // 향후 rMod 안전마진 비교 필요 시 주석 해제.
-        // float dNormal_base = sdCapsule(p, edge.startPos, edge.endPos, edge.width);
+        // [Phase 1: Scaling + WidthVariation] OFF→edge.width, ON→scaled
+        float edgeW = (_EnableScaling == 1) ? edge.width * _TunnelWidthScale : edge.width;
+        float wv = (_EnableWidthVariation == 1)
+            ? lerp(0.80, 1.00, hash2D(float2(float(j) * 0.137, float(j) * 0.231)).x)
+            : 1.0;
+        float effectiveWidth = edgeW * wv;
+
+        float dNormal = sdCapsule(p, edge.startPos, edge.endPos, effectiveWidth);
         
         // --- 협곡 통로 변형 (최적화 포함) ---
         float3 pa = p - edge.startPos, ba = edge.endPos - edge.startPos;
         float h = saturate(dot(pa, ba) / max(dot(ba, ba), 0.000001));
         float3 closestPt = edge.startPos + ba * h;
+
+        // [Phase 1: Sediment] OFF→dNormal 변경 없음
+        if (_EnableSediment == 1 && _SedimentAmplitude > 0.001)
+        {
+            float3 pa_local = p - closestPt;
+            float lateralDist = length(float2(pa_local.x, pa_local.z));
+            float t_sed = saturate(lateralDist / max(effectiveWidth, 0.1));
+            float belowCenter = saturate((closestPt.y - p.y) / max(effectiveWidth * 0.5, 0.1));
+            float safeAmp = min(_SedimentAmplitude, effectiveWidth * 0.15);
+            float sedMask = saturate((effectiveWidth - length(pa_local)) / max(effectiveWidth * 0.3, 0.1));
+            dNormal += t_sed * t_sed * belowCenter * safeAmp * sedMask;
+        }
 
         float3 canyonEdgePt = closestPt;
         if (p.y > closestPt.y)
@@ -145,105 +179,9 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
             // 통로 역시 무한 확장을 막고 일정 높이에서 천장을 덮습니다.
             canyonEdgePt.y = min(p.y, closestPt.y + maxCanyonHeight);
         }
-
-        // [방법A-2 v2] 단면 반경 위상 변조 — 자연 암석 스케일로 수정
-        // 이전 버그: float3(0.11, 0.13, 0.07) → 주기 57m → 터널에서 거의 안 보임
-        // 수정: float3(1.5, 1.7, 1.3) → 주기 4~5m → 자연 암석 굴곡 스케일
-        //
-        // 주기 계산:
-        //   X: 2π/1.5 ≈ 4.2m, Y: 2π/1.7 ≈ 3.7m, Z: 2π/1.3 ≈ 4.8m
-        //   → 서로 다른 주기로 비주기적(불규칙) 패턴
-        //   → 0.3m 격자에서 4m 주기 = 13개 버텍스 → 충분히 부드러운 표현
-        //
-        // rMod 다중 주파수 (복셀 0.3m 기준 최적화):
-        //   유효 조건: 주기 ≥ voxelSize × 4 (4복셀 이상 = 잘 표현)
-        //   1주파(4.2m): 14복셀 ✓ — 터널 대형 굴곡
-        //   2주파(2.0m):  6.7복셀 ✓ — 중간 암석 굴곡
-        //   3주파(1.4m):  4.7복셀 ✓ — 소형 굴곡
-        //   [수정] 구 3주파(1.0m = 3.3복셀⚠) → 1.4m(4.7복셀✓) 교체
-        //   이전 1.0m는 0.3m 격자에서 샘플이 부족해 자연 곡률 아닌 불규칙 계단 생성 가능
-        //
-        //   S2(0.125m) 전환 시: 4주파 추가 가능 → + 0.06*sin(phase*7.2+2.1)  // 0.87m, 7복셀✓
-        //   S2(0.10m)  전환 시: 4주파 추가 가능 → + 0.07*sin(phase*10.5+2.1) // 0.60m, 6복셀✓
-        // [FIX-RMOD-APERIODIC] phase 비주기화
-        // 기존: phase = dot(closestPt, [1.5,1.7,1.3]) → 통로 축을 따라 완벽한 선형 증가
-        //       → sin(phase) = 통로 방향으로 완벽 주기 함수 (X축 4.2m, Z축 4.8m 주기)
-        //       → DC featureType 주기적 전환 → 밴딩 2차 증폭 → 협착 링 가시화
-        // 수정: snoise(closestPt*0.3)*2.0 을 위상에 추가
-        //       snoise 공간 주기≈21m >> rMod 주기≈4m → 위상 ±115° 무작위 변조
-        //       동일 엣지를 따라 이동해도 완벽 주기성 파괴 → 자연스러운 굴곡
-        float3 pa_local = p - closestPt;
-        float phaseBase = dot(closestPt, float3(1.5, 1.7, 1.3));
-        float phaseJitter = snoise(closestPt * 0.3) * 2.0; // [FIX-RMOD-APERIODIC]
-        float phase = phaseBase + phaseJitter;
-
-        // [WIDTH-VARIATION] per-edge 폭 variation (±20%)
-        // hash2D(edgeIdx+seed)로 엣지마다 고정된 0.80~1.00 배율 결정
-        // → 통로마다 살짝 다른 폭 → 반복감 감소, variation 자연스러움
-        float widthVariation = lerp(0.80, 1.00, hash2D(float2(float(j) * 0.137, float(j) * 0.231)).x);
-        float effectiveWidth = scaledEdgeWidth * widthVariation;
-        // [C2-1 수정] edge.width 가변 안전 스케일링
-        // 협소 통로(edge.width<2m)에서 rMod 총진폭이 과도하면 캐릭터 통로 차단
-        // amp_base: edge.width에 비례, 최소 반경 ≥ 1.0m 보장
-        // edge.width=3m: amp_base=0.48(원래값), =2m: 0.30, =1.5m: 0.10
-        // [FIX-RMOD-AMP] amp_base 상한 0.48 → 0.22로 축소
-        // 기존 0.48: edge.width=4m 기준 rMod 최솟값 ≈ 0.50 → 통로 반경이 절반까지 감소
-        //           → DC가 thin section 생성 → 시각적 링/도넛 패턴
-        // 수정 0.22: rMod 최솟값 ≈ 0.77 → 통로 반경 최대 23% 감소 → 링 방지
-        float amp_base = min(0.22, 0.28 * (1.0 - 1.0 / max(effectiveWidth, 1.5)));
-        float rMod = 1.0
-            + amp_base * (0.25/0.48) * sin(phase)              // 4.2m — 대형 굴곡
-            + amp_base * (0.18/0.48) * sin(phase * 2.1 + 1.3)  // 2.0m — 중간 굴곡
-            + amp_base * (0.10/0.48) * sin(phase * 3.0 + 2.7); // 1.4m — 소형 굴곡
-        // S2 LOD 전환 후 _VoxelSize 파라미터로 4주파 추가 (주석 해제):
-        // if (_VoxelSize <= 0.125) rMod += amp_base*(0.06/0.48)*sin(phase*7.2+2.1);  // 0.87m
-        // if (_VoxelSize <= 0.100) rMod += amp_base*(0.07/0.48)*sin(phase*10.5+2.1); // 0.60m
-
-        // [FIX-FLOOR-RMOD] 바닥에서 rMod 억제 — 링이 바닥 높이를 울룩불룩하게 만드는 것 방지
-        // 통로 중심(closestPt.y) 아래일수록 rMod → 1.0 (변조 없음) 으로 블렌딩
-        // 벽면/천장은 rMod 그대로 유지 → 자연스러운 암석 굴곡 보존
-        float floorRModBlend = saturate((closestPt.y - p.y) / max(effectiveWidth * 0.4, 0.1));
-        float finalRMod = lerp(rMod, 1.0, floorRModBlend * 0.85);
-
-        float dNormal = length(pa_local) - effectiveWidth * finalRMod;
-
-        // lateralOffset: p.xz → closestPt.xz 평면 오프셋 (sediment + parabolicLift 공용)
-        float2 lateralOffset = p.xz - closestPt.xz;
-        float lateralDist2 = dot(lateralOffset, lateralOffset);
-
-        // [SEDIMENT-PROFILE-v2] 방향 인지 U자 퇴적 구배 — 벽 근처 높음, 중앙 낮음
-        // 실사 동굴: 벽 근처에 암설/점토 퇴적 → 바닥이 올라옴
-        //           중앙은 수류 마모로 낮거나 평탄 → 자연스러운 통행로
-        //
-        // [v1 버그 3건 수정]
-        //   1. 부호: dNormal -= → += (SDF 증가 = 공동 축소 = 바닥 상승)
-        //   2. Y방향: belowCenter 추가 (통로 중심 아래에서만 퇴적, 천장 미적용)
-        //   3. 깊이마스크: 표면 2m 쉘 → 통로 내부 전체 점진적 활성
-        if (_SedimentAmplitude > 0.001)
-        {
-            float lateralDist = length(lateralOffset);
-            float t = saturate(lateralDist / max(effectiveWidth, 0.1));
-
-            // Y 방향 판별: 통로 중심(closestPt.y) 아래에서만 퇴적 활성
-            // closestPt.y - p.y > 0 → p가 통로 중심보다 아래 → 퇴적 적용
-            // closestPt.y - p.y < 0 → p가 통로 중심보다 위(천장) → 퇴적 미적용
-            float belowCenter = saturate((closestPt.y - p.y) / max(effectiveWidth * 0.5, 0.1));
-
-            // 깊이 마스크: 통로 내부(dNormal<0) 전체에서 점진적 활성
-            // dNormal=0(표면): sedMask=0, dNormal=-1.2(내부): sedMask=1.0
-            float sedMask = saturate(-dNormal / max(effectiveWidth * 0.3, 0.1));
-
-            float sedimentLift = t * t * belowCenter * _SedimentAmplitude * sedMask;
-            dNormal += sedimentLift; // [FIX] += : SDF 증가 = 공동 축소 = 벽 근처 바닥 상승
-        }
-
-        float3 pa_canyon = p - canyonEdgePt;
-        float dCanyonEdge = length(pa_canyon) - effectiveWidth * finalRMod;
-
-        float maxLift = effectiveWidth * 0.08;           // [WIDTH-VARIATION] effectiveWidth 적용
-        float parabolicLift = min(lateralDist2 * 0.04, maxLift);
-        float flatBottomEdge = (closestPt.y - effectiveWidth * 0.7 + parabolicLift) - p.y; // [WIDTH-VARIATION]
-        dCanyonEdge = smax(dCanyonEdge, flatBottomEdge, 6.0);
+        float dCanyonEdge = length(p - canyonEdgePt) - effectiveWidth;
+        float flatBottomEdge = (closestPt.y - effectiveWidth * 0.7) - p.y;
+        dCanyonEdge = smax(dCanyonEdge, flatBottomEdge, 4.0);  // [바닥자연화] k=1.5→4.0
         // -----------------------------------
         
         float d = lerp(dNormal, dCanyonEdge, canyonWeight);
@@ -311,24 +249,8 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     // [Inspector] _WarpAmplitude는 CaveComputeDispatcher.SetFloat로 외부 설정
     float warpX = snoise2D((worldPos.xz + float2(1.7, 9.2)) * 0.11) * _WarpAmplitude;
     float warpZ = snoise2D((worldPos.xz + float2(8.3, 2.8)) * 0.11) * _WarpAmplitude;
-
-    // [FIX-YGRADIENT] Y warp 추가 — terraceSteps=0 환경에서 ATA[y][y] 복원
-    // 문제: terraceSteps=0 → fBm이 Y축으로 연속적 → Y gradient 약화
-    //       sdCapsule과 wallMask 노이즈 모두 X,Z 방향 위주 → ATA[y][y] ≈ 0
-    //       → Y 방향 버텍스 이동 없음 → 수직면이 평탄 → 큐브형 외관
-    //
-    // 해결: Y warp로 fBm 입력의 y값을 공간적으로 변화
-    //       warpY ≈ ±0.35m → fBm에 Y 방향 변화 입력 → Y gradient 생성
-    //       terraceSteps=1의 Y 불연속 효과(±1.2m)의 약 30% 수준
-    //       수평 계단 줄무늬 없이 자연스러운 Y 방향 표면 곡률 달성
-    //
-    // pre-opt(terraceSteps=1)에서 Y gradient 기여:
-    //   Y gradient ≈ ±1.2m/0.3m = 4.0/m (계단 경계)
-    // Y warp amplitude 0.7배 기준:
-    //   warpY ≈ ±0.35m → Y gradient ≈ 0.35m × 0.09 × freq ≈ 1.0/m
-    //   terraceSteps=1 대비 약 25%, 비축정렬 버텍스 유도에 충분
-    float warpY = snoise2D((worldPos.xz + float2(4.1, 6.5)) * 0.09) * _WarpAmplitude * 0.7;
-    float3 warpedPos = worldPos + float3(warpX, warpY, warpZ);
+    // Y warp 제외: 바닥 높이 안정성 유지 (Domain Warp가 바닥면을 왜곡하지 않음)
+    float3 warpedPos = worldPos + float3(warpX, 0.0, warpZ);
     float baseSDF = EvaluateSkeleton(warpedPos, curP, canyonWeight, closestRoomType);
 
     if (_DebugStage == 0)
@@ -341,12 +263,10 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     }
 
     // 3.5. 바닥 보호를 위한 기울기(Normal Y) 추정
-    // [P3-FIX] worldPos → warpedPos로 통일
-    // 기존: baseSDF는 warpedPos 기반이지만 normalY는 worldPos 기반으로 좌표계 불일치
-    // 수정: EvaluateSkeleton에 warpedPos 오프셋을 적용하여 baseSDF와 동일 공간에서 추정
+    // Y축 위/아래로 살짝 샘플링하여 지형이 평지인지 수직 절벽인지 파악합니다.
     int tempRoom;
-    float baseUp = EvaluateSkeleton(warpedPos + float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
-    float baseDn = EvaluateSkeleton(warpedPos - float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
+    float baseUp = EvaluateSkeleton(worldPos + float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
+    float baseDn = EvaluateSkeleton(worldPos - float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
     float normalY = (baseUp - baseDn) * 0.5;
 
     // 4. 이중 SDF 블렌딩 (바닥 보호 마스킹 전달)
@@ -363,90 +283,33 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         return;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // [PIPELINE-REORDER] 안 C: 모든 additive 노이즈를 smax 이전으로 이동
-    // ═══════════════════════════════════════════════════════════════════════
-    // 근본 원인: smax(floor/ceil) 이후에 노이즈를 더하면 baseSDF ∈ [-0.3, 0)
-    //   구간에서 밀도가 양수로 역전되어 DC가 파편 메시를 생성.
-    // 해결: 노이즈를 smax 이전에 적용하여 smax가 노이즈 포함 밀도장에서
-    //   깨끗한 zero-crossing을 생성하도록 한다.
-    //
-    // 재배치 순서:
-    //   ① biomeDetail (기존 위치 유지)
-    //   ② erosion     (smax 이전으로 이동 ⬆)
-    //   ③ floorPlaneSDF + floorDetail (대상 변경: finalDensity → floorPlaneSDF)
-    //   ④ FIX-FLOOR-TUNNEL / FIX-FLOOR-INTRUSION
-    //   ⑤ smax(floor, ceil) — 노이즈 포함 상태에서 깨끗한 전이
-    //   ⑥ sinkhole (지역적 조건부, smax 이후 유지)
-    //   ⑦ SIGN-FLIP-GUARD (안전망, 고정 임계값 유지)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // 4.5. 침식 노이즈 (smax 이전으로 이동)
-    // [PIPELINE-REORDER] 기존 위치: smax 이후 (L408-414)
-    // 이동 근거: erosion은 동굴 형태를 수정하는 노이즈이므로 smax 이전이 의미적으로 올바름.
-    //   erosionMask는 biomeDetail 후의 finalDensity를 참조 — 이동 후에도 동일.
-    //   erosionDepthGuard는 baseSDF 기반 — 위치 무관.
-    float erosionDepthGuard = saturate(1.0 + baseSDF / 2.0);
-    float erosionMask = saturate(1.0 - abs(finalDensity) * 0.5);
-    float erosionNoise = snoise2D(worldPos.xz * 0.6 + float2(3.1, 7.4)) * 0.35
-                       + snoise2D(worldPos.xz * 1.3 + float2(5.5, 2.2)) * 0.12;
-    finalDensity += erosionNoise * erosionMask * 0.7 * erosionDepthGuard;
-
     // 5. 플레이어블 바닥(Global Floor) 캡핑
     float floorBump = snoise2D(worldPos.xz * max(curP.bumpFrequency, 0.001)) * curP.bumpAmplitude;
     float floorPlaneSDF = (_FloorAltitude + floorBump) - worldPos.y;
     float ceilPlaneSDF = worldPos.y - _CeilAltitude;
+    
+    finalDensity = smax(finalDensity, floorPlaneSDF, max(_FloorBlendRadius, 0.1));
+    finalDensity = smax(finalDensity, ceilPlaneSDF, max(_CeilBlendRadius, 0.1));
 
-    // 5.1. FloorDetail → floorPlaneSDF에 직접 적용 (대상 변경)
-    // [PIPELINE-REORDER] 기존: finalDensity += floorDetail (smax 이후)
-    //   → 파편 원인: baseSDF ∈ [-0.3, 0)에서 ±1.5m이 밀도 역전
-    // 변경: floorPlaneSDF += floorDetail (smax 이전)
-    //   → 바닥 평면 자체가 울퉁불퉁해지고, smax가 깨끗한 전이를 생성
-    //   → post-smax additive 노이즈 제거 → 밀도 역전 원천 불가
-    //
-    // zonalRidge(구 방식)와의 차이:
-    //   zonalRidge: floorMask 없이 전역 적용, ±2m → 기준선 이동 → 파편
-    //   FloorDetail: floorMask(3m 범위)로 제한, ±1.5m → 바닥 위만 요철
-    //   FIX-FLOOR-INTRUSION이 baseSDF<0에서 floorPlaneClamped를 강제 음수화하므로
-    //   floorPlaneSDF에 추가된 노이즈는 통로 내부에 영향을 주지 않음
-    if (_FloorDetailAmplitude > 0.001)
+    // [Phase 1.5: FloorDetail] OFF → 건너뜀 (원본에 없는 기능)
+    // normalY로 벽면 방지: normalY>0.7(수평바닥)=풀 적용, normalY<0.3(수직벽)=0
+    if (_EnableFloorDetail == 1 && _FloorDetailAmplitude > 0.001)
     {
         float rawDist = worldPos.y - _FloorAltitude;
         float floorMask = (rawDist >= 0.0)
             ? saturate(1.0 - rawDist / max(_FloorDetailRadius, 0.1))
             : 0.0;
+        float wallReject = smoothstep(0.3, 0.7, normalY);
         float floorDetail = snoise2D(worldPos.xz * max(_FloorDetailFrequency, 0.001))
                             * _FloorDetailAmplitude;
-        floorPlaneSDF += floorDetail * floorMask;
+        finalDensity += floorDetail * floorMask * wallReject;
     }
 
-    // [FIX-FLOOR-TUNNEL] 통로/방 내부에서 floor/ceil blend radius 억제
-    float scaledFloorBlend = max(_FloorBlendRadius, 0.1) * _TunnelWidthScale;
-    float scaledCeilBlend  = max(_CeilBlendRadius,  0.1) * _TunnelWidthScale;
-    float tunnelDepth = saturate(-baseSDF / 3.0);
-    float guardedFloorBlend = scaledFloorBlend * (1.0 - tunnelDepth * 0.85);
-    float guardedCeilBlend  = scaledCeilBlend  * (1.0 - tunnelDepth * 0.85);
-
-    // [FIX-ROOM-NODE] 방/노드 내부에서 floorPlaneSDF 자체를 차단
-    float roomFloorGuard = saturate(1.0 + baseSDF / 3.0);
-    float floorPlaneClamped = min(floorPlaneSDF, baseSDF * 0.5 * (1.0 - roomFloorGuard) + floorPlaneSDF * roomFloorGuard);
-
-    // [FIX-FLOOR-INTRUSION] 통로 내부에서 floor/ceil plane의 고체화 완전 차단
-    //   baseSDF<0(통로 내부)이면 floor/ceil SDF를 baseSDF-blend 이하로 제한
-    //   floorPlaneSDF에 FloorDetail이 추가되어 있어도, min() 연산에서
-    //   baseSDF-blend(충분히 음수)가 선택되므로 통로 내부 보호는 동일하게 유지됨
-    if (baseSDF < 0.0)
-    {
-        floorPlaneClamped = min(floorPlaneClamped, baseSDF - guardedFloorBlend);
-        ceilPlaneSDF      = min(ceilPlaneSDF,      baseSDF - guardedCeilBlend);
-    }
-
-    finalDensity = smax(finalDensity, floorPlaneClamped, guardedFloorBlend);
-    finalDensity = smax(finalDensity, ceilPlaneSDF,      guardedCeilBlend);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // smax 이후 영역: additive 노이즈 없음 (sinkhole 지역적 예외만)
-    // ═══════════════════════════════════════════════════════════════════════
+    // [바닥자연화] 고주파 침식 노이즈
+    float erosionMask = saturate(1.0 - abs(finalDensity) * 0.5);
+    float erosionNoise = snoise2D(worldPos.xz * 0.6 + float2(3.1, 7.4)) * 0.35
+                       + snoise2D(worldPos.xz * 1.3 + float2(5.5, 2.2)) * 0.12;
+    finalDensity += erosionNoise * erosionMask * 0.7;
 
     if (_SinkholeProb > 0.01 && hash2D(_ChunkBasePosition.xz).x < _SinkholeProb)
     {
@@ -460,19 +323,11 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         float spiral = sin(worldPos.y * max(_SpiralFrequency, 0.01) + angle * 3.0) * _SpiralAmplitude;
         
         finalDensity = smax(finalDensity, -sinkholeSDF, max(_SinkholeSmoothness, 0.1));
-        // sinkhole terrace+spiral: 지역적(sinkholeMask 내), 진폭 제한적 → 유지
         finalDensity += (terrace + spiral) * sinkholeMask;
 
         if (distToSinkhole < sinkholeRadius)
             closestRoomType = 4;
     }
-
-    // [SIGN-FLIP-GUARD-v3] 터널 내부 밀도 강제 음수 — 안전망
-    // [PIPELINE-REORDER] smax 이후 전역 additive 노이즈가 제거되었으므로
-    //   이 가드의 발동 빈도는 극히 낮음 (sinkhole 지역 노이즈 예외만 커버)
-    //   고정 임계값 -0.3 유지 — 표면 거칠기 허용 마진
-    if (baseSDF < -0.3)
-        finalDensity = min(finalDensity, -0.001);
 
     if (isnan(finalDensity) || isinf(finalDensity))
         finalDensity = 100.0;

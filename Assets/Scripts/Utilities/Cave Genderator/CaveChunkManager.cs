@@ -42,11 +42,42 @@ namespace CaveSystem
         public int MaxPoolSize = 100;
         public GameObject ChunkPrefab;
 
+        // [P2 1단계 — Coarse-First Loading]
+        [Header("P2 — Coarse-First Loading")]
+        [Tooltip("ON: Coarse(저해상) 임시 메시를 먼저 생성 → Fine 완료 시 교체. OFF: Fine만 직접 생성 (원본)")]
+        public bool enableCoarseFirst = false;
+        [Tooltip("Coarse 목표 청크 크기 (voxels). 권장: Fine ChunkSize의 1/2 (기본 64, targetWorldChunkSize=16m 기준 voxelSize 0.25m)")]
+        [Min(4)] public int coarseTargetChunkSize = 64;
+
+        // [Fine-First Radius + FOV]
+        [Header("Fine-First Priority")]
+        [Tooltip("이 반경(청크 단위) 이내의 청크는 Coarse 생략 → Fine 직접 생성 (0=비활성, 기존 Coarse-First 유지)")]
+        [Range(0, 5)] public int fineFirstRadius = 0;
+        [Tooltip("ON: 카메라 정면 방향 청크도 Fine-First 적용 (FOV 기반)")]
+        public bool useFovPriority = false;
+        [Tooltip("정면 판정 내적 임계값 (0.3 ≈ 72°, 0.5 ≈ 60°, 0.7 ≈ 45°)")]
+        [Range(0f, 0.9f)] public float fovDotThreshold = 0.3f;
+
+        // [N-1] Predictive Pre-generation
+        [Header("N-1 — Predictive Pre-generation")]
+        [Tooltip("ON: 이동 방향 예측 → viewDistance+N 청크 미리 큐잉 (체감 지연 0). OFF: 기존 큐잉 (원본)")]
+        public bool enablePredictiveLoading = false;
+        [Tooltip("이동 방향으로 미리 생성할 청크 수 (1~4)")]
+        [Range(1, 4)] public int predictAheadChunks = 2;
+        [Tooltip("예측에 필요한 최소 속도 (m/s). 정지 시 예측 안 함.")]
+        public float predictMinSpeed = 1.0f;
+
         private Dictionary<Vector3Int, ChunkRequestContext> activeChunks = new Dictionary<Vector3Int, ChunkRequestContext>();
         private Queue<ChunkRequestContext> generationQueue = new Queue<ChunkRequestContext>();
         private Queue<GameObject> chunkPool = new Queue<GameObject>();
 
+        // [P2 1단계] Coarse 전용 상태 — Fine 경로와 완전 격리
+        private Dictionary<Vector3Int, GameObject> coarseObjects = new Dictionary<Vector3Int, GameObject>();
+        private Queue<Vector3Int> coarsePendingQueue = new Queue<Vector3Int>();
+        private HashSet<Vector3Int> coarseRequested = new HashSet<Vector3Int>();
+
         private Vector3Int lastPlayerChunkPos = new Vector3Int(int.MaxValue, int.MaxValue, int.MaxValue);
+        private Vector3 _lastPlayerWorldPos; // [N-1] 속도 계산용
         private bool isInitialized = false;
         private Plane[] frustumPlanes = new Plane[6];
 
@@ -85,6 +116,10 @@ namespace CaveSystem
             UpdateChunkPositions();
             ProcessLODAndCulling();
             ProcessGenerationQueue();
+
+            // [P2 1단계] Coarse 정리 — Fine 완료된 경우 대응 Coarse 제거
+            if (enableCoarseFirst)
+                CleanupCompletedCoarse();
         }
 
         public void ForceGenerateChunksAroundPlayer()
@@ -100,7 +135,10 @@ namespace CaveSystem
         public bool IsInitialGenerationComplete()
         {
             // [FIX-K] DC Readback이 완전히 끝난 뒤에만 Ready 판정
-            return generationQueue.Count == 0 && _activeGeneratingCount == 0;
+            // [P2 1단계] Coarse-First ON 시 Coarse 큐도 완료 대기
+            bool fineDone = generationQueue.Count == 0 && _activeGeneratingCount == 0;
+            if (!enableCoarseFirst) return fineDone;
+            return fineDone && coarsePendingQueue.Count == 0;
         }
 
         private void UpdateChunkPositions()
@@ -155,6 +193,15 @@ namespace CaveSystem
                 return distA.CompareTo(distB);
             });
 
+            // [Fine-First] 카메라 정면 방향 캐싱 (FOV 우선 판정용)
+            Vector3 cameraForward = Vector3.forward;
+            if (useFovPriority)
+            {
+                Camera mainCam = Camera.main;
+                if (mainCam != null) cameraForward = mainCam.transform.forward;
+            }
+            float chunkWorldSizeFF = ChunkWorldSize;
+
             foreach (var pos in pendingChunks)
             {
                 ChunkRequestContext ctx = new ChunkRequestContext
@@ -164,6 +211,40 @@ namespace CaveSystem
                 };
                 generationQueue.Enqueue(ctx);
                 activeChunks.Add(pos, ctx);
+
+                // [P2 1단계] Coarse-First: 동일 pos에 Coarse 초안도 큐잉
+                // [Fine-First] 근거리 또는 정면 청크는 Coarse 생략 → Fine 직접 생성
+                if (enableCoarseFirst && !coarseRequested.Contains(pos))
+                {
+                    bool fineOnly = false;
+
+                    // (A) 반경 체크: Chebyshev distance ≤ fineFirstRadius
+                    if (fineFirstRadius > 0)
+                    {
+                        int dx = Mathf.Abs(pos.x - currentChunkPos.x);
+                        int dy = Mathf.Abs(pos.y - currentChunkPos.y);
+                        int dz = Mathf.Abs(pos.z - currentChunkPos.z);
+                        int chebyshev = Mathf.Max(dx, Mathf.Max(dy, dz));
+                        if (chebyshev <= fineFirstRadius)
+                            fineOnly = true;
+                    }
+
+                    // (B) FOV 정면 체크: 카메라 forward · 방향 > threshold
+                    if (!fineOnly && useFovPriority)
+                    {
+                        Vector3 chunkCenter = new Vector3(pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f) * chunkWorldSizeFF;
+                        Vector3 toChunk = (chunkCenter - playerPos).normalized;
+                        float dot = Vector3.Dot(cameraForward, toChunk);
+                        if (dot > fovDotThreshold)
+                            fineOnly = true;
+                    }
+
+                    if (!fineOnly)
+                    {
+                        coarsePendingQueue.Enqueue(pos);
+                        coarseRequested.Add(pos);
+                    }
+                }
             }
         }
 
@@ -232,6 +313,10 @@ namespace CaveSystem
                 // [ChunkSeamStitcher] 청크 제거 시 경계 캐시 정리
                 ChunkSeamStitcher.Instance?.UnregisterChunk(pos);
                 activeChunks.Remove(pos);
+
+                // [P2 1단계] Fine 청크 제거 시 대응 Coarse도 제거 (누수 방지)
+                if (enableCoarseFirst)
+                    DestroyCoarse(pos);
             }
         }
 
@@ -239,6 +324,10 @@ namespace CaveSystem
         private void ProcessGenerationQueue()
         {
             if (CaveManager.Instance != null && CaveManager.Instance.computeDispatcher.IsBusy)
+                return;
+
+            // [P2 1단계] Coarse-First 우선 — Coarse 초안이 대기 중이면 먼저 처리
+            if (enableCoarseFirst && TryProcessCoarseQueue())
                 return;
 
             if (generationQueue.Count > 0 && chunkPool.Count > 0)
@@ -335,13 +424,33 @@ namespace CaveSystem
 
         private void ReturnToPool(GameObject obj)
         {
+            // [P3-NB-A] 풀링 전 pending bake 취소 — 풀 재사용으로 stale 텍스처 방지
+            var returningRenderer = obj.GetComponent<MeshRenderer>();
+            if (returningRenderer != null && CaveNormalBaker.Instance != null)
+                CaveNormalBaker.Instance.CancelPendingBakesForRenderer(returningRenderer);
+
+            // [P3-Phy] 풀링 전 pending physics bake 취소
+            var returningCollider = obj.GetComponent<MeshCollider>();
+            if (returningCollider != null && DCMeshBuilder.Instance != null)
+                DCMeshBuilder.Instance.CancelPendingPhysicsBakesForCollider(returningCollider);
+
+            // [FIX-TEX] 풀링 전 NormalBaker 텍스처 Destroy (누수 방지)
+            //   MaterialPropertyBlock에 할당된 _DCNormalMap_X/Y/Z 텍스처는
+            //   GameObject가 풀로 반환되어도 GPU 메모리에 영구 존재
+            //   → 명시적 Destroy 필요 (청크당 512²×4B×3ch×mipmap ≈ 4MB)
+            DestroyDCNormalTextures(returningRenderer);
+
             obj.name = "Chunk_Pooled";
             obj.SetActive(false);
 
             MeshFilter mf = obj.GetComponent<MeshFilter>();
             if (mf != null && mf.sharedMesh != null)
             {
-                if (mf.sharedMesh.name.Contains("ChunkMesh"))
+                // [FIX-MESH] DC 파이프라인 메시는 "DCChunk_*" 이름 사용
+                //   원본 MC 파이프라인은 "ChunkMesh" 이름 사용
+                //   둘 다 매칭하여 Destroy (누수 방지)
+                string meshName = mf.sharedMesh.name;
+                if (meshName.Contains("ChunkMesh") || meshName.Contains("DCChunk"))
                 {
                     Destroy(mf.sharedMesh);
                 }
@@ -349,6 +458,209 @@ namespace CaveSystem
             }
 
             chunkPool.Enqueue(obj);
+        }
+
+        // =====================================================================
+        // [P2 1단계] Coarse-First 헬퍼 (모든 경로에서 enableCoarseFirst 가드됨)
+        // =====================================================================
+
+        /// <summary>Coarse 큐에서 하나를 처리. 처리했으면 true 반환 → 이번 프레임 Fine 처리 생략.</summary>
+        private bool TryProcessCoarseQueue()
+        {
+            // 큐 앞쪽 유효성 정리 (이미 Fine 완료 / 청크 제거 / 중복 Coarse)
+            while (coarsePendingQueue.Count > 0)
+            {
+                Vector3Int peekPos = coarsePendingQueue.Peek();
+
+                if (!activeChunks.TryGetValue(peekPos, out var fineCtx)
+                    || fineCtx.State == ChunkState.Completed
+                    || fineCtx.State == ChunkState.Aborted)
+                {
+                    coarsePendingQueue.Dequeue();
+                    coarseRequested.Remove(peekPos);
+                    continue;
+                }
+                if (coarseObjects.ContainsKey(peekPos))
+                {
+                    coarsePendingQueue.Dequeue();
+                    continue;
+                }
+                break;
+            }
+
+            if (coarsePendingQueue.Count == 0) return false;
+
+            Vector3Int targetPos = coarsePendingQueue.Dequeue();
+
+            // Coarse는 Fine과 월드 사이즈 동일 유지 (중요: 인접 청크 경계 정렬)
+            //   ChunkWorldSize = EffectiveChunkSize × EffectiveVoxelSize (Fine 기준)
+            //   coarseActualVs = ChunkWorldSize / coarseTargetChunkSize
+            //   → 월드 크기 완벽 일치, voxelSize만 증가
+            float fineWorld = ChunkWorldSize;
+            int coarseN = Mathf.Max(4, coarseTargetChunkSize);
+            float coarseVs = fineWorld / coarseN;
+
+            // Coarse 전용 GameObject (풀 사용 안 함 — 별도 생명주기)
+            if (ChunkPrefab == null) return false;
+            GameObject coarseObj = Instantiate(ChunkPrefab, transform);
+            coarseObj.transform.position = new Vector3(targetPos.x, targetPos.y, targetPos.z) * fineWorld;
+            // "Coarse_" prefix — DCMeshBuilder가 SeamStitcher skip 판별
+            coarseObj.name = $"Coarse_{targetPos.x}_{targetPos.y}_{targetPos.z}";
+            coarseObj.SetActive(true);
+
+            MeshRenderer cr = coarseObj.GetComponent<MeshRenderer>();
+            if (cr != null)
+            {
+                cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                cr.receiveShadows = true;
+            }
+            // [P2 1단계 v2] Coarse MeshCollider 활성 유지 — 플레이어 physics 공백 방지
+            //   이전: Coarse 동안 Fine 기다리느라 collider 없음 → 플레이어 지면 관통 낙하
+            //   현재: Coarse collider도 활성 → Fine 도착 전까지 Coarse가 물리 담당
+            //         Fine 도착 시 Coarse GameObject 제거로 자동 교체 (CleanupCompletedCoarse)
+            MeshCollider cc = coarseObj.GetComponent<MeshCollider>();
+            if (cc != null) cc.enabled = true;
+
+            coarseObjects[targetPos] = coarseObj;
+
+            ChunkRequestContext coarseCtx = new ChunkRequestContext
+            {
+                ChunkPos = targetPos,
+                State = ChunkState.Generating,
+                ChunkObject = coarseObj
+            };
+
+            if (CaveManager.Instance != null)
+            {
+                System.Threading.Interlocked.Increment(ref _activeGeneratingCount);
+                CaveManager.Instance.computeDispatcher.DispatchChunk(
+                    coarseCtx,
+                    coarseN,
+                    coarseVs,
+                    (ctx, tri, ore) =>
+                    {
+                        System.Threading.Interlocked.Decrement(ref _activeGeneratingCount);
+                        CaveManager.Instance.HandleGpuResult(ctx, tri, ore);
+                    }
+                );
+            }
+
+            return true;
+        }
+
+        /// <summary>Fine 완료된 Coarse 초안 제거 (매 프레임 폴링)</summary>
+        /// <remarks>
+        /// [FIX-COLLIDER-RACE] Fine collider 유효성 확인 후에만 Coarse 파괴.
+        ///   원인: P3-Phy (enablePhysicsBakeAsync) 도입으로 Fine의 context.State=Completed 시점이
+        ///         collider.sharedMesh 할당 시점보다 앞설 수 있음. 이 구간 동안 Coarse가 파괴되면
+        ///         Fine collider가 아직 null → 플레이어 관통 추락.
+        ///   방어: Fine collider가 실제로 mesh를 가진 후에만 toRemove에 추가.
+        ///   enablePhysicsBakeAsync=OFF 시: L942 sync 할당으로 조건 즉시 만족 → 기존과 동일 (규칙 #6).
+        ///   상세: collider_fallthrough_audit.html 참조.
+        /// </remarks>
+        private void CleanupCompletedCoarse()
+        {
+            if (coarseObjects.Count == 0) return;
+
+            List<Vector3Int> toRemove = null;
+            foreach (var kvp in coarseObjects)
+            {
+                Vector3Int pos = kvp.Key;
+                if (!activeChunks.TryGetValue(pos, out var fineCtx))
+                {
+                    // Fine 청크가 LOD cull로 제거됨 → Coarse도 제거
+                    (toRemove ??= new List<Vector3Int>()).Add(pos);
+                    continue;
+                }
+                if (fineCtx.State == ChunkState.Completed)
+                {
+                    // [FIX-COLLIDER-RACE] Fine collider 유효성 체크 추가.
+                    //   State=Completed ≠ collider.sharedMesh 할당 완료 (async bake pending 가능).
+                    //   Fine collider가 실제로 mesh를 가진 후에만 Coarse 파괴 허용.
+                    //   Fine collider 미준비 시 Coarse 유지 (다음 프레임 재시도).
+                    var fineCollider = fineCtx.ChunkObject != null
+                        ? fineCtx.ChunkObject.GetComponent<MeshCollider>()
+                        : null;
+                    bool fineColliderReady = fineCollider != null
+                                          && fineCollider.sharedMesh != null;
+                    if (fineColliderReady)
+                    {
+                        (toRemove ??= new List<Vector3Int>()).Add(pos);
+                    }
+                    // else: Fine collider async bake pending → Coarse 물리 담당 유지
+                }
+            }
+
+            if (toRemove != null)
+            {
+                foreach (var pos in toRemove)
+                    DestroyCoarse(pos);
+            }
+        }
+
+        /// <summary>Coarse GameObject + 메시 완전 제거 + 상태 추적 해제</summary>
+        private void DestroyCoarse(Vector3Int pos)
+        {
+            if (coarseObjects.TryGetValue(pos, out var obj) && obj != null)
+            {
+                // [P3-NB-A] 안전망 — Coarse는 진입점에서 skip되므로 보통 pending 없음
+                var coarseRenderer = obj.GetComponent<MeshRenderer>();
+                if (coarseRenderer != null && CaveNormalBaker.Instance != null)
+                    CaveNormalBaker.Instance.CancelPendingBakesForRenderer(coarseRenderer);
+
+                // [P3-Phy] Coarse collider는 sync 경로지만 pending에 들어있을 가능성 대비
+                var coarseCollider = obj.GetComponent<MeshCollider>();
+                if (coarseCollider != null && DCMeshBuilder.Instance != null)
+                    DCMeshBuilder.Instance.CancelPendingPhysicsBakesForCollider(coarseCollider);
+
+                // [FIX-TEX] Coarse 텍스처 Destroy (안전망 — Coarse는 보통 bake skip)
+                DestroyDCNormalTextures(coarseRenderer);
+
+                MeshFilter mf = obj.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null)
+                {
+                    Destroy(mf.sharedMesh);
+                    mf.sharedMesh = null;
+                }
+                Destroy(obj);
+            }
+            coarseObjects.Remove(pos);
+            coarseRequested.Remove(pos);
+        }
+
+        // =====================================================================
+        // [FIX-TEX] DC NormalMap 텍스처 Destroy 헬퍼
+        //   MaterialPropertyBlock에 할당된 _DCNormalMap_X/Y/Z 텍스처를 명시 해제.
+        //   이전에는 청크 반환 시 텍스처만 남아 GPU 메모리 누수 (청크당 ~4MB).
+        //   GetPropertyBlock → GetTexture → Destroy → SetPropertyBlock(clear)
+        // =====================================================================
+        private static readonly string[] _dcNormalMapNames = {
+            "_DCNormalMap_X", "_DCNormalMap_Y", "_DCNormalMap_Z"
+        };
+
+        private void DestroyDCNormalTextures(MeshRenderer renderer)
+        {
+            if (renderer == null) return;
+
+            var mpb = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(mpb);
+
+            bool anyDestroyed = false;
+            for (int i = 0; i < _dcNormalMapNames.Length; i++)
+            {
+                var tex = mpb.GetTexture(_dcNormalMapNames[i]);
+                if (tex != null)
+                {
+                    Destroy(tex);
+                    anyDestroyed = true;
+                }
+            }
+
+            // MPB 초기화 (null 텍스처 참조 방지)
+            if (anyDestroyed)
+            {
+                renderer.SetPropertyBlock(null);
+            }
         }
     }
 }

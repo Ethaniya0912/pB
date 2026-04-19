@@ -1622,6 +1622,468 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!1001 &359781320
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 45.00996
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 23.78318
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 55.25279
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 610720801656390734, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_Name
+      value: CaveSystem_test
+      objectReference: {fileID: 0}
+    - target: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: chunkSize
+      value: 64
+      objectReference: {fileID: 0}
+    - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: voxelSize
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: terrainConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 1efe9746e3c65974c8ddc846846d6bf8,
+        type: 2}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: mainPathWidth
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: maxRoomRadius
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: minRoomRadius
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: sidePathWidth
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: targetRoomCount
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: bossRoomRadiusMultiplier
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: ChunkSize
+      value: 64
+      objectReference: {fileID: 0}
+    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: VoxelSize
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: terrainConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 1efe9746e3c65974c8ddc846846d6bf8,
+        type: 2}
+    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: playerPrefab
+      value: 
+      objectReference: {fileID: 8286174861153668228, guid: ff980c4cbec678c48a118191cce157e3,
+        type: 3}
+    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: navMeshSurface
+      value: 
+      objectReference: {fileID: 359781331}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: warpAmplitude
+      value: 0.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableDomainWarp
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: debugProbeEnabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: forceMinimalGraph
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: debugIsolationMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: chunkSize
+      value: 64
+      objectReference: {fileID: 0}
+    - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: voxelSize
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: showGizmos
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: terrainConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 1efe9746e3c65974c8ddc846846d6bf8,
+        type: 2}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781334}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781333}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781332}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781331}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781330}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781329}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781328}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781327}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 359781326}
+  m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
+--- !u!1 &359781321 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+    type: 3}
+  m_PrefabInstance: {fileID: 359781320}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &359781326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c6638ba1687d3a42948f211274e2f62, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.ChunkSeamStitcher
+  stitchedPairCount: 0
+  enablePhase1ExpandedSnap: 0
+  phase1SnapMultiplier: 3.67
+  enablePhase1BestMatch: 0
+  enablePhase1RecalculateNormals: 0
+  enablePhase1UploadMeshData: 0
+--- !u!114 &359781327
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d42dec624ef51d64193bf767b6225b34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCPerformanceProfiler
+  enableProfiling: 1
+  historySize: 30
+  maxGpuBufferBytes: 52428800
+  maxNavMeshRebuildMs: 200
+  history: []
+  avgVertexCount: 0
+  avgTriangleCount: 0
+  avgTotalTimeMs: 0
+  totalGpuBufferBytes: 0
+  lastNavMeshRebuildMs: 0
+--- !u!114 &359781328
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db58cab8d0d955449bf348ca9d49e5a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveNormalBaker
+  normalMapResolution: 512
+  autoAssignToShader: 1
+  tiling: 0.15
+  autoSyncTiling: 1
+  subVoxelFactor: 0.1
+  enableBakerV5: 0
+  bandHeight: 5
+  enableAsyncBake: 0
+  lastBakeVertexCount: 0
+  lastBakeTimeMs: 0
+  lastTexResolution: 0
+--- !u!114 &359781329
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c70185489de327449823c6dc473bfc3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCMeshBuilder
+  caveMaterial: {fileID: 0}
+  gpuNormalBlend: 1
+  enableNormalBlend: 0
+  enablePerVertexNormal: 0
+  subVoxelFactor: 0.1
+  enableReducedSmoothing: 0
+  enableNativeArrayMesh: 0
+  enableDelayedStitching: 0
+  maxStitchPerFrame: 2
+  enablePerVertexJob: 0
+  enableFloorSmoothingJob: 0
+  enableAsyncFloorSmoothing: 0
+  enablePhysicsBakeAsync: 0
+  existingMeshJobManager: {fileID: 0}
+--- !u!114 &359781330
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f2937aeff87b3e40989b557e843d988, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCPipelineExtension
+  useDualContouring: 1
+  enableVisualSmooth: 0
+  enableMassPointA: 0
+  enableMassPointB: 0
+  enablePhase2MassPointQEF: 0
+  phase2MassPointStrength: 0.5
+  enableGpuClear: 0
+  enableCompressedVoxel: 0
+  enableCompressedHermite: 0
+  enableCompressedVertex: 0
+  enableCompaction: 0
+  dcComputeShader: {fileID: 7200000, guid: 1021cf0d45fc3d6448634523bca6f001, type: 3}
+  sdfProfiles:
+  - {fileID: 11400000, guid: 84c2617875d04a346b7eb0d1df9294de, type: 2}
+  - {fileID: 11400000, guid: 4cec46239331d3d4dadc44cde45a53b2, type: 2}
+  - {fileID: 11400000, guid: 3eee955f26824ec4493cba080d129339, type: 2}
+  - {fileID: 11400000, guid: b70016dad4672424296c7ca233ac266d, type: 2}
+  - {fileID: 11400000, guid: 1a19ae5e297543340b393f9dd6e9cc4c, type: 2}
+  - {fileID: 11400000, guid: 20676e2feb320b148a70036b23b17e4a, type: 2}
+--- !u!114 &359781331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshSurface
+  m_SerializedVersion: 0
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 9
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_MinRegionArea: 2
+  m_NavMeshData: {fileID: 0}
+  m_BuildHeightMesh: 0
+--- !u!114 &359781332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0c5827a942f56944b27bd1be70d3e53, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.Multiplayer.CaveSpawnerManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  treasureChestPrefab: {fileID: 6756834489801360530, guid: 26ad566c09e2044419a37863d966d4d8,
+    type: 3}
+  spiderLairPrefab: {fileID: 5986444319868078990, guid: c8d95662d6278d0409556bcdf459d103,
+    type: 3}
+  bossArenaTriggerPrefab: {fileID: 7438628722437134626, guid: 560c00a15d96ec34f88e042e339c02bf,
+    type: 3}
+  regularMobPrefabs:
+  - {fileID: 4233442530097016134, guid: a36c53c1440aa674ab5db00a8257dfcb, type: 3}
+  rareOrePrefab: {fileID: 6756834489801360530, guid: d5c1686fe668b5244833efb9f429f3c8,
+    type: 3}
+  maxPlayerSpawnPoints: 10
+  corridorMobSpawnProbability: 0.1
+  bossRoomMobSpawnProbability: 0
+  rareOreSpawnProbability: 0.0001
+  spawnBatchSize: 4
+  spawnBatchFrameInterval: 1
+  activationRadius: 60
+  proximityCheckInterval: 5
+  showGizmos: 0
+  showDebugLogs: 0
+--- !u!114 &359781333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 4076387290
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &359781334
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d22cb963f00be644b949edfb78ee5aec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveTerrainValidator
+  sampleCount: 5
+  seamTolerance: 0.01
+  autoValidateOnStart: 0
+  showGizmos: 0
+  currentSeed: 0
+  lastFoundIssues: []
 --- !u!1 &361213665
 GameObject:
   m_ObjectHideFlags: 0
@@ -6173,7 +6635,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.0009765625, y: -12.730713}
+  m_AnchoredPosition: {x: 0.0009765625, y: -12.730957}
   m_SizeDelta: {x: -190.503, y: -171.617}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1027095442
@@ -8304,6 +8766,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCPipelineExtension
   useDualContouring: 1
+  enableVisualSmooth: 1
+  enableMassPointA: 1
+  enableMassPointB: 1
+  enablePhase2MassPointQEF: 1
+  phase2MassPointStrength: 0.2
+  enableGpuClear: 1
+  enableCompressedVoxel: 1
+  enableCompressedHermite: 1
+  enableCompressedVertex: 1
+  enableCompaction: 1
   dcComputeShader: {fileID: 7200000, guid: 1021cf0d45fc3d6448634523bca6f001, type: 3}
   sdfProfiles:
   - {fileID: 11400000, guid: 84c2617875d04a346b7eb0d1df9294de, type: 2}
@@ -8346,11 +8818,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db58cab8d0d955449bf348ca9d49e5a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveNormalBaker
+  normalMapResolution: 512
   autoAssignToShader: 1
   tiling: 0.15
-  textureResolution: 512
-  gradientStep: 1
-  densityNormalWeight: 0.8
+  autoSyncTiling: 1
+  subVoxelFactor: 0.1
+  enableBakerV5: 1
+  bandHeight: 5
+  enableAsyncBake: 1
+  lastBakeVertexCount: 0
+  lastBakeTimeMs: 0
+  lastTexResolution: 0
 --- !u!114 &1464201088
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8363,12 +8841,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c70185489de327449823c6dc473bfc3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCMeshBuilder
-  minQuadCount: 32
-  logComponentStats: 0
-  smoothingIterations: 1
-  floorNormalYThreshold: 0.7
-  floorSmoothStrength: 0.25
-  gpuNormalWeight: 0.7
+  caveMaterial: {fileID: 2100000, guid: 06176ee8cef908b4b89c0ff7abe19ff3, type: 2}
+  gpuNormalBlend: 0.7
+  enableNormalBlend: 1
+  enablePerVertexNormal: 0
+  subVoxelFactor: 0.1
+  enableReducedSmoothing: 1
+  enableNativeArrayMesh: 1
+  enableDelayedStitching: 1
+  maxStitchPerFrame: 2
+  enablePerVertexJob: 0
+  enableFloorSmoothingJob: 1
+  enableAsyncFloorSmoothing: 1
+  enablePhysicsBakeAsync: 1
+  existingMeshJobManager: {fileID: 1464201142}
 --- !u!114 &1464201089
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8382,7 +8868,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.ChunkSeamStitcher
   stitchedPairCount: 0
---- !u!114 &1464201099
+  enablePhase1ExpandedSnap: 1
+  phase1SnapMultiplier: 3.67
+  enablePhase1BestMatch: 1
+  enablePhase1RecalculateNormals: 1
+  enablePhase1UploadMeshData: 1
+--- !u!114 &1464201142 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+    type: 3}
+  m_PrefabInstance: {fileID: 1670054366}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
+--- !u!114 &1464201152
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8391,18 +8894,85 @@ MonoBehaviour:
   m_GameObject: {fileID: 1464201060}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dec572823c1c3c64aad1e4638575c551, type: 3}
+  m_Script: {fileID: 11500000, guid: 328495ec6d30e6e4195dc4ee5507fc0c, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveDCDebugger
-  logFirstDispatch: 1
-  logEveryDispatch: 1
-  enableSliceReadback: 1
-  sliceWorldY: 0
-  gizmoCubeSize: 0.3
-  densityColorClamp: 5
-  applyFloorMaskFix: 1
-  overrideCorridorSurface: 0
-  corridorSurfaceOverride: 0
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveFragmentPredictor
+--- !u!114 &1464201153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d6d73166f34fbb4cb53b040612c0355, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveCodeDiffTracker
+--- !u!114 &1464201154
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a12f16a83e80a164e999694eb24de264, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshDebugOverlay
+--- !u!114 &1464201155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 579bf94494d38b842b46b9b5f314cfb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveFragmentHub
+--- !u!114 &1464201156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 987a3480ee0042b4e96d9028ddae0eda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveChunkStatistics
+--- !u!114 &1464201157
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 617b9d94367fc394ea1ce2ce866509dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.BufferDiagnostic
+  snapshotKey: 290
+  gcSnapshotKey: 291
+--- !u!114 &1464201158
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b112ed7ed22aee040b1a51b4cc2586d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveDiskCache
+  enableDiskCache: 1
+  maxCacheSizeMB: 2048
 --- !u!224 &1466137898 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3286728277505491436, guid: b4c5370b3c09bce4a996898584135628,
@@ -9486,6 +10056,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: CaveSystem
       objectReference: {fileID: 0}
+    - target: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: chunkSize
@@ -9496,6 +10071,12 @@ PrefabInstance:
       propertyPath: voxelSize
       value: 0.5
       objectReference: {fileID: 0}
+    - target: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: terrainConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 1efe9746e3c65974c8ddc846846d6bf8,
+        type: 2}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: mainPathWidth
@@ -9523,6 +10104,21 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: enableFloorYClamp
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableT2EdgeValidation
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableT2NodeSeparation
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: bossRoomRadiusMultiplier
       value: 1.5
       objectReference: {fileID: 0}
@@ -9542,6 +10138,21 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: 1efe9746e3c65974c8ddc846846d6bf8,
         type: 2}
+    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: fineFirstRadius
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableCoarseFirst
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enablePredictiveLoading
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: playerPrefab
@@ -9553,6 +10164,111 @@ PrefabInstance:
       propertyPath: navMeshSurface
       value: 
       objectReference: {fileID: 1464201074}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableRMod
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableFixAC
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableScaling
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: warpAmplitude
+      value: 0.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableSediment
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableMassPoint
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableDomainWarp
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableFloorGuard
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: minPassableWidth
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: debugProbeEnabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableFloorDetail
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: forceMinimalGraph
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: debugIsolationMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableVisualSmooth
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: rModGradientBudget
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableParabolicLift
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableAdaptiveMargin
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableChunkPreFilter
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableWidthVariation
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableWarpNormalization
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: warpNormalizationBaseVoxelSize
+      value: 0.15
+      objectReference: {fileID: 0}
     - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: chunkSize
@@ -9568,6 +10284,12 @@ PrefabInstance:
       propertyPath: showGizmos
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9142723733302644776, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: terrainConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 1efe9746e3c65974c8ddc846846d6bf8,
+        type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -9611,7 +10333,31 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1464201099}
+      addedObject: {fileID: 1464201153}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201152}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201154}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201155}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201156}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201157}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201158}
   m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1 &1693359577
 GameObject:
@@ -13704,5 +14450,6 @@ SceneRoots:
   - {fileID: 1578229102071106752}
   - {fileID: 4040173936667119002}
   - {fileID: 1670054366}
+  - {fileID: 359781320}
   - {fileID: 2574384999855381776}
   - {fileID: 4835313645078221922}

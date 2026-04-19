@@ -2,6 +2,15 @@
 // Dreamcore_Blur.shader
 // SSMB (Screen Space Motion Blur) + DepthBlur 통합 셰이더
 //
+// [FIX-A] GetDreamBlur 색수차 오프셋(sUV±chromaOff) 깊이 검증 추가
+//         캐릭터 경계에서 R/B 채널 교차 깊이 오염 차단
+// [FIX-B] Foreground Edge Suppression 프로브 반경 확대 (0.5→1.2)
+//         프로브 방향 추가 (4방향→8방향, 대각선 포함)
+// [FIX-C] DistanceBlur 디버그 return을 하드 게이트 외부로 이동
+//         보호된 픽셀 = 검정(0), 블러 적용 = 황색으로 구분 가능
+// [FIX-D] effectiveNearDist에 방어적 하한 추가
+//         SCM.defaultNearDist(7) vs 머티리얼._NearDist(20) 불일치 방어
+//
 // 이전 구조:
 //   ScreenSpaceMotionBlur.shader → Before Rendering PostProcessing
 //   DepthBlur.shader             → After Rendering PostProcessing
@@ -346,9 +355,17 @@ Shader "Hidden/Dreamcore/Blur"
                     float sD = LinearEyeDepth(SampleSceneDepth(sUV), _ZBufferParams);
                     if (sD < cutoff) continue;
                     float w = GetWeight(centerDepth, sD);
-                    float r = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV + chromaOff, 0).r;
+                    // [FIX-A] 색수차 오프셋 깊이 검증
+                    // 기존: sUV±chromaOff 위치의 깊이를 검증하지 않아
+                    //       캐릭터 경계에서 R/B 채널에 캐릭터 색상이 혼입됨
+                    // 수정: 오프셋 위치 깊이가 cutoff 미만이면 중심 위치로 폴백
+                    float2 rUV = sUV + chromaOff;
+                    float2 bUV = sUV - chromaOff;
+                    float rD = LinearEyeDepth(SampleSceneDepth(rUV), _ZBufferParams);
+                    float bD = LinearEyeDepth(SampleSceneDepth(bUV), _ZBufferParams);
+                    float r = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, (rD < cutoff) ? sUV : rUV, 0).r;
                     float g = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV, 0).g;
-                    float b = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, sUV - chromaOff, 0).b;
+                    float b = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, (bD < cutoff) ? sUV : bUV, 0).b;
                     color += float4(r,g,b,1) * w; totalWeight += w;
                 }
                 float4 fb = color / max(totalWeight, 0.001);
@@ -431,7 +448,10 @@ Shader "Hidden/Dreamcore/Blur"
                 // 모든 깊이 기반 보호(Speed Chroma, SSMB, Distance Blur)에서 재사용
                 float linearDepthSSMB = LinearEyeDepth(
                     SampleSceneDepth(input.texcoord), _ZBufferParams);
-                float effectiveNearDist = max(_NearDist, _SSBlurDepthNear);
+                // [FIX-D] SCM이 _NearDist를 글로벌로 덮어쓸 경우를 대비한 방어적 하한
+                // SCM.defaultNearDist=7 vs 머티리얼._NearDist=20 불일치 방지
+                // _SSBlurDepthNear(6m)보다 항상 크거나 같은 값을 보장
+                float effectiveNearDist = max(max(_NearDist, _SSBlurDepthNear), _SSBlurDepthNear + 1.0);
 
                 // ════════════════════════════════════════════════════════
                 // STEP 2: Mipmap
@@ -597,13 +617,11 @@ Shader "Hidden/Dreamcore/Blur"
                     #endif
 
                     #if defined(_USE_DISTANCE_BLUR)
-                        // [FIX] 원본 UV 기반 하드 게이트 ─────────────────────────────
-                        // 원인: Lens Distortion이 uv를 왜곡 → 왜곡된 uv로 깊이 샘플링 시
-                        //       캐릭터 경계 픽셀이 배경 깊이(25m)를 가리켜 Distance Blur 적용됨
-                        //       하지만 linearDepthSSMB(input.texcoord, 원본 UV)는 정확함
-                        //       (DepthMask 디버그에서 캐릭터 = 검정으로 확인됨)
-                        // 수정: linearDepthSSMB로 먼저 하드 게이트 → 통과한 픽셀만 Distance Blur
-                        // effectiveNearDist는 STEP 2 이후 이미 계산됨
+                        // [FIX-C] DistanceBlur 디버그를 하드 게이트 밖으로 이동
+                        // 보호된 픽셀은 검정(0), 블러 적용 픽셀은 황색으로 구분 가능
+                        float dbg_distBlur_mixWeight = 0;
+
+                        // [FIX] 원본 UV 기반 하드 게이트
                         if (linearDepthSSMB >= effectiveNearDist)  // 근경(캐릭터) 아니면 진행
                         {
 
@@ -654,25 +672,26 @@ Shader "Hidden/Dreamcore/Blur"
                             }
                         }
 
-                        #if defined(_DEBUGMODE_DISTANCEBLUR)
-                            return float4(mixWeight, mixWeight * 0.5, 0, 1);
-                        #endif
+                        // [FIX-C] 디버그용 mixWeight 기록 (하드 게이트 내부)
+                        dbg_distBlur_mixWeight = mixWeight;
 
-                        // ── Foreground Edge Suppression ─────────────────
-                        // 배경 픽셀(25m)의 Dream Blur 커널이 캐릭터 경계에
-                        // 닿을 때 bright halo 생성 → 캐릭터가 블러에 묻히는 현상
-                        // 해결: 현재 픽셀 주변에 근경 오브젝트가 있으면 blur 억제
-                        // samplingRadius: 커널 반경과 동일 (strength 기반)
+                        // ── [FIX-B] Foreground Edge Suppression ─────────────────
+                        // 기존 문제: 프로브 반경(strength*0.5)이 커널 반경의 절반,
+                        //           상하좌우 4방향만 프로브하여 대각선 누락
+                        // 수정: 프로브 반경을 커널 범위+여유분으로 확대,
+                        //       8방향 프로브로 대각선 경계 감지 추가
                         if (mixWeight > 0.001)
                         {
-                            float samplingRadius = max(strength * 0.5, 1.0);
-                            float2 edgeDirs[4] = {
+                            float samplingRadius = max(strength * 1.2, 2.0);
+                            float2 edgeDirs[8] = {
                                 float2( 1, 0), float2(-1, 0),
-                                float2( 0, 1), float2( 0,-1)
+                                float2( 0, 1), float2( 0,-1),
+                                float2( 0.707, 0.707), float2(-0.707, 0.707),
+                                float2( 0.707,-0.707), float2(-0.707,-0.707)
                             };
                             float minNearDepth = linearDepth;
                             [unroll]
-                            for (int ek = 0; ek < 4; ek++) {
+                            for (int ek = 0; ek < 8; ek++) {
                                 float2 eUV = uv + edgeDirs[ek] * _BlitTexture_TexelSize.xy * samplingRadius;
                                 float  eD  = LinearEyeDepth(SampleSceneDepth(eUV), _ZBufferParams);
                                 minNearDepth = min(minNearDepth, eD);
@@ -681,6 +700,7 @@ Shader "Hidden/Dreamcore/Blur"
                             float edgeSuppression = saturate((minNearDepth - effectiveNearDist) / max(effectiveNearDist * 0.05, 1.0));
                             mixWeight *= edgeSuppression;
                             strength  *= edgeSuppression;
+                            dbg_distBlur_mixWeight = mixWeight; // 억제 후 값도 갱신
                         }
 
                         // Distance Blur 커널 적용
@@ -702,6 +722,12 @@ Shader "Hidden/Dreamcore/Blur"
                             color = lerp(color, blurredColor, mixWeight);
                         }
                         } // end if (linearDepthSSMB >= effectiveNearDist)
+
+                        // [FIX-C] DistanceBlur 디버그: 하드 게이트 외부에서 출력
+                        // 보호된 픽셀 = 검정(0), 블러 적용 = 황색(mixWeight)
+                        #if defined(_DEBUGMODE_DISTANCEBLUR)
+                            return float4(dbg_distBlur_mixWeight, dbg_distBlur_mixWeight * 0.5, 0, 1);
+                        #endif
                     #endif
                 }
 

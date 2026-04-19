@@ -16,9 +16,9 @@ MonoBehaviour:
   noiseType: 1
   noiseFrequency: 0.08
   yCompression: 0.23
-  sminStrength: 6
+  sminStrength: 10
   terraceSteps: 1
   bumpAmplitude: 0.4
-  bumpFrequency: 0.18
+  bumpFrequency: 0.0843
   terrainMaterial: {fileID: 0}
   wetnessMultiplier: 0
