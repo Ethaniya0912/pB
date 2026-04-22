@@ -172,7 +172,55 @@ namespace TDA.PB4.Tooling
                 Log(TrackerLogLevel.Info,
                     $"진척률: {checklist.PassedCount}/{checklist.RelevantTotal} " +
                     $"({checklist.ProgressRatio:P0})");
+
+                // [개선] 실패 + 미평가 항목 자동 출력 (진척률 변화 시)
+                LogIncompleteItems();
+
                 lastReportedPassed = checklist.PassedCount;
+            }
+        }
+
+        // ==================================================================
+        // 미완료 항목 자동 출력 (실패/미평가 항목 한 번에 표시)
+        // ==================================================================
+
+        /// <summary>진척률 변화 시 호출. 실패/NotChecked 항목을 Warn 레벨로 표시.</summary>
+        private void LogIncompleteItems()
+        {
+            if (checklist == null) return;
+
+            var failed = new List<string>();
+            var notChecked = new List<string>();
+
+            foreach (var item in checklist.items)
+            {
+                if (item.ignoreInProgress) continue;
+
+                switch (item.runtimeStatus)
+                {
+                    case CheckStatus.Failed:
+                        failed.Add($"  ✗ [{item.id}] {item.title}  →  {item.lastLogMessage}");
+                        break;
+                    case CheckStatus.NotChecked:
+                        notChecked.Add($"  ? [{item.id}] {item.title}");
+                        break;
+                }
+            }
+
+            if (failed.Count > 0)
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"✗ 실패 항목 ({failed.Count}건):");
+                foreach (var line in failed) sb.AppendLine(line);
+                Log(TrackerLogLevel.Warn, sb.ToString().TrimEnd());
+            }
+
+            if (notChecked.Count > 0)
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"? 미평가 항목 ({notChecked.Count}건):");
+                foreach (var line in notChecked) sb.AppendLine(line);
+                Log(TrackerLogLevel.Info, sb.ToString().TrimEnd());
             }
         }
 
@@ -404,7 +452,7 @@ namespace TDA.PB4.Tooling
                 $"({checklist.ProgressRatio:P0})");
         }
 
-        /// <summary>디버그: 현재 모든 항목 상태 Console 덤프.</summary>
+        /// <summary>디버그: 현재 모든 항목 상태를 상태별로 그룹화하여 Console 덤프.</summary>
         [ContextMenu("Dump All Items")]
         public void DumpAllItems()
         {
@@ -414,14 +462,117 @@ namespace TDA.PB4.Tooling
                 return;
             }
 
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"═══ Week 2 Checklist Dump ({DateTime.Now:HH:mm:ss}) ═══");
+            var passed = new List<ChecklistItem>();
+            var failed = new List<ChecklistItem>();
+            var notChecked = new List<ChecklistItem>();
+            var externalDep = new List<ChecklistItem>();
+
             foreach (var item in checklist.items)
             {
-                sb.AppendLine($"  [{item.id}] {item.runtimeStatus,-11} | {item.title} | {item.lastLogMessage}");
+                switch (item.runtimeStatus)
+                {
+                    case CheckStatus.Passed: passed.Add(item); break;
+                    case CheckStatus.Failed: failed.Add(item); break;
+                    case CheckStatus.ExternalDep: externalDep.Add(item); break;
+                    default: notChecked.Add(item); break;
+                }
             }
-            sb.AppendLine($"Total: {checklist.PassedCount}/{checklist.RelevantTotal} ({checklist.ProgressRatio:P0})");
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine($"╔══ Week 2 Checklist Dump ({DateTime.Now:HH:mm:ss}) ══");
+            sb.AppendLine($"║ 진척률: {checklist.PassedCount}/{checklist.RelevantTotal} ({checklist.ProgressRatio:P0})");
+            sb.AppendLine($"║ 통과 {passed.Count}  |  실패 {failed.Count}  |  미평가 {notChecked.Count}  |  외부의존 {externalDep.Count}");
+            sb.AppendLine("╠══════════════════════════════════════════════");
+
+            if (failed.Count > 0)
+            {
+                sb.AppendLine($"║  ✗ 실패 ({failed.Count}건):");
+                foreach (var item in failed)
+                {
+                    sb.AppendLine($"║    [{item.id}] {item.title}");
+                    sb.AppendLine($"║        verifyMethod: {item.verifyMethod}");
+                    sb.AppendLine($"║        사유:         {item.lastLogMessage}");
+                    sb.AppendLine($"║        assignedDay:  {item.assignedDay}  /  lastCheck: {item.lastCheckTime}");
+                }
+                sb.AppendLine("╠══════════════════════════════════════════════");
+            }
+
+            if (notChecked.Count > 0)
+            {
+                sb.AppendLine($"║  ? 미평가 ({notChecked.Count}건):");
+                foreach (var item in notChecked)
+                    sb.AppendLine($"║    [{item.id}] {item.title}");
+                sb.AppendLine("╠══════════════════════════════════════════════");
+            }
+
+            if (externalDep.Count > 0)
+            {
+                sb.AppendLine($"║  ⊖ 외부의존 ({externalDep.Count}건, 분모 제외):");
+                foreach (var item in externalDep)
+                    sb.AppendLine($"║    [{item.id}] {item.title}");
+                sb.AppendLine("╠══════════════════════════════════════════════");
+            }
+
+            if (passed.Count > 0)
+            {
+                sb.AppendLine($"║  ✓ 통과 ({passed.Count}건):");
+                foreach (var item in passed)
+                    sb.AppendLine($"║    [{item.id}] {item.title}");
+            }
+
+            sb.AppendLine("╚══════════════════════════════════════════════");
             Debug.Log(sb.ToString());
+        }
+
+        /// <summary>디버그: 실패/미평가 항목만 Console 덤프.</summary>
+        [ContextMenu("Dump Failed Only")]
+        public void DumpFailedOnly()
+        {
+            if (checklist == null)
+            {
+                Debug.LogWarning("[Tracker] Checklist 미할당");
+                return;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine($"╔══ 미완료 항목 Dump ({DateTime.Now:HH:mm:ss}) ══");
+            sb.AppendLine($"║ 진척률: {checklist.PassedCount}/{checklist.RelevantTotal} ({checklist.ProgressRatio:P0})");
+            sb.AppendLine("╠══════════════════════════════════════════════");
+
+            int failCount = 0, notCheckedCount = 0;
+            foreach (var item in checklist.items)
+            {
+                if (item.runtimeStatus == CheckStatus.Failed)
+                {
+                    failCount++;
+                    sb.AppendLine($"║  ✗ [{item.id}] {item.title}");
+                    sb.AppendLine($"║      verify: {item.verifyMethod}");
+                    sb.AppendLine($"║      reason: {item.lastLogMessage}");
+                }
+                else if (item.runtimeStatus == CheckStatus.NotChecked)
+                {
+                    notCheckedCount++;
+                    sb.AppendLine($"║  ? [{item.id}] {item.title}  (평가되지 않음)");
+                }
+            }
+
+            if (failCount == 0 && notCheckedCount == 0)
+                sb.AppendLine("║  🎉 완료! 모든 항목 통과.");
+            else
+                sb.AppendLine($"║ 요약: 실패 {failCount}건, 미평가 {notCheckedCount}건");
+
+            sb.AppendLine("╚══════════════════════════════════════════════");
+            Debug.Log(sb.ToString());
+        }
+
+        /// <summary>즉시 재평가 (autoEvaluateInterval 대기 없이).</summary>
+        [ContextMenu("Re-Evaluate Now")]
+        public void ReEvaluateNow()
+        {
+            Debug.Log("[Tracker] 수동 재평가 시작...");
+            EvaluateAll();
         }
     }
 }

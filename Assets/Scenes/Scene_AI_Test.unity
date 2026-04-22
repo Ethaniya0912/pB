@@ -7148,6 +7148,61 @@ Transform:
   - {fileID: 1447728126}
   m_Father: {fileID: 870814264}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1172971768
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1172971770}
+  - component: {fileID: 1172971769}
+  m_Layer: 0
+  m_Name: BiomeMapDebugger
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1172971769
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1172971768}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e7737656c3ce024a82ed219f0804ced, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Tooling.BiomeMapDebugger
+  drawTagLabels: 1
+  drawIntensityHeatmap: 1
+  drawBoundsAlways: 1
+  visualRadius: 30
+  planeHeight: 0.1
+  lowIntensityColor: {r: 0.2, g: 0.8, b: 0.2, a: 0.3}
+  highIntensityColor: {r: 0.8, g: 0.2, b: 0.2, a: 0.5}
+  labelBackgroundColor: {r: 0.08, g: 0.1, b: 0.15, a: 0.85}
+  labelTextColor: {r: 0, g: 0.9, b: 1, a: 1}
+  lastSeenTagsDebug: (not playing)
+  lastSeenIntensityDebug: 0
+--- !u!4 &1172971770
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1172971768}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 4.45793, y: 1.25332, z: -3.77312}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1201793249
 GameObject:
   m_ObjectHideFlags: 0
@@ -13181,3 +13236,4 @@ SceneRoots:
   - {fileID: 504530772}
   - {fileID: 1537046174}
   - {fileID: 1277253915}
+  - {fileID: 1172971770}

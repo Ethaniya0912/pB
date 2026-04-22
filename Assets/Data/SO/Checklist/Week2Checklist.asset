@@ -67,3 +67,69 @@ MonoBehaviour:
     runtimeStatus: 0
     lastLogMessage: 
     lastCheckTime: 
+  - id: WK2_C01
+    title: "PersonalityMatrixSO 6 \uD504\uB9AC\uC14B \uC874\uC7AC"
+    description: "\uC131\uACA9 \uAE30\uBC18 NPC 6\uC885 (Coward/Brave/Stoic/Aggressive/Loyal/Altruist)\uC758
+      PersonalityMatrixSO .asset\uC774 Data/SO/Personality/\uC5D0 \uC874\uC7AC\uD55C\uB2E4."
+    category: 0
+    verifyMethod: FileExists:Data/SO/Personality/Coward.asset
+    assignedDay: 2
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C03
+    title: "15 \uD0DC\uADF8 \uADDC\uCE59 .asset \uC785\uB825 \uC644\uB8CC"
+    description: "HumanoidTagRules.asset\uC5D0 15\uAC1C \uD0DC\uADF8 \uADDC\uCE59\uC774
+      \uC785\uB825\uB418\uC5B4 \uC788\uB2E4. Bootstrapper\uAC00 Play \uC2DC \uB85C\uB4DC."
+    category: 0
+    verifyMethod: FileExists:Data/SO/TagRules/HumanoidTagRules.asset
+    assignedDay: 2
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C04
+    title: "5 \uD589\uB3D9 Config .asset \uC785\uB825 \uC644\uB8CC"
+    description: "HumanoidActionConfig.asset\uC5D0 5 \uD589\uB3D9 + 10 \uBAA8\uB514\uD30C\uC774\uC5B4\uAC00
+      \uC785\uB825\uB418\uC5B4 \uC788\uB2E4."
+    category: 0
+    verifyMethod: FileExists:Data/SO/ActionConfig/HumanoidActionConfig.asset
+    assignedDay: 2
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C05
+    title: "\uD0DC\uADF8 \uBC1C\uD604 \uB7F0\uD0C0\uC784 \uAC80\uC99D (2+ \uD0DC\uADF8)"
+    description: "Play \uBAA8\uB4DC\uC5D0\uC11C PersonalityTagResolver.ActiveTags\uC5D0
+      \uCD5C\uC18C 2\uAC1C \uD0DC\uADF8\uAC00 \uBC1C\uD604\uB418\uC5B4 \uC788\uB2E4."
+    category: 2
+    verifyMethod: TagsCount:2
+    assignedDay: 2
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C06
+    title: "PB4DebugDashboard \uC2A4\uD06C\uB9BD\uD2B8 \uC874\uC7AC"
+    description: "Scripts/pB-4/week2_Tooling/Editor/PB4DebugDashboard.cs \uD30C\uC77C\uC774
+      \uC874\uC7AC\uD55C\uB2E4."
+    category: 0
+    verifyMethod: FileExists:Scripts/pB-4/week2_Tooling/Editor/PB4DebugDashboard.cs
+    assignedDay: 2
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C07
+    title: "BiomeMapDebugger \uC52C \uBD80\uCC29 \uD655\uC778"
+    description: "Scene\uC758 \uC544\uBB34 GameObject\uC5D0 BiomeMapDebugger \uCEF4\uD3EC\uB10C\uD2B8\uAC00
+      \uBD80\uCC29\uB418\uC5B4 \uC788\uB2E4."
+    category: 1
+    verifyMethod: HasComponent:BiomeMapDebugger
+    assignedDay: 2
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
