@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37c46b90aca6b9d48b7342528ed95cd9, type: 3}
+  m_Name: HumanoidActionConfig
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.UtilityActionConfigSO
+  actions:
+  - actionId: Attack
+    primaryNeedKey: aggression
+    curveType: 0
+    curveExponent: 1.8
+    logitSteepness: 10
+    baseWeight: 1
+    requiresTarget: 1
+  - actionId: Flee
+    primaryNeedKey: fear
+    curveType: 0
+    curveExponent: 2.5
+    logitSteepness: 10
+    baseWeight: 1.2
+    requiresTarget: 0
+  - actionId: Loot
+    primaryNeedKey: greed
+    curveType: 0
+    curveExponent: 2
+    logitSteepness: 10
+    baseWeight: 0.7
+    requiresTarget: 0
+  - actionId: Move
+    primaryNeedKey: hunger
+    curveType: 2
+    curveExponent: 1
+    logitSteepness: 10
+    baseWeight: 0.4
+    requiresTarget: 0
+  - actionId: FollowCommand
+    primaryNeedKey: obedience
+    curveType: 1
+    curveExponent: 1
+    logitSteepness: 10
+    baseWeight: 0.9
+    requiresTarget: 0
+  modifiers:
+  - tagName: Brave
+    targetActionId: Attack
+    modifierType: 0
+    value: 1.4
+  - tagName: Brave
+    targetActionId: Flee
+    modifierType: 0
+    value: 0.3
+  - tagName: Coward
+    targetActionId: Flee
+    modifierType: 0
+    value: 2
+  - tagName: Coward
+    targetActionId: Attack
+    modifierType: 0
+    value: 0.4
+  - tagName: Glutton
+    targetActionId: Loot
+    modifierType: 0
+    value: 2
+  - tagName: Selfish
+    targetActionId: Loot
+    modifierType: 0
+    value: 1.7
+  - tagName: Loyal
+    targetActionId: FollowCommand
+    modifierType: 0
+    value: 1.6
+  - tagName: Loyal
+    targetActionId: Flee
+    modifierType: 0
+    value: 0.8
+  - tagName: Reckless
+    targetActionId: Attack
+    modifierType: 1
+    value: -0.3
+  - tagName: Cautious
+    targetActionId: Attack
+    modifierType: 1
+    value: 0.5

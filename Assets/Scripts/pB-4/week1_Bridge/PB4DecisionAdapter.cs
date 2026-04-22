@@ -335,6 +335,7 @@ namespace TDA.PB4.Bridge
                     "Blackboard 브릿지가 비활성화됩니다.\n" +
                     "같은 GameObject에 BehaviorGraphAgent가 있고, " +
                     "BehaviorGraph 에셋이 할당되어 있는지 확인하세요.");
+                _bbInitialized = true;  // [T2.4 hotfix] BT 없어도 Brain 틱은 가동 (UpdateDecision 호출 보장)
                 yield break;
             }
 

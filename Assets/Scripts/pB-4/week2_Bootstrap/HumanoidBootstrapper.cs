@@ -1,25 +1,19 @@
 // =============================================================================
-// HumanoidBootstrapper.cs  |  pB-4 Week 2 — Day 1 T1.4 (v2 개정)
+// HumanoidBootstrapper.cs  |  pB-4 Week 2 — Day 1 T1.4 (v3: debugLog 일괄 제어)
 // 역할: 씬 내 모든 HumanoidAIBrain의 초기화를 담당하는 DI 컨테이너.
 //       1) 필요 컴포넌트 자동 부착 (5종)
 //       2) 데이터 SO 주입 (TagRules, ActionConfig, Alignment, DialogueLibrary)
 //       3) 컴포넌트 간 참조 연결 (Brain ↔ Formula/Resolver/Encoder/Trust/Trauma)
 //       4) 초기 태그 발현
-//       5) ProgressTracker에 완료 보고
+//       5) [v3] debugLog 자동 일괄 켬 (enableDebugLogOnBootstrap 옵션)
+//       6) ProgressTracker에 완료 보고
 // 실행 시점: Scene 로드 직후 (DefaultExecutionOrder(-100))
 //
-// [비판적 개선사항]
-//   - Reflection 제거: resolver.GetType().GetMethod("SetRules") → 직접 호출
-//   - TrustMatrix/TraumaSystem Day 1에서 부착 (매 틱 갱신은 Day 2 T2.4)
-//   - LogLevel enum으로 로그 세밀 제어
-//   - try-catch로 개별 NPC 실패 격리
-//   - 부트스트랩 통계 자동 수집
-//
-// [v2 코드리뷰 개정]
-//   - [BS1] InjectBlackboard 호출 타이밍 명시: 이미 Awake 완료한 Brain들의 blackboard를 덮어쓰기.
-//   - [BS2] 통계 필드에 "Play only" 주석 추가 (HideInInspector 대안).
-//   - [BS4] FindObjectsInactive.Exclude 동작 명시.
-//   - [BS7] defaultDialogueLibrary / defaultAlignmentSO 주석에 Day별 연결 시점 명확화.
+// [v3 변경 — Day 2 진단 편의 기능]
+//   - enableDebugLogOnBootstrap 옵션 추가: 체크하면 BootstrapOne 시점에
+//     Formula/Resolver/Trust/Trauma 4개 컴포넌트의 debugLog=true 자동 설정.
+//   - ContextMenu "Toggle All DebugLog" 추가: Play 중 우클릭으로 즉시 전환.
+//   - ContextMenu "Enable All DebugLog" / "Disable All DebugLog" 개별 제어.
 // =============================================================================
 using System.Linq;
 using UnityEngine;
@@ -43,15 +37,6 @@ namespace TDA.PB4.Bootstrap
     }
 
     /// <summary>Humanoid NPC 자동 초기화 및 의존성 주입 컨테이너.</summary>
-    /// <remarks>
-    /// Scene에 하나만 배치. DefaultExecutionOrder(-100)으로 다른 MonoBehaviour보다 먼저 실행.
-    /// 주입 순서: 컴포넌트 부착 → 데이터 SO 주입 → Brain 참조 주입 → 초기 태그 발현.
-    ///
-    /// [BS1] 주의: DefaultExecutionOrder(-100)은 "Bootstrapper의 Update가 다른 MonoBehaviour보다
-    ///       먼저 호출" 을 보장할 뿐, 이미 씬에 존재하는 Brain들의 Awake는 이미 실행됨.
-    ///       따라서 Bootstrapper.InjectBlackboard는 실제로 "덮어쓰기" 동작을 수행.
-    ///       이것은 의도된 설계: 정합성 있는 Adapter 재생성 + verboseLogging 확인 용도.
-    /// </remarks>
     [DefaultExecutionOrder(-100)]
     public class HumanoidBootstrapper : MonoBehaviour
     {
@@ -64,6 +49,11 @@ namespace TDA.PB4.Bootstrap
         [Tooltip("로그 레벨. 개발 중 Info, 디버깅 중 Verbose, 빌드 Warn.")]
         public BootstrapLogLevel logLevel = BootstrapLogLevel.Info;
 
+        [Tooltip("[v3] 부트스트랩 시 Formula/Resolver/Trust/Trauma 4개 컴포넌트의 " +
+                 "debugLog=true를 자동 설정. Day 2 디버깅 편의용. " +
+                 "빌드나 성능 테스트에서는 끄세요.")]
+        public bool enableDebugLogOnBootstrap = false;
+
         [Header("━━━ 공유 데이터 SO (Day별 점진 연결) ━━")]
 
         [Tooltip("모든 Humanoid가 공유할 성격 태그 규칙. Day 2 T2.1에서 HumanoidTagRules.asset 드래그.")]
@@ -72,8 +62,6 @@ namespace TDA.PB4.Bootstrap
         [Tooltip("행동 유틸리티 설정. Day 2 T2.2에서 HumanoidActionConfig.asset 드래그.")]
         public UtilityActionConfigSO defaultActionConfig;
 
-        // [BS7] 아래 두 필드는 Day 1에 선언만 해두고 실사용은 Day 3/Day 4.
-        //       Designer가 Bootstrap prefab에 한 번에 연결하면 이후 Day별 Task에서 개별 연결 불필요.
         [Tooltip("4 진영 정의. 실제 사용은 Day 3 T3.2 (NPCAlignmentController 부착 시). " +
                  "Day 1에서는 선언만 되어 있음.")]
         public NPCAlignmentSO defaultAlignmentSO;
@@ -92,9 +80,6 @@ namespace TDA.PB4.Bootstrap
 
         [Header("━━━ 통계 (읽기 전용, Play 모드에서만 의미 있음) ━━")]
 
-        // [BS2] 아래 3개 필드는 Play 모드에서만 의미 있음.
-        //       Edit 모드에서는 직전 Play 세션의 마지막 값이 보일 수 있으므로 혼동 주의.
-        //       HideInInspector는 사용하지 않음 — 디버그에 유용하므로 명시적 주석으로 처리.
         [Tooltip("부트스트랩된 NPC 수 (Play only).")]
         [SerializeField] private int bootstrappedCount;
 
@@ -118,7 +103,6 @@ namespace TDA.PB4.Bootstrap
         {
             float startTime = Time.realtimeSinceStartup;
 
-            // 1. GameBlackboard 존재 확인
             var bb = GameBlackboard.Instance;
             if (bb == null)
             {
@@ -135,16 +119,10 @@ namespace TDA.PB4.Bootstrap
                 LogVerbose($"GameBlackboard OK (ActiveTerrainTags 수={bb.ActiveTerrainTags?.Count ?? 0})");
             }
 
-            // 2. ProgressTracker 참조 획득 (T1.6 이후 자동 연결)
             progressTracker = FindAnyObjectByType<Week2ProgressTracker>();
             if (progressTracker == null)
                 LogVerbose("Week2ProgressTracker 미배치 - 보고 스킵 (T1.6 이후 자동 연결)");
 
-            // 3. 씬 내 모든 HumanoidAIBrain 수집
-            // [BS4] FindObjectsInactive.Exclude: 비활성 GameObject의 Brain은 제외.
-            //       이후 SetActive(true)로 활성화된 Brain은 Bootstrap 대상 아님.
-            //       런타임 활성화 Brain은 별도로 BootstrapOne(brain, bb) 직접 호출 또는 
-            //       ReBootstrapManual로 전체 재부트스트랩 필요.
             var brains = FindObjectsByType<HumanoidAIBrain>(
                 FindObjectsInactive.Exclude, FindObjectsSortMode.InstanceID);
 
@@ -154,9 +132,9 @@ namespace TDA.PB4.Bootstrap
                 return;
             }
 
-            LogInfo($"{brains.Length}개 HumanoidAIBrain 부트스트랩 시작");
+            LogInfo($"{brains.Length}개 HumanoidAIBrain 부트스트랩 시작 " +
+                    $"(debugLog 자동 켬={enableDebugLogOnBootstrap})");
 
-            // 4. 각 Brain 부트스트랩 (개별 실패 격리)
             foreach (var brain in brains)
             {
                 try
@@ -172,14 +150,12 @@ namespace TDA.PB4.Bootstrap
                 }
             }
 
-            // 5. 완료 처리
             bootstrapDurationMs = (Time.realtimeSinceStartup - startTime) * 1000f;
             LogInfo($"완료. {bootstrappedCount}/{brains.Length} 성공. 소요 {bootstrapDurationMs:F1}ms");
 
             progressTracker?.ReportEvent("BootstrapComplete", bootstrappedCount == brains.Length,
                 $"{bootstrappedCount}/{brains.Length} in {bootstrapDurationMs:F0}ms");
 
-            // 6. 정리 옵션
             if (destroyAfterBootstrap)
             {
                 LogVerbose("destroyAfterBootstrap=true → GameObject 제거");
@@ -188,14 +164,9 @@ namespace TDA.PB4.Bootstrap
         }
 
         // ==================================================================
-        // BootstrapOne — 각 NPC에 대한 4단계 주입 (Day 1 핵심 로직)
+        // BootstrapOne — 각 NPC에 대한 4단계 주입
         // ==================================================================
 
-        /// <summary>단일 HumanoidAIBrain에 대한 전체 부트스트랩.</summary>
-        /// <remarks>
-        /// 실행 순서 엄수: a) 컴포넌트 부착 → b) SO 주입 → c) Brain 참조 → d) 초기 태그 발현.
-        /// 이 순서가 바뀌면 null 참조 발생 가능.
-        /// </remarks>
         private void BootstrapOne(HumanoidAIBrain brain, GameBlackboard bb)
         {
             var go = brain.gameObject;
@@ -208,16 +179,24 @@ namespace TDA.PB4.Bootstrap
                         ?? go.AddComponent<PersonalityTagResolver>();
             var encoder = go.GetComponent<SituationVectorEncoder>()
                        ?? go.AddComponent<SituationVectorEncoder>();
-
-            // TrustMatrix, TraumaSystem도 Day 1에서 부착.
-            // 이유: WK2_C11, WK2_C13 체크리스트가 이 컴포넌트 존재를 요구.
-            // 매 틱 갱신 hook은 Day 2 T2.4에서 완성.
             var trust = go.GetComponent<TrustMatrix>()
                      ?? go.AddComponent<TrustMatrix>();
             var trauma = go.GetComponent<TraumaSystem>()
                       ?? go.AddComponent<TraumaSystem>();
 
             LogVerbose($"{brain.name}: 5개 컴포넌트 부착 완료");
+
+            // ═══ a-1) [v3] debugLog 일괄 설정 ═══════════════════════
+            // enableDebugLogOnBootstrap=true 이면 4개 컴포넌트의 debugLog=true.
+            // SituationVectorEncoder와 HumanoidAIBrain은 debugLog 필드 없음 → 대상 제외.
+            if (enableDebugLogOnBootstrap)
+            {
+                formula.debugLog = true;
+                resolver.debugLog = true;
+                trust.debugLog = true;
+                trauma.debugLog = true;
+                LogVerbose($"{brain.name}: 4개 컴포넌트 debugLog 자동 ON");
+            }
 
             // ═══ b) 데이터 SO 주입 (직접 메서드 호출, Reflection 없음) ═══
             if (defaultTagRules != null)
@@ -241,9 +220,6 @@ namespace TDA.PB4.Bootstrap
             }
 
             // ═══ c) Brain 의존성 주입 ═══════════════════════════
-            // [BS1] 이 시점에 brain.Awake()는 이미 완료됨.
-            //       blackboard는 Brain의 Awake에서 GameBlackboard→Adapter로 이미 설정.
-            //       InjectBlackboard 호출은 "명시적 덮어쓰기" (같은 GameBlackboard라면 무해).
             if (bb != null)
                 brain.InjectBlackboard(bb);
 
@@ -252,8 +228,6 @@ namespace TDA.PB4.Bootstrap
             LogVerbose($"{brain.name}: Brain 의존성 주입 완료. IsStubFree={brain.IsStubFree()}");
 
             // ═══ d) 초기 태그 발현 ═══════════════════════════════
-            // Personality 기반 태그를 계산하여 ActiveTags에 저장.
-            // 이 시점에 호출하지 않으면 첫 UpdateDecision에서 빈 태그 리스트로 계산됨.
             resolver.ResolveTagsFromPersonality(brain.Personality);
 
             var activeTags = resolver.ActiveTags;
@@ -286,15 +260,69 @@ namespace TDA.PB4.Bootstrap
         }
 
         // ==================================================================
+        // [v3] DebugLog 일괄 제어 API + ContextMenu
+        // ==================================================================
+
+        /// <summary>
+        /// 씬 내 모든 Humanoid NPC의 debugLog를 일괄 설정.
+        /// Play 중 호출 가능. ContextMenu로도 접근.
+        /// </summary>
+        /// <param name="enable">true=켜기, false=끄기</param>
+        /// <returns>영향받은 NPC 수</returns>
+        public int SetAllDebugLog(bool enable)
+        {
+            var brains = FindObjectsByType<HumanoidAIBrain>(
+                FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
+
+            int count = 0;
+            foreach (var brain in brains)
+            {
+                var go = brain.gameObject;
+                var formula = go.GetComponent<UtilityMasterFormula>();
+                var resolver = go.GetComponent<PersonalityTagResolver>();
+                var trust = go.GetComponent<TrustMatrix>();
+                var trauma = go.GetComponent<TraumaSystem>();
+
+                if (formula != null) formula.debugLog = enable;
+                if (resolver != null) resolver.debugLog = enable;
+                if (trust != null) trust.debugLog = enable;
+                if (trauma != null) trauma.debugLog = enable;
+                count++;
+            }
+
+            Debug.Log($"[Bootstrap] DebugLog {(enable ? "ON" : "OFF")} — {count}개 NPC의 " +
+                      $"Formula/Resolver/Trust/Trauma 적용.");
+            return count;
+        }
+
+        /// <summary>[v3] 현재 debugLog 상태를 반전. 씬 첫 번째 Brain의 Formula.debugLog 기준.</summary>
+        public void ToggleAllDebugLog()
+        {
+            var firstBrain = FindAnyObjectByType<HumanoidAIBrain>();
+            if (firstBrain == null)
+            {
+                Debug.LogWarning("[Bootstrap] Toggle 대상 NPC 없음.");
+                return;
+            }
+            var firstFormula = firstBrain.GetComponent<UtilityMasterFormula>();
+            bool currentlyOn = firstFormula != null && firstFormula.debugLog;
+            SetAllDebugLog(!currentlyOn);
+        }
+
+        [ContextMenu("Toggle All DebugLog")]
+        private void DebugContextToggleAll() => ToggleAllDebugLog();
+
+        [ContextMenu("Enable All DebugLog")]
+        private void DebugContextEnableAll() => SetAllDebugLog(true);
+
+        [ContextMenu("Disable All DebugLog")]
+        private void DebugContextDisableAll() => SetAllDebugLog(false);
+
+        // ==================================================================
         // 디버그 유틸리티
         // ==================================================================
 
         /// <summary>수동 재부트스트랩. Editor Context Menu에서 호출.</summary>
-        /// <remarks>
-        /// [BS3] Awake()를 직접 호출 — Unity 관례는 아니지만 idempotent하므로 안전.
-        /// BootstrapOne이 GetComponent+AddComponent 패턴이므로 중복 부착 없음.
-        /// 런타임에 활성화된 신규 Brain도 이 메서드로 합쳐서 초기화 가능.
-        /// </remarks>
         [ContextMenu("Re-Bootstrap All NPCs")]
         public void ReBootstrapManual()
         {

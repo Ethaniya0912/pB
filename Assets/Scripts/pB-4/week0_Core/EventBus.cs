@@ -1,17 +1,21 @@
 // =============================================================================
-// EventBus.cs  |  pB-4 Project — Week 0
+// EventBus.cs  |  pB-4 Project — Week 0 (Day 2 T2.4 v3 Errata F6 패치)
 // Layer  : Core (공유 계층)
 // Owner  : Person A
 //
 // 역할:
 //   3개 파트 간 느슨한 결합(Loose Coupling)을 위한 중앙 이벤트 버스.
 //   송신자는 이벤트를 '발행'만 하고, 수신자는 '구독'만 한다.
-//   Week 0에서 6종 이벤트 서명을 동결.
 //
 // 아키텍처 규약:
 //   - Static 이벤트로 구현 (씬 전환 시에도 유지)
 //   - 모든 구독자는 OnEnable/OnDisable에서 반드시 짝(Pair)을 맞춰 구독/해제
 //   - L3 Domain에서 직접 다른 Domain을 호출하는 대신 이 버스를 사용
+//
+// [Day 2 T2.4 v3 변경 — Errata F6 반영]
+//   - [9] OnTrustTierChanged 이벤트 + RaiseTrustTierChanged 메서드 추가
+//     TrustMatrix.ChangeTrust가 Tier 전이 시 발행.
+//     Day 3 IncidentRecorder, Day 4 SpeechAssembler가 구독 예정.
 // =============================================================================
 using System;
 using System.Collections.Generic;
@@ -86,6 +90,21 @@ namespace TDA.PB4.Core
             => OnFactionDetectedPlayer?.Invoke(detectedTransform);
 
         // ==================================================================
+        // [9] [Errata F6] Trust Tier 전이 — TrustMatrix가 발행, 
+        //     Day 3 IncidentRecorder / Day 4 SpeechAssembler가 구독
+        //
+        //     인자:
+        //       npcId    : NPC GameObject.name (예: "Skeleton_Humanoid_01")
+        //       oldTier  : 이전 Tier 인덱스 (0=Hostility, 3=BlindTrust)
+        //       newTier  : 새 Tier 인덱스 (동일 매핑)
+        //
+        //     발행 시점: TrustMatrix.ChangeTrust 내부의 Tier 변화 분기.
+        // ==================================================================
+        public static event Action<string /*npcId*/, int /*oldTier*/, int /*newTier*/> OnTrustTierChanged;
+        public static void RaiseTrustTierChanged(string npcId, int oldTier, int newTier)
+            => OnTrustTierChanged?.Invoke(npcId, oldTier, newTier);
+
+        // ==================================================================
         // 씬 전환 시 모든 구독 강제 해제 (안전망)
         // ==================================================================
         public static void ClearAll()
@@ -96,8 +115,9 @@ namespace TDA.PB4.Core
             OnEscalationTriggered = null;
             OnFactionStateChanged = null;
             OnBiomeSpawnCompleted = null;
-            OnSoundEmitted = null;  // [M2]
-            OnFactionDetectedPlayer = null;  // [M2]
+            OnSoundEmitted = null;
+            OnFactionDetectedPlayer = null;
+            OnTrustTierChanged = null;  // [Errata F6]
         }
     }
 }

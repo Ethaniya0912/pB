@@ -934,9 +934,11 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
-  currentState: {fileID: 11400000, guid: 7caaae16eea16ca4eaf9fa0ee52c4b81, type: 2}
-  defaultState: {fileID: 0}
-  usePB4BehaviorTree: 0
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!114 &4105687166604391429
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1168,6 +1170,8 @@ MonoBehaviour:
     m_InternalValue: 0
   canCombo:
     m_InternalValue: 0
+  logDamageColliderPipeline: 0
+  enableStaleActionFlagRecovery: 0
   showDebugLogs: 0
   showFOVScanLogs: 0
   aiIntelligenceLevel: 5
@@ -1315,7 +1319,6 @@ MonoBehaviour:
   showSectionAIExec: 1
   pauseOnGroggy: 0
   pauseOnExecutionStart: 0
-  pauseOnStateEnter: {fileID: 0}
 --- !u!114 &4970938131516336963
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1627,19 +1630,18 @@ MonoBehaviour:
   mobBrain: {fileID: 0}
   humanoidBrain: {fileID: 0}
   aiManager: {fileID: -6378788767511415067}
+  btAgent: {fileID: 0}
+  combatProfile: {fileID: 0}
+  policyTypeOverride: 
   pursueState: {fileID: 11400000, guid: 3f70b7edde10d0644bf942de81b7c65f, type: 2}
-  fleeState: {fileID: 11400000, guid: d2d6d83b165080b4daea8ebc088f20be, type: 2}
-  patrolState: {fileID: 11400000, guid: 303f2d107df127641aa8a5cbd568a3b6, type: 2}
-  idleState: {fileID: 11400000, guid: 7caaae16eea16ca4eaf9fa0ee52c4b81, type: 2}
   updateInterval: 0.5
-  syncTarget: 1
   syncSpeedWithFear: 1
   baseSpeed: 3.5
   maxSpeed: 6
   lastPB4State: None
-  lastAIState: None
-  lastUpdateTime: 0
   debugLog: 1
+  debugSoundSearch: 1
+  debugPerceptionInject: 1
   showGizmo: 1
 --- !u!114 &3842090482814950413
 MonoBehaviour:
@@ -1661,8 +1663,10 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 256
+  alertDurationForCombat: 0.5
   hearingRange: 30
   hearingSensitivity: 0.5
+  perceptionThreshold: 0.2
   traceDetectionRange: 10
   awarenessLevel: 0
   lastKnownPosition: {x: 0, y: 0, z: 0}
@@ -1690,19 +1694,33 @@ MonoBehaviour:
   greed: 0.1
   fatigue: 0.1
   groupMindRef: {fileID: 0}
+  verboseLogging: 0
   personality:
     control: 0.5
     stability: 0.6
     openness: 0.7
     agreeable: 0.8
     directness: 0.4
+  archetype: {fileID: 11400000, guid: 58005789c94fd9142ad86728464c8888, type: 2}
   currentState: 0
+  utilityFormula: {fileID: 0}
+  tagResolver: {fileID: 0}
+  sitEncoder: {fileID: 0}
+  trustMatrix: {fileID: 0}
+  traumaSystem: {fileID: 0}
   u_attack: 0
   u_flee: 0
   u_loot: 0
   u_move: 0
+  u_followcommand: 0
   currentTarget: {fileID: 0}
   moveDestination: {x: 0, y: 0, z: 0}
+  idleThreshold: 0.1
+  stateSwitchHysteresis: 0.08
+  minStateHoldTicks: 2
+  needsTagReEvaluation: 1
+  decisionInterval: 0.3
+  externallyTicked: 0
 --- !u!1 &4595707506124031444
 GameObject:
   m_ObjectHideFlags: 0

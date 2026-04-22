@@ -1,5 +1,5 @@
 // =============================================================================
-// UtilityMasterFormula.cs  |  pB-4 Project — Week 2
+// UtilityMasterFormula.cs  |  pB-4 Project — Week 2 (Day 2 T2.3 통합본)
 // Layer  : L3 Domain (AI)
 // Namespace: TDA.PB4.AI
 //
@@ -17,10 +17,19 @@
 // 사용법:
 //   HumanoidAIBrain.UpdateDecision()에서 이 클래스의 ScoreAction()을 호출.
 //   각 행동(Attack/Flee/Loot/Move/FollowCommand)에 대해 점수를 산출.
+//
+// [통합 이력]
+//   - Day 1 T1.4: SetConfig/externalConfig 추가 (당시 partial class + 별도 Patch 파일)
+//   - Day 2 T2.3: Awake 하드코딩 5개 Add 제거. SO 강제, fallback 없음.
+//   - Day 2 T2.3 통합: UtilityMasterFormula_Week2Patch.cs를 이 파일에 흡수. partial 제거.
+//     * 이유: T2.3에서 이미 원본을 크게 수정하므로 Patch 분리 명분 소멸.
+//     * 결과: 솔루션 탐색기에 파일 1개. partial 키워드 불필요.
 // =============================================================================
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TDA.PB4.Data;
 
 namespace TDA.PB4.AI
 {
@@ -103,17 +112,17 @@ namespace TDA.PB4.AI
 
     /// <summary>
     /// Master Formula 엔진. HumanoidAIBrain이 참조하여 행동별 유틸리티 점수를 산출.
-    /// MonoBehaviour로 HumanoidAIBrain과 같은 GameObject에 부착하거나,
-    /// static 메서드로 직접 호출할 수도 있다.
+    /// MonoBehaviour로 HumanoidAIBrain과 같은 GameObject에 부착.
     /// </summary>
-    public partial class UtilityMasterFormula : MonoBehaviour
+    public class UtilityMasterFormula : MonoBehaviour
     {
         // ==================================================================
         // Inspector 설정
         // ==================================================================
         [Header("━━━ Action Configs ━━━━━━━━━━━━━━━━━━━━")]
         [Tooltip("각 행동(Attack/Flee/Loot/Move/FollowCommand)의 유틸리티 설정 목록. " +
-                 "행동별로 기반 욕구, 반응 곡선, 지수, 가중치를 개별 조절한다.")]
+                 "T2.3 적용 후: externalConfig 또는 Bootstrapper.defaultActionConfig가 " +
+                 "SetConfig로 주입. 빈 상태로 Play하면 에러 출력.")]
         [SerializeField] private List<ActionUtilityConfig> actionConfigs = new List<ActionUtilityConfig>();
 
         [Header("━━━ Personality Modifier Rules ━━━━━━━━")]
@@ -129,43 +138,83 @@ namespace TDA.PB4.AI
         [Range(0f, 1f)]
         public float trustFactor = 1.0f;
 
+        [Header("━━━ Week 2 T1.4 외부 설정 (선택) ━━━━")]
+        [Tooltip("UtilityActionConfigSO .asset. 지정되면 Awake 시 자동 로드. " +
+                 "비어있으면 Bootstrapper가 SetConfig로 주입.")]
+        [SerializeField] private UtilityActionConfigSO externalConfig;
+
         [Header("━━━ Debug ━━━━━━━━━━━━━━━━━━━━━━━━━━")]
         [Tooltip("계산 과정을 Console에 출력할지 여부. 성능에 영향을 주므로 테스트 시에만 켠다.")]
         public bool debugLog = false;
 
         // ==================================================================
-        // 초기화: 기본 행동 설정이 비어있으면 자동 생성
+        // 초기화 (T2.3 적용: 하드코딩 5개 Add 블록 완전 제거)
         // ==================================================================
         private void Awake()
         {
+            // [Week 2 T2.3 개정] 5개 행동 하드코딩 제거.
+            //
+            // 우선순위:
+            //   1순위: externalConfig (Inspector 할당)
+            //   2순위: Bootstrapper가 나중에 SetConfig 호출 (Awake 이후)
+            //   3순위: 둘 다 없으면 actionConfigs/modifierRules 빈 상태 → 에러
+
+            if (externalConfig != null)
+            {
+                LoadFromConfig(externalConfig);
+            }
+            else if (actionConfigs.Count == 0)
+            {
+                StartCoroutine(VerifyConfigLoadedAfterFrame());
+            }
+        }
+
+        private IEnumerator VerifyConfigLoadedAfterFrame()
+        {
+            yield return null;
             if (actionConfigs.Count == 0)
             {
-                actionConfigs.Add(new ActionUtilityConfig {
-                    actionId = "Attack", primaryNeedKey = "aggression",
-                    curveType = ResponseCurveType.Power, curveExponent = 1.2f,
-                    baseWeight = 0.8f, requiresTarget = true
-                });
-                actionConfigs.Add(new ActionUtilityConfig {
-                    actionId = "Flee", primaryNeedKey = "fear",
-                    curveType = ResponseCurveType.Logit, logitSteepness = 10f,
-                    baseWeight = 0.9f, requiresTarget = false
-                });
-                actionConfigs.Add(new ActionUtilityConfig {
-                    actionId = "Loot", primaryNeedKey = "greed",
-                    curveType = ResponseCurveType.Power, curveExponent = 1.5f,
-                    baseWeight = 0.7f, requiresTarget = false
-                });
-                actionConfigs.Add(new ActionUtilityConfig {
-                    actionId = "Move", primaryNeedKey = "curiosity",
-                    curveType = ResponseCurveType.Linear,
-                    baseWeight = 0.3f, requiresTarget = false
-                });
-                actionConfigs.Add(new ActionUtilityConfig {
-                    actionId = "FollowCommand", primaryNeedKey = "obedience",
-                    curveType = ResponseCurveType.Power, curveExponent = 1.0f,
-                    baseWeight = 0.6f, requiresTarget = false
-                });
+                Debug.LogError($"[UtilityMasterFormula] {name}: actions 미로드. " +
+                               $"Inspector의 externalConfig 또는 " +
+                               $"HumanoidBootstrapper.defaultActionConfig 할당 필요.");
             }
+        }
+
+        // ==================================================================
+        // 외부 설정 주입 API (Bootstrapper 및 수동 호출용)
+        // ==================================================================
+
+        /// <summary>외부 SO로부터 actions/modifiers 로드. Bootstrapper가 호출.</summary>
+        public void SetConfig(UtilityActionConfigSO config)
+        {
+            if (config == null)
+            {
+                Debug.LogError($"[UtilityMasterFormula] {name}: SetConfig에 null 전달");
+                return;
+            }
+
+            externalConfig = config;
+            LoadFromConfig(config);
+        }
+
+        /// <summary>SO → 내부 필드 복사. Awake와 SetConfig 양쪽에서 호출됨.</summary>
+        private void LoadFromConfig(UtilityActionConfigSO config)
+        {
+            actionConfigs.Clear();
+            actionConfigs.AddRange(config.actions);
+
+            modifierRules.Clear();
+            modifierRules.AddRange(config.modifiers);
+
+            Debug.Log($"[UtilityMasterFormula] {name}: {config.actions.Count}개 action + " +
+                      $"{config.modifiers.Count}개 modifier 로드됨 (from {config.name})");
+        }
+
+        /// <summary>현재 설정 요약 반환. Dashboard 등 디버그 용도.</summary>
+        public string GetConfigSummary()
+        {
+            return $"[Formula] actions={actionConfigs.Count}, modifiers={modifierRules.Count}" +
+                   (externalConfig != null ? $", SO={externalConfig.name}" : ", hardcoded");
         }
 
         // ==================================================================
@@ -177,7 +226,7 @@ namespace TDA.PB4.AI
         /// U(A) = f(Need)^k × Π(Modifier_i) × TrustFactor
         /// </summary>
         /// <param name="actionId">행동 이름 (Attack/Flee/Loot/Move/FollowCommand)</param>
-        /// <param name="needs">욕구 딕셔너리. 키: aggression/fear/greed/curiosity/obedience 등</param>
+        /// <param name="needs">욕구 딕셔너리. 키: aggression/fear/greed/hunger/obedience 등</param>
         /// <param name="activeTags">현재 활성화된 성격 태그 목록</param>
         /// <param name="hasTarget">공격 타겟이 존재하는지 여부</param>
         /// <returns>0.0~무한대 범위의 유틸리티 점수. Winner-takes-all로 최고 점수 행동 선택.</returns>

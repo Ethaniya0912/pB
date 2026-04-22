@@ -1,0 +1,225 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc38880b3a297a442a0aab8f0191cce8, type: 3}
+  m_Name: HumanoidTagRules
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.PersonalityTagRuleSO
+  rules:
+  - tagName: Coward
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 0.3
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.85
+    fearMultiplier: 2
+    greedKOverride: 0
+  - tagName: Brave
+    minControl: -1
+    maxControl: 2
+    minStability: 0.7
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.85
+    fearMultiplier: 0.5
+    greedKOverride: 0
+  - tagName: Glutton
+    minControl: -1
+    maxControl: 0.3
+    minStability: -1
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 0
+    greedKOverride: 2.5
+  - tagName: Stoic
+    minControl: 0.7
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 0.7
+    greedKOverride: 0
+  - tagName: Reckless
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 0.4
+    minOpenness: 0.7
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.75
+    fearMultiplier: 0.6
+    greedKOverride: 0
+  - tagName: Cautious
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 0.3
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 1.4
+    greedKOverride: 0
+  - tagName: Loyal
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: 0.7
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.8
+    fearMultiplier: 0
+    greedKOverride: 0
+  - tagName: Selfish
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 0.3
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 0
+    greedKOverride: 1.8
+  - tagName: Blunt
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: 0.7
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 0
+    greedKOverride: 0
+  - tagName: Diplomatic
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: 0.5
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 0.3
+    emergenceProbability: 0.65
+    fearMultiplier: 0
+    greedKOverride: 0
+  - tagName: Anxious
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 0.4
+    minOpenness: -1
+    maxOpenness: 0.4
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 1.6
+    greedKOverride: 0
+  - tagName: Confident
+    minControl: 0.5
+    maxControl: 2
+    minStability: 0.6
+    maxStability: 2
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.75
+    fearMultiplier: 0.6
+    greedKOverride: 0
+  - tagName: Altruist
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: 0.5
+    maxOpenness: 2
+    minAgreeable: 0.8
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 0
+    greedKOverride: 0.5
+  - tagName: Curious
+    minControl: 0.4
+    maxControl: 2
+    minStability: -1
+    maxStability: 2
+    minOpenness: 0.7
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 2
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.7
+    fearMultiplier: 0
+    greedKOverride: 0
+  - tagName: Aggressive
+    minControl: -1
+    maxControl: 2
+    minStability: -1
+    maxStability: 0.4
+    minOpenness: -1
+    maxOpenness: 2
+    minAgreeable: -1
+    maxAgreeable: 0.3
+    minDirectness: -1
+    maxDirectness: 2
+    emergenceProbability: 0.75
+    fearMultiplier: 0.7
+    greedKOverride: 0

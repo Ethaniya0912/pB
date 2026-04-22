@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a7ea95c2493d9d4e915c271814475d3, type: 3}
+  m_Name: Week2Checklist
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Tooling.Week2ChecklistSO
+  items:
+  - id: WK2_C02
+    title: "SituationVectorEncoder \uBD80\uCC29"
+    description: "\uBAA8\uB4E0 HumanoidAIBrain\uC5D0 SituationVectorEncoder\uAC00
+      \uBD80\uCC29\uB418\uC5B4\uC57C \uD568"
+    category: 1
+    verifyMethod: HasComponent:SituationVectorEncoder
+    assignedDay: 1
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C11
+    title: "TrustMatrix \uBD80\uCC29"
+    description: "\uBAA8\uB4E0 HumanoidAIBrain\uC5D0 TrustMatrix\uAC00 \uBD80\uCC29\uB418\uC5B4\uC57C
+      \uD568"
+    category: 1
+    verifyMethod: HasComponent:TrustMatrix
+    assignedDay: 1
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C13
+    title: "TraumaSystem \uBD80\uCC29"
+    description: "\uBAA8\uB4E0 HumanoidAIBrain\uC5D0 TraumaSystem\uC774 \uBD80\uCC29\uB418\uC5B4\uC57C
+      \uD568"
+    category: 1
+    verifyMethod: HasComponent:TraumaSystem
+    assignedDay: 1
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C22
+    title: "\uD65C\uC131 Stub 0\uAC74"
+    description: "GameBlackboard \uC788\uB294 \uC52C\uC5D0\uC11C Brain\uC740 StubBlackboard
+      \uC0AC\uC6A9 X"
+    category: 2
+    verifyMethod: NoActiveStubs
+    assignedDay: 1
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C25
+    title: "ProgressTracker \uBD80\uCC29"
+    description: "\uC52C\uC5D0 Week2ProgressTracker \uC2F1\uAE00\uD1A4 \uC874\uC7AC"
+    category: 0
+    verifyMethod: HasComponent:Week2ProgressTracker
+    assignedDay: 1
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
