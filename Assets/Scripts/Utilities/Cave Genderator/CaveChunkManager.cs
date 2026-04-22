@@ -344,6 +344,11 @@ namespace CaveSystem
                 MeshFilter mf = chunkObj.GetComponent<MeshFilter>();
                 MeshCollider mc = chunkObj.GetComponent<MeshCollider>();
                 if (mf != null) mf.sharedMesh = null;
+                // [Phase 3-A / FIX-COLLIDER-RACE] Pool에서 꺼낸 chunk의 collider도 명시적 초기화.
+                //   ReturnToPool에서 이미 null 처리하지만, 방어 코드로 여기서도 명시.
+                //   enableCoarseFirst=false 경로에서 Fine 직접 생성 시에도 이 경로 통과하므로
+                //   collider를 "결정적 null" 상태로 만들어 DCMeshBuilder 진입 보장.
+                if (mc != null) mc.sharedMesh = null;
 
                 context.ChunkObject = chunkObj;
 
@@ -434,6 +439,31 @@ namespace CaveSystem
             if (returningCollider != null && DCMeshBuilder.Instance != null)
                 DCMeshBuilder.Instance.CancelPendingPhysicsBakesForCollider(returningCollider);
 
+            // [FIX-STALE-CACHE] Stitcher _cache에서 이 chunk 위치 선제 제거.
+            //   원래 L314 UnregisterChunk 호출은 LOD cull 경로에만 존재 →
+            //   ReturnToPool이 LOD cull 외 경로(예: Fine 도착 시 Coarse 파괴)로 호출되면
+            //   Stitcher._cache가 Destroy된 mesh 참조를 그대로 들고 있게 됨.
+            //   ReturnToPool 진입 시 반드시 Stitcher cache도 정리해야 stale reference 방지.
+            //   name 파싱: "Chunk_x_y_z" 또는 "Coarse_x_y_z" 형식
+            Vector3Int? parsedPos = null;
+            if (obj != null)
+            {
+                parsedPos = TryParseChunkPos(obj.name);
+            }
+            if (ChunkSeamStitcher.Instance != null && parsedPos.HasValue)
+            {
+                ChunkSeamStitcher.Instance.UnregisterChunk(parsedPos.Value);
+            }
+
+            // [S7 / FIX-STALE-SPAWNER] 규칙 #23 확장 적용.
+            //   CaveSpawnerManager.chunkSpawnerDataMap / pendingSpawnChunks / deferredChunks에
+            //   이 chunk 위치의 데이터가 남아있으면 제거.
+            //   이미 스폰된 NetworkObject는 건드리지 않음 (기획 의도 — 플레이어 상호작용 대기).
+            if (CaveSystem.Multiplayer.CaveSpawnerManager.Instance != null && parsedPos.HasValue)
+            {
+                CaveSystem.Multiplayer.CaveSpawnerManager.Instance.UnregisterChunk(parsedPos.Value);
+            }
+
             // [FIX-TEX] 풀링 전 NormalBaker 텍스처 Destroy (누수 방지)
             //   MaterialPropertyBlock에 할당된 _DCNormalMap_X/Y/Z 텍스처는
             //   GameObject가 풀로 반환되어도 GPU 메모리에 영구 존재
@@ -455,6 +485,19 @@ namespace CaveSystem
                     Destroy(mf.sharedMesh);
                 }
                 mf.sharedMesh = null;
+            }
+
+            // [Phase 3-A / FIX-COLLIDER-RACE] MeshCollider의 sharedMesh도 명시적 null 처리.
+            //   기존 코드는 mf만 정리하고 mc는 방치 → Destroy된 mesh 참조 잔존 →
+            //   다음 풀 재사용 시 stale reference로 혼란 가능.
+            //   Pool 반환 시점에 완전히 정리하여 "pool에서 꺼낸 직후 mc.sharedMesh 상태"를
+            //   결정적(null)으로 만든다.
+            //   규칙 #6: 기존 코드는 mc 정리 없음 → 이전 상태는 undefined behavior.
+            //           본 수정은 "undefined를 defined(null)로" 변경 → 기존 의존 경로에
+            //           영향 없음 (어차피 미정의였던 상태).
+            if (returningCollider != null && returningCollider.sharedMesh != null)
+            {
+                returningCollider.sharedMesh = null;
             }
 
             chunkPool.Enqueue(obj);
@@ -661,6 +704,33 @@ namespace CaveSystem
             {
                 renderer.SetPropertyBlock(null);
             }
+        }
+
+        /// <summary>
+        /// [FIX-STALE-CACHE] GameObject 이름에서 chunk 좌표 파싱.
+        ///   "Chunk_x_y_z" 또는 "Coarse_x_y_z" 포맷 지원.
+        ///   파싱 실패 시 null 반환.
+        ///   ReturnToPool에서 Stitcher unregister에 사용.
+        /// </summary>
+        private static Vector3Int? TryParseChunkPos(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            // "Chunk_Pooled" 같은 풀 이름은 파싱 실패 → null
+            // "Chunk_x_y_z" 또는 "Coarse_x_y_z"
+            string stripped = name;
+            if (stripped.StartsWith("Chunk_")) stripped = stripped.Substring(6);
+            else if (stripped.StartsWith("Coarse_")) stripped = stripped.Substring(7);
+            else return null;
+
+            var parts = stripped.Split('_');
+            if (parts.Length != 3) return null;
+            if (int.TryParse(parts[0], out int x)
+             && int.TryParse(parts[1], out int y)
+             && int.TryParse(parts[2], out int z))
+            {
+                return new Vector3Int(x, y, z);
+            }
+            return null;
         }
     }
 }

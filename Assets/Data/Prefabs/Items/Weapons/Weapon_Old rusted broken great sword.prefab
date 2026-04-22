@@ -555,6 +555,8 @@ MonoBehaviour:
   heavy_Attack_02_Modifier: 0
   charge_Attack_01_Modifier: 0
   charge_Attack_02_Modifier: 0
+  debugStartEnabled: 1
+  logColliderToggle: 1
 --- !u!1 &8583656010777252466
 GameObject:
   m_ObjectHideFlags: 0

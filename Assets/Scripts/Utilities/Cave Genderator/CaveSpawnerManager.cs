@@ -167,6 +167,43 @@ namespace CaveSystem.Multiplayer
         }
 
         /// <summary>
+        /// [S7 / FIX-STALE-SPAWNER] 특정 청크의 spawner 데이터를 모든 추적 컬렉션에서 제거.
+        ///   규칙 #23 (전수 생명주기 매트릭스) 확장 적용 대상.
+        ///   CaveChunkManager.ReturnToPool에서 호출 → chunk 풀 반환 시 관련 spawner 데이터 정리.
+        ///
+        ///   [정리 대상 3개 컬렉션]
+        ///   1. chunkSpawnerDataMap       : SpawnerPointData 리스트 (주 데이터)
+        ///   2. pendingSpawnChunks        : 스폰 대기 중인 chunk set
+        ///   3. deferredChunks            : 플레이어 근접 대기 chunk set
+        ///
+        ///   [의도적으로 건드리지 않는 것]
+        ///   - 이미 스폰된 NetworkObject (mob, chest, ore):
+        ///     플레이어가 상호작용할 때까지 월드에 남아야 함 (기획 의도).
+        ///     chunk가 풀 반환된다고 기존 몹이 즉시 사라지면 안 됨.
+        ///   - editorAllSpawners:
+        ///     에디터 디버그/분석용 누적 데이터. 런타임 gameplay 영향 없음.
+        ///   - mobNameCounters:
+        ///     전체 세션의 네이밍 카운터. chunk 단위 아님.
+        ///
+        ///   [Race 안전성]
+        ///   - SpawnBatchCoroutine 실행 중 이 메서드 호출되어도 안전:
+        ///     L289/L299의 TryGetValue가 Remove 이후엔 false 반환 → skip
+        ///     중간에 반환된 list 지역 참조는 GC 대상 아님 → 현재 entry까지는 완료
+        ///   - pendingSpawnChunks.Remove / deferredChunks.Remove는 HashSet이라 O(1) 안전
+        /// </summary>
+        public void UnregisterChunk(Vector3Int chunkPos)
+        {
+            bool removed = chunkSpawnerDataMap.Remove(chunkPos);
+            pendingSpawnChunks.Remove(chunkPos);
+            deferredChunks.Remove(chunkPos);
+
+            if (removed && showDebugLogs)
+            {
+                Log($"[Unregister] 청크 {chunkPos} 데이터 정리 완료");
+            }
+        }
+
+        /// <summary>
         /// CaveManager 의 HandleGpuResult 단계에서 호출됩니다.
         /// 지형 데이터를 파싱하고 대기열에 등록합니다.
         /// </summary>

@@ -15,6 +15,54 @@
 //   FactionDetectionSFXManager와 연동:
 //     Suspicious 진입 시 OnFactionDetectedPlayer 이벤트 발행
 //     → FactionDetectionSFXManager가 Pattern 1/2 SFX 재생
+//
+// =============================================================================
+// BB 소유권 테이블 (예방 체크리스트 #2)
+// 이 컴포넌트는 BT BB를 직접 쓰지 않는다.
+// 인지 결과는 아래 두 경로로 전달된다:
+//
+//   lastKnownPosition (내부 필드)
+//     Writer : OnSoundHeard(), TickVision(), TickTraceDetection()
+//     Reader : PB4DecisionAdapter → BB["LastHeardPosition"] push (수색 모드)
+//              GetSpiralSearchPosition() → Case C 나선형 수색
+//   ※ BB["LastHeardPosition"]와 이 필드는 별개!
+//      BB 갱신은 PB4DecisionAdapter가 담당.
+//
+//   currentPerceptionTarget (내부 필드)
+//     Writer : TickVision() — 시야 확인 성공 시 설정
+//     Reader : SetAwareness(Combat) 이후 brain.currentTarget에 복사
+//
+//   OnAwarenessChanged 이벤트 (공개)
+//     Invoker: SetAwareness() 내부
+//     Subscriber: 외부 시스템 (SFX, UI 등) 자유 구독
+//
+// externallyTicked 주의사항 (예방 체크리스트 #3):
+//   이 컴포넌트는 MonoBehaviour Update()로 자체 틱.
+//   BT의 externallyTicked 설정과 무관하게 매 프레임 실행됨.
+//   따라서 BB 변경 → BT Observer 발동 타이밍 버그에 직접 관여하지 않음.
+//   단, OnAwarenessChanged 이벤트 발행은 매 프레임 가능.
+// =============================================================================
+// [개선 이력]
+//   - OnEnable/OnDisable: SoundEventEmitter.OnSoundEmitted 구독 추가 (핵심 버그 수정)
+//     기존: OnSoundHeard()가 존재했지만 이벤트 구독이 없어 절대 호출되지 않았음
+//     수정: HandleSoundEvent() 어댑터 메서드로 3인자 이벤트 → 2인자 OnSoundHeard() 연결
+//
+//   - OnSoundHeard(): 청각 로직 개선
+//     기존: sourceRadius 없이 hearingRange만 비교 (Combat 상태에서도 청각 무시)
+//     수정: SoundPerception과 동일하게 sourceRadius 적용
+//           Combat 상태에서도 LastKnownPosition 갱신 (타겟 위치 보정용)
+//           지각 임계값(perceptionThreshold) Inspector 노출
+//
+//   - TickVision(): 시야 로직 개선
+//     기존: Combat 전환 조건이 Alert 상태 자체로만 판단 (즉시 Combat 전환 가능성)
+//     수정: alertDurationForCombat 시간 이상 Alert 유지 후 Combat 전환
+//           Combat 중에도 TickVision() 유지 (타겟 위치 갱신 필요)
+//
+//   - SetAwareness(): 이벤트 발행 개선
+//     기존: 상태 전환 로그만 출력
+//     수정: OnAwarenessChanged 공개 이벤트 발행 → 외부 시스템 연동 용이
+//
+//   - 중복 using 제거 (TDA.PB4.Core 두 번 선언)
 // =============================================================================
 using System;
 using System.Collections.Generic;
@@ -22,7 +70,6 @@ using UnityEngine;
 using TDA.PB4.AI.Mob;        // MobAIBrain → factionData
 using TDA.PB4.AI.Perception;  // SoundEventEmitter
 using TDA.PB4.Core;           // EventBus
-using TDA.PB4.Core;
 using TDA.PB4.AI;
 
 namespace TDA.PB4.AI.Perception
@@ -63,12 +110,18 @@ namespace TDA.PB4.AI.Perception
         [Tooltip("시각으로 감지할 대상 레이어. 플레이어 레이어 설정.")]
         public LayerMask targetLayer;
 
+        [Tooltip("Alert 상태를 이 시간(초) 이상 유지한 후 Combat으로 전환. " +
+                 "0 = Alert 진입 즉시 Combat. 1 = 1초 유지 후 Combat.\n" +
+                 "[개선] 기존: Alert 상태 자체로 즉시 Combat 가능 → 이제 유지 시간 필요.")]
+        [Range(0f, 5f)]
+        public float alertDurationForCombat = 0.5f;
+
         // ==================================================================
         // 청각 인지 설정
         // ==================================================================
         [Header("━━━ 청각 인지 (Hearing) ━━━━━━━━━━━━━━")]
-        [Tooltip("청각 인지 범위 (미터). SoundEvent의 volume×propagationRadius가 " +
-                 "이 범위 이내이면 감지. 30 = 30m.")]
+        [Tooltip("청각 인지 범위 (미터). SoundEvent의 sourceRadius와 이 값 중 작은 쪽이 실제 감지 거리. " +
+                 "30 = 30m.")]
         [Range(5f, 60f)]
         public float hearingRange = 30f;
 
@@ -76,6 +129,12 @@ namespace TDA.PB4.AI.Perception
                  "1.0 = 모든 소리 감지. 0.3 = 큰 소리만 감지.")]
         [Range(0f, 1f)]
         public float hearingSensitivity = 0.5f;
+
+        [Tooltip("청각 감지 최소 지각값 (0~1). 이 값 이하면 소리 무시.\n" +
+                 "[개선] 기존 하드코딩 0.2f → Inspector 노출. " +
+                 "높을수록 둔감, 낮을수록 예민.")]
+        [Range(0.01f, 0.5f)]
+        public float perceptionThreshold = 0.2f;
 
         // ==================================================================
         // 자취 인지 설정
@@ -140,8 +199,17 @@ namespace TDA.PB4.AI.Perception
         // ==================================================================
         private float suspicionTimer;
         private float alertTimer;
+        private float alertElapsed;   // [개선] Alert 지속 시간 (alertDurationForCombat 비교용)
         private float spiralAngle;
         private BaseAIBrain brain;
+
+        // ==================================================================
+        // 공개 이벤트
+        // [개선] 외부 시스템(SFX, UI, Camera 등)이 각성 상태 전환을 수신할 수 있도록 추가.
+        //        기존: 상태 전환을 알리는 수단이 없어 외부에서 폴링(매 프레임 읽기)만 가능했음.
+        // ==================================================================
+        /// <summary>각성 상태가 변경됐을 때 발행. (이전 상태, 새 상태, 이유)</summary>
+        public event Action<AwarenessState, AwarenessState, string> OnAwarenessChanged;
 
         // ==================================================================
         // 공개 프로퍼티
@@ -150,18 +218,42 @@ namespace TDA.PB4.AI.Perception
         public Vector3 LastKnownPosition => lastKnownPosition;
         public Transform CurrentTarget => currentPerceptionTarget;
 
+        // ==================================================================
+        // 생명주기
+        // ==================================================================
         private void Awake()
         {
             brain = GetComponent<BaseAIBrain>();
         }
 
+        private void OnEnable()
+        {
+            // [개선] SoundEventEmitter.OnSoundEmitted 구독
+            // 기존: OnSoundHeard()가 존재했지만 이 이벤트 구독 코드가 없어서
+            //       SoundEventEmitter.EmitSound() 호출 시 AIPerceptionSystem이 전혀 반응하지 않았음.
+            // 수정: HandleSoundEvent() 어댑터로 3인자 이벤트 → 기존 OnSoundHeard(2인자) 연결.
+            SoundEventEmitter.OnSoundEmitted += HandleSoundEvent;
+        }
+
+        private void OnDisable()
+        {
+            // 구독 해제 — 오브젝트 비활성화 또는 씬 전환 시 이벤트 누수 방지
+            SoundEventEmitter.OnSoundEmitted -= HandleSoundEvent;
+        }
+
         private void Update()
         {
-            if (awarenessLevel == AwarenessState.Combat) return; // 전투 중에는 인지 불필요
-
+            // [개선] Combat 중에도 TickVision() 실행 유지
+            // 기존: Combat 상태에서 Update 전체 스킵 → 타겟 위치 갱신 안됨
+            // 수정: Combat 중에도 시야 업데이트로 lastKnownPosition 갱신.
+            //       단, 자취/소리/감쇄는 Combat 중 불필요하므로 유지.
             TickVision();
-            TickTraceDetection();
-            DecayAwareness();
+
+            if (awarenessLevel != AwarenessState.Combat)
+            {
+                TickTraceDetection();
+                DecayAwareness();
+            }
         }
 
         // ==================================================================
@@ -170,18 +262,39 @@ namespace TDA.PB4.AI.Perception
         public void TickVision()
         {
             Collider[] hits = Physics.OverlapSphere(transform.position, visionRange, targetLayer);
+
+            // ── 진단 로그: OverlapSphere 결과 ──────────────────────────────────
+            // OverlapSphere 히트가 0이면 targetLayer 미설정 or 플레이어 레이어 불일치 의심
+            if (debugLog && hits.Length == 0 && awarenessLevel >= AwarenessState.Alert)
+                Debug.LogWarning(
+                    $"[Perception] {name}: TickVision OverlapSphere 히트 0." +
+                    $" visionRange={visionRange}m targetLayer={targetLayer.value}" +
+                    $" → targetLayer가 Inspector에서 설정됐는지 확인!");
+
             foreach (var hit in hits)
             {
                 Vector3 dirToTarget = (hit.transform.position - transform.position);
                 dirToTarget.y = 0;
                 float angle = Vector3.Angle(transform.forward, dirToTarget.normalized);
 
-                if (angle > visionAngle * 0.5f) continue;
+                // 시야각 밖
+                if (angle > visionAngle * 0.5f)
+                {
+                    if (debugLog)
+                        Debug.Log($"[Perception] {name}: 시야각 밖 — {hit.name} " +
+                                  $"angle={angle:F0}° limit={visionAngle * 0.5f:F0}°");
+                    continue;
+                }
 
                 // 벽 차단 검사
                 Vector3 eyePos = transform.position + Vector3.up * 1.5f;
                 Vector3 targetPos = hit.transform.position + Vector3.up * 1.0f;
-                if (Physics.Linecast(eyePos, targetPos, visionBlockLayer)) continue;
+                if (Physics.Linecast(eyePos, targetPos, visionBlockLayer))
+                {
+                    if (debugLog)
+                        Debug.Log($"[Perception] {name}: 벽 차단 — {hit.name} 시야 가려짐");
+                    continue;
+                }
 
                 // 시야 확인 성공
                 float distance = dirToTarget.magnitude;
@@ -191,45 +304,122 @@ namespace TDA.PB4.AI.Perception
                 if (awarenessLevel < AwarenessState.Alert)
                     SetAwareness(AwarenessState.Alert, $"시야 확인 ({hit.name}, {distance:F1}m)");
 
-                // Alert에서 일정 시간 경과 또는 근거리이면 Combat
-                if (distance < visionRange * 0.5f || awarenessLevel == AwarenessState.Alert)
+                // [개선] Alert → Combat 전환: alertDurationForCombat 경과 후 전환
+                // 기존: distance < visionRange*0.5f 또는 Alert 상태 자체로 즉시 Combat 전환 가능
+                //       → 시야에 잠깐 들어오기만 해도 바로 Combat으로 튀어오르는 문제
+                // 수정: Alert 유지 시간(alertElapsed) >= alertDurationForCombat 이후에만 Combat 전환
+                if (awarenessLevel == AwarenessState.Alert)
                 {
-                    SetAwareness(AwarenessState.Combat, $"전투 진입 ({hit.name}, {distance:F1}m)");
-                    // pB-4 AI에 타겟 전달
-                    if (brain != null)
-                    {
-                        var mob = brain as TDA.PB4.AI.Mob.MobAIBrain;
-                        var hum = brain as TDA.PB4.AI.Humanoid.HumanoidAIBrain;
-                        if (mob != null) mob.currentTarget = hit.transform;
-                        if (hum != null) hum.currentTarget = hit.transform;
-                    }
+                    alertElapsed += Time.deltaTime;
+                    if (debugLog)
+                        Debug.Log($"[Perception] {name}: Alert 유지 중 " +
+                                  $"{alertElapsed:F2}s / {alertDurationForCombat:F1}s " +
+                                  $"→ {hit.name} dist={distance:F1}m");
 
-                    // 팩션 감지 SFX 이벤트 발행
-                    RaiseFactionDetectionEvent(distance);
+                    if (alertElapsed >= alertDurationForCombat)
+                    {
+                        SetAwareness(AwarenessState.Combat, $"전투 돌입 ({hit.name}, {distance:F1}m, alertElapsed={alertElapsed:F1}s)");
+
+                        // pB-4 AI에 타겟 전달
+                        if (brain != null)
+                        {
+                            var mob = brain as TDA.PB4.AI.Mob.MobAIBrain;
+                            var hum = brain as TDA.PB4.AI.Humanoid.HumanoidAIBrain;
+                            if (mob != null) mob.currentTarget = hit.transform;
+                            if (hum != null) hum.currentTarget = hit.transform;
+
+                            // ── Adapter 즉시 동기화 ────────────────────────────────
+                            // 문제: brain.currentTarget이 설정됐어도 Adapter의 0.5s 틱을
+                            //       기다리면 그 동안 BB["Target"]=null 상태 유지.
+                            //       StalkAction이 계속 "Player 없음" 상태로 동작.
+                            // 수정: Combat 진입 시 ForceSyncBB()로 즉시 BB 동기화.
+                            var adapter = GetComponent<TDA.PB4.Bridge.PB4DecisionAdapter>();
+                            if (adapter != null)
+                            {
+                                adapter.ForceSyncBB();
+                                if (debugLog)
+                                    Debug.Log($"[Perception] {name}: Combat 진입 → ForceSyncBB() 즉시 호출. " +
+                                              $"BB[Target]={hit.name} 동기화 완료.");
+                            }
+                        }
+
+                        // 팩션 감지 SFX 이벤트 발행
+                        RaiseFactionDetectionEvent(distance);
+                    }
                 }
+
                 return;
             }
 
             // 시야에 타겟 없으면 lastKnownPosition 갱신
             if (awarenessLevel == AwarenessState.Alert && currentPerceptionTarget != null)
                 lastKnownPosition = currentPerceptionTarget.position;
+
+            // Alert 타이머 리셋 (시야 벗어나면 누적 초기화)
+            if (awarenessLevel == AwarenessState.Alert)
+                alertElapsed = 0f;
         }
 
         // ==================================================================
-        // 청각 인지: EventBus.OnSoundEmitted 구독
+        // 청각 인지: SoundEventEmitter.OnSoundEmitted 이벤트 어댑터
+        // [개선] OnEnable에서 이 메서드를 구독 등록.
+        //        SoundEventEmitter.OnSoundEmitted는 (Vector3, SoundType, float) 3인자 이벤트.
+        //        기존 OnSoundHeard(Vector3, float) 시그니처를 그대로 유지하기 위해
+        //        어댑터 패턴으로 중계.
         // ==================================================================
-        public void OnSoundHeard(Vector3 soundPos, float volume)
+        private void HandleSoundEvent(Vector3 soundPos, SoundType type, float volume)
+        {
+            // SoundType별 기본 전파 반경 (SoundPerception.HandleSoundEmitted와 동일 기준)
+            float baseRadius = type switch
+            {
+                SoundType.Footstep => 15f,
+                SoundType.Combat => 40f,
+                SoundType.Mining => 25f,
+                SoundType.Explosion => 60f,
+                SoundType.Dialogue => 8f,
+                _ => 20f
+            };
+            // volume × baseRadius = sourceRadius (실제 소리 도달 거리)
+            OnSoundHeard(soundPos, volume, volume * baseRadius);
+        }
+
+        // ==================================================================
+        // 청각 인지 처리
+        // [개선] sourceRadius 파라미터 추가 — SoundPerception.OnSoundEvent와 동일 로직 적용.
+        //        기존: sourceRadius 없이 hearingRange만 비교 → 프로브 볼륨 0.3 시
+        //              sourceRadius=4.5m인데 hearingRange=30m로 통과되어 먼 곳도 반응 가능성
+        //              (반대로 너무 작은 sourceRadius는 감지 자체가 안됨)
+        //        수정: distance > min(hearingRange, sourceRadius) 이면 무시.
+        //              Combat 중에도 LastKnownPosition 갱신 (타겟 위치 보정).
+        // ==================================================================
+        public void OnSoundHeard(Vector3 soundPos, float volume, float sourceRadius = -1f)
         {
             float distance = Vector3.Distance(transform.position, soundPos);
-            if (distance > hearingRange) return;
+
+            // sourceRadius가 전달된 경우 두 조건 모두 통과해야 감지
+            // sourceRadius 미전달(-1) 시 hearingRange만 사용 (하위 호환)
+            float effectiveRange = sourceRadius > 0f
+                ? Mathf.Min(hearingRange, sourceRadius)
+                : hearingRange;
+
+            if (distance > effectiveRange) return;
 
             float perception = volume * hearingSensitivity * (1f - distance / hearingRange);
-            if (perception < 0.2f) return;
+            if (perception < perceptionThreshold) return;
 
             lastKnownPosition = soundPos;
 
+            if (debugLog)
+                Debug.Log($"[Perception] {name}: 소리 감지 vol={volume:F2} " +
+                          $"dist={distance:F1}m effectiveRange={effectiveRange:F1}m " +
+                          $"perc={perception:F2} sourceRadius={sourceRadius:F1}m");
+
+            // [개선] Combat 중에도 LastKnownPosition 갱신
+            // 기존: awarenessLevel < Suspicious 조건만 있어 Combat 중 소리 완전 무시
+            // 수정: 어떤 상태든 lastKnownPosition 갱신. 상태 변경은 Suspicious 미만일 때만.
             if (awarenessLevel < AwarenessState.Suspicious)
-                SetAwareness(AwarenessState.Suspicious, $"소리 감지 (vol={volume:F1}, dist={distance:F0}m, perc={perception:F2})");
+                SetAwareness(AwarenessState.Suspicious,
+                    $"소리 감지 (vol={volume:F1}, dist={distance:F0}m, perc={perception:F2})");
         }
 
         // ==================================================================
@@ -248,7 +438,8 @@ namespace TDA.PB4.AI.Perception
             lastKnownPosition = nearest.Value;
 
             if (awarenessLevel < AwarenessState.Suspicious)
-                SetAwareness(AwarenessState.Suspicious, $"자취 발견 ({Vector3.Distance(transform.position, nearest.Value):F1}m)");
+                SetAwareness(AwarenessState.Suspicious,
+                    $"자취 발견 ({Vector3.Distance(transform.position, nearest.Value):F1}m)");
         }
 
         // ==================================================================
@@ -274,6 +465,7 @@ namespace TDA.PB4.AI.Perception
                 {
                     SetAwareness(AwarenessState.Suspicious, "경계 시간 초과 → Suspicious");
                     alertTimer = 0f;
+                    alertElapsed = 0f; // [개선] alertElapsed도 함께 초기화
                 }
             }
         }
@@ -314,8 +506,15 @@ namespace TDA.PB4.AI.Perception
             suspicionTimer = 0f;
             alertTimer = 0f;
 
+            // Alert 진입 시 alertElapsed 초기화 (Combat 전환 타이머 리셋)
+            if (newState == AwarenessState.Alert)
+                alertElapsed = 0f;
+
             if (debugLog)
                 Debug.Log($"[Perception] {name}: {oldState}→{newState} ({reason})");
+
+            // [개선] 외부 이벤트 발행 — SFX·UI·Camera 등 외부 시스템이 폴링 없이 수신 가능
+            OnAwarenessChanged?.Invoke(oldState, newState, reason);
         }
 
         private void RaiseFactionDetectionEvent(float distance)

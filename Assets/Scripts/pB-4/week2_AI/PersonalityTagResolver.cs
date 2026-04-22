@@ -92,7 +92,7 @@ namespace TDA.PB4.AI
     /// 성격 5축으로부터 태그를 자동 발현시키는 해석기.
     /// HumanoidAIBrain과 같은 GameObject에 부착.
     /// </summary>
-    public class PersonalityTagResolver : MonoBehaviour
+    public partial class PersonalityTagResolver : MonoBehaviour
     {
         [Header("━━━ 태그 발현 규칙 (15종) ━━━━━━━━━━━━")]
         [Tooltip("15종 성격 태그의 발현 조건 목록. " +

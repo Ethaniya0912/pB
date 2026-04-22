@@ -24,3 +24,28 @@ MonoBehaviour:
   fearBonusNarrowPath: 0.15
   fearBonusDeathTrap: 0.25
   fearBonusSpookyCave: 0.1
+  closeInMaxTime: 1
+  feintIntervalMin: 1
+  feintIntervalMax: 5
+  guardBreakReactionDelay: 0.25
+  poiseAttackIntervalMin: 2.5
+  poiseAttackIntervalMax: 5.5
+  stuckCheckInterval: 0.5
+  stuckMoveThreshold: 0.3
+  stuckGiveUpCount: 1
+  fleeDuelInitialFear: 0.25
+  fleeDuelMaxInitialFear: 0.28
+  attackRotationSpeed: 8
+  attackTimeout: 3
+  narrowPathOrbitMult: 0.4
+  narrowPathStrikeTimeMult: 0.5
+  tacticalStaminaRecoverThreshold: 0.25
+  tacticalHealthRecoverThreshold: 0.3
+  tacticalRetreatDist: 5
+  tacticalRecoverDuration: 3
+  tacticalEvasionChance: 0.2
+  tacticalEvasionDist: 2
+  tacticalEvasionDuration: 0.5
+  tacticalFeintChance: 0.15
+  tacticalFeintDist: 1.5
+  tacticalFeintDuration: 0.4

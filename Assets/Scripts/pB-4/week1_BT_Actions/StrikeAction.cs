@@ -118,7 +118,7 @@ public partial class StrikeAction : Action
     ///          → ResetCharacterStateBehaviour 미동작 → isPerformingAction 영구 true
     ///          → 이 타임아웃이 없으면 스켈레톤이 플레이어 앞에서 영구 멍때림.
     /// </summary>
-    private const float ATTACK_TIMEOUT = 3.0f;
+    [SerializeReference] public BlackboardVariable<float> AttackTimeout = new(3f);
 
     // =========================================================================
     // 생명주기
@@ -209,10 +209,10 @@ public partial class StrikeAction : Action
         //   PlayTargetActionFunnel() 은 호출됐지만 애니메이션 전환이 발생하지 않음
         //   → ResetCharacterStateBehaviour 가 실행되지 않음
         //   → isPerformingAction 이 영구 true → 플레이어 앞에서 멍때림
-        // ATTACK_TIMEOUT(3초) 이내에 isPerformingAction 이 false 가 되지 않으면
+        // AttackTimeout.Value(3초) 이내에 isPerformingAction 이 false 가 되지 않으면
         // 강제로 플래그를 복원하고 Success 를 반환합니다.
         _fallbackTimer += Time.deltaTime;
-        if (_fallbackTimer >= ATTACK_TIMEOUT)
+        if (_fallbackTimer >= AttackTimeout.Value)
         {
             int _curAS = _aiManager.animator != null
                 ? _aiManager.animator.GetInteger(AnimatorParameterHash.ActionState) : -1;
@@ -221,7 +221,7 @@ public partial class StrikeAction : Action
                 : "null";
 
             Debug.LogWarning(
-                "[StrikeAction] " + Self.Value.name + ": " + ATTACK_TIMEOUT + "s 타임아웃! 공격 모션 미완료.\n" +
+                "[StrikeAction] " + Self.Value.name + ": " + AttackTimeout.Value + "s 타임아웃! 공격 모션 미완료.\n" +
                 "원인 가능성:\n" +
                 "  1. attackActionID 와 Animator ActionState 전환 조건값 불일치\n" +
                 "     AttackState SO attackActionID 를 Animator 조건 ActionState 값으로 맞추세요\n" +

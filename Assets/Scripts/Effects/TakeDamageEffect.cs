@@ -21,6 +21,13 @@
 //   [I-02 수정] CheckCounterStagger() 구현 및 ProcessEffect() 호출 추가 → 패링 역경직 완성
 //   [I-05 수정] PlayLightHitAnimation() ActionID → Hit_Light_* 전용 ID 사용
 //   [I-07 수정] angleHitFrom 경계 데드존 해소 (-144 → -145f, 마지막 분기 else로 변경)
+//
+// [Fix-P0-D 2026-04] 싱글/에디터 테스트에서 데미지가 적용되지 않던 문제 해결:
+//   · 기존 !character.IsOwner 게이트는 네트워크 비활성 상태에서 IsOwner 가 구조적으로
+//     false 가 되어 데미지 계산/피격 애니메이션/역경직 전부 실행되지 않았습니다.
+//   · IsNetworkActive 헬퍼를 도입해, 네트워크 활성 시에만 IsOwner 게이트를 강제하고
+//     비활성 시(단일 플레이 / Host 미기동 에디터 테스트)에는 게이트를 통과시킵니다.
+//   · 게이트를 통과한 관련 지점 3곳: CalculateDamage, PlayDirectionalBasedDamagedAnimation, CheckCounterStagger
 // =============================================================================
 using System.Collections;
 using System.Collections.Generic;
@@ -57,6 +64,20 @@ public class TakeDamageEffect : InstantCharacterEffect
     [Header("Directional Damage Taken From")]
     public float angleHitFrom;   // 어떤 데미지 애니메이션이 재생될지 정하기 (뒤로 휘청, 왼/오)
     public Vector3 contactPoint;   // 피 효과가 어디서 인스턴스될지 정함.
+
+    // =========================================================================
+    // [Fix-P0-D 신규] 네트워크 활성 여부 헬퍼
+    // NetworkManager.Singleton 이 없거나 IsListening == false 이면 네트워크 비활성으로 간주.
+    // ScriptableObject 이므로 static 접근이 안전합니다.
+    // =========================================================================
+    private static bool IsNetworkActive
+    {
+        get
+        {
+            var nm = Unity.Netcode.NetworkManager.Singleton;
+            return nm != null && nm.IsListening;
+        }
+    }
 
     // =========================================================================
     public override void ProcessEffect(CharacterManager character)
@@ -98,7 +119,15 @@ public class TakeDamageEffect : InstantCharacterEffect
     // =========================================================================
     private void CalculateDamage(CharacterManager character)
     {
-        if (!character.IsOwner)
+        // =====================================================================
+        // [Fix-P0-D 수정] 네트워크 활성일 때만 IsOwner 게이트 강제
+        // ─────────────────────────────────────────────────────────────────────
+        // 기존:  if (!character.IsOwner) return;
+        // 문제:  NetworkManager 미기동 테스트에서는 모든 오브젝트의 IsOwner 가 false 로 반환되어
+        //        데미지 계산 자체가 절대 실행되지 않았음. 결과적으로 currentHealth 가 감소 안 됨.
+        // 수정:  네트워크가 활성(멀티/Host)일 때는 기존 규약대로 Owner 만 실행. 비활성일 때는 통과.
+        // =====================================================================
+        if (IsNetworkActive && !character.IsOwner)
             return;
 
         if (characterCausingDamage != null)
@@ -168,14 +197,53 @@ public class TakeDamageEffect : InstantCharacterEffect
     {
         if (!willPlayDamageSFX) return;
 
-        AudioClip physicalDamageSFX = WorldSoundFXManager.Instance
-            .ChooseRandomSFXFromArray(WorldSoundFXManager.Instance.physicalDamageSFX);
+        // =====================================================================
+        // [Fix-P0-E 신규] WorldSoundFXManager 싱글톤 null-guard
+        // ─────────────────────────────────────────────────────────────────────
+        // 씬의 DontDestroyOnLoad 루트에 World Sound FX Manager GameObject 가 배치되지 않으면
+        // Instance 가 null 이 되어 여기서 NullReferenceException 발생 → 뒤따르는 PlayDamageVFX
+        // (피 튀기기/hit spark) 호출까지 연쇄 차단됩니다.
+        //
+        // 정석 해결은 씬에 매니저 프리팹을 배치하고 physicalDamageSFX 배열을 할당하는 것이지만,
+        // 빠진 상태에서도 데미지 파이프라인의 나머지(VFX, 이벤트 전파, HP 감소) 가
+        // 정상 수행되도록 방어 코드를 추가합니다. SFX 만 선택적으로 스킵합니다.
+        // =====================================================================
+        if (WorldSoundFXManager.Instance == null)
+        {
+#if UNITY_EDITOR
+            Debug.LogWarning(
+                "<color=orange>[TakeDamageEffect.PlayDamageSFX]</color> " +
+                "WorldSoundFXManager.Instance 가 null 입니다. 씬 DontDestroyOnLoad 루트에 " +
+                "해당 매니저를 배치하고 physicalDamageSFX 배열을 할당해 주세요. SFX 재생을 스킵합니다.");
+#endif
+            return;
+        }
 
-        character.characterSoundFxManager.PlaySoundFX(physicalDamageSFX);
+        AudioClip[] sfxArray = WorldSoundFXManager.Instance.physicalDamageSFX;
+        if (sfxArray == null || sfxArray.Length == 0)
+        {
+#if UNITY_EDITOR
+            Debug.LogWarning(
+                "<color=orange>[TakeDamageEffect.PlayDamageSFX]</color> " +
+                "WorldSoundFXManager.physicalDamageSFX 배열이 비어 있습니다. SFX 재생을 스킵합니다.");
+#endif
+            return;
+        }
+
+        AudioClip physicalDamageSFX = WorldSoundFXManager.Instance
+            .ChooseRandomSFXFromArray(sfxArray);
+
+        if (character.characterSoundFxManager != null && physicalDamageSFX != null)
+        {
+            character.characterSoundFxManager.PlaySoundFX(physicalDamageSFX);
+        }
 
         // 엘레멘탈 데미지가 있으면 엘레멘탈 SFX 덧씌움
-        if (elementDamage > 0f && elementalDamageSoundFX != null)
+        if (elementDamage > 0f && elementalDamageSoundFX != null
+            && character.characterSoundFxManager != null)
+        {
             character.characterSoundFxManager.PlaySoundFX(elementalDamageSoundFX);
+        }
     }
 
     // =========================================================================
@@ -198,7 +266,10 @@ public class TakeDamageEffect : InstantCharacterEffect
     // =========================================================================
     private void PlayDirectionalBasedDamagedAnimation(CharacterManager character)
     {
-        if (!character.IsOwner)
+        // =====================================================================
+        // [Fix-P0-D 수정] 네트워크 활성일 때만 IsOwner 게이트 강제 (위 설명과 동일 규약)
+        // =====================================================================
+        if (IsNetworkActive && !character.IsOwner)
             return;
 
         // ① 수동 애니메이션 선택 시 예외 처리 (레거시 문자열 해시 직접 재생)
@@ -392,7 +463,10 @@ public class TakeDamageEffect : InstantCharacterEffect
     // =========================================================================
     private void CheckCounterStagger(CharacterManager character)
     {
-        if (!character.IsOwner) return;
+        // =====================================================================
+        // [Fix-P0-D 수정] 네트워크 활성일 때만 IsOwner 게이트 강제
+        // =====================================================================
+        if (IsNetworkActive && !character.IsOwner) return;
         if (characterCausingDamage == null) return;
 
         // 피격자(character)의 패링 윈도우가 열려있는지 확인

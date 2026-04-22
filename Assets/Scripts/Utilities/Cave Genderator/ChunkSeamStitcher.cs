@@ -141,6 +141,18 @@ namespace CaveSystem
                 Vector3Int neighborPos = chunkPos + Dirs[d];
                 if (_cache.TryGetValue(neighborPos, out ChunkBoundaryData neighborData))
                 {
+                    // [FIX-STALE-CACHE] 이웃 chunk의 mesh/transform이 Destroy된 경우 lazy cleanup.
+                    //   원인: ReturnToPool에서 Destroy(mf.sharedMesh) 호출 후 UnregisterChunk 호출 순서 race,
+                    //         또는 LOD cull 외 경로에서 mesh Destroy되면 _cache가 stale 상태로 남음.
+                    //   방어: StitchPair 진입 전 neighbor 유효성 검증. 무효 시 _cache에서 제거 후 skip.
+                    //   Unity의 obj == null 연산자는 Destroyed object에 대해 true 반환 (안전).
+                    if (neighborData == null
+                        || neighborData.mesh == null
+                        || neighborData.chunkTransform == null)
+                    {
+                        _cache.Remove(neighborPos);
+                        continue;
+                    }
                     StitchPair(data, d, neighborData, d ^ 1);
                 }
             }
@@ -207,6 +219,16 @@ namespace CaveSystem
             // +X(0)/-X(1): YZ 평면에서 (y,z) 좌표 비교
             // +Y(2)/-Y(3): XZ 평면에서 (x,z) 좌표 비교
             // +Z(4)/-Z(5): XY 평면에서 (x,y) 좌표 비교
+
+            // [FIX-STALE-CACHE] StitchPair 시작 시점 최종 유효성 검증.
+            //   RegisterAndStitch의 진입 방어 + 본 이중 방어로 MissingReferenceException 완전 차단.
+            //   Unity의 obj == null 연산자는 Destroyed object에 대해 true 반환 (스레드 안전).
+            if (A == null || B == null
+                || A.mesh == null || B.mesh == null
+                || A.chunkTransform == null || B.chunkTransform == null)
+            {
+                return;
+            }
 
             Vector3[] vertsA = A.mesh.vertices;
             Vector3[] vertsB = B.mesh.vertices;

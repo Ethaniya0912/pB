@@ -106,7 +106,7 @@ namespace TDA.PB4.AI
     /// MonoBehaviour로 HumanoidAIBrain과 같은 GameObject에 부착하거나,
     /// static 메서드로 직접 호출할 수도 있다.
     /// </summary>
-    public class UtilityMasterFormula : MonoBehaviour
+    public partial class UtilityMasterFormula : MonoBehaviour
     {
         // ==================================================================
         // Inspector 설정

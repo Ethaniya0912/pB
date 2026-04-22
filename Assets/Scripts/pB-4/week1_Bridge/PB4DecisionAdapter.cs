@@ -8,6 +8,48 @@
 //     BehaviorGraphAgent의 Blackboard에 기록합니다.
 //   ② BT Action 노드들이 Blackboard를 읽어서 NavMesh 이동/공격/도주를 실행합니다.
 //
+// =============================================================================
+// BB 소유권 테이블 (예방 체크리스트 #2)
+// 이 컴포넌트가 Write하는 BB 변수와 Read하는 컴포넌트 목록.
+// 새 BB 변수 추가 시 반드시 이 테이블을 갱신할 것.
+//
+// BB["UtilityWinner"]      Writer: UpdateBlackboard() 매 0.5s
+//                           +Override: Suspicious 수색 모드 → "Attack" 강제 (Gate G-3)
+//                           Reader: BT Pass If 조건 노드
+// BB["HasTarget"]          Writer: UpdateBlackboard()
+//                           Reader: BT 조건 (현재 삭제됨), StalkAction 내부 폴백 판단
+// BB["Target"]             Writer: UpdateBlackboard() — null 포함 항상 기록 (Fix-B)
+//                           Reader: StalkAction, CircleStrafeAction, StrikeAction
+// BB["Fear"]               Writer: UpdateBlackboard()
+//                           Reader: BT Pass If Flee 조건, FleeDuelAction
+// BB["LastHeardPosition"]  Writer: (원래) SoundPerception
+//                           +Writer: UpdateBlackboard() Suspicious 수색 모드 직접 push
+//                           ※ AIPerceptionSystem.lastKnownPosition(내부 필드)과 별개!
+//                           Reader: StalkAction (Target==null 폴백)
+// BB["LastSeenPosition"]   Writer: MemoryPerception
+//                           Reader: StalkAction (Target==null && LastHeard==zero 폴백)
+// BB["PredictedPosition"]  Writer: PredictionPerception
+//                           Reader: StalkAction (Target!=null && Predicted!=zero 우선)
+// BB[SO 파라미터들]         Writer: InitializeBlackboard() 1회 (Step1~4)
+//                           Reader: 각 BT Action 노드 (StalkSpeed, EngageRange, ...)
+//
+// externallyTicked 사용 규칙 (예방 체크리스트 #3):
+//   externallyTicked=true → Brain 이중 틱 방지. BT는 0.5s마다만 자체 갱신.
+//   규칙 A: BB 변경 후 BT Observer Abort가 즉시 필요하면 btAgent.Update() 명시 호출.
+//           현재 적용: SoundSearch▶START 첫 진입 시 btAgent.Update() 강제 호출.
+//   규칙 B: ForceSyncBB()는 BB 값 복사 역할만. BT 재평가는 별도 틱이 필요.
+//   규칙 C: externallyTicked 변경 시 Observer Abort 동작 재검증 필수.
+//
+// 단계별 검증 가이드 (예방 체크리스트 #8):
+//   단계1: [SoundSearch▶INIT]  — Start() 시 AIPerceptionSystem 캐싱 성공 여부
+//   단계2: [SoundSearch▶START] — Suspicious 감지 → winner="Attack" 오버라이드
+//   단계3: [SoundSearch▶POS]   — BB["LastHeardPosition"] push 성공
+//   단계4: [SoundSearch▶TICK]  — btAgent.Update() 강제 호출 (Observer 발동)
+//   단계5: [SoundSearch▶ACTIVE]— 수색 모드 유지 중 (5회에 1회)
+//   단계6: [SoundSearch▶END]   — 타겟 발견 or Unaware 복귀
+//   단계7: [PerceptionInject]  — SO → AIPerceptionSystem 주입 완료
+//   → 각 단계 로그가 순서대로 보이면 파이프라인 정상.
+// =============================================================================
 // Blackboard 갱신 목록 (설계 문서 E2 기준):
 //   Self (GameObject)          — BehaviorGraphAgent 자동 설정
 //   Target (Transform)         — brain.currentTarget
@@ -78,6 +120,7 @@ using TDA.Character.AI;
 using TDA.PB4.AI;
 using TDA.PB4.AI.Mob;
 using TDA.PB4.AI.Humanoid;
+using TDA.PB4.AI.Perception;     // AIPerceptionSystem, AwarenessState — Gate G-3 청각 수색 연동
 using TDA.PB4.Data;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -117,14 +160,10 @@ namespace TDA.PB4.Bridge
         [Tooltip("BehaviorGraphAgent. 같은 GameObject에 있으면 자동 탐색.")]
         [SerializeField] private BehaviorGraphAgent btAgent;
 
-        [Tooltip("팩션 전투 프로파일 SO. Start에서 BB에 파라미터 복사.\n"
-               + "미할당 시 안전 기본값이 설정되지만 실제 전투 파라미터와 다를 수 있습니다.")]
+        [Tooltip("팩션 전투 프로파일 SO. Start에서 BB에 파라미터 복사.\n미할당 시 안전 기본값이 설정되지만 실제 전투 파라미터와 다를 수 있습니다.")]
         [SerializeField] private FactionCombatProfileSO combatProfile;
 
-        [Tooltip("FactionPolicyType을 SO 이름 감지 대신 직접 지정합니다.\n"
-               + "비워두면 combatProfile SO 이름에서 자동 감지.\n"
-               + "Swarm / Duel / Phalanx 중 하나를 입력하세요.\n"
-               + "SO 이름에 팩션명이 없어서 잘못 감지될 때 사용하세요.")]
+        [Tooltip("FactionPolicyType을 SO 이름 감지 대신 직접 지정합니다.\n비워두면 combatProfile SO 이름에서 자동 감지.\nSwarm / Duel / Phalanx 중 하나를 입력하세요.\nSO 이름에 팩션명이 없어서 잘못 감지될 때 사용하세요.")]
         [SerializeField] private string policyTypeOverride = "";
 
         // =====================================================================
@@ -133,8 +172,7 @@ namespace TDA.PB4.Bridge
 
         [Header("━━━ AttackState 연결 (Strike 공격 체인) ━━")]
 
-        [Tooltip("pursueState → combatStanceState → attackState 체인으로 공격 액션 취득.\n"
-               + "StrikeAction이 공격 애니메이션 ID를 읽기 위해 사용합니다.")]
+        [Tooltip("pursueState → combatStanceState → attackState 체인으로 공격 액션 취득.\nStrikeAction이 공격 애니메이션 ID를 읽기 위해 사용합니다.")]
         [SerializeField] private PursueTargetState pursueState;
 
         // =====================================================================
@@ -174,6 +212,12 @@ namespace TDA.PB4.Bridge
         [Tooltip("BB 갱신 로그를 Console에 출력합니다. 성능에 영향을 주므로 릴리즈 전 끄세요.")]
         [SerializeField] private bool debugLog = true;
 
+        [Tooltip("청각 수색 모드 진입/해제 로그 출력. Gate G-3 검증용. true = [SoundSearch] 로그 활성. 검증 완료 후 false로 끄세요.")]
+        [SerializeField] private bool debugSoundSearch = true;
+
+        [Tooltip("SO→AIPerceptionSystem 인지 파라미터 주입 로그. true = [PerceptionInject] 로그 활성 — SO값이 올바르게 주입됐는지 콘솔로 확인 가능. 검증 완료 후 false로 끄세요.")]
+        [SerializeField] private bool debugPerceptionInject = true;
+
         [Tooltip("SceneView에 현재 상태를 텍스트로 표시합니다.")]
         [SerializeField] private bool showGizmo = true;
 
@@ -183,6 +227,25 @@ namespace TDA.PB4.Bridge
 
         /// <summary>BB 초기화 완료 여부. IEnumerator Start()가 true로 설정합니다.</summary>
         private bool _bbInitialized = false;
+
+        /// <summary>[Gate G-3] 청각 수색 ACTIVE 로그 빈도 조절용 카운터 (5회에 1회 출력)</summary>
+        private int _soundSearchLogCounter = 0;
+
+        // ── Stalk 실패 쿨다운 (깜빡임 방지) ──────────────────────────────────────
+        // StalkAction이 우회/Stuck으로 실패하면 BB["StalkBlocked"]=true 신호를 보냄.
+        // Adapter가 이 신호를 받아 _stalkBlockedTimer를 시작하고
+        // 타이머가 끝날 때까지 UtilityWinner를 강제로 "Patrol"로 유지.
+        // 문제: 타이머 없이 UtilityWinner만 Patrol로 바꾸면
+        //       0.5s 후 Adapter 틱에서 다시 "Attack"으로 뒤집혀 깜빡임 발생.
+        private float _stalkBlockedTimer = 0f;
+        private const float STALK_BLOCKED_DURATION = 5f; // 5초간 Attack 재진입 차단
+
+        /// <summary>
+        /// [Gate G-3] AIPerceptionSystem 캐시.
+        /// Start()에서 1회 GetComponent — UpdateBlackboard() 매 틱 호출 비용 절감.
+        /// AIPerceptionSystem이 없는 AI(청각 미사용)는 null → 수색 모드 미진입.
+        /// </summary>
+        private AIPerceptionSystem _perceptionSystem;
 
         /// <summary>FleeSwarmAction 등 외부에서 BB 초기화 완료 여부를 확인할 때 사용.</summary>
         public bool IsBBInitialized => _bbInitialized;
@@ -383,6 +446,23 @@ namespace TDA.PB4.Bridge
                     Debug.Log($"[PB4Adapter] {name}: FactionPolicyType={policyType} BB 검증 완료.");
                 }
             }
+            // ── [Gate G-3] AIPerceptionSystem 캐싱 ──────────────────────────────
+            // 매 틱 GetComponent 비용을 피하기 위해 Start()에서 1회만 캐싱.
+            // AIPerceptionSystem이 없는 AI는 null → 청각 수색 모드 미진입.
+            _perceptionSystem = GetComponent<AIPerceptionSystem>();
+            if (debugSoundSearch)
+            {
+                if (_perceptionSystem != null)
+                    Debug.Log(
+                        $"<color=#44CCFF>[SoundSearch▶INIT]</color> {name}: " +
+                        $"AIPerceptionSystem 캐싱 완료. 청각 수색 모드 활성화 대기 중.");
+                else
+                    Debug.LogWarning(
+                        $"<color=orange>[SoundSearch▶INIT]</color> {name}: " +
+                        $"AIPerceptionSystem 없음. 청각 수색 모드 비활성. " +
+                        $"AI 프리팹에 컴포넌트를 추가해야 소리에 반응합니다.");
+            }
+
             SetBB("UtilityWinner", "Idle");
             SetBB("HasTarget", false);
             SetBB("Fear", 0f);
@@ -417,6 +497,39 @@ namespace TDA.PB4.Bridge
                 //   BB 에 정확한 값을 넣어 두면 감지 오류 시에도 파급 범위를 최소화합니다.
                 SetBB("PanicChainRadius", combatProfile.panicChainRadius);
                 SetBB("PanicChainMultiplier", combatProfile.panicChainMultiplier);
+                // ── Step 1: CircleStrafe 타이밍 파라미터 ──────────────────────────
+                SetBB("CloseInMaxTime", combatProfile.closeInMaxTime);
+                SetBB("FeintIntervalMin", combatProfile.feintIntervalMin);
+                SetBB("FeintIntervalMax", combatProfile.feintIntervalMax);
+                SetBB("GuardBreakReactionDelay", combatProfile.guardBreakReactionDelay);
+                SetBB("PoiseAttackIntervalMin", combatProfile.poiseAttackIntervalMin);
+                SetBB("PoiseAttackIntervalMax", combatProfile.poiseAttackIntervalMax);
+
+                // ── Step 2: Flee 파라미터 ────────────────────────────────────────────
+                SetBB("ForceAttackFear", combatProfile.forceAttackFear);
+                SetBB("StuckCheckInterval", combatProfile.stuckCheckInterval);
+                SetBB("StuckMoveThreshold", combatProfile.stuckMoveThreshold);
+                SetBB("StuckGiveUpCount", combatProfile.stuckGiveUpCount);
+                SetBB("FleeDuelInitialFear", combatProfile.fleeDuelInitialFear);
+                SetBB("FleeDuelMaxInitialFear", combatProfile.fleeDuelMaxInitialFear);
+
+                // ── Step 3: Strike + 지형 보정 ────────────────────────────────────────
+                SetBB("AttackRotationSpeed", combatProfile.attackRotationSpeed);
+                SetBB("AttackTimeout", combatProfile.attackTimeout);
+                SetBB("NarrowPathOrbitMult", combatProfile.narrowPathOrbitMult);
+                SetBB("NarrowPathStrikeTimeMult", combatProfile.narrowPathStrikeTimeMult);
+
+                // ── Step 4: TacticalReposition ────────────────────────────────────────
+                SetBB("StaminaRecoverThreshold", combatProfile.tacticalStaminaRecoverThreshold);
+                SetBB("HealthRecoverThreshold", combatProfile.tacticalHealthRecoverThreshold);
+                SetBB("RetreatDist", combatProfile.tacticalRetreatDist);
+                SetBB("RecoverDuration", combatProfile.tacticalRecoverDuration);
+                SetBB("EvasionChance", combatProfile.tacticalEvasionChance);
+                SetBB("EvasionDist", combatProfile.tacticalEvasionDist);
+                SetBB("EvasionDuration", combatProfile.tacticalEvasionDuration);
+                SetBB("FeintChance", combatProfile.tacticalFeintChance);
+                SetBB("FeintDist", combatProfile.tacticalFeintDist);
+                SetBB("FeintDuration", combatProfile.tacticalFeintDuration);
             }
             else
             {
@@ -439,6 +552,22 @@ namespace TDA.PB4.Bridge
                 SetBB("PanicChainRadius", 0f);    // [Bug 3&4 수정] 패닉 전파 비활성 (안전)
                 SetBB("PanicChainMultiplier", 0f);
             }
+
+            // ── Step 5: SO → AIPerceptionSystem 인지 파라미터 주입 ───────────────
+            // 설계 의도:
+            //   FactionCombatProfileSO에 팩션별 인지 특성을 정의하고
+            //   AIPerceptionSystem의 Inspector 하드코딩 값을 SO 값으로 덮어쓴다.
+            //   이렇게 하면 고블린/오크/스켈레톤이 각기 다른 청각·시각 특성을 가진다.
+            //
+            // 주입 시점: InitializeBlackboard() — 게임 시작 시 1회.
+            //   런타임 중 SO 값을 바꿔도 AIPerceptionSystem에 반영되지 않는다.
+            //   재반영이 필요하면 ClearAllSessions() 후 재스폰.
+            //
+            // 주입 대상: AIPerceptionSystem 컴포넌트의 public 필드 직접 설정.
+            //   BB가 아닌 컴포넌트 필드에 직접 쓰는 이유:
+            //   AIPerceptionSystem은 BT Action이 아니므로 BB 포트가 없다.
+            //   OnSoundHeard(), TickVision() 등 내부 메서드가 이 필드를 직접 읽는다.
+            InjectPerceptionFromSO(combatProfile);
 
             // ── AttackState SO → BB 등록 ───────────────────────────────────────
             // StrikeAction이 AttackConfig BB 변수로 공격 애니메이션 ID를 읽습니다.
@@ -591,6 +720,94 @@ namespace TDA.PB4.Bridge
         // BB 갱신 (핵심 브릿지)
         // =====================================================================
 
+        // =====================================================================
+        // [Step 5] SO → AIPerceptionSystem 인지 파라미터 주입
+        // =====================================================================
+        /// <summary>
+        /// FactionCombatProfileSO의 인지 파라미터를 AIPerceptionSystem에 주입합니다.
+        /// InitializeBlackboard()에서 1회 호출됩니다.
+        ///
+        /// 왜 BB가 아닌 컴포넌트 직접 주입인가:
+        ///   AIPerceptionSystem은 BT Action이 아닌 MonoBehaviour이므로 BB 포트가 없다.
+        ///   OnSoundHeard(), TickVision() 등이 컴포넌트 필드를 직접 읽으므로
+        ///   필드를 덮어쓰는 방식이 가장 간결하고 안전하다.
+        /// </summary>
+        private void InjectPerceptionFromSO(FactionCombatProfileSO profile)
+        {
+            var perception = GetComponent<AIPerceptionSystem>();
+            if (perception == null)
+            {
+                if (debugPerceptionInject)
+                    Debug.LogWarning(
+                        $"<color=orange>[PerceptionInject] {name}: " +
+                        $"AIPerceptionSystem 컴포넌트가 없습니다. 인지 파라미터 주입 스킵.</color>\n" +
+                        "  → AI 프리팹에 AIPerceptionSystem 컴포넌트를 추가하세요.");
+                return;
+            }
+
+            if (profile == null)
+            {
+                // SO 미할당 — Inspector 기본값 그대로 사용, 경고만 출력
+                if (debugPerceptionInject)
+                    Debug.LogWarning(
+                        $"<color=orange>[PerceptionInject] {name}: " +
+                        $"FactionCombatProfileSO 미할당. AIPerceptionSystem Inspector 기본값 유지.</color>\n" +
+                        "  → 팩션별 인지 특성이 반영되지 않습니다.");
+                return;
+            }
+
+            // ── 청각 파라미터 주입 ─────────────────────────────────────────────
+            float prevHearingRange = perception.hearingRange;
+            float prevSensitivity = perception.hearingSensitivity;
+            float prevThreshold = perception.perceptionThreshold;
+            float prevSuspicionDecay = perception.suspicionDecayTime;
+            float prevAlertDecay = perception.alertDecayTime;
+            float prevVisionRange = perception.visionRange;
+            float prevVisionAngle = perception.visionAngle;
+            float prevTraceRange = perception.traceDetectionRange;
+
+            perception.hearingRange = profile.perceptionHearingRange;
+            perception.hearingSensitivity = profile.perceptionHearingSensitivity;
+            perception.perceptionThreshold = profile.perceptionThreshold;
+            perception.suspicionDecayTime = profile.perceptionSuspicionDecayTime;
+            perception.alertDecayTime = profile.perceptionAlertDecayTime;
+            perception.visionRange = profile.perceptionVisionRange;
+            perception.visionAngle = profile.perceptionVisionAngle;
+            perception.traceDetectionRange = profile.perceptionTraceDetectionRange;
+
+            // ── 검증 로그 ─────────────────────────────────────────────────────
+            // debugPerceptionInject=true 시 SO값이 올바르게 주입됐는지 콘솔로 확인 가능.
+            // 값이 Inspector 기본값과 같으면 △ 경고 (SO 미수정 의심).
+            if (debugPerceptionInject)
+            {
+                bool hearingOk = !Mathf.Approximately(profile.perceptionHearingRange, 30f)
+                                  || profile.perceptionHearingRange == 0f;
+                bool sensitivityOk = !Mathf.Approximately(profile.perceptionHearingSensitivity, 0.5f);
+                bool visionOk = !Mathf.Approximately(profile.perceptionVisionRange, 20f);
+
+                string hearingCheck = hearingOk ? "<color=#44FF88>✓</color>" : "<color=#FFDD44>△ 기본값</color>";
+                string sensitivityCheck = sensitivityOk ? "<color=#44FF88>✓</color>" : "<color=#FFDD44>△ 기본값</color>";
+                string visionCheck = visionOk ? "<color=#44FF88>✓</color>" : "<color=#FFDD44>△ 기본값</color>";
+
+                bool anyDefaultLeft = !hearingOk || !sensitivityOk || !visionOk;
+
+                Debug.Log(
+                    $"<color=#CC88FF>[PerceptionInject] {name} ← {profile.name}</color>\n" +
+                    $"  <color=#AABBCC>청각범위</color>  : {prevHearingRange:F0}m → <color=#FFFFFF>{profile.perceptionHearingRange:F0}m</color> {hearingCheck}\n" +
+                    $"  <color=#AABBCC>청각민감도</color>: {prevSensitivity:F2} → <color=#FFFFFF>{profile.perceptionHearingSensitivity:F2}</color> {sensitivityCheck}\n" +
+                    $"  <color=#AABBCC>최소지각값</color>: {prevThreshold:F2} → <color=#FFFFFF>{profile.perceptionThreshold:F2}</color>\n" +
+                    $"  <color=#AABBCC>Suspicion감쇄</color>: {prevSuspicionDecay:F0}s → <color=#FFFFFF>{profile.perceptionSuspicionDecayTime:F0}s</color>\n" +
+                    $"  <color=#AABBCC>Alert감쇄</color> : {prevAlertDecay:F0}s → <color=#FFFFFF>{profile.perceptionAlertDecayTime:F0}s</color>\n" +
+                    $"  <color=#AABBCC>시야범위</color>  : {prevVisionRange:F0}m → <color=#FFFFFF>{profile.perceptionVisionRange:F0}m</color> {visionCheck}\n" +
+                    $"  <color=#AABBCC>시야각</color>    : {prevVisionAngle:F0}° → <color=#FFFFFF>{profile.perceptionVisionAngle:F0}°</color>\n" +
+                    $"  <color=#AABBCC>자취범위</color>  : {prevTraceRange:F0}m → <color=#FFFFFF>{profile.perceptionTraceDetectionRange:F0}m</color>\n" +
+                    (anyDefaultLeft
+                        ? "  <color=#FFDD44>△ SO 인지 파라미터 일부가 기본값입니다. SO 에셋을 팩션에 맞게 수정하세요.</color>"
+                        : "  <color=#44FF88>✓ 모든 인지 파라미터 주입 완료</color>")
+                );
+            }
+        }
+
         /// <summary>
         /// 유틸리티 AI 결과를 BehaviorGraphAgent의 Blackboard에 기록합니다.
         /// Conditional Guard가 이 값을 읽어 BT 분기를 선택합니다.
@@ -619,6 +836,111 @@ namespace TDA.PB4.Bridge
                 target = humanoidBrain.currentTarget;
             }
 
+            // ── Stalk 실패 쿨다운 처리 ──────────────────────────────────────────────
+            // BB["StalkBlocked"]=true 신호가 오면 쿨다운 타이머 시작.
+            // 타이머 동안 winner를 "Patrol"로 강제 유지 → Attack 재진입 차단.
+            // 쿨다운 종료 후 brain이 다시 Attack을 선택하면 자연스럽게 재진입.
+            //
+            // 구현: BB["StalkBlocked"] 변수를 직접 읽어 처리.
+            //       StalkAction의 StalkBlockedOut 포트가 이 변수에 연결돼 있어야 함.
+            var _stalkBlockedBB = btAgent.BlackboardReference;
+            _stalkBlockedBB.GetVariable("StalkBlocked",
+                out BlackboardVariable<bool> _stalkBlockedVar);
+
+            if (_stalkBlockedVar != null && _stalkBlockedVar.Value)
+            {
+                // 신호 수신 → 타이머 시작, 신호 초기화
+                _stalkBlockedTimer = STALK_BLOCKED_DURATION;
+                _stalkBlockedVar.Value = false;
+                if (debugLog)
+                    Debug.Log(
+                        $"<color=#FF9944>[Adapter▶STALK_BLOCKED]</color> {name}: " +
+                        $"Stalk 실패 신호 수신. {STALK_BLOCKED_DURATION}s간 Attack 차단 시작.");
+            }
+
+            // ── Combat 진입 시 StalkBlocked 즉시 해제 ────────────────────────────
+            // 문제: Stalk 우회 감지 → 쿨다운 5초 시작 → 그 5초 안에 타겟이 코앞와도
+            //       winner="Patrol" 고정 → Attack 분기 진입 불가
+            // 수정: 타겟이 생긴 순간(Combat 진입) 쿨다운을 즉시 취소.
+            //       타겟이 있으면 쿨다운이 불필요하다.
+            if (target != null && _stalkBlockedTimer > 0f)
+            {
+                if (debugLog)
+                    Debug.Log(
+                        $"<color=#44FF88>[Adapter▶STALK_UNBLOCKED_COMBAT]</color> {name}: " +
+                        $"타겟 발견({(target != null ? target.name : "null")}) → " +
+                        $"StalkBlocked 쿨다운 즉시 해제. 남은 시간={_stalkBlockedTimer:F1}s");
+                _stalkBlockedTimer = 0f;
+            }
+
+            if (_stalkBlockedTimer > 0f)
+            {
+                _stalkBlockedTimer -= Time.deltaTime;
+                winner = "Patrol";
+                if (debugLog && _stalkBlockedTimer <= 0f)
+                    Debug.Log(
+                        $"<color=#44FF88>[Adapter▶STALK_UNBLOCKED]</color> {name}: " +
+                        $"Stalk 차단 해제. Attack 재진입 허용.");
+            }
+
+            // ── [Gate G-3] Suspicious 상태를 BT Attack 분기에 전달 ──────────────────
+            // 설계 의도 (기획서 v9 Gate G-3):
+            //   소리/자취 감지 → Suspicious → 소리 위치로 수색 이동 → 발견 시 Combat
+            //
+            // 기존 문제:
+            //   AIPerceptionSystem.Suspicious는 이 메서드에서 전혀 읽히지 않았다.
+            //   타겟 없으면 winner가 항상 "Patrol"/"Idle" → Attack 분기 미진입
+            //   → StalkAction의 LastHeardPosition 폴백 코드가 영원히 미실행
+            //
+            // 수정 내용:
+            //   Suspicious 상태이고 타겟이 없을 때 winner를 "Attack"으로 오버라이드.
+            //   HasTarget은 false 유지 → StalkAction이 LastHeardPosition 폴백 경로 사용.
+            //   타겟이 생기면 (AIPerceptionSystem.Combat 전환 + currentTarget 설정)
+            //   다음 UpdateBlackboard 사이클에서 원래 "Attack"+"HasTarget=true"로 복귀.
+            // _perceptionSystem은 Start()에서 캐싱 (매 틱 GetComponent 비용 제거)
+            bool _isSoundSearchMode = false;
+            string _soundSearchReason = "";
+
+            if (_perceptionSystem != null
+                && _perceptionSystem.CurrentAwareness >= AwarenessState.Suspicious
+                && target == null
+                && winner != "Flee")  // 도주 중에는 소리 수색 모드 진입 안 함
+            {
+                _isSoundSearchMode = true;
+                _soundSearchReason =
+                    $"Awareness={_perceptionSystem.CurrentAwareness}" +
+                    $" LastHeard={_perceptionSystem.LastKnownPosition:F1}";
+
+                // winner 오버라이드 — Attack 분기 진입 허용
+                // HasTarget=false이므로 StalkAction이 LastHeardPosition 폴백 사용
+                winner = "Attack";
+
+                // ── BB["LastHeardPosition"] 직접 갱신 ────────────────────────────
+                // 문제: AIPerceptionSystem.lastKnownPosition(내부 필드)과
+                //       BB["LastHeardPosition"](Blackboard 변수)은 별개로 관리된다.
+                //       SoundPerception 컴포넌트가 없거나 BB 갱신이 누락되면
+                //       StalkAction이 LastHeardPosition.Value == Vector3.zero 감지 →
+                //       즉시 Status.Failure 반환 → BT가 Idle 분기로 폴백.
+                // 수정: Adapter가 AIPerceptionSystem.LastKnownPosition을
+                //       BB["LastHeardPosition"]에 직접 push.
+                //       SoundPerception 미부착 환경에서도 StalkAction이 올바른
+                //       목적지를 받을 수 있도록 보장.
+                Vector3 _knownPos = _perceptionSystem.LastKnownPosition;
+                if (_knownPos != Vector3.zero)
+                {
+                    SetBB("LastHeardPosition", _knownPos);
+                    if (debugSoundSearch)
+                        Debug.Log(
+                            $"<color=#44CCFF>[SoundSearch▶POS]</color> {name}: " +
+                            $"BB[LastHeardPosition] = <color=#FFE082>{_knownPos:F1}</color> " +
+                            $"← AIPerceptionSystem.LastKnownPosition 직접 push");
+                }
+                else if (debugSoundSearch)
+                    Debug.LogWarning(
+                        $"<color=orange>[SoundSearch▶POS]</color> {name}: " +
+                        $"LastKnownPosition == zero — StalkAction 목적지 없음!");
+            }
+
             // ── BB 기록 ────────────────────────────────────────────────────────
             SetBB("UtilityWinner", winner);
             SetBB("Fear", fear);
@@ -628,6 +950,74 @@ namespace TDA.PB4.Bridge
             // target이 파괴/이탈되어 null이 되어도 이전 프레임의 참조가 BB에 남으면
             // StalkAction.OnUpdate()에서 MissingReferenceException이 발생할 수 있습니다.
             SetBB("Target", target);
+
+            // ── [Gate G-3] 청각 수색 모드 로그 (debugSoundSearch 플래그) ────────
+            // 이 로그만 보면 소리 감지 → BT Attack 분기 진입 전 과정을 검증할 수 있다.
+            //
+            // 로그 종류:
+            //   [SoundSearch▶START]  : Suspicious 감지 → Attack으로 오버라이드 진입
+            //   [SoundSearch▶ACTIVE] : 수색 모드 유지 중 (0.5s마다 반복)
+            //   [SoundSearch▶END]    : 타겟 발견 or Unaware 복귀로 수색 모드 해제
+            if (debugSoundSearch)
+            {
+                bool _wasSearchMode = lastPB4State == "SoundSearch";
+
+                if (_isSoundSearchMode && !_wasSearchMode)
+                {
+                    // 수색 모드 진입 (첫 프레임만 출력)
+                    Debug.Log(
+                        $"<color=#44CCFF>[SoundSearch▶START]</color> <color=#FFFFFF>{name}</color>\n" +
+                        $"  <color=#AABBCC>원인</color> : <color=#FFE082>{_soundSearchReason}</color>\n" +
+                        $"  <color=#AABBCC>동작</color> : <color=#69FF7A>UtilityWinner를 Attack으로 오버라이드 → StalkAction이 소리 위치로 이동 시작</color>\n" +
+                        $"  <color=#AABBCC>게임의미</color> : <color=#FFFFFF>몹이 소리를 듣고 그쪽을 향해 걷기 시작함</color>");
+                    lastPB4State = "SoundSearch";
+
+                    // ── BT 즉시 재평가 강제 ─────────────────────────────────────────
+                    // 문제: externallyTicked=true이면 BT는 Adapter의 0.5s 틱 때만 갱신된다.
+                    //       BB winner="Attack"으로 바뀌어도 BT의 Conditional Observer가
+                    //       즉시 감지하지 못해 Idle에 계속 머문다.
+                    // 수정: 수색 모드 진입 첫 프레임에 BT를 강제로 한 번 더 틱해
+                    //       "Abort On Lower Priority" Observer가 즉시 발동하도록 한다.
+                    //       이후 프레임부터는 BT가 Attack 분기에서 Running이므로 추가 틱 불필요.
+                    if (btAgent != null && btAgent.enabled)
+                    {
+                        btAgent.Update();
+                        if (debugSoundSearch)
+                            Debug.Log(
+                                $"<color=#44CCFF>[SoundSearch▶TICK]</color> {name}: " +
+                                $"BT 강제 틱 — Abort On Lower Priority 즉시 발동.");
+                    }
+                }
+                else if (_isSoundSearchMode && _wasSearchMode)
+                {
+                    // 수색 모드 유지 — 매 갱신마다 출력하면 도배되므로 5회에 1회만
+                    _soundSearchLogCounter = (_soundSearchLogCounter + 1) % 5;
+                    if (_soundSearchLogCounter == 0)
+                    {
+                        Debug.Log(
+                            $"<color=#44CCFF>[SoundSearch▶ACTIVE]</color> <color=#FFFFFF>{name}</color>" +
+                            $"  <color=#AABBCC>Awareness</color>=<color=#FFE082>{_perceptionSystem?.CurrentAwareness}</color>" +
+                            $"  <color=#AABBCC>LastKnown</color>=<color=#FFE082>{_perceptionSystem?.LastKnownPosition:F1}</color>" +
+                            $"  <color=#AABBCC>Winner</color>=<color=#69FF7A>Attack(수색)</color>");
+                    }
+                }
+                else if (!_isSoundSearchMode && _wasSearchMode)
+                {
+                    // 수색 모드 해제
+                    string _exitReason = target != null
+                        ? $"타겟 발견! ({target.name})"
+                        : $"Awareness={_perceptionSystem?.CurrentAwareness} (Unaware 복귀 or 도주)";
+                    Debug.Log(
+                        $"<color=#FF9944>[SoundSearch▶END]</color> <color=#FFFFFF>{name}</color>\n" +
+                        $"  <color=#AABBCC>해제 사유</color> : <color=#FFE082>{_exitReason}</color>\n" +
+                        $"  <color=#AABBCC>게임의미</color> : <color=#FFFFFF>" +
+                        (target != null
+                            ? "플레이어를 발견해 정식 전투 모드로 전환됨"
+                            : "수색 시간 초과 또는 도주로 수색 종료") +
+                        "</color>");
+                    // lastPB4State는 아래 일반 갱신 로그에서 winner로 업데이트됨
+                }
+            }
 
             // ── 기록 후 읽기 검증 (debugLog 활성 시) ──────────────────────────
             if (debugLog)
@@ -658,7 +1048,7 @@ namespace TDA.PB4.Bridge
                     Debug.Log(
                         $"[PB4Adapter] {name}: BB갱신 " +
                         $"Winner={readWinner} Fear={readFear:F2} " +
-                        $"HasTgt={readHasTgt} Tgt={target?.name ?? "null"}");
+                        $"HasTgt={readHasTgt} Tgt={(target != null ? target.name : "null")}");
                     _bbDebugCount++;
                 }
             }

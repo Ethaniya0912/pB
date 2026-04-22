@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b952cde266459a48bcdcd07d47241e8, type: 3}
+  m_Name: Skeleton_T3_CombatProfile
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.FactionCombatProfileSO
+  stalkSpeed: 3.5
+  engageRange: 18
+  attackRange: 3
+  orbitRadius: 6
+  strafeAngularSpeed: 30
+  strikeTriggerTime: 99
+  closeInMaxTime: 2
+  feintIntervalMin: 3.5
+  feintIntervalMax: 6
+  guardBreakReactionDelay: 0.03
+  poiseAttackIntervalMin: 2.5
+  poiseAttackIntervalMax: 5
+  fleeSprintSpeed: 0
+  safeFleeDistance: 0
+  panicChainRadius: 0
+  panicChainMultiplier: 0
+  stuckCheckInterval: 0.5
+  stuckMoveThreshold: 0.3
+  stuckGiveUpCount: 4
+  fleeDuelInitialFear: 0
+  fleeDuelMaxInitialFear: 0
+  fearBonusNarrowPath: 0.05
+  fearBonusDeathTrap: 0.06
+  fearBonusSpookyCave: 0.03
+  spookyCaveSpeedMultiplier: 1.2
+  narrowPathOrbitMultiplier: 0.5
+  narrowPathStrikeTimeMultiplier: 0.6
+  attackRotationSpeed: 7
+  attackTimeout: 2
+  tacticalStaminaRecoverThreshold: 0.15
+  tacticalHealthRecoverThreshold: 0.2
+  tacticalRetreatDist: 4
+  tacticalRecoverDuration: 2
+  tacticalEvasionChance: 0.1
+  tacticalEvasionDist: 2
+  tacticalEvasionDuration: 0.5
+  tacticalFeintChance: 0.1
+  tacticalFeintDist: 2
+  tacticalFeintDuration: 0.4

@@ -76,7 +76,13 @@ namespace TDA.PB4.Editor
         // 상태
         // =====================================================================
 
-        private int _selectedProbe = 0;
+        // -1 = 비선택 상태 (프로브 미활성). 씬뷰 클릭/ev.Use() 없음 → 오브젝트 이동 정상.
+        // ESC 또는 현재 선택 버튼 재클릭 시 -1로 복귀.
+        private int _selectedProbe = -1;
+
+        // 프로브 발사 볼륨 (0~1) — Footstep 기본=0.3, Combat=0.8
+        // 높을수록 sourceRadius 증가 → AI 반응 범위 확대
+        private float _probeVolume = 0.5f;
         private float _fearDelta = 0.3f;
         private Vector3 _mouseWorldPos;
         private bool _mouseHitValid;
@@ -596,6 +602,31 @@ namespace TDA.PB4.Editor
         private void DrawProbeButtons()
         {
             EditorGUILayout.LabelField("프로브 (Scene View 마우스 위치에 발동)", EditorStyles.boldLabel);
+
+            // ── 볼륨 슬라이더: 청각 프로브(isPerception=true) 선택 시에만 표시 ──────
+            // 발자국(0), 전투소음(1)만 해당. BT강제 프로브는 볼륨 개념 없음.
+            bool _curIsPerception = _selectedProbe >= 0 && _selectedProbe < PROBES.Length && PROBES[_selectedProbe].isPerception;
+            if (_curIsPerception)
+            {
+                GUILayout.Space(4);
+                var boxSt = new GUIStyle(GUI.skin.box);
+                EditorGUILayout.BeginVertical(boxSt);
+                EditorGUILayout.LabelField("청각 볼륨 설정", EditorStyles.miniLabel);
+                using (new GUILayout.HorizontalScope())
+                {
+                    GUILayout.Label($"볼륨  {_probeVolume:F2}", GUILayout.Width(72));
+                    _probeVolume = GUILayout.HorizontalSlider(_probeVolume, 0.05f, 1f);
+                }
+                using (new GUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Footstep(0.3)", GUILayout.Width(100))) _probeVolume = 0.3f;
+                    if (GUILayout.Button("Combat(0.8)", GUILayout.Width(90))) _probeVolume = 0.8f;
+                    if (GUILayout.Button("Max(1.0)", GUILayout.Width(75))) _probeVolume = 1.0f;
+                }
+                EditorGUILayout.EndVertical();
+                GUILayout.Space(4);
+            }
+
             for (int i = 0; i < PROBES.Length; i++)
             {
                 var (icon, name, key, isPerception, tip) = PROBES[i];
@@ -617,24 +648,34 @@ namespace TDA.PB4.Editor
                 string label = $"  {icon} {name}   {key}   {(isPerception ? "[인지경유]" : "[BT강제]")}";
                 if (GUILayout.Button(new GUIContent(label, tip), style))
                 {
-                    _selectedProbe = i;
-                    // [인지경유] 프로브: 씬뷰 마우스 위치 필요
-                    // [BT강제]   프로브: 마우스 위치 불필요 — 대상 AI에 직접 적용
-                    if (isPerception)
+                    if (selected)
                     {
-                        if (_mouseHitValid)
-                            FireProbe(i, _mouseWorldPos);
-                        else
-                            AddLog($"⚠️ '{name}': Scene View 위에 마우스를 올린 후 클릭하세요.");
+                        // 이미 선택된 버튼 재클릭 → 선택 해제 (토글)
+                        _selectedProbe = -1;
+                        AddLog($"🔕 [{icon} {name}] 선택 해제. 씬뷰 오브젝트 조작 가능.");
+                        SceneView.RepaintAll();
                     }
                     else
                     {
-                        // BT강제: 대상 AI 위치 사용 (마우스 위치 무관)
-                        var _btnTargets = GetTargetAIs();
-                        Vector3 _btnPos = _btnTargets.Count > 0
-                            ? _btnTargets[0].transform.position
-                            : _mouseWorldPos;
-                        FireProbe(i, _btnPos);
+                        _selectedProbe = i;
+                        // [인지경유] 프로브: 씬뷰 마우스 위치 필요
+                        // [BT강제]   프로브: 마우스 위치 불필요 — 대상 AI에 직접 적용
+                        if (isPerception)
+                        {
+                            if (_mouseHitValid)
+                                FireProbe(i, _mouseWorldPos);
+                            else
+                                AddLog($"⚠️ '{name}': Scene View 위에 마우스를 올린 후 클릭하세요.");
+                        }
+                        else
+                        {
+                            // BT강제: 대상 AI 위치 사용 (마우스 위치 무관)
+                            var _btnTargets = GetTargetAIs();
+                            Vector3 _btnPos = _btnTargets.Count > 0
+                                ? _btnTargets[0].transform.position
+                                : _mouseWorldPos;
+                            FireProbe(i, _btnPos);
+                        }
                     }
                 }
                 GUI.backgroundColor = prev;
@@ -695,18 +736,35 @@ namespace TDA.PB4.Editor
             _mouseHitValid = Physics.Raycast(ray, out RaycastHit hit, 500f);
             if (_mouseHitValid) _mouseWorldPos = hit.point;
 
-            // 커서 Gizmo
-            if (_mouseHitValid)
+            // 커서 Gizmo — 플레이 중 + 프로브 선택된 경우에만 표시
+            if (_mouseHitValid
+                && _selectedProbe >= 0
+                && UnityEngine.Application.isPlaying)
             {
                 Handles.color = new Color(0.3f, 1f, 0.9f, 0.8f);
                 Handles.DrawWireDisc(_mouseWorldPos, Vector3.up, 0.25f);
                 Handles.Label(_mouseWorldPos + Vector3.up * 0.3f,
-                    $"← [{PROBES[_selectedProbe].icon} {PROBES[_selectedProbe].name}]");
+                    $"← [{PROBES[_selectedProbe].icon} {PROBES[_selectedProbe].name}]  [ESC: 해제]");
+            }
+
+            // ── ESC: 프로브 선택 해제 ─────────────────────────────────────────────
+            // 선택된 프로브가 있을 때 ESC를 누르면 -1(비선택)로 복귀.
+            // 비선택 상태에서는 ev.Use()를 호출하지 않으므로 씬뷰 오브젝트 이동 정상 동작.
+            if (Event.current.type == EventType.KeyDown
+                && Event.current.keyCode == KeyCode.Escape
+                && _selectedProbe >= 0)
+            {
+                _selectedProbe = -1;
+                Event.current.Use();
+                sv.Repaint();
+                AddLog("🔕 프로브 선택 해제 (ESC). 씬뷰 오브젝트 조작 가능.");
             }
 
             // 단축키 감지 — [인지경유] 프로브만 _mouseHitValid 필요
             // [BT강제] 프로브는 마우스 위치 불필요이므로 조건 분리
-            bool _isPerceptionProbe = _selectedProbe < PROBES.Length && PROBES[_selectedProbe].isPerception;
+            bool _isPerceptionProbe = _selectedProbe >= 0
+                                   && _selectedProbe < PROBES.Length
+                                   && PROBES[_selectedProbe].isPerception;
             bool _keyTriggered = Event.current.type == EventType.KeyDown && Event.current.alt
                                  && (_mouseHitValid || !_isPerceptionProbe);
             if (_keyTriggered)
@@ -731,6 +789,47 @@ namespace TDA.PB4.Editor
                     Event.current.Use();
                     sv.Repaint();
                 }
+            }
+
+            // ── 씬뷰 좌클릭으로 현재 선택된 프로브 발사 ─────────────────────────
+            // 조건:
+            //   · MouseDown 이벤트 (한 번만 발사, Drag 아님)
+            //   · 좌클릭 (button == 0)
+            //   · Ctrl 없음 (Ctrl+클릭은 NarrowZone 드래그용으로 예약)
+            //   · [인지경유] 프로브: _mouseHitValid 필요 (발자국/전투소음 등 위치 필수)
+            //   · [BT강제] 프로브: 위치 불필요, 클릭만으로 발사 가능
+            //   · HandleUtility.nearestControl == 0: 씬 뷰 오브젝트 선택과 충돌 방지
+            //     (다른 Handle이 활성화된 상태면 무시)
+            var ev = Event.current;
+            // ── 씬뷰 좌클릭으로 현재 선택된 프로브 발사 ─────────────────────────
+            // _selectedProbe == -1(비선택) 이면 ev.Use() 절대 호출 안함
+            // → 씬뷰 오브젝트 선택/이동 정상 동작
+            bool isLeftClick = ev.type == EventType.MouseDown
+                            && ev.button == 0
+                            && !ev.control
+                            && !ev.alt
+                            && _selectedProbe >= 0                          // 비선택이면 스킵
+                            && UnityEngine.Application.isPlaying;           // 플레이 중에만
+
+            if (isLeftClick)
+            {
+                bool isPerception = PROBES[_selectedProbe].isPerception;
+
+                if (!isPerception)
+                {
+                    // [BT강제] 프로브: 위치 관계없이 즉시 발사
+                    FireProbe(_selectedProbe, _mouseWorldPos);
+                    ev.Use();
+                    sv.Repaint();
+                }
+                else if (_mouseHitValid)
+                {
+                    // [인지경유] 프로브: 지형 히트 확인 후 발사
+                    FireProbe(_selectedProbe, _mouseWorldPos);
+                    ev.Use();
+                    sv.Repaint();
+                }
+                // _mouseHitValid == false → ev.Use() 안함 → 오브젝트 선택 유지
             }
 
             DrawPersistentGizmos();
@@ -867,7 +966,7 @@ namespace TDA.PB4.Editor
             // SoundPerception.HandleSoundEmitted의 Footstep baseRadius = 15f
             // → OnSoundEvent(pos, 0.3f × 15f = 4.5m) 전달
             // Gizmo는 AI hearingRange 기준 (별개 개념)
-            SoundEventEmitter.EmitSound(pos, SoundType.Footstep, 0.3f);
+            SoundEventEmitter.EmitSound(pos, SoundType.Footstep, _probeVolume);
             EnqueueGizmo(pos, 15f, new Color(0.4f, 0.8f, 1f, 0.7f),
                 "🔊 Footstep vol=0.3\n(baseRadius=15m)");
             AddLog($"🔊 발자국 at {pos:F1}");
@@ -877,7 +976,7 @@ namespace TDA.PB4.Editor
         private void FireCombatNoise(Vector3 pos)
         {
             // Combat baseRadius = 40f → OnSoundEvent sourceRadius = 0.8 × 40 = 32m
-            SoundEventEmitter.EmitSound(pos, SoundType.Combat, 0.8f);
+            SoundEventEmitter.EmitSound(pos, SoundType.Combat, _probeVolume);
             EnqueueGizmo(pos, 40f, new Color(1f, 0.3f, 0.3f, 0.6f),
                 "💥 Combat vol=0.8\n(baseRadius=40m)");
             AddLog($"💥 전투소음 at {pos:F1}");

@@ -80,6 +80,13 @@ namespace TDA.Character.AI
             if (itemID == -1 || WorldItemDatabase.Instance == null)
             {
                 UpdateDefendingItem();
+
+                // =========================================================================================
+                // [Fix-P0] 무기 교체/해제 직후 콤뱃 매니저의 damageColliders 리스트를 재스캔
+                // 맨손 전환 시에도 기존 캐시가 스테일(destroy된 구 콜라이더 참조)일 수 있으므로
+                // 반드시 Refresh 를 호출해 NullReferenceException / dangling reference 를 원천 차단합니다.
+                // =========================================================================================
+                RefreshCombatDamageColliders();
                 return;
             }
 
@@ -103,6 +110,13 @@ namespace TDA.Character.AI
             }
 
             UpdateDefendingItem();
+
+            // =========================================================================================
+            // [Fix-P0 신규] 새 무기가 Instantiate 되어 자식 계층에 편입된 직후,
+            // CharacterCombatManager.Awake() 에서 1회 캐싱된 damageColliders 리스트는 스테일 상태입니다.
+            // 새 무기의 MeleeWeaponDamageCollider 를 반드시 재등록하세요.
+            // =========================================================================================
+            RefreshCombatDamageColliders();
         }
 
         public void LoadLeftWeapon(int itemID)
@@ -115,6 +129,9 @@ namespace TDA.Character.AI
             if (itemID == -1 || WorldItemDatabase.Instance == null)
             {
                 UpdateDefendingItem();
+
+                // [Fix-P0] 맨손 전환 시에도 캐시 정합성 유지
+                RefreshCombatDamageColliders();
                 return;
             }
 
@@ -147,6 +164,12 @@ namespace TDA.Character.AI
             }
 
             UpdateDefendingItem();
+
+            // =========================================================================================
+            // [Fix-P0 신규] 왼손 무기 Instantiate 이후에도 콤뱃 매니저 캐시를 갱신.
+            // 이원검/쌍검(dual wield) 셋업이 런타임에 생성되는 경우에도 양손 모두 타격 판정이 살아납니다.
+            // =========================================================================================
+            RefreshCombatDamageColliders();
         }
 
         /// <summary>
@@ -174,6 +197,26 @@ namespace TDA.Character.AI
             {
                 aiCharacter.characterDefenseManager.SetDefendingItem(null);
             }
+        }
+
+        // =========================================================================================
+        // [Fix-P0 신규] 콤뱃 매니저 damageColliders 캐시 갱신 헬퍼
+        // ─────────────────────────────────────────────────────────────────────────────────────────
+        // 무기 교체(Instantiate/Destroy)가 일어난 직후에는 CharacterCombatManager 가 Awake 에서
+        // 1회 수집한 damageColliders 리스트가 구 콜라이더를 가리키는 dangling reference 가 됩니다.
+        //
+        // AICharacterManager 가 characterCombatManager 로 업캐스팅해 보유하고 있으므로,
+        // 그 객체에 대해 RefreshDamageColliders() 를 호출해 리스트를 재수집합니다.
+        //
+        // NOTE:
+        //   · aiCharacter 는 AICharacterManager 를 가리킬 수 있으므로 characterCombatManager 필드는
+        //     부모 CharacterManager 가 보유한 업캐스팅 레퍼런스를 사용합니다.
+        //   · 레퍼런스가 아직 초기화 전인 극초기 호출에서는 NRE 가 발생하지 않도록 ?. 체이닝을 사용합니다.
+        // =========================================================================================
+        private void RefreshCombatDamageColliders()
+        {
+            if (aiCharacter == null) return;
+            aiCharacter.characterCombatManager?.RefreshDamageColliders();
         }
     }
 }

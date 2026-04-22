@@ -28,7 +28,7 @@
 //     AttackRange BlackboardVariable 추가.
 //     타이머 만료 시 dist <= AttackRange 조건을 동시에 검사.
 //     거리가 아직 멀면 배회를 유지하면서 orbitRadius를 점진적으로 축소해
-//     타겟에게 접근. MAX_CLOSE_TIME 초 이내에도 AttackRange에 도달 못하면
+//     타겟에게 접근. CloseInMaxTime.Value 초 이내에도 AttackRange에 도달 못하면
 //     Strike 강제 전환(기존 NavMesh 밖 처리와 동일 안전장치).
 //     → PB4DecisionAdapter.InitializeBlackboard()에서
 //        SetBB("AttackRange", combatProfile.attackRange) 추가 필요.
@@ -82,6 +82,9 @@ public partial class CircleStrafeAction : Action
     /// <summary>현재 지형 태그. NarrowPath 변조에 사용.</summary>
     [SerializeReference] public BlackboardVariable<string> TerrainTags;
 
+    [SerializeReference] public BlackboardVariable<float> NarrowPathOrbitMult = new(0.4f);
+    [SerializeReference] public BlackboardVariable<float> NarrowPathStrikeTimeMult = new(0.5f);
+
     // =========================================================================
     // 내부 상태
     // =========================================================================
@@ -101,7 +104,7 @@ public partial class CircleStrafeAction : Action
     private float _closeInTimer;
 
     /// <summary>orbitRadius 축소 접근의 최대 허용 시간 (초).</summary>
-    private const float MAX_CLOSE_TIME = 3f;
+    [SerializeReference] public BlackboardVariable<float> CloseInMaxTime = new(3f);
 
     /// <summary>
     /// 궤도 회전 방향. +1=반시계, -1=시계.
@@ -113,10 +116,10 @@ public partial class CircleStrafeAction : Action
     private float _feintTimer;
 
     /// <summary>페인트 최소 간격 (초).</summary>
-    private const float FEINT_MIN = 2.0f;
+    [SerializeReference] public BlackboardVariable<float> FeintIntervalMin = new(2f);
 
     /// <summary>페인트 최대 간격 (초).</summary>
-    private const float FEINT_MAX = 5.0f;
+    [SerializeReference] public BlackboardVariable<float> FeintIntervalMax = new(5f);
 
     /// <summary>
     /// [Bug 2 수정] OnStart에서 계산된 실제 Strike 전환 대기 시간.
@@ -131,7 +134,7 @@ public partial class CircleStrafeAction : Action
     private CharacterManager _targetCharMgr;
 
     /// <summary>가드 해제 후 공격까지의 짧은 반응 딜레이 (초).</summary>
-    private const float GUARD_BREAK_REACTION_DELAY = 0.25f;
+    [SerializeReference] public BlackboardVariable<float> GuardBreakReactionDelay = new(0.25f);
 
     /// <summary>
     /// 가드 중 포이즈 공격 타이머.
@@ -146,10 +149,10 @@ public partial class CircleStrafeAction : Action
     private float _nextPoiseAttackInterval;
 
     /// <summary>포이즈 공격 최소 대기 (초).</summary>
-    private const float POISE_ATTACK_MIN = 2.5f;
+    [SerializeReference] public BlackboardVariable<float> PoiseAttackIntervalMin = new(2.5f);
 
     /// <summary>포이즈 공격 최대 대기 (초).</summary>
-    private const float POISE_ATTACK_MAX = 5.5f;
+    [SerializeReference] public BlackboardVariable<float> PoiseAttackIntervalMax = new(5.5f);
 
     // =========================================================================
     // 생명주기
@@ -185,7 +188,7 @@ public partial class CircleStrafeAction : Action
             : null;
         _wasTargetGuarding = false;
         _guardAttackTimer = 0f;
-        _nextPoiseAttackInterval = UnityEngine.Random.Range(POISE_ATTACK_MIN, POISE_ATTACK_MAX);
+        _nextPoiseAttackInterval = UnityEngine.Random.Range(PoiseAttackIntervalMin.Value, PoiseAttackIntervalMax.Value);
 
         // [Bug 2 수정] Strike 전환 타이밍에 랜덤 지터 적용
         // StrikeTriggerTime(2초) ± jitter → 패턴 예측 불가
@@ -195,7 +198,7 @@ public partial class CircleStrafeAction : Action
 
         // 궤도 방향 랜덤 결정 + 페인트 타이머 초기화
         _orbitDir = UnityEngine.Random.value > 0.5f ? 1f : -1f;
-        _feintTimer = UnityEngine.Random.Range(FEINT_MIN, FEINT_MAX);
+        _feintTimer = UnityEngine.Random.Range(FeintIntervalMin.Value, FeintIntervalMax.Value);
 
         return Status.Running;
     }
@@ -215,8 +218,8 @@ public partial class CircleStrafeAction : Action
         string tags = TerrainTags.Value ?? "";
         if (tags.Contains("NarrowPath"))
         {
-            radius *= 0.4f;
-            triggerTime *= 0.5f;
+            radius *= NarrowPathOrbitMult.Value;
+            triggerTime *= NarrowPathStrikeTimeMult.Value;
         }
 
         // ── 타이머 누적 ────────────────────────────────────────────────────────
@@ -232,9 +235,9 @@ public partial class CircleStrafeAction : Action
             _guardAttackTimer += Time.deltaTime;
             if (_guardAttackTimer >= _nextPoiseAttackInterval)
             {
-                _actualTriggerTime = _strafeTimer + GUARD_BREAK_REACTION_DELAY;
+                _actualTriggerTime = _strafeTimer + GuardBreakReactionDelay.Value;
                 _guardAttackTimer = 0f;
-                _nextPoiseAttackInterval = UnityEngine.Random.Range(POISE_ATTACK_MIN, POISE_ATTACK_MAX);
+                _nextPoiseAttackInterval = UnityEngine.Random.Range(PoiseAttackIntervalMin.Value, PoiseAttackIntervalMax.Value);
                 Debug.Log($"[CircleStrafe] {Self.Value.name}: 포이즈 공격 시도. " +
                           $"다음 포이즈 간격={_nextPoiseAttackInterval:F1}s");
             }
@@ -245,10 +248,10 @@ public partial class CircleStrafeAction : Action
         }
         else if (_wasTargetGuarding)
         {
-            _actualTriggerTime = _strafeTimer + GUARD_BREAK_REACTION_DELAY;
+            _actualTriggerTime = _strafeTimer + GuardBreakReactionDelay.Value;
             _guardAttackTimer = 0f;
-            _nextPoiseAttackInterval = UnityEngine.Random.Range(POISE_ATTACK_MIN, POISE_ATTACK_MAX);
-            Debug.Log($"[CircleStrafe] {Self.Value.name}: 가드 해제 → {GUARD_BREAK_REACTION_DELAY}s 후 Strike.");
+            _nextPoiseAttackInterval = UnityEngine.Random.Range(PoiseAttackIntervalMin.Value, PoiseAttackIntervalMax.Value);
+            Debug.Log($"[CircleStrafe] {Self.Value.name}: 가드 해제 → {GuardBreakReactionDelay.Value}s 후 Strike.");
         }
         _wasTargetGuarding = isTargetGuarding;
         // triggerTime 재동기화 (가드 반응이 _actualTriggerTime을 변경했을 수 있음)
@@ -267,19 +270,19 @@ public partial class CircleStrafeAction : Action
             inCloseIn = true;
             _closeInTimer += Time.deltaTime;
 
-            if (_closeInTimer >= MAX_CLOSE_TIME)
+            if (_closeInTimer >= CloseInMaxTime.Value)
             {
                 // closeIn 최대 시간 초과: dist를 재확인하고 그래도 멀면 Failure
                 // (Failure → BT Sequence 재시작 → Stalk→CircleStrafe 재진입)
                 // 기존: 무조건 Success → StrikeAction에서 멍때림
-                Debug.LogWarning($"[BT] {Self.Value.name}: closeIn {MAX_CLOSE_TIME}s 초과 " +
+                Debug.LogWarning($"[BT] {Self.Value.name}: closeIn {CloseInMaxTime.Value}s 초과 " +
                                  $"(dist={dist:F1}m). CircleStrafe 재시작.");
                 return Status.Failure;
             }
 
             // closeIn: orbitRadius를 0으로 수렴시켜 타겟 방향으로 직접 접근.
             // periAngle 회전을 멈춰 사선 이동을 최소화하고 직진 접근을 극대화.
-            radius *= Mathf.Clamp01(1f - _closeInTimer / MAX_CLOSE_TIME);
+            radius *= Mathf.Clamp01(1f - _closeInTimer / CloseInMaxTime.Value);
         }
 
         // ── 페인트 (궤도 방향 전환) ────────────────────────────────────────────
@@ -287,7 +290,10 @@ public partial class CircleStrafeAction : Action
         if (_feintTimer <= 0f && !inCloseIn)
         {
             _orbitDir *= -1f;
-            _feintTimer = UnityEngine.Random.Range(FEINT_MIN, FEINT_MAX);
+            _feintTimer = UnityEngine.Random.Range(FeintIntervalMin.Value, FeintIntervalMax.Value);
+#if UNITY_EDITOR
+            Debug.Log($"[CS] {Self.Value.name}: 페인트 전환 dir={_orbitDir:+0;-0} nextTimer={_feintTimer:F2}s (min={FeintIntervalMin.Value} max={FeintIntervalMax.Value})");
+#endif
         }
 
         // ── 이동 방향 계산 (접선+방사 블렌드) ───────────────────────────────────
@@ -330,7 +336,7 @@ public partial class CircleStrafeAction : Action
             // inCloseIn 시에는 방사 성분을 더 강화 (직진 접근)
             if (inCloseIn)
             {
-                float closeT = Mathf.Clamp01(_closeInTimer / MAX_CLOSE_TIME);
+                float closeT = Mathf.Clamp01(_closeInTimer / CloseInMaxTime.Value);
                 blendDir = Vector3.Lerp(blendDir, toTargetNorm, closeT * 0.6f).normalized;
             }
 

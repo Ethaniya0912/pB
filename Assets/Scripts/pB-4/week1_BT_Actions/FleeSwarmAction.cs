@@ -19,11 +19,13 @@
 //         Target이 있으면 실시간으로 반대방향을 추적 (도주 방향 갱신 허용).
 // =============================================================================
 using System;
+using System.Collections.Generic;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
 using UnityEngine.AI;
 using Action = Unity.Behavior.Action;
+using TDA.PB4.AI;   // BaseAIBrain
 
 [Serializable, GeneratePropertyBag]
 [NodeDescription(
@@ -33,6 +35,24 @@ using Action = Unity.Behavior.Action;
     id: "pb4_flee_swarm_action")]
 public partial class FleeSwarmAction : Action
 {
+    // ── PerceptionProbeWindow용 정적 인스턴스 레지스트리 ──────────────────
+    // GameObject → 현재 실행 중인 FleeSwarmAction 매핑
+    // OnStart에서 등록, OnEnd에서 해제
+    public static readonly Dictionary<GameObject, FleeSwarmAction> ActiveInstances
+        = new Dictionary<GameObject, FleeSwarmAction>();
+
+    // ── 디버그 공개 접근자 (읽기) ────────────────────────────────────────
+    public int DebugStuckCount => _stuckCount;
+    public float DebugStuckTimer => _stuckTimer;
+    public float DebugEscapeLockTimer => _escapeLockTimer;
+    public Vector3 DebugFixedFleeDir => _fixedFleeDir;
+    public Vector3 DebugLastPosition => _lastPosition;
+
+    // ── 디버그 공개 접근자 (쓰기) ────────────────────────────────────────
+    public void DebugSetStuckCount(int v) { _stuckCount = v; }
+    public void DebugSetStuckTimer(float v) { _stuckTimer = v; }
+    public void DebugSetEscapeLockTimer(float v) { _escapeLockTimer = v; }
+    // ────────────────────────────────────────────────────────────────────
     [SerializeReference] public BlackboardVariable<GameObject> Self;
     [SerializeReference] public BlackboardVariable<Transform> Target;
 
@@ -79,10 +99,18 @@ public partial class FleeSwarmAction : Action
     private Vector3 _lastPosition;
     private float _stuckTimer;
     private int _stuckCount;           // 연속 stuck 횟수
-    private const float STUCK_CHECK_INTERVAL = 0.5f;   // 위치 비교 주기 (초)
-    private const float STUCK_MOVE_THRESHOLD = 0.3f;   // 이 거리 미만이면 stuck
-    private const float STUCK_MAX_TIME = 1.5f;   // stuck 유지 시 방향 전환
-    private const int STUCK_GIVE_UP = 4;      // 이 횟수 이상이면 Failure
+    private float _escapeLockTimer;    // 탈출 방향 고정 시간 (타겟 기반 갱신 차단)
+    [SerializeReference] public BlackboardVariable<float> StuckCheckInterval = new(0.5f);
+    [SerializeReference] public BlackboardVariable<float> StuckMoveThreshold = new(0.3f);
+    private const float STUCK_MAX_TIME = 1.5f;   // stuck 유지 시 방향 전환 (내부용 유지)
+    [SerializeReference] public BlackboardVariable<int> StuckGiveUpCount = new(4);
+
+    /// <summary>
+    /// Stuck GiveUp 시 brain.fear를 이 값으로 강제 낮춤 → Attack 전환.
+    /// 기본값 0.15f: u_attack이 u_flee를 압도해 즉시 Attack 전환.
+    /// </summary>
+    [Tooltip("Stuck 포기 시 brain.fear를 이 값으로 낮춰 Attack 강제 전환. 기본 0.15f")]
+    [SerializeReference] public BlackboardVariable<float> ForceAttackFear = new(0.15f);
 
     protected override Status OnStart()
     {
@@ -91,6 +119,9 @@ public partial class FleeSwarmAction : Action
             LogFailure("FleeSwarmAction: Self가 null입니다.");
             return Status.Failure;
         }
+
+        // 정적 레지스트리 등록 (PerceptionProbeWindow에서 직접 접근)
+        ActiveInstances[Self.Value] = this;
 
         _nav = Self.Value.GetComponent<NavMeshAgent>();
         _selfTransform = Self.Value.transform;
@@ -123,6 +154,7 @@ public partial class FleeSwarmAction : Action
         _lastPosition = _selfTransform.position;
         _stuckTimer = 0f;
         _stuckCount = 0;
+        _escapeLockTimer = 0f;
 
         if (DebugLog.Value)
             Debug.Log($"[FleeSwarm] {Self.Value.name}: OnStart. " +
@@ -160,23 +192,49 @@ public partial class FleeSwarmAction : Action
 
         // ── [수정 2] Stuck 감지 — 일정 시간 이동 없으면 방향 전환 ────────────
         _stuckTimer += Time.deltaTime;
-        if (_stuckTimer >= STUCK_CHECK_INTERVAL)
+        if (_stuckTimer >= StuckCheckInterval.Value)
         {
             float moved = Vector3.Distance(selfPos, _lastPosition);
             _lastPosition = selfPos;
             _stuckTimer = 0f;
 
-            if (moved < STUCK_MOVE_THRESHOLD)
+            // [Stuck 오진 방지] 위치 변화 + NavMesh 속도 모두 낮을 때만 Stuck 판정.
+            // 루트모션 블렌딩 중 deltaPosition≈0 이더라도 NavMesh velocity가 높으면
+            // 실제로 이동 중인 것 → 오판 차단.
+            float navSpeed = _nav.velocity.magnitude;
+            bool positionStuck = moved < StuckMoveThreshold.Value;
+            // FleeSprintSpeed.Value가 0이면 0*0.25=0 → velocityStuck 항상 false → Stuck 미감지
+            // 기본값 6f 보장 (BB 미연결 시 fallback)
+            float fleeSpeedRef = Mathf.Max(FleeSprintSpeed.Value, 1f);
+            bool velocityStuck = navSpeed < (fleeSpeedRef * 0.25f);
+            bool isStuck = positionStuck && velocityStuck;
+
+            if (isStuck)
             {
                 _stuckCount++;
                 if (DebugLog.Value)
                     Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: Stuck 감지 " +
-                                     $"(moved={moved:F2}m, count={_stuckCount})");
+                                     $"(moved={moved:F2}m navSpd={navSpeed:F1} count={_stuckCount})");
 
-                if (_stuckCount >= STUCK_GIVE_UP)
+                if (_stuckCount >= StuckGiveUpCount.Value)
                 {
-                    // 너무 오래 막혔으면 Failure → BT가 다른 행동으로 전환
-                    Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: Stuck {STUCK_GIVE_UP}회 → Failure");
+                    Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: Stuck {StuckGiveUpCount.Value}회 → 탈출 불가. brain.fear 낮춰 Attack 강제 전환.");
+
+                    // ── 완전 막힌 경우: fear를 낮춰서 Attack으로 강제 전환 ────────
+                    // FleeDuelAction과 동일 패턴:
+                    //   brain.fear를 낮춤 → UpdateDecision() → u_attack > u_flee
+                    //   → brain.CurrentState = Attack → PB4Adapter가 BB 갱신
+                    var brain = Self.Value.GetComponent<BaseAIBrain>();
+                    if (brain != null)
+                    {
+                        brain.fear = Mathf.Min(brain.fear, ForceAttackFear.Value);
+                        brain.UpdateDecision();
+                        Debug.Log($"[FleeSwarm] {Self.Value.name}: brain.fear → {brain.fear:F2} (Attack 전환 요청)");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[FleeSwarm] {Self.Value.name}: BaseAIBrain 없음 → 단순 Failure");
+                    }
                     return Status.Failure;
                 }
 
@@ -186,6 +244,13 @@ public partial class FleeSwarmAction : Action
                 Vector3 escapeDir = (_fixedFleeDir * 0.6f + perpDir * 0.4f).normalized;
                 SetFleeDestination(escapeDir);
                 _fixedFleeDir = escapeDir;
+
+                // 방향 전환 후 타이머 + 기준 위치 리셋
+                // 없으면 즉시 다음 체크에서 또 Stuck → GiveUpCount 조기 도달
+                _stuckTimer = 0f;
+                _lastPosition = Self.Value.transform.position;
+                // 탈출 방향 고정: StuckCheckInterval × 2초 동안 타겟 기반 갱신 차단
+                _escapeLockTimer = StuckCheckInterval.Value * 2f;
 
                 if (DebugLog.Value)
                     Debug.Log($"[FleeSwarm] {Self.Value.name}: 경계 우회 → escapeDir={escapeDir}");
@@ -198,10 +263,11 @@ public partial class FleeSwarmAction : Action
         }
 
         // ── Target이 있으면 실시간으로 도주 방향 갱신 ────────────────────────
-        // [스핀 버그 수정] Angle 기준 30° → 60°, 최소 재계산 간격 1.5초 추가.
-        // 기존: 30° 변화마다 SetDestination → 경로 재계산 중 desiredVelocity 진동 → 스핀.
-        // 수정: 60° 이상 변화하고 1.5초 경과 후에만 재계산.
-        if (Target.Value != null)
+        // [스핀 버그 수정] Angle 기준 30° → 60°
+        // [Stuck 버그 수정] 탈출 방향 고정 시간(_escapeLockTimer) 동안 타겟 기반 갱신 차단.
+        //   escape 방향을 타겟 추적이 즉시 덮어쓰면 탈출 무효 → Stuck 반복.
+        _escapeLockTimer = Mathf.Max(0f, _escapeLockTimer - Time.deltaTime);
+        if (Target.Value != null && _escapeLockTimer <= 0f)
         {
             Vector3 newDir = (selfPos - Target.Value.position).normalized;
             if (Vector3.Angle(_fixedFleeDir, newDir) > 60f)
@@ -210,7 +276,7 @@ public partial class FleeSwarmAction : Action
                 SetFleeDestination(_fixedFleeDir);
             }
         }
-        else
+        else if (Target.Value == null)
         {
             // Target 없음 — 목적지 도달 시 같은 방향으로 계속
             if (!_nav.pathPending && _nav.remainingDistance < ARRIVE_DISTANCE)
@@ -228,9 +294,14 @@ public partial class FleeSwarmAction : Action
 
     protected override void OnEnd()
     {
+        // 정적 레지스트리에서 해제
+        if (Self?.Value != null)
+            ActiveInstances.Remove(Self.Value);
+
         _fixedFleeDir = Vector3.zero;
         _stuckTimer = 0f;
         _stuckCount = 0;
+        _escapeLockTimer = 0f;
     }
 
     // =========================================================================

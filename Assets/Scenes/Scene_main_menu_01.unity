@@ -1944,6 +1944,7 @@ MonoBehaviour:
   enableFloorSmoothingJob: 0
   enableAsyncFloorSmoothing: 0
   enablePhysicsBakeAsync: 0
+  enablePhase3AColliderGuard: 0
   existingMeshJobManager: {fileID: 0}
 --- !u!114 &359781330
 MonoBehaviour:
@@ -4070,108 +4071,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 622937734}
   m_CullTransparentMesh: 1
---- !u!1 &633036774 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
-    type: 3}
-  m_PrefabInstance: {fileID: 3429062015577901515}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &633036778
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 633036774}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 75b15ab7c2c849f4a876185bf054b7fe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  players: []
---- !u!114 &633036782
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 633036774}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cc6cf5b686f85ad4a918fe7d7f176ab9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SteamP2PRelayTransport
-  serverId: 0
-  debug: 1
---- !u!114 &633036783
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 633036774}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d49f4ff62e0fa9e4eaa412cc88b16215, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SteamClient
-  steamAppId: 480
---- !u!114 &633036784
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 633036774}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 03204ac677ecd8a4aa37a9e7b7a46344, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SteamLobbyManager
-  showDebugLogs: 1
-  maxPlayers: 4
---- !u!114 &633036787
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 633036774}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 593a2fe42fa9d37498c96f9a383b6521, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkManager
-  NetworkManagerExpanded: 0
-  NetworkConfig:
-    ProtocolVersion: 0
-    NetworkTransport: {fileID: 633036782}
-    PlayerPrefab: {fileID: 0}
-    Prefabs:
-      NetworkPrefabsLists:
-      - {fileID: 11400000, guid: 015865897db139d47b3474e3f2b64676, type: 2}
-    TickRate: 30
-    ClientConnectionBufferTimeout: 10
-    ConnectionApproval: 0
-    ConnectionData: 
-    EnableTimeResync: 0
-    TimeResyncInterval: 30
-    EnsureNetworkVariableLengthSafety: 0
-    EnableSceneManagement: 1
-    ForceSamePrefabs: 1
-    RecycleNetworkIds: 1
-    NetworkIdRecycleDelay: 120
-    RpcHashSize: 0
-    LoadSceneTimeOut: 120
-    SpawnTimeout: 10
-    EnableNetworkLogs: 1
-    NetworkTopology: 0
-    UseCMBService: 0
-    AutoSpawnPlayerPrefabClientSide: 1
-    NetworkProfilingMetrics: 1
-    OldPrefabList: []
-  RunInBackground: 1
-  LogLevel: 1
 --- !u!224 &634733958 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6239625048053077620, guid: faf5e9c7ffa87f04ab72391566b3d487,
@@ -8770,7 +8669,7 @@ MonoBehaviour:
   enableMassPointA: 1
   enableMassPointB: 1
   enablePhase2MassPointQEF: 1
-  phase2MassPointStrength: 0.2
+  phase2MassPointStrength: 0.5
   enableGpuClear: 1
   enableCompressedVoxel: 1
   enableCompressedHermite: 1
@@ -8854,7 +8753,8 @@ MonoBehaviour:
   enableFloorSmoothingJob: 1
   enableAsyncFloorSmoothing: 1
   enablePhysicsBakeAsync: 1
-  existingMeshJobManager: {fileID: 1464201142}
+  enablePhase3AColliderGuard: 0
+  existingMeshJobManager: {fileID: 1464201165}
 --- !u!114 &1464201089
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8873,18 +8773,6 @@ MonoBehaviour:
   enablePhase1BestMatch: 1
   enablePhase1RecalculateNormals: 1
   enablePhase1UploadMeshData: 1
---- !u!114 &1464201142 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
-    type: 3}
-  m_PrefabInstance: {fileID: 1670054366}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1464201060}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
 --- !u!114 &1464201152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8973,6 +8861,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveDiskCache
   enableDiskCache: 1
   maxCacheSizeMB: 2048
+--- !u!114 &1464201165 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+    type: 3}
+  m_PrefabInstance: {fileID: 1670054366}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
 --- !u!224 &1466137898 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3286728277505491436, guid: b4c5370b3c09bce4a996898584135628,
@@ -12895,7 +12795,7 @@ PrefabInstance:
         type: 3}
       propertyPath: NetworkConfig.NetworkTransport
       value: 
-      objectReference: {fileID: 633036782}
+      objectReference: {fileID: 0}
     - target: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
         type: 3}
       propertyPath: m_Name
@@ -12916,27 +12816,7 @@ PrefabInstance:
     - {fileID: 6676019540780025953, guid: 13ed5a85a6b52e44188a67f08cc071f6, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 633036787}
-    - targetCorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 633036778}
-    - targetCorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 633036783}
-    - targetCorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 633036782}
-    - targetCorrespondingSourceObject: {fileID: 6695169907944693246, guid: 13ed5a85a6b52e44188a67f08cc071f6,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 633036784}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 13ed5a85a6b52e44188a67f08cc071f6, type: 3}
 --- !u!1001 &4040173936667119002
 PrefabInstance:

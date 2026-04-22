@@ -282,6 +282,26 @@ namespace TDA.PB4.Diagnostics
         private int _lastAppliedColorHash = -1;
 
         // =====================================================================
+        //  pB-4 Step 1~4 확장 필드
+        // =====================================================================
+
+        // ── 확률 행동 모니터링: 최근 롤 기록 ─────────────────────────────────
+        private const int PROB_HISTORY = 20;
+        private readonly float[] _evasionRolls = new float[PROB_HISTORY];
+        private readonly float[] _feintRolls = new float[PROB_HISTORY];
+        private int _probRollIdx = 0;
+        private float _probRollTimer = 0f;
+        private const float PROB_ROLL_INTERVAL = 0.5f;
+
+        // ── 표시 옵션 ──────────────────────────────────────────────────────────
+        // G: 확률그래프 0=Bar 1=Dot2D 2=숨김
+        private int _probGraphMode = 0;
+        // H: SO 파라미터 현재 상태만(true, 기본) / 전체(false)
+        private bool _soStateOnly = true;
+        // J: 섹션 레이아웃 0=수직단열 1=2열 2=3열
+        private int _soLayoutMode = 0;
+
+        // =====================================================================
         //  그룹 멤버 캐시 (1초 갱신)
         // =====================================================================
 
@@ -371,6 +391,18 @@ namespace TDA.PB4.Diagnostics
                 AIDebuggerSettingsWindow.Open();
 #endif
 
+            // G: 확률 그래프 모드 순환 (0=Bar → 1=Dot2D → 2=숨김)
+            if (Input.GetKeyDown(KeyCode.G))
+                _probGraphMode = (_probGraphMode + 1) % 3;
+
+            // H: SO 파라미터 현재 상태 전용/전체 토글
+            if (Input.GetKeyDown(KeyCode.H))
+                _soStateOnly = !_soStateOnly;
+
+            // J: SO 섹션 레이아웃 순환 (0=수직 → 1=2열 → 2=3열)
+            if (Input.GetKeyDown(KeyCode.J))
+                _soLayoutMode = (_soLayoutMode + 1) % 3;
+
             // BT 그래프 교체 감지 — O(1) 참조 비교
             if (_btAgent != null && _btGraph.NeedsReParse(_btAgent))
                 _btGraph.ParseGraph(_btAgent);
@@ -441,6 +473,16 @@ namespace TDA.PB4.Diagnostics
                 "OrbitRadius" => "orbitRadius",
                 "StrikeTriggerTime" => "strikeTriggerTime",
                 "FleeSprintSpeed" => "fleeSprintSpeed",
+                "StaminaRecoverThreshold" => "tacticalStaminaRecoverThreshold",
+                "HealthRecoverThreshold" => "tacticalHealthRecoverThreshold",
+                "RetreatDist" => "tacticalRetreatDist",
+                "RecoverDuration" => "tacticalRecoverDuration",
+                "EvasionChance" => "tacticalEvasionChance",
+                "EvasionDist" => "tacticalEvasionDist",
+                "EvasionDuration" => "tacticalEvasionDuration",
+                "FeintChance" => "tacticalFeintChance",
+                "FeintDist" => "tacticalFeintDist",
+                "FeintDuration" => "tacticalFeintDuration",
                 _ => char.ToLower(bbKey[0]) + bbKey[1..]
             };
             var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -718,7 +760,396 @@ namespace TDA.PB4.Diagnostics
                 if (gm.Count > 0) grpSection = sep + $"\n<color={_HG}>GROUP</color>  <color={_HV}>{gm.Count + 1} members nearby</color>";
             }
 
-            return header + sep + awareL + fearL + bbSection + tgtSection + memSection + perfSection + grpSection;
+            // ── pB-4 Step 1~4 SO 검증 패널 ──────────────────────────────────────
+            string soVerifySection = BuildSOVerifySection(sep);
+            return header + sep + awareL + fearL + bbSection + soVerifySection + tgtSection + memSection + perfSection + grpSection;
+        }
+
+        // =====================================================================
+        //  pB-4 SO 파라미터 검증 패널 헬퍼 + BuildSOVerifySection
+        // =====================================================================
+
+        // ── FmtBBFloat: BB 값 읽어 포맷 (0이면 경고) ──────────────────────────
+        private string FmtBBFloat(string bbKey, string label, string fmt = "F2", float warnBelow = 0.001f)
+        {
+            float val = GetCombatStat(bbKey);
+            string vc = val < warnBelow ? "#FF4545" : "#28E0B0";
+            string ws = val < warnBelow ? " <color=#FF4545>\u26a0</color>" : "";
+            return "\n<color=#8AAFCF>" + label + "</color> <color=" + vc + ">" + val.ToString(fmt) + "</color>" + ws;
+        }
+
+        // ── FmtBBInt: BB int 값 포맷 ────────────────────────────────────────
+        private string FmtBBInt(string bbKey, string label, int warnBelow = 1)
+        {
+            int val = GetBB<int>(bbKey);
+            string vc = val < warnBelow ? "#FF4545" : "#28E0B0";
+            string ws = val < warnBelow ? " <color=#FF4545>\u26a0</color>" : "";
+            return "\n<color=#8AAFCF>" + label + "</color> <color=" + vc + ">" + val + "</color>" + ws;
+        }
+
+        // ── FmtProbability: 확률 Bar/Dot2D 그래프 ──────────────────────────
+        private string FmtProbability(string label, float chance, float[] history, int histCount)
+        {
+            if (_probGraphMode == 2) return "";
+            var sb = new System.Text.StringBuilder();
+            sb.Append("\n<color=#8AAFCF>" + label + "</color> ");
+            if (_probGraphMode == 0) // Bar 모드
+            {
+                int barW = 16;
+                int filled = Mathf.RoundToInt(chance * barW);
+                filled = Mathf.Clamp(filled, 0, barW);
+                sb.Append("<color=#333333>[</color>");
+                sb.Append("<color=#28E0B0>" + new string('\u2588', filled) + "</color>");
+                sb.Append("<color=#444444>" + new string('\u2591', barW - filled) + "</color>");
+                sb.Append("<color=#333333>]</color>");
+                sb.Append(" <color=#FFF176>" + chance.ToString("P0") + "</color>");
+                int hits = 0;
+                int total = Mathf.Min(histCount, PROB_HISTORY);
+                for (int i = 0; i < total; i++) if (history[i] < chance) hits++;
+                float rate = total > 0 ? (float)hits / total : 0f;
+                string hc = rate >= chance * 0.6f ? "#28E0B0" : "#FFA520";
+                sb.Append(" <color=" + hc + ">" + hits + "/" + total + "</color>");
+            }
+            else // Dot2D 모드: 20칸 단일행 히스토그램
+            {
+                const int cols = 20;
+                int[] buckets = new int[cols];
+                int total2 = Mathf.Min(histCount, PROB_HISTORY);
+                for (int i = 0; i < total2; i++)
+                {
+                    int col = Mathf.Clamp(Mathf.FloorToInt(history[i] * cols), 0, cols - 1);
+                    buckets[col]++;
+                }
+                int threshCol = Mathf.Clamp(Mathf.FloorToInt(chance * cols), 0, cols - 1);
+                sb.Append("<color=#FFF176>" + chance.ToString("P0") + "</color> ");
+                for (int c = 0; c < cols; c++)
+                {
+                    if (c == threshCol) sb.Append("<color=#FFA520>|</color>");
+                    if (buckets[c] == 0) { sb.Append("<color=#333333>\u00b7</color>"); }
+                    else
+                    {
+                        string dc = c < threshCol ? "#28E0B0" : "#666666";
+                        char ch = buckets[c] >= 3 ? '\u2605' : buckets[c] == 2 ? '\u25c9' : '\u25cf';
+                        sb.Append("<color=" + dc + ">" + ch + "</color>");
+                    }
+                }
+                int hits2 = 0;
+                for (int i = 0; i < total2; i++) if (history[i] < chance) hits2++;
+                string hc2 = total2 > 0 && (float)hits2 / total2 >= chance * 0.6f ? "#28E0B0" : "#FFA520";
+                sb.Append(" <color=" + hc2 + ">" + hits2 + "/" + total2 + "</color>");
+            }
+            return sb.ToString();
+        }
+
+        // ── BuildSOVerifySection: Step 1~4 파라미터 검증 패널 ──────────────
+        private string BuildSOVerifySection(string sep)
+        {
+            var s = AIDebuggerSettings.Instance;
+            if (s != null && !s.showBBVariables) return "";
+
+            // 확률 롤 시뮬레이션 (매 PROB_ROLL_INTERVAL초)
+            _probRollTimer += Time.deltaTime;
+            if (_probRollTimer >= PROB_ROLL_INTERVAL)
+            {
+                _probRollTimer = 0f;
+                _evasionRolls[_probRollIdx % PROB_HISTORY] = UnityEngine.Random.value;
+                _feintRolls[_probRollIdx % PROB_HISTORY] = UnityEngine.Random.value;
+                _probRollIdx++;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            string winner = GetWinner();
+            string tags = GetBB<string>("TerrainTags") ?? "";
+            bool hasNarrow = tags.Contains("NarrowPath");
+            bool isAttack = winner == "Attack";
+            bool isFlee = winner == "Flee";
+
+            // 헤더 (H/G 힌트)
+            string stateTag = _soStateOnly
+                ? "<color=#28E0B0>" + winner + "\ub9cc</color>"
+                : "<color=#888888>\uc804\uccb4</color>";
+            string graphTag = _probGraphMode switch { 1 => "Dot2D", 2 => "\uc228\uae40", _ => "Bar" };
+            sb.Append(sep);
+            sb.Append("\n<color=#FFA520><b>\u2500\u2500 SO\ud30c\ub77c\ubbf8\ud130</b></color> "
+                    + "<color=#888888>[H:" + stateTag + "][G:" + graphTag + "]</color>");
+
+            // ── CircleStrafe ─────────────────────────────────────────────────
+            bool showCS = !_soStateOnly || isAttack;
+            if (showCS)
+            {
+                string s1c = isAttack ? "#FFFF80" : "#7A9BB0";
+                sb.Append("\n<color=" + s1c + "><b>[CircleStrafe]</b></color>");
+
+                // OrbitRadius/StrikeTriggerTime: NarrowPath 시 유효값 직접 계산
+                float orbitBB = GetCombatStat("OrbitRadius");
+                float orbitMult = GetCombatStat("NarrowPathOrbitMult");
+                if (orbitMult < 0.001f) orbitMult = 0.4f;
+                float orbitEff = hasNarrow ? orbitBB * orbitMult : orbitBB;
+                float strikeBB = GetCombatStat("StrikeTriggerTime");
+                float strikeMult = GetCombatStat("NarrowPathStrikeTimeMult");
+                if (strikeMult < 0.001f) strikeMult = 0.5f;
+                float strikeEff = hasNarrow ? strikeBB * strikeMult : strikeBB;
+
+                if (hasNarrow)
+                {
+                    sb.Append("\n<color=#8AAFCF>OrbitRadius</color> "
+                            + "<color=#FF4545>" + orbitEff.ToString("F2") + "m</color> "
+                            + "<color=#888888>\u2190 " + orbitBB.ToString("F2")
+                            + " x <color=#FFA520>NarrowPathOrbitMult</color>("
+                            + orbitMult.ToString("F2") + ")</color>");
+                    sb.Append(FmtBBFloat("StrafeAngularSpeed", "StrafeAngularSpeed", "F1"));
+                    sb.Append("\n<color=#8AAFCF>StrikeTriggerTime</color> "
+                            + "<color=#FF4545>" + strikeEff.ToString("F2") + "s</color> "
+                            + "<color=#888888>\u2190 " + strikeBB.ToString("F2")
+                            + " x <color=#FFA520>NarrowPathStrikeTimeMult</color>("
+                            + strikeMult.ToString("F2") + ")</color>");
+                }
+                else
+                {
+                    sb.Append(FmtBBFloat("OrbitRadius", "OrbitRadius"));
+                    sb.Append(FmtBBFloat("StrafeAngularSpeed", "StrafeAngularSpeed", "F1"));
+                    sb.Append(FmtBBFloat("StrikeTriggerTime", "StrikeTriggerTime"));
+                }
+                sb.Append(FmtBBFloat("AttackRange", "AttackRange"));
+                sb.Append(FmtBBFloat("CloseInMaxTime", "CloseInMaxTime"));
+                sb.Append(FmtBBFloat("FeintIntervalMin", "FeintIntervalMin"));
+                sb.Append(FmtBBFloat("FeintIntervalMax", "FeintIntervalMax"));
+                sb.Append(FmtBBFloat("GuardBreakReactionDelay", "GuardBreakReactionDelay", "F3"));
+                sb.Append(FmtBBFloat("PoiseAttackIntervalMin", "PoiseAttackIntervalMin"));
+                sb.Append(FmtBBFloat("PoiseAttackIntervalMax", "PoiseAttackIntervalMax"));
+                sb.Append(FmtBBFloat("NarrowPathOrbitMult", "NarrowPathOrbitMult"));
+                sb.Append(FmtBBFloat("NarrowPathStrikeTimeMult", "NarrowPathStrikeTimeMult"));
+            }
+
+            // ── Strike ───────────────────────────────────────────────────────
+            bool showStrike = !_soStateOnly || isAttack;
+            if (showStrike)
+            {
+                string s3c = isAttack ? "#FFFF80" : "#7A9BB0";
+                sb.Append("\n<color=" + s3c + "><b>[Strike]</b></color>");
+                sb.Append(FmtBBFloat("AttackRotationSpeed", "AttackRotationSpeed", "F1"));
+                sb.Append(FmtBBFloat("AttackTimeout", "AttackTimeout", "F1"));
+            }
+
+            // ── Flee ─────────────────────────────────────────────────────────
+            bool showFlee = !_soStateOnly || isFlee;
+            if (showFlee)
+            {
+                string s2c = isFlee ? "#80FF80" : "#7A9BB0";
+                sb.Append("\n<color=" + s2c + "><b>[Flee]</b></color>");
+                sb.Append(FmtBBFloat("FleeSprintSpeed", "FleeSprintSpeed", "F1"));
+                sb.Append(FmtBBFloat("PanicChainRadius", "PanicChainRadius", "F1"));
+                sb.Append(FmtBBFloat("PanicChainMultiplier", "PanicChainMultiplier"));
+                sb.Append(FmtBBFloat("SafeFleeDistance", "SafeFleeDistance", "F1"));
+                sb.Append(FmtBBFloat("StuckCheckInterval", "StuckCheckInterval"));
+                sb.Append(FmtBBFloat("StuckMoveThreshold", "StuckMoveThreshold"));
+                sb.Append(FmtBBInt("StuckGiveUpCount", "StuckGiveUpCount"));
+                sb.Append(FmtBBFloat("ForceAttackFear", "ForceAttackFear", "F3"));
+                sb.Append(FmtBBFloat("FleeDuelInitialFear", "FleeDuelInitialFear", "F3"));
+                sb.Append(FmtBBFloat("FleeDuelMaxInitialFear", "FleeDuelMaxInitialFear", "F3"));
+            }
+
+            // ── FleeSwarm Live 내부 변수 ─────────────────────────────────────
+            if (showFlee && isFlee &&
+                FleeSwarmAction.ActiveInstances.TryGetValue(gameObject, out var fsInst) &&
+                fsInst != null)
+            {
+                int sc = fsInst.DebugStuckCount;
+                float stT = fsInst.DebugStuckTimer;
+                float el = fsInst.DebugEscapeLockTimer;
+                int giveUp = GetBB<int>("StuckGiveUpCount");
+                if (giveUp <= 0) giveUp = 4;
+                string scColor = (sc >= giveUp - 1) ? "#FF4545" : sc > 0 ? "#FFA520" : "#28E0B0";
+                int barFull = Mathf.Clamp(sc, 0, giveUp);
+                string stuckBar = "<color=" + scColor + ">" + new string('\u2588', barFull) + "</color>"
+                                + "<color=#444444>" + new string('\u2591', Mathf.Max(0, giveUp - barFull)) + "</color>";
+                sb.Append("\n<color=#FF8C00><b>  [FleeSwarm Live]</b></color>");
+                sb.Append("\n<color=#8AAFCF>  stuckCount  </color><color=" + scColor + ">"
+                        + sc + "/" + giveUp + "</color> " + stuckBar);
+                sb.Append("\n<color=#8AAFCF>  stuckTimer  </color><color=#28E0B0>" + stT.ToString("F2") + "s</color>");
+                if (el > 0.01f)
+                    sb.Append("\n<color=#8AAFCF>  escapeLock  </color><color=#FFA520>" + el.ToString("F2") + "s \u23f3</color>");
+                var fd = fsInst.DebugFixedFleeDir;
+                sb.Append("\n<color=#8AAFCF>  fleeDir     </color><color=#888888>("
+                        + fd.x.ToString("F1") + "," + fd.z.ToString("F1") + ")</color>");
+            }
+
+            // ── TacticalRepo ─────────────────────────────────────────────────
+            bool showTact = !_soStateOnly || isAttack;
+            if (showTact)
+            {
+                string s4c = isAttack ? "#FFFF80" : "#7A9BB0";
+                sb.Append("\n<color=" + s4c + "><b>[TacticalRepo]</b></color>");
+                sb.Append(FmtBBFloat("StaminaRecoverThreshold", "StaminaRecoverThreshold"));
+                sb.Append(FmtBBFloat("HealthRecoverThreshold", "HealthRecoverThreshold"));
+                sb.Append(FmtBBFloat("RetreatDist", "RetreatDist", "F1"));
+                sb.Append(FmtBBFloat("RecoverDuration", "RecoverDuration", "F1"));
+                sb.Append(FmtBBFloat("EvasionDist", "EvasionDist", "F1"));
+                sb.Append(FmtBBFloat("EvasionDuration", "EvasionDuration"));
+                sb.Append(FmtBBFloat("FeintDist", "FeintDist", "F1"));
+                sb.Append(FmtBBFloat("FeintDuration", "FeintDuration"));
+            }
+
+            // ── 확률 행동 그래프 ─────────────────────────────────────────────
+            float evasionChance = GetCombatStat("EvasionChance");
+            float feintChance = GetCombatStat("FeintChance");
+            if (_probGraphMode < 2 && showTact)
+            {
+                string gMode = _probGraphMode == 0 ? "Bar" : "Dot2D";
+                sb.Append("\n<color=#FFA520><b>\u2500\u2500 \ud655\ub960 \ubaa8\ub2c8\ud130 [" + gMode + "]</b></color>");
+                sb.Append(FmtProbability("EvasionChance", evasionChance, _evasionRolls, _probRollIdx));
+                sb.Append(FmtProbability("FeintChance", feintChance, _feintRolls, _probRollIdx));
+            }
+
+            return sb.ToString();
+        }
+
+        // =====================================================================
+        //  섹션 그리드 레이아웃 (J키: 수직/2열/3열)
+        // =====================================================================
+
+        private struct PanelCell { public string Title; public string Body; }
+
+        private PanelCell[] BuildPanelCells(float dist)
+        {
+            if (!(_debugMode == DebugMode.Standard || _debugMode == DebugMode.Focus))
+                return null;
+
+            var fss2 = AIDebuggerSettings.Instance;
+            bool lp = (fss2?.theme ?? AIDebuggerSettings.BTTheme.Dark) == AIDebuggerSettings.BTTheme.Light;
+            string HL = lp ? "#1A5FA0" : H_LABEL;
+            string HV = lp ? "#2A1A00" : H_VALUE;
+
+            string winner = GetWinner();
+            float fear = GetFear();
+            var aware = _ai?.GetComponent<AIPerceptionSystem>()?.CurrentAwareness ?? default;
+
+            // 셀1: 상태/욕구
+            float hunger = _brain?.hunger ?? 0f;
+            float greed = _brain?.greed ?? 0f;
+            float fatigue = _brain?.fatigue ?? 0f;
+            string fearHex = fear > 0.7f ? H_DANGER : fear > 0.4f ? H_WARN : HV;
+            string aHex = aware == AwarenessState.Combat ? H_DANGER : aware == AwarenessState.Alert ? H_WARN : HV;
+            string wHex = winner switch { "Attack" => H_DANGER, "Flee" => H_OK, "Patrol" => H_BLUE, _ => H_NEUT };
+            System.Func<float, string, string> Bar = (v, col) => {
+                int f = Mathf.Clamp(Mathf.RoundToInt(v * 6f), 0, 6);
+                return "<color=" + col + ">" + new string('\u2588', f) + "</color>"
+                     + "<color=#444>" + new string('\u2591', 6 - f) + "</color>"
+                     + " <color=" + HV + ">" + v.ToString("F2") + "</color>";
+            };
+            string driveCell = "<color=" + wHex + "><b>[" + winner + "]</b></color> <color=" + aHex + ">" + aware + "</color>"
+                + "\n<color=" + HL + ">FEAR   </color>" + Bar(fear, fearHex)
+                + "\n<color=" + HL + ">HUNGER </color>" + Bar(hunger, HV)
+                + "\n<color=" + HL + ">GREED  </color>" + Bar(greed, HV)
+                + "\n<color=" + HL + ">FATIGUE</color>" + Bar(fatigue, HV);
+
+            // 셀2: Utility
+            float uAtk = ReadUtility("u_attack"); float uFle = ReadUtility("u_flee");
+            float uIdl = ReadUtility("u_idle"); float uPat = ReadUtility("u_patrol");
+            string utilCell = "<color=" + HL + ">ATK</color><color=" + HV + ">" + uAtk.ToString("F2") + "</color>  "
+                + "<color=" + HL + ">FLE</color><color=" + HV + ">" + uFle.ToString("F2") + "</color>\n"
+                + "<color=" + HL + ">IDL</color><color=" + HV + ">" + uIdl.ToString("F2") + "</color>  "
+                + "<color=" + HL + ">PAT</color><color=" + HV + ">" + uPat.ToString("F2") + "</color>";
+
+            // 셀3: 전투 파라미터
+            string policy = GetBB<string>("PolicyType") ?? "---";
+            float engage = GetCombatStat("EngageRange");
+            float stalk = GetCombatStat("StalkSpeed");
+            float orbit = GetCombatStat("OrbitRadius");
+            float strikeT = GetCombatStat("StrikeTriggerTime");
+            float flee2 = GetCombatStat("FleeSprintSpeed");
+            string tags3 = GetBB<string>("TerrainTags") ?? "";
+            string sk = (strikeT >= 9999f || float.IsInfinity(strikeT)) ? "\u221e" : strikeT.ToString("F1") + "s";
+            string combatCell = "<color=" + HL + ">POLICY </color><color=#B0C4FF>" + policy + "</color>\n"
+                + "<color=" + HL + ">ENGAGE </color><color=" + HV + ">" + engage.ToString("F1") + "m</color>  "
+                + "<color=" + HL + ">STALK  </color><color=" + HV + ">" + stalk.ToString("F1") + "</color>\n"
+                + "<color=" + HL + ">ORBIT  </color><color=" + HV + ">" + orbit.ToString("F1") + "m</color>  "
+                + "<color=" + HL + ">STRIKE </color><color=" + HV + ">" + sk + "</color>\n"
+                + "<color=" + HL + ">FLEE   </color><color=" + HV + ">" + flee2.ToString("F1") + "</color>"
+                + (string.IsNullOrEmpty(tags3) ? "" : ("\n<color=" + HL + ">TAGS   </color><color=" + H_WARN + ">" + tags3 + "</color>"));
+
+            // 셀4: 타겟
+            string tgtCell = _brain?.currentTarget != null
+                ? "<color=" + H_TARGET + "><b>\u25b6 " + _brain.currentTarget.name + "</b></color>\n"
+                  + "<color=" + HL + ">DIST </color><color=" + HV + ">"
+                  + Vector3.Distance(transform.position, _brain.currentTarget.position).ToString("F1") + "m</color>"
+                : "<color=#555555>\ud0c0\uac9f \uc5c6\uc74c</color>";
+
+            // 셀5: SO 파라미터
+            string soCell = BuildSOVerifySection("").TrimStart('\n').TrimStart(' ');
+
+            return new PanelCell[]
+            {
+                new PanelCell { Title = "\uc0c1\ud0dc\u00b7\uc695\uad6c",   Body = driveCell  },
+                new PanelCell { Title = "Utility",         Body = utilCell   },
+                new PanelCell { Title = "\uc804\ud22c \ud30c\ub77c\ubbf8\ud130", Body = combatCell },
+                new PanelCell { Title = "\ud0c0\uac9f",   Body = tgtCell    },
+                new PanelCell { Title = "SO \ud30c\ub77c\ubbf8\ud130", Body = soCell },
+            };
+        }
+
+        private void DrawGridPanel(Rect panelRect, PanelCell[] cells,
+                                   ref bool dragging, ref Vector2 dragStart, ref Vector2 dragOff)
+        {
+            if (cells == null || cells.Length == 0 || !_stylesReady || _styleText == null) return;
+            RebuildPanelTextures();
+            var fullSt = new GUIStyle { normal = { background = _panelFullTex }, border = new RectOffset(20, 20, 20, 20) };
+            var titleSt = new GUIStyle { normal = { background = _titleOverlayTex }, border = new RectOffset(20, 20, 20, 0) };
+            GUI.Box(panelRect, GUIContent.none, fullSt);
+            Rect titleBar = new Rect(panelRect.x, panelRect.y, panelRect.width, TITLE_H);
+            GUI.Box(titleBar, GUIContent.none, titleSt);
+            var lblSt = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 10,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                richText = false
+            };
+            lblSt.normal.textColor = Color.white;
+            string lhint = _soLayoutMode switch { 1 => "2\uc5f4", 2 => "3\uc5f4", _ => "1\uc5f4" };
+            GUI.Label(new Rect(titleBar.x + 6, titleBar.y, titleBar.width - 12, TITLE_H),
+                      "AI Info  [J:" + lhint + "]", lblSt);
+            Color ca = GetCharColor(gameObject.name);
+            Color prev = GUI.color; GUI.color = ca;
+            GUI.DrawTexture(new Rect(panelRect.x, panelRect.y, 3f, panelRect.height), Texture2D.whiteTexture);
+            GUI.color = prev;
+            HandleDrag(titleBar, ref dragging, ref dragStart, ref dragOff);
+            int cols = _soLayoutMode switch { 1 => 2, 2 => 3, _ => 1 };
+            float padX = 8f, padY = 4f;
+            float cellW = (panelRect.width - padX * (cols + 1)) / cols;
+            float curX = panelRect.x + padX;
+            float curY = panelRect.y + TITLE_H + padY;
+            float maxRowH = 0f;
+            int col = 0;
+            foreach (var cell in cells)
+            {
+                if (string.IsNullOrEmpty(cell.Body)) continue;
+                Vector2 bodySize = _styleText.CalcSize(new GUIContent(cell.Body));
+                float cellH = bodySize.y + 16f;
+                if (cols > 1)
+                {
+                    if (col >= cols)
+                    {
+                        col = 0; curX = panelRect.x + padX;
+                        curY += maxRowH + padY * 2f; maxRowH = 0f;
+                    }
+                    if (col > 0)
+                    {
+                        float lx = curX - padX * 0.5f;
+                        Color lc = new Color(0.3f, 0.4f, 0.5f, 0.5f);
+                        Color pl = GUI.color; GUI.color = lc;
+                        GUI.DrawTexture(new Rect(lx, curY, 1f, cellH), Texture2D.whiteTexture);
+                        GUI.color = pl;
+                    }
+                }
+                var hd = new GUIStyle(GUI.skin.label) { fontSize = 9, fontStyle = FontStyle.Bold, richText = false };
+                hd.normal.textColor = new Color(0.6f, 0.8f, 1f);
+                GUI.Label(new Rect(curX, curY, cellW, 12f), cell.Title, hd);
+                GUI.Label(new Rect(curX, curY + 13f, cellW, bodySize.y), cell.Body, _styleText);
+                maxRowH = Mathf.Max(maxRowH, cellH);
+                if (cols > 1) { curX += cellW + padX; col++; }
+                else { curY += cellH + padY; }
+            }
         }
 
         // =====================================================================
@@ -785,12 +1216,32 @@ namespace TDA.PB4.Diagnostics
             }
             _lastPanelScale = pScale;
 
-            string content = BuildPanelContent(dist) ?? string.Empty;
+            // J키 레이아웃: 0=수직(기존) 1=2셀열 2=3셀열
+            PanelCell[] gridCells = (_soLayoutMode >= 1) ? BuildPanelCells(dist) : null;
+            string content = (gridCells == null) ? (BuildPanelContent(dist) ?? string.Empty) : string.Empty;
             if (_styleText == null || _stylePanel == null) return;
 
-            Vector2 cSize = _styleText.CalcSize(new GUIContent(content));
-            float padH = 16f, padV = 12f;
-            float pw = Mathf.Max(cSize.x + padH * 2f, 160f), ph = cSize.y + padV * 2f + TITLE_H;
+            float pw, ph;
+            if (gridCells != null && gridCells.Length > 0)
+            {
+                int gCols = _soLayoutMode == 1 ? 2 : 3;
+                float totalCellH = 0f;
+                foreach (var c2 in gridCells)
+                {
+                    if (string.IsNullOrEmpty(c2.Body)) continue;
+                    totalCellH += _styleText.CalcSize(new GUIContent(c2.Body)).y + 20f;
+                }
+                int rows2 = Mathf.CeilToInt((float)gridCells.Length / gCols);
+                ph = Mathf.Max((totalCellH / Mathf.Max(gridCells.Length, 1)) * rows2 + TITLE_H + 16f, 120f);
+                pw = Mathf.Max(180f * gCols + 24f, 300f);
+            }
+            else
+            {
+                Vector2 cSize = _styleText.CalcSize(new GUIContent(content));
+                float padH = 16f, padV = 12f;
+                pw = Mathf.Max(cSize.x + padH * 2f, 160f);
+                ph = cSize.y + padV * 2f + TITLE_H;
+            }
 
             // ── 스냅 위치 계산 (unscaled 좌표) ─────────────────────────
             // onRight: _lastPanelOnRight로 초기화 → _mainDragging=true 경로에서 미할당 방지
@@ -945,8 +1396,11 @@ namespace TDA.PB4.Diagnostics
                 GUIUtility.ScaleAroundPivot(new Vector2(pScale, pScale),
                                             new Vector2(panelRect.x, panelRect.y));
 
-            DrawPanelTitled(panelRect, "AI Info", content, _stylePanel, _styleText,
-                            ref _mainDragging, ref _mainDragStart, ref _mainDragOff);
+            if (gridCells != null)
+                DrawGridPanel(panelRect, gridCells, ref _mainDragging, ref _mainDragStart, ref _mainDragOff);
+            else
+                DrawPanelTitled(panelRect, "AI Info", content, _stylePanel, _styleText,
+                                ref _mainDragging, ref _mainDragStart, ref _mainDragOff);
 
             // ── 리사이즈 핸들 (패널 우·하단 엣지 드래그) ─────────────────
             DrawResizeHandles(panelRect, ref _mainCustomW, ref _mainCustomH, pScale);
@@ -1502,11 +1956,27 @@ namespace TDA.PB4.Diagnostics
             bool useScale = sett?.useMatrixScale ?? true;
 
             // ── ① 콘텐츠 크기 계산 (단 1회) ─────────────────────────────────
-            string content = BuildPanelContent(dist);
             _styleText.fontSize = sett?.fontSizeBody > 0 ? sett.fontSizeBody : 11;
-            Vector2 cSize = _styleText.CalcSize(new GUIContent(content));
-            float mainPW = Mathf.Max(cSize.x + 32f, 160f);
-            float mainPH = cSize.y + 24f + TITLE_H;
+            PanelCell[] svGridCells = (_soLayoutMode >= 1) ? BuildPanelCells(dist) : null;
+            string content = (svGridCells == null) ? BuildPanelContent(dist) : string.Empty;
+            float mainPW, mainPH;
+            if (svGridCells != null && svGridCells.Length > 0)
+            {
+                int svCols = _soLayoutMode == 1 ? 2 : 3;
+                float svCellH = 0f;
+                foreach (var c2 in svGridCells)
+                    if (!string.IsNullOrEmpty(c2.Body))
+                        svCellH += _styleText.CalcSize(new GUIContent(c2.Body)).y + 20f;
+                int svRows = Mathf.CeilToInt((float)svGridCells.Length / svCols);
+                mainPH = Mathf.Max((svCellH / Mathf.Max(svGridCells.Length, 1)) * svRows + TITLE_H + 16f, 120f);
+                mainPW = Mathf.Max(180f * svCols + 24f, 300f);
+            }
+            else
+            {
+                Vector2 cSize = _styleText.CalcSize(new GUIContent(content));
+                mainPW = Mathf.Max(cSize.x + 32f, 160f);
+                mainPH = cSize.y + 24f + TITLE_H;
+            }
             float sMainW = mainPW * svScale;
             float sMainH = mainPH * svScale;
 
@@ -1565,9 +2035,13 @@ namespace TDA.PB4.Diagnostics
                 Matrix4x4 mat0 = GUI.matrix;
                 if (useScale && svScale < 0.999f)
                     GUIUtility.ScaleAroundPivot(Vector2.one * svScale, new Vector2(px, py));
-                DrawPanelTitled(new Rect(px, py, mainPW, mainPH), "AI Info", content,
-                                _stylePanel, _styleText,
-                                ref _mainDragging, ref _mainDragStart, ref _mainDragOff);
+                if (svGridCells != null)
+                    DrawGridPanel(new Rect(px, py, mainPW, mainPH), svGridCells,
+                                  ref _mainDragging, ref _mainDragStart, ref _mainDragOff);
+                else
+                    DrawPanelTitled(new Rect(px, py, mainPW, mainPH), "AI Info", content,
+                                    _stylePanel, _styleText,
+                                    ref _mainDragging, ref _mainDragStart, ref _mainDragOff);
                 GUI.matrix = mat0;
 
                 // 연결선: AI Info 좌측 → 캐릭터 스크린 위치
@@ -2379,13 +2853,15 @@ namespace TDA.PB4.Diagnostics
                         var sett2 = AIDebuggerSettings.Instance;
                         if ((sett2 == null || sett2.showBTConditionValues) && _cachedAgent != null)
                         {
-                            string bbInfo = GetNodeBBValues(info.Node, _cachedAgent);
+                            string bbInfo = GetNodePB4Detail(info.Node, _cachedAgent, info.DisplayName);
+                            if (string.IsNullOrEmpty(bbInfo))
+                                bbInfo = GetNodeBBValues(info.Node, _cachedAgent);
                             if (!string.IsNullOrEmpty(bbInfo))
                             {
                                 int bbFs = Mathf.Max(Mathf.RoundToInt(8f * Mathf.Max(scale, 0.6f)), 6);
                                 float lineH = bbFs + 4f;
                                 string[] bbLines = bbInfo.Split('\n');
-                                int numLines = Mathf.Min(bbLines.Length, 3);
+                                int numLines = Mathf.Min(bbLines.Length, 6);
                                 float bbH = numLines * lineH + 4f;
                                 if (box.yMax + bbH <= panelBottomY)
                                 {
@@ -2420,6 +2896,120 @@ namespace TDA.PB4.Diagnostics
                     var ns = new GUIStyle(GUI.skin.label) { fontSize = fs, clipping = TextClipping.Clip }; ns.normal.textColor = st == Node.Status.Running ? new Color(1f, 0.95f, 0.35f) : NodeBorder(st);
                     GUI.Label(new Rect(x, y, GV_NODE_W * scale, rowH), txt, ns);
                 }
+            }
+
+            // =====================================================================
+            //  pB-4 노드 타입별 커스텀 디테일 텍스트
+            // =====================================================================
+            private static string GetNodePB4Detail(Node node, BehaviorGraphAgent agent, string displayName)
+            {
+                if (node == null || agent?.BlackboardReference == null) return "";
+                string typeName = node.GetType().Name;
+                var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                float BBF(string key) { try { agent.BlackboardReference.GetVariable(key, out BlackboardVariable<float> v); return v?.Value ?? 0f; } catch { return 0f; } }
+                int BBI(string key) { try { agent.BlackboardReference.GetVariable(key, out BlackboardVariable<int> v); return v?.Value ?? 0; } catch { return 0; } }
+                string BBStr(string key) { try { agent.BlackboardReference.GetVariable(key, out BlackboardVariable<string> v); return v?.Value ?? ""; } catch { return ""; } }
+                Node.Status st = node.CurrentStatus;
+                bool isRunning = st == Node.Status.Running;
+                string kc = "#7DCFFF"; string vc = "#FFE082"; string rc = "#FF6060"; string gc = "#69FF7A";
+                try
+                {
+                    if (typeName == "CircleStrafeAction")
+                    {
+                        string tags = BBStr("TerrainTags");
+                        bool narrow = tags.Contains("NarrowPath");
+                        float orbitBB = BBF("OrbitRadius");
+                        float orbitMult = BBF("NarrowPathOrbitMult"); if (orbitMult < 0.001f) orbitMult = 0.4f;
+                        float orbitEff = narrow ? orbitBB * orbitMult : orbitBB;
+                        float strikeBB = BBF("StrikeTriggerTime");
+                        float strikeMult = BBF("NarrowPathStrikeTimeMult"); if (strikeMult < 0.001f) strikeMult = 0.5f;
+                        float strikeEff = narrow ? strikeBB * strikeMult : strikeBB;
+                        string orbitStr, strikeStr;
+                        if (narrow)
+                        {
+                            orbitStr = $"<color={kc}>OrbitRadius</color> <color={rc}>{orbitEff:F2}m</color> <color=#888>({orbitBB:F2}*{orbitMult:F2})</color>";
+                            strikeStr = $"<color={kc}>StrikeTrigger</color> <color={rc}>{strikeEff:F2}s</color> <color=#888>({strikeBB:F2}*{strikeMult:F2})</color>";
+                        }
+                        else
+                        {
+                            orbitStr = $"<color={kc}>OrbitRadius</color> <color={(orbitBB < 0.01f ? rc : gc)}>{orbitBB:F2}m</color>";
+                            strikeStr = $"<color={kc}>StrikeTrigger</color> <color={vc}>{strikeBB:F2}s</color>";
+                        }
+                        float angSpeed = BBF("StrafeAngularSpeed");
+                        float closeIn = BBF("CloseInMaxTime");
+                        string narrowTag = narrow ? " <color=#FFA520>[NarrowPath]</color>" : "";
+                        var sb4 = new System.Text.StringBuilder();
+                        sb4.Append(orbitStr); sb4.Append("\n"); sb4.Append(strikeStr);
+                        sb4.Append($"\n<color={kc}>AngSpeed</color> <color={vc}>{angSpeed:F1}</color>");
+                        sb4.Append($"\n<color={kc}>CloseInMax</color> <color={vc}>{closeIn:F2}s</color>");
+                        if (!string.IsNullOrEmpty(narrowTag)) sb4.Append(narrowTag);
+                        return sb4.ToString();
+                    }
+                    if (typeName == "StrikeAction")
+                    {
+                        float timeout = BBF("AttackTimeout");
+                        float rotSpeed = BBF("AttackRotationSpeed");
+                        float fallbackT = 0f;
+                        var tFi = node.GetType().GetField("_fallbackTimer", flags) ?? node.GetType().GetField("_attackTimer", flags);
+                        if (tFi != null) try { fallbackT = (float)tFi.GetValue(node); } catch { }
+                        string timerStr = isRunning ? $" <color={vc}>{fallbackT:F1}/{timeout:F1}s</color>" : $" <color=#888>{timeout:F1}s</color>";
+                        return $"<color={kc}>Timeout</color>{timerStr}\n<color={kc}>RotSpeed</color> <color={vc}>{rotSpeed:F1}</color>";
+                    }
+                    if (typeName == "FleeSwarmAction")
+                    {
+                        float fleeSpd = BBF("FleeSprintSpeed");
+                        int giveUp = BBI("StuckGiveUpCount");
+                        var sb4 = new System.Text.StringBuilder();
+                        sb4.Append($"<color={kc}>FleeSpeed</color> <color={vc}>{fleeSpd:F1}</color>");
+                        try
+                        {
+                            var selfFi = node.GetType().GetField("Self", flags);
+                            if (selfFi != null)
+                            {
+                                var selfBV = selfFi.GetValue(node);
+                                var vp = selfBV?.GetType().GetProperty("Value");
+                                if (vp?.GetValue(selfBV) is UnityEngine.GameObject go &&
+                                    FleeSwarmAction.ActiveInstances.TryGetValue(go, out var fsi) && fsi != null)
+                                {
+                                    int sc = fsi.DebugStuckCount; float el = fsi.DebugEscapeLockTimer;
+                                    string bar = giveUp > 0 ? (new string('\u2588', Mathf.Clamp(sc, 0, giveUp)) + new string('\u2591', Mathf.Max(0, giveUp - sc))) : sc.ToString();
+                                    string sc_c = (giveUp > 0 && sc >= giveUp - 1) ? rc : (sc > 0 ? "#FFA520" : gc);
+                                    sb4.Append($"\n<color={kc}>Stuck</color> <color={sc_c}>{sc}/{giveUp} {bar}</color>");
+                                    if (el > 0.01f) sb4.Append($"\n<color={kc}>EscapeLock</color> <color=#FFA520>{el:F2}s</color>");
+                                }
+                            }
+                        }
+                        catch { }
+                        return sb4.ToString();
+                    }
+                    if (typeName == "FleeDuelAction")
+                    {
+                        float initFear = BBF("FleeDuelInitialFear");
+                        float maxFear = BBF("FleeDuelMaxInitialFear");
+                        float fleeSpd = BBF("FleeSprintSpeed");
+                        float fearVal = 0f;
+                        try { var selfFi = node.GetType().GetField("Self", flags); if (selfFi != null) { var selfBV = selfFi.GetValue(node); var vp = selfBV?.GetType().GetProperty("Value"); if (vp?.GetValue(selfBV) is UnityEngine.GameObject go) { var brain = go.GetComponent<MobAIBrain>(); if (brain != null) fearVal = brain.fear; } } } catch { }
+                        string fearColor = fearVal > initFear ? rc : gc;
+                        return $"<color={kc}>InitFear</color> <color={vc}>{initFear:F3}</color> <color=#888>max:{maxFear:F3}</color>\n<color={kc}>CurFear</color> <color={fearColor}>{fearVal:F3}</color>\n<color={kc}>FleeSpeed</color> <color={vc}>{fleeSpd:F1}</color>";
+                    }
+                    if (typeName == "TacticalRepositionAction")
+                    {
+                        float evc2 = BBF("EvasionChance"); float fec2 = BBF("FeintChance");
+                        float retD = BBF("RetreatDist"); float recD = BBF("RecoverDuration");
+                        float stam = BBF("StaminaRecoverThreshold");
+                        return $"<color={kc}>Evasion</color> <color={(evc2 < 0.001f ? rc : vc)}>{evc2:P0}</color>  <color={kc}>Feint</color> <color={(fec2 < 0.001f ? rc : vc)}>{fec2:P0}</color>\n<color={kc}>Retreat</color> <color={vc}>{retD:F1}m</color>  <color={kc}>Recover</color> <color={vc}>{recD:F1}s</color>\n<color={kc}>StamThr</color> <color={vc}>{stam:P0}</color>";
+                    }
+                    if (typeName == "StalkAction")
+                    {
+                        float stalkSpd = BBF("StalkSpeed"); float engRange = BBF("EngageRange");
+                        float dist2 = 0f;
+                        try { var selfFi = node.GetType().GetField("Self", flags); var tgtFi = node.GetType().GetField("Target", flags); if (selfFi != null && tgtFi != null) { var sv = selfFi.GetValue(node); var tv = tgtFi.GetValue(node); var sp = sv?.GetType().GetProperty("Value"); var tp = tv?.GetType().GetProperty("Value"); if (sp?.GetValue(sv) is UnityEngine.GameObject go && tp?.GetValue(tv) is UnityEngine.Transform tT) dist2 = Vector3.Distance(go.transform.position, tT.position); } } catch { }
+                        string dc = dist2 < engRange && engRange > 0.1f ? gc : vc;
+                        return $"<color={kc}>StalkSpd</color> <color={vc}>{stalkSpd:F1}</color>\n<color={kc}>Dist/Engage</color> <color={dc}>{dist2:F1}/{engRange:F1}m</color>";
+                    }
+                }
+                catch { }
+                return "";
             }
 
             // BB values with Rich Text

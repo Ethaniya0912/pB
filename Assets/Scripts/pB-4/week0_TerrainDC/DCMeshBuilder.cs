@@ -443,6 +443,23 @@ namespace CaveSystem
         [Tooltip("ON: Physics.BakeMesh를 IJob에서 worker로 수행 (메인 -23ms/청크, 버스트 -118ms). OFF: 즉시 sync (원본)")]
         public bool enablePhysicsBakeAsync = false;
 
+        // ─────────────────────────────────────────────────────────────
+        // [Phase 3-A] Collider Race Fallback Guard
+        //   증상: Fine async bake schedule 이후 k 프레임 동안 collider.sharedMesh=null
+        //         → 이 구간에 플레이어가 해당 chunk 위에 있으면 관통 추락.
+        //   방안 1 (CaveChunkManager.CleanupCompletedCoarse)이 Coarse→Fine 경로만 커버.
+        //   enableCoarseFirst=false 경로 + 풀 재사용 경로에서는 Coarse 자체가 없음.
+        //   → Phase 3-A: Fine async bake schedule <strong>이전에</strong> 즉시 sync bake를 
+        //     한 번 실행하여 collider.sharedMesh 유효성 보장. Async bake는 후속 정밀 bake로만 기능.
+        //   비용: 첫 sync bake 약 5~15ms (메인 스레드) — 원본 sync 경로와 동일 부하
+        //         이후 async로 정밀 bake 진행 → 결과적 지연 거의 없음
+        //   규칙 #6: OFF 시 기존 async-only 경로 유지 → bit-identical
+        //   상세: phase3_b_c_design.html 참조
+        // ─────────────────────────────────────────────────────────────
+        [Tooltip("Phase 3-A: Async bake 시작 전 즉시 sync bake 1회 실행 → collider 공백 제거. " +
+                 "OFF=기존 async-only(공백 발생 가능). enablePhysicsBakeAsync=OFF 시 무시됨.")]
+        public bool enablePhase3AColliderGuard = false;
+
         [Header("References")]
         public CaveMeshJobManager existingMeshJobManager;
 
@@ -534,7 +551,9 @@ namespace CaveSystem
                 while (budget-- > 0 && _stitchQueue.Count > 0)
                 {
                     var s = _stitchQueue.Dequeue();
-                    // 청크 제거 방어 (LOD cull로 mesh/transform destroyed 가능)
+                    // [FIX-STALE-STITCH] Pool 반환/LOD cull로 mesh 또는 transform이 Destroy된 경우 skip.
+                    //   기존 체크에 chunkTransform 누락되어 있었고, Unity == null 연산자로 Destroyed 감지 가능.
+                    //   ChunkSeamStitcher.RegisterAndStitch 내부에서도 lazy cache cleanup 추가됨.
                     if (s.mesh == null || s.chunkTransform == null) continue;
                     ChunkSeamStitcher.Instance.RegisterAndStitch(
                         s.chunkPos, s.mesh, s.chunkTransform,
@@ -931,6 +950,17 @@ namespace CaveSystem
                 {
                     // 기존에 할당된 mesh가 있으면 먼저 풀 재사용 pending 정리
                     CancelPendingPhysicsBakesForCollider(collider);
+
+                    // [Phase 3-A] Async bake schedule 전 즉시 sync 할당으로 collider 공백 차단.
+                    //   OFF: 기존 경로 (async만, k 프레임 공백 가능)
+                    //   ON : sync 할당 즉시 수행 → 추후 async bake가 정밀 cook으로 업데이트
+                    //        첫 cook은 기존 sync 경로와 동일하게 blocking — 메인 +5~15ms
+                    //        But 이후 프레임부터 async가 worker에서 돌아 추가 부담 없음
+                    if (enablePhase3AColliderGuard)
+                    {
+                        collider.sharedMesh = mesh;  // 즉시 sync 확보 (공백 차단)
+                    }
+
                     var bake = new BakeMeshJob { meshID = mesh.GetInstanceID(), convex = false };
                     JobHandle bh = bake.Schedule();
                     _pendingPhysicsBakes.Add(new PendingPhysicsBake {
@@ -1039,6 +1069,13 @@ namespace CaveSystem
                 if (enablePhysicsBakeAsync)
                 {
                     CancelPendingPhysicsBakesForCollider(collider);
+
+                    // [Phase 3-A] Async bake schedule 전 즉시 sync 할당 (collider 공백 차단)
+                    if (enablePhase3AColliderGuard)
+                    {
+                        collider.sharedMesh = mesh;
+                    }
+
                     var bake = new BakeMeshJob { meshID = mesh.GetInstanceID(), convex = false };
                     Unity.Jobs.JobHandle bh = bake.Schedule();
                     _pendingPhysicsBakes.Add(new PendingPhysicsBake {
@@ -1356,6 +1393,13 @@ namespace CaveSystem
                 if (enablePhysicsBakeAsync && !isCoarseDraft_native)
                 {
                     CancelPendingPhysicsBakesForCollider(collider);
+
+                    // [Phase 3-A] Async bake schedule 전 즉시 sync 할당 (collider 공백 차단)
+                    if (enablePhase3AColliderGuard)
+                    {
+                        collider.sharedMesh = mesh;
+                    }
+
                     var bake = new BakeMeshJob { meshID = mesh.GetInstanceID(), convex = false };
                     JobHandle bh = bake.Schedule();
                     _pendingPhysicsBakes.Add(new PendingPhysicsBake {

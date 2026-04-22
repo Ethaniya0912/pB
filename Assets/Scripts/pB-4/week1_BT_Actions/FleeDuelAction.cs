@@ -126,6 +126,9 @@ public partial class FleeDuelAction : Action
              "기본 0.25 (여유 마진 확보)")]
     [SerializeReference] public BlackboardVariable<float> InitialFear = new(0.25f);
 
+    /// <summary>InitialFear 상한값. 이 값 초과 시 강제 보정.</summary>
+    [SerializeReference] public BlackboardVariable<float> MaxInitialFear = new(0.28f);
+
     /// <summary>
     /// [Bug 2 수정] Stalk → CircleStrafe 전환 기준 거리 (m).
     /// dist > EngageRange 인 상태에서 Flee 가 트리거되면
@@ -217,10 +220,9 @@ public partial class FleeDuelAction : Action
         // → Flee가 계속 이겨 FleeDuelAction이 무한 루프.
         // Attack 임계값: fear < 0.304 (Orc 기준). 0.20으로 제한.
         // ★ BT 에디터 FleeDuelAction 노드의 InitialFear 값도 0.20으로 변경하세요.
-        const float MAX_INITIAL_FEAR = 0.28f;
-        float safeInitialFear = Mathf.Min(InitialFear.Value, MAX_INITIAL_FEAR);
+        float safeInitialFear = Mathf.Min(InitialFear.Value, MaxInitialFear.Value);
 
-        if (InitialFear.Value > MAX_INITIAL_FEAR)
+        if (InitialFear.Value > MaxInitialFear.Value)
             Debug.LogWarning(
                 $"[FleeDuel][COUNTER] {Self.Value?.name}: InitialFear={InitialFear.Value:F2} 상한 초과.\n" +
                 $"  → {safeInitialFear:F2}로 강제 보정. BT 에디터에서도 수정 필요.");
