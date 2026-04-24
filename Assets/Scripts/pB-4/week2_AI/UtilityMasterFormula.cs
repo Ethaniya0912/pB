@@ -1,171 +1,194 @@
 // =============================================================================
-// UtilityMasterFormula.cs  |  pB-4 Project — Week 2 (Day 2 T2.3 통합본)
+// UtilityMasterFormula.cs  |  pB-4 Project — Week 2 Day 2 T2.3 통합본
+//                          |  v3 NGO 2.0 대응 — 2026-04-23
 // Layer  : L3 Domain (AI)
 // Namespace: TDA.PB4.AI
 //
 // 역할:
-//   HumanoidAI의 유틸리티 AI 핵심 수식을 구현한다.
-//   Week 1의 단순 곱셈을 Master Formula로 교체:
-//
-//     U(A) = f(Need)^k  ×  Π(Modifier_i)  ×  TrustFactor
-//
-//   f(Need)  = 반응 곡선 (Power / Logit / Linear 중 선택)
-//   k        = 성격 태그에 의해 조절되는 지수
-//   Modifier = 성격/지형/상태에 의한 보정 계수
-//   Trust    = 신뢰도 (Week 4에서 구현, 현재 1.0 고정)
-//
-// 사용법:
-//   HumanoidAIBrain.UpdateDecision()에서 이 클래스의 ScoreAction()을 호출.
-//   각 행동(Attack/Flee/Loot/Move/FollowCommand)에 대해 점수를 산출.
+//   HumanoidAI의 유틸리티 AI 핵심 수식 구현.
+//   U(A) = f(Need)^k × Π(Modifier_i) × TrustFactor
 //
 // [통합 이력]
-//   - Day 1 T1.4: SetConfig/externalConfig 추가 (당시 partial class + 별도 Patch 파일)
-//   - Day 2 T2.3: Awake 하드코딩 5개 Add 제거. SO 강제, fallback 없음.
-//   - Day 2 T2.3 통합: UtilityMasterFormula_Week2Patch.cs를 이 파일에 흡수. partial 제거.
-//     * 이유: T2.3에서 이미 원본을 크게 수정하므로 Patch 분리 명분 소멸.
-//     * 결과: 솔루션 탐색기에 파일 1개. partial 키워드 불필요.
+//   - Day 1 T1.4: SetConfig/externalConfig 추가
+//   - Day 2 T2.3: Awake 하드코딩 5개 Add 제거. SO 강제.
+//   - Day 2 T2.3 통합: Patch 파일 흡수. partial 제거.
+//
+// [v3 NGO 2.0 개정]
+//   - [NGO-1] MonoBehaviour → NetworkBehaviour
+//   - [NGO-2] Awake + OnNetworkSpawn 듀얼 초기화 (단독 Play + Network 호환)
+//   - [NGO-3] ScoreAction/ScoreAllActions는 서버/단독 Play에서만 결정. 클라는 NetworkVariable 읽기
+//   - [NGO-4] winnerIndex + UtilityScoresSnapshot를 NetworkVariable로 전파 (Dashboard용)
+//   - [NGO-5] trustFactor는 그대로 public (Dashboard 드래그 호환, 클라 view-only)
 // =============================================================================
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Netcode;                             // [NGO-1]
 using UnityEngine;
 using TDA.PB4.Data;
 
 namespace TDA.PB4.AI
 {
-    /// <summary>
-    /// 반응 곡선 유형. 욕구(Need) 값을 비선형으로 변환하여
-    /// NPC의 성격에 따라 '참다가 폭발'하거나 '서서히 반응'하는 행동을 모델링한다.
-    /// </summary>
+    /// <summary>반응 곡선 유형.</summary>
     public enum ResponseCurveType
     {
-        /// <summary>
-        /// f(x) = x^k. k>1이면 욕구가 커야 반응, k<1이면 작은 욕구에도 민감.
-        /// 예: Glutton(k_hunger=2.5) → 배고픔이 0.8 이상이어야 강하게 반응.
-        /// </summary>
         Power,
-
-        /// <summary>
-        /// f(x) = 1/(1+e^(-c*(x-0.5))). S자 곡선.
-        /// 임계점(0.5) 근처에서 갑자기 반응이 폭발.
-        /// 예: 겁쟁이 NPC가 공포 0.5까지 참다가 갑자기 도주.
-        /// </summary>
         Logit,
-
-        /// <summary>f(x) = x. 선형. 기본 반응.</summary>
         Linear
     }
 
-    /// <summary>
-    /// 개별 행동의 유틸리티 설정. 어떤 욕구를 사용하고, 어떤 곡선으로 변환하는지 정의.
-    /// Inspector에서 행동별로 세밀하게 조절 가능.
-    /// </summary>
+    /// <summary>개별 행동의 유틸리티 설정.</summary>
     [Serializable]
     public class ActionUtilityConfig
     {
         [Tooltip("이 설정이 적용되는 행동 이름 (Attack/Flee/Loot/Move/FollowCommand)")]
         public string actionId;
 
-        [Tooltip("이 행동의 기반 욕구. 예: Attack=aggression, Flee=fear, Loot=greed")]
+        [Tooltip("이 행동의 기반 욕구 키. 예: Attack=aggression, Flee=fear, Loot=greed")]
         public string primaryNeedKey;
 
         [Tooltip("반응 곡선 유형. Power=점진적, Logit=임계점 폭발, Linear=선형")]
         public ResponseCurveType curveType = ResponseCurveType.Power;
 
-        [Tooltip("Power Curve의 지수(k). 1.0=선형, 2.0=욕구 높아야 반응, 0.5=작은 욕구에도 민감")]
-        [Range(0.1f, 5.0f)]
-        public float curveExponent = 1.0f;
+        [Tooltip("Power Curve 지수(k). 1.0=선형, 2.0=욕구 높아야 반응, 0.5=작은 욕구에도 민감")]
+        [Range(0.1f, 5.0f)] public float curveExponent = 1.0f;
 
-        [Tooltip("Logit Curve의 기울기(c). 높을수록 임계점에서 급격히 반응")]
-        [Range(1f, 20f)]
-        public float logitSteepness = 10f;
+        [Tooltip("Logit Curve 기울기(c). 높을수록 임계점에서 급격히 반응")]
+        [Range(1f, 20f)] public float logitSteepness = 10f;
 
-        [Tooltip("이 행동의 기본 가중치. 다른 행동과의 상대적 중요도")]
-        [Range(0f, 2f)]
-        public float baseWeight = 1.0f;
+        [Tooltip("이 행동의 기본 가중치")]
+        [Range(0f, 2f)] public float baseWeight = 1.0f;
 
-        [Tooltip("타겟이 없으면 이 행동의 점수를 0으로 강제할지 여부")]
+        [Tooltip("타겟이 없으면 이 행동의 점수를 0으로 강제")]
         public bool requiresTarget = false;
     }
 
-    /// <summary>
-    /// 성격 태그에 의한 유틸리티 보정 규칙.
-    /// 예: 'Brave' 태그가 있으면 fear 관련 Modifier에 0.5 곱셈 (공포 절반).
-    /// </summary>
+    /// <summary>성격 태그에 의한 유틸리티 보정 규칙.</summary>
     [Serializable]
     public class PersonalityModifierRule
     {
-        [Tooltip("이 규칙이 적용되는 성격 태그 이름 (PersonalityTagResolver가 부여한 태그)")]
+        [Tooltip("이 규칙이 적용되는 성격 태그 이름")]
         public string tagName;
 
         [Tooltip("보정 대상 행동. 비어있으면 모든 행동에 적용")]
         public string targetActionId;
 
-        [Tooltip("보정 유형: Multiply=곱셈, AddToExponent=지수에 가산, OverrideWeight=가중치 교체")]
+        [Tooltip("Multiply=곱셈, AddToExponent=지수에 가산, OverrideWeight=가중치 교체")]
         public ModifierType modifierType = ModifierType.Multiply;
 
-        [Tooltip("보정 값. Multiply: 0.5=절반, 2.0=2배. AddToExponent: +1.0=더 둔감, -0.5=더 민감")]
+        [Tooltip("보정 값. Multiply: 0.5=절반, 2.0=2배")]
         public float value = 1.0f;
     }
 
     public enum ModifierType { Multiply, AddToExponent, OverrideWeight }
 
     /// <summary>
-    /// Master Formula 엔진. HumanoidAIBrain이 참조하여 행동별 유틸리티 점수를 산출.
-    /// MonoBehaviour로 HumanoidAIBrain과 같은 GameObject에 부착.
+    /// [NGO-4] 5개 행동 유틸리티 스냅샷. NetworkVariable로 전파하여 Dashboard 표시.
     /// </summary>
-    public class UtilityMasterFormula : MonoBehaviour
+    [Serializable]
+    public struct UtilityScoresSnapshot : INetworkSerializable, IEquatable<UtilityScoresSnapshot>
+    {
+        public float uAttack;
+        public float uFlee;
+        public float uLoot;
+        public float uMove;
+        public float uFollowCommand;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+        {
+            s.SerializeValue(ref uAttack);
+            s.SerializeValue(ref uFlee);
+            s.SerializeValue(ref uLoot);
+            s.SerializeValue(ref uMove);
+            s.SerializeValue(ref uFollowCommand);
+        }
+
+        public bool Equals(UtilityScoresSnapshot o) =>
+            uAttack == o.uAttack && uFlee == o.uFlee && uLoot == o.uLoot &&
+            uMove == o.uMove && uFollowCommand == o.uFollowCommand;
+    }
+
+    /// <summary>
+    /// Master Formula 엔진. [NGO-1] NetworkBehaviour.
+    /// HumanoidAIBrain과 같은 GameObject에 부착. 서버가 계산 → NetworkVariable로 클라 전파.
+    /// </summary>
+    public class UtilityMasterFormula : NetworkBehaviour              // [NGO-1]
     {
         // ==================================================================
         // Inspector 설정
         // ==================================================================
         [Header("━━━ Action Configs ━━━━━━━━━━━━━━━━━━━━")]
-        [Tooltip("각 행동(Attack/Flee/Loot/Move/FollowCommand)의 유틸리티 설정 목록. " +
-                 "T2.3 적용 후: externalConfig 또는 Bootstrapper.defaultActionConfig가 " +
-                 "SetConfig로 주입. 빈 상태로 Play하면 에러 출력.")]
+        [Tooltip("각 행동의 유틸리티 설정 목록. externalConfig 또는 Bootstrapper가 주입.")]
         [SerializeField] private List<ActionUtilityConfig> actionConfigs = new List<ActionUtilityConfig>();
 
         [Header("━━━ Personality Modifier Rules ━━━━━━━━")]
-        [Tooltip("성격 태그에 의한 유틸리티 보정 규칙 목록. " +
-                 "예: 'Brave' 태그가 있으면 Flee 행동의 Modifier를 0.5로 곱하여 도주 확률 절반. " +
-                 "'Glutton' 태그가 있으면 Loot 행동의 지수를 2.5로 설정하여 탐욕 극대화.")]
+        [Tooltip("성격 태그에 의한 유틸리티 보정 규칙 목록.")]
         [SerializeField] private List<PersonalityModifierRule> modifierRules = new List<PersonalityModifierRule>();
 
-        [Header("━━━ Trust Factor (Week 4에서 활성화) ━━━")]
-        [Tooltip("신뢰도 계수. 0.0~1.0. Week 4의 TrustMatrix가 이 값을 갱신. " +
-                 "1.0=완전 신뢰(명령 복종 최대), 0.0=적대(독자 행동). " +
-                 "현재 Week 2에서는 1.0 고정.")]
-        [Range(0f, 1f)]
-        public float trustFactor = 1.0f;
+        [Header("━━━ Trust Factor ━━━━━━━━━━━━━━━━━━━━")]
+        [Tooltip("신뢰도 계수. 0.0~1.0. TrustMatrix가 갱신. 1.0=완전 신뢰, 0.0=적대.")]
+        [Range(0f, 1f)] public float trustFactor = 1.0f;
 
         [Header("━━━ Week 2 T1.4 외부 설정 (선택) ━━━━")]
-        [Tooltip("UtilityActionConfigSO .asset. 지정되면 Awake 시 자동 로드. " +
-                 "비어있으면 Bootstrapper가 SetConfig로 주입.")]
+        [Tooltip("UtilityActionConfigSO .asset. 지정되면 자동 로드.")]
         [SerializeField] private UtilityActionConfigSO externalConfig;
 
         [Header("━━━ Debug ━━━━━━━━━━━━━━━━━━━━━━━━━━")]
-        [Tooltip("계산 과정을 Console에 출력할지 여부. 성능에 영향을 주므로 테스트 시에만 켠다.")]
+        [Tooltip("계산 과정을 Console에 출력.")]
         public bool debugLog = false;
 
         // ==================================================================
-        // 초기화 (T2.3 적용: 하드코딩 5개 Add 블록 완전 제거)
+        // [v3 NGO-4] 네트워크 동기화 상태
         // ==================================================================
+
+        /// <summary>현재 winner 행동의 actionConfigs 인덱스. -1=없음. 서버가 갱신.</summary>
+        private NetworkVariable<int> netWinnerIndex = new NetworkVariable<int>(
+            value: -1,
+            readPerm: NetworkVariableReadPermission.Everyone,
+            writePerm: NetworkVariableWritePermission.Server);
+
+        /// <summary>5개 행동의 최근 유틸리티 점수. Dashboard가 읽음.</summary>
+        private NetworkVariable<UtilityScoresSnapshot> netScores = new NetworkVariable<UtilityScoresSnapshot>(
+            value: default,
+            readPerm: NetworkVariableReadPermission.Everyone,
+            writePerm: NetworkVariableWritePermission.Server);
+
+        /// <summary>클라이언트 접근용 winner 인덱스.</summary>
+        public int CurrentWinnerIndex => netWinnerIndex.Value;
+
+        /// <summary>클라이언트 접근용 유틸리티 스냅샷.</summary>
+        public UtilityScoresSnapshot CurrentScores => netScores.Value;
+
+        // ==================================================================
+        // [v3 NGO-2] 이중 초기화
+        // ==================================================================
+
+        /// <summary>단독 Play 경로. NetworkManager 비활성 시 기존 Day 1~2 동작.</summary>
         private void Awake()
         {
-            // [Week 2 T2.3 개정] 5개 행동 하드코딩 제거.
-            //
-            // 우선순위:
-            //   1순위: externalConfig (Inspector 할당)
-            //   2순위: Bootstrapper가 나중에 SetConfig 호출 (Awake 이후)
-            //   3순위: 둘 다 없으면 actionConfigs/modifierRules 빈 상태 → 에러
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            {
+                InitializeConfigSource();
+            }
+        }
 
+        /// <summary>네트워크 Play 경로.</summary>
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            InitializeConfigSource();
+        }
+
+        private void InitializeConfigSource()
+        {
             if (externalConfig != null)
             {
                 LoadFromConfig(externalConfig);
             }
             else if (actionConfigs.Count == 0)
             {
-                StartCoroutine(VerifyConfigLoadedAfterFrame());
+                if (HasAuthority())
+                    StartCoroutine(VerifyConfigLoadedAfterFrame());
             }
         }
 
@@ -180,11 +203,19 @@ namespace TDA.PB4.AI
             }
         }
 
+        /// <summary>[v3 NGO 헬퍼] 결정 권한 체크.</summary>
+        private bool HasAuthority()
+        {
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+                return true;
+            return IsServer;
+        }
+
         // ==================================================================
-        // 외부 설정 주입 API (Bootstrapper 및 수동 호출용)
+        // 외부 설정 주입 API
         // ==================================================================
 
-        /// <summary>외부 SO로부터 actions/modifiers 로드. Bootstrapper가 호출.</summary>
+        /// <summary>외부 SO로부터 actions/modifiers 로드.</summary>
         public void SetConfig(UtilityActionConfigSO config)
         {
             if (config == null)
@@ -197,7 +228,7 @@ namespace TDA.PB4.AI
             LoadFromConfig(config);
         }
 
-        /// <summary>SO → 내부 필드 복사. Awake와 SetConfig 양쪽에서 호출됨.</summary>
+        /// <summary>SO → 내부 필드 복사.</summary>
         private void LoadFromConfig(UtilityActionConfigSO config)
         {
             actionConfigs.Clear();
@@ -210,7 +241,7 @@ namespace TDA.PB4.AI
                       $"{config.modifiers.Count}개 modifier 로드됨 (from {config.name})");
         }
 
-        /// <summary>현재 설정 요약 반환. Dashboard 등 디버그 용도.</summary>
+        /// <summary>현재 설정 요약 반환.</summary>
         public string GetConfigSummary()
         {
             return $"[Formula] actions={actionConfigs.Count}, modifiers={modifierRules.Count}" +
@@ -222,29 +253,22 @@ namespace TDA.PB4.AI
         // ==================================================================
 
         /// <summary>
-        /// 특정 행동의 유틸리티 점수를 산출한다.
-        /// U(A) = f(Need)^k × Π(Modifier_i) × TrustFactor
+        /// 특정 행동의 유틸리티 점수 산출.
+        /// [NGO-3] 서버/단독 Play만 결정 가능. 클라는 NetworkVariable 읽기만.
         /// </summary>
-        /// <param name="actionId">행동 이름 (Attack/Flee/Loot/Move/FollowCommand)</param>
-        /// <param name="needs">욕구 딕셔너리. 키: aggression/fear/greed/hunger/obedience 등</param>
-        /// <param name="activeTags">현재 활성화된 성격 태그 목록</param>
-        /// <param name="hasTarget">공격 타겟이 존재하는지 여부</param>
-        /// <returns>0.0~무한대 범위의 유틸리티 점수. Winner-takes-all로 최고 점수 행동 선택.</returns>
         public float ScoreAction(string actionId, Dictionary<string, float> needs,
             List<string> activeTags, bool hasTarget)
         {
-            // 해당 행동의 설정 찾기
             ActionUtilityConfig config = null;
             foreach (var c in actionConfigs)
                 if (c.actionId == actionId) { config = c; break; }
 
             if (config == null)
             {
-                if (debugLog) Debug.LogWarning($"[UtilityFormula] 행동 '{actionId}'의 설정을 찾을 수 없습니다.");
+                if (debugLog) Debug.LogWarning($"[UtilityFormula] 행동 '{actionId}' 설정 없음.");
                 return 0f;
             }
 
-            // 타겟 필요 행동인데 타겟이 없으면 0점
             if (config.requiresTarget && !hasTarget) return 0f;
 
             // Step 1: 기반 욕구 값 추출
@@ -252,10 +276,9 @@ namespace TDA.PB4.AI
             if (needs != null && needs.ContainsKey(config.primaryNeedKey))
                 needValue = Mathf.Clamp01(needs[config.primaryNeedKey]);
 
-            // Step 2: 반응 곡선 적용 f(Need)
+            // Step 2: 반응 곡선
             float curveExponent = config.curveExponent;
 
-            // 성격 태그에 의한 지수 보정
             if (activeTags != null)
             {
                 foreach (var rule in modifierRules)
@@ -271,7 +294,7 @@ namespace TDA.PB4.AI
 
             float curvedNeed = ApplyResponseCurve(needValue, config.curveType, curveExponent, config.logitSteepness);
 
-            // Step 3: Modifier 곱셈 Π(Modifier_i)
+            // Step 3: Modifier 곱셈
             float modifierProduct = 1.0f;
             if (activeTags != null)
             {
@@ -283,7 +306,7 @@ namespace TDA.PB4.AI
                     if (rule.modifierType == ModifierType.Multiply)
                         modifierProduct *= rule.value;
                     else if (rule.modifierType == ModifierType.OverrideWeight)
-                        modifierProduct = rule.value; // 최후 Override가 이김
+                        modifierProduct = rule.value;
                 }
             }
 
@@ -298,14 +321,70 @@ namespace TDA.PB4.AI
         }
 
         /// <summary>
-        /// 모든 행동의 점수를 한 번에 산출하여 딕셔너리로 반환.
+        /// 모든 행동의 점수를 한 번에 산출.
+        /// [NGO-3] 서버/단독 Play만 결정. 계산 후 NetworkVariable 갱신.
         /// </summary>
         public Dictionary<string, float> ScoreAllActions(Dictionary<string, float> needs,
             List<string> activeTags, bool hasTarget)
         {
             var scores = new Dictionary<string, float>();
+
+            // [NGO-3] 권한 체크
+            if (!HasAuthority())
+            {
+                // 클라는 마지막 동기화 값 반환
+                var snap = netScores.Value;
+                foreach (var config in actionConfigs)
+                {
+                    switch (config.actionId)
+                    {
+                        case "Attack":        scores[config.actionId] = snap.uAttack; break;
+                        case "Flee":          scores[config.actionId] = snap.uFlee; break;
+                        case "Loot":          scores[config.actionId] = snap.uLoot; break;
+                        case "Move":          scores[config.actionId] = snap.uMove; break;
+                        case "FollowCommand": scores[config.actionId] = snap.uFollowCommand; break;
+                        default:              scores[config.actionId] = 0f; break;
+                    }
+                }
+                return scores;
+            }
+
+            // 서버/단독 Play: 실제 계산
             foreach (var config in actionConfigs)
                 scores[config.actionId] = ScoreAction(config.actionId, needs, activeTags, hasTarget);
+
+            // [NGO-4] NetworkVariable 갱신 (단독 Play에서는 NetworkManager 비활성이므로 no-op)
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && IsServer)
+            {
+                int winnerIdx = -1;
+                float winnerScore = float.MinValue;
+
+                for (int i = 0; i < actionConfigs.Count; i++)
+                {
+                    var cfg = actionConfigs[i];
+                    if (!scores.ContainsKey(cfg.actionId)) continue;
+                    float s = scores[cfg.actionId];
+                    if (s > winnerScore) { winnerScore = s; winnerIdx = i; }
+                }
+
+                netWinnerIndex.Value = winnerIdx;
+
+                var snap = new UtilityScoresSnapshot();
+                foreach (var cfg in actionConfigs)
+                {
+                    float s = scores.ContainsKey(cfg.actionId) ? scores[cfg.actionId] : 0f;
+                    switch (cfg.actionId)
+                    {
+                        case "Attack":        snap.uAttack = s; break;
+                        case "Flee":          snap.uFlee = s; break;
+                        case "Loot":          snap.uLoot = s; break;
+                        case "Move":          snap.uMove = s; break;
+                        case "FollowCommand": snap.uFollowCommand = s; break;
+                    }
+                }
+                netScores.Value = snap;
+            }
+
             return scores;
         }
 
@@ -313,12 +392,7 @@ namespace TDA.PB4.AI
         // 반응 곡선 함수
         // ==================================================================
 
-        /// <summary>
-        /// 욕구 값(0~1)을 반응 곡선으로 변환.
-        /// Power: f(x) = x^k — 점진적 반응
-        /// Logit: f(x) = 1/(1+e^(-c*(x-0.5))) — 임계점 폭발
-        /// Linear: f(x) = x — 선형
-        /// </summary>
+        /// <summary>욕구 값(0~1)을 반응 곡선으로 변환.</summary>
         public static float ApplyResponseCurve(float x, ResponseCurveType type, float exponent, float logitSteepness)
         {
             x = Mathf.Clamp01(x);
@@ -328,7 +402,6 @@ namespace TDA.PB4.AI
                     return Mathf.Pow(x, exponent);
 
                 case ResponseCurveType.Logit:
-                    // Sigmoid: 1/(1+e^(-c*(x-0.5)))
                     float c = Mathf.Max(1f, logitSteepness);
                     return 1f / (1f + Mathf.Exp(-c * (x - 0.5f)));
 

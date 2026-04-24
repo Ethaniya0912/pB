@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5757763757084b2498f558efa1600c30, type: 3}
+  m_Name: DefaultAlignmentDefinitions
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.NPCAlignmentSO
+  alignments:
+  - alignment: 0
+    trustMin: 0
+    trustMax: 19
+    karmaMin: -100
+    karmaMax: 100
+    requiredTags: []
+    forbiddenTags: []
+    trustExitMin: 0
+    minHoldSeconds: 5
+    debugColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
+    defaultDialogueKey: hostile_default
+  - alignment: 1
+    trustMin: 20
+    trustMax: 59
+    karmaMin: -100
+    karmaMax: 100
+    requiredTags: []
+    forbiddenTags: []
+    trustExitMin: 15
+    minHoldSeconds: 5
+    debugColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+    defaultDialogueKey: neutral_default
+  - alignment: 2
+    trustMin: 60
+    trustMax: 89
+    karmaMin: -100
+    karmaMax: 100
+    requiredTags: []
+    forbiddenTags: []
+    trustExitMin: 55
+    minHoldSeconds: 5
+    debugColor: {r: 0.2, g: 0.8, b: 0.3, a: 1}
+    defaultDialogueKey: friendly_default
+  - alignment: 3
+    trustMin: 90
+    trustMax: 100
+    karmaMin: -100
+    karmaMax: 100
+    requiredTags: []
+    forbiddenTags: []
+    trustExitMin: 85
+    minHoldSeconds: 10
+    debugColor: {r: 0.1, g: 0.5, b: 1.0, a: 1}
+    defaultDialogueKey: companion_default

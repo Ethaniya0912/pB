@@ -1,5 +1,5 @@
 // =============================================================================
-// BaseAIBrain.cs  |  pB-4 Project — Week 0 → Week 2 Day 1 T1.3 수정 (v2 개정)
+// BaseAIBrain.cs  |  pB-4 Project — Week 0 → Week 2 Day 1 T1.3 → v3 NGO 2.0 대응
 // Layer  : L3 Domain (AI 공통 부모)
 // Owner  : Person A
 //
@@ -7,24 +7,28 @@
 //   MobAIBrain과 HumanoidAIBrain의 공통 부모 추상 클래스.
 //   생득 욕구 4종, 블랙보드 참조, 유틸리티 스코어러 참조, 그룹AI 참조를 포함.
 //
-// [Week 2 Day 1 T1.3 수정 요약]
+// [Week 2 Day 1 T1.3 수정 요약 — v2]
 //   1) Awake에서 Stub 직접 생성 → null-coalesce 패턴 전환:
 //        외부 주입 → GameBlackboard.Instance → Stub fallback (순위)
 //   2) InjectBlackboard(GameBlackboard) public 메서드 추가
-//        → Bootstrapper가 Brain.Awake 이후에도 명시적 덮어쓰기 가능
 //   3) IsStubFree() public 메서드 추가
-//        → WK2_C22 체크리스트가 호출하여 Stub 사용 여부 판단
 //   4) verboseLogging 필드 추가 (Inspector 토글)
 //   5) utilityScorer 필드 유지 (Week 1 MobAIBrain 호환성)
 //
 // [v2 코드리뷰 개정]
 //   - [B1] InjectBlackboard 주석의 "1순위" 표현을 "명시적 덮어쓰기"로 정정.
-//          Unity lifecycle 상 Brain.Awake 완료 후에 호출되므로 실제로는 override 동작.
 //   - [B4] InitializeBlackboard를 private → protected virtual 로 변경.
-//          자식 클래스가 blackboard 초기화 전략을 커스터마이즈할 수 있도록.
 //   - [B5] GetBlackboardDebugInfo 반환 문자열 개선 (타입명 포함).
 //   - [B7] utilityScorer 필드 주석 명확화 — MobAIBrain 호환성 명시.
+//
+// [v3 NGO 2.0 개정 — 2026-04-23]
+//   - [NGO-1] MonoBehaviour → NetworkBehaviour 상속 (개론서 §1.17 L3 Domain)
+//   - [NGO-2] Awake() → OnNetworkSpawn() 이관 (NetworkObject 스폰 순서 보장)
+//   - [NGO-3] InjectBlackboard()는 서버 권한 (NetworkManager 활성 시)
+//   - [NGO-4] 단독 Play 호환: NetworkManager 비활성 시 Awake 경로 유지 (회귀 0건)
+//   - MobAIBrain 등 자식 클래스는 base.OnNetworkSpawn() 호출 필수.
 // =============================================================================
+using Unity.Netcode;                              // [NGO-1]
 using UnityEngine;
 using TDA.PB4.Interfaces.Core;
 using TDA.PB4.Interfaces.Intelligence;
@@ -33,8 +37,9 @@ namespace TDA.PB4.AI
 {
     /// <summary>
     /// 모든 AI 개체의 공통 부모. MobAIBrain과 HumanoidAIBrain이 상속.
+    /// [NGO-1] NetworkBehaviour 상속. IsServer 가드로 서버 권한 의사결정.
     /// </summary>
-    public abstract class BaseAIBrain : MonoBehaviour
+    public abstract class BaseAIBrain : NetworkBehaviour     // [NGO-1]
     {
         // ==================================================================
         // 공통 생득 욕구 4종 (0.0 ~ 1.0)
@@ -80,8 +85,7 @@ namespace TDA.PB4.AI
 
         /// <summary>
         /// 매 틱마다 호출. 유틸리티 점수를 계산하고 최적 행동을 결정.
-        /// MobAI: 단순 fear/attack/flee 비교
-        /// HumanoidAI: Master Formula 기반 복합 계산
+        /// [NGO-3] 자식 클래스의 Update()에서 IsServer 가드 후 호출.
         /// </summary>
         public abstract void UpdateDecision();
 
@@ -121,22 +125,38 @@ namespace TDA.PB4.AI
         }
 
         // ==================================================================
-        // [Week 2 Day 1 T1.3 수정] null-coalesce 패턴 적용 Awake
+        // [Week 2 Day 1 T1.3 수정 + v3 NGO-2] null-coalesce 패턴 Awake/OnNetworkSpawn
         // ==================================================================
 
         /// <summary>
-        /// null-coalesce 패턴: 외부 주입 → GameBlackboard.Instance → Stub fallback
+        /// [NGO-4] 단독 Play 호환성. NetworkManager가 없거나 비활성이면 Awake에서 초기화.
+        /// NetworkManager 활성 시 Awake는 스킵하고 OnNetworkSpawn에서 처리.
         /// </summary>
         /// <remarks>
         /// [B6] 자식 클래스가 override 시 반드시 base.Awake()를 첫 줄에서 호출해야 함.
-        /// 자식이 base.Awake를 누락하면 blackboard가 null로 유지되어 UpdateFearFromTerrain이 no-op.
         /// </remarks>
         protected virtual void Awake()
         {
-            InitializeBlackboard();
+            // [NGO-4] NetworkManager 비활성 → 기존 Day 1~2 동작 (Awake에서 초기화)
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            {
+                InitializeBlackboard();
+            }
+            // NetworkManager 활성 시: OnNetworkSpawn이 처리. Awake는 no-op.
+        }
 
-            // utilityScorer는 자식 클래스(MobAIBrain)가 자체 Awake에서 할당.
-            // BaseAIBrain에서는 더 이상 Stub 생성하지 않음 (Humanoid 경로에는 불필요).
+        /// <summary>
+        /// [NGO-2] NetworkObject 스폰 완료 시 호출. 서버/호스트/클라이언트 모두.
+        /// </summary>
+        /// <remarks>
+        /// 자식 클래스(HumanoidAIBrain, MobAIBrain)가 override 시 base.OnNetworkSpawn() 필수.
+        /// Unity lifecycle: Awake → (if spawn) OnNetworkSpawn → Start → Update.
+        /// 단독 Play 시에는 OnNetworkSpawn 호출 안 됨 → Awake에서 InitializeBlackboard 수행.
+        /// </remarks>
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            InitializeBlackboard();
         }
 
         /// <summary>
@@ -148,7 +168,7 @@ namespace TDA.PB4.AI
         /// </remarks>
         protected virtual void InitializeBlackboard()
         {
-            // 1순위: 이미 누군가 주입했으면 (예: 자식 클래스가 base.Awake 이전에 설정)
+            // 1순위: 이미 누군가 주입했으면 (예: 자식 클래스가 base 이전에 설정)
             if (blackboard != null)
             {
                 if (verboseLogging)
@@ -173,20 +193,26 @@ namespace TDA.PB4.AI
         }
 
         // ==================================================================
-        // [Week 2 Day 1 T1.3 추가] DI 주입 API
+        // [Week 2 Day 1 T1.3 추가 + v3 NGO-3] DI 주입 API
         // ==================================================================
 
-        /// <summary>외부에서 Blackboard 주입. Bootstrapper.Awake에서 호출.</summary>
+        /// <summary>외부에서 Blackboard 주입. Bootstrapper.OnNetworkSpawn에서 호출.</summary>
         /// <remarks>
-        /// [B1] Unity lifecycle 상 이 메서드는 Brain.Awake 이후에 호출됨.
+        /// [B1] Unity lifecycle 상 이 메서드는 Brain.Awake/OnNetworkSpawn 이후에 호출됨.
         ///      즉 blackboard 필드는 이미 2/3순위 경로로 설정된 상태.
         ///      이 메서드의 실제 의미는 "명시적 덮어쓰기".
-        ///      Bootstrapper가 Adapter 재생성을 통해 참조를 갱신하는 역할.
-        ///      초기 2순위 경로(Awake)와 3순위 덮어쓰기(여기)는 같은 Adapter를 만들지만
-        ///      Bootstrapper가 별도 GameBlackboard를 쓰고 싶을 때 필요.
+        /// [NGO-3] NetworkManager 활성 시 서버만 호출 가능 (Bootstrapper가 서버 전용).
+        ///         클라이언트에서 직접 호출 시 경고 후 무시.
         /// </remarks>
         public void InjectBlackboard(TDA.PB4.Core.GameBlackboard gb)
         {
+            // [NGO-3] 네트워크 활성 + 클라이언트에서 호출 시 거부
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && !IsServer)
+            {
+                Debug.LogWarning($"[{GetType().Name}] {name}: InjectBlackboard는 서버 전용. 클라이언트 호출 무시.");
+                return;
+            }
+
             if (gb == null)
             {
                 Debug.LogError($"[{GetType().Name}] {name}: InjectBlackboard에 null 전달");
@@ -213,6 +239,23 @@ namespace TDA.PB4.AI
         {
             if (blackboard == null) return "null";
             return $"{blackboard.GetType().Name}: {blackboard.ToString()}";
+        }
+
+        // ==================================================================
+        // [v3 NGO 헬퍼] 서버 권한 체크 유틸리티
+        // ==================================================================
+
+        /// <summary>
+        /// 현재 이 NetworkBehaviour가 의사결정 실행 권한이 있는지.
+        /// - NetworkManager 비활성 (단독 Play) → true
+        /// - NetworkManager 활성 + 서버/호스트 → true
+        /// - NetworkManager 활성 + 클라이언트 → false
+        /// </summary>
+        protected bool HasAuthority()
+        {
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+                return true;   // 단독 Play 호환
+            return IsServer;
         }
     }
 }

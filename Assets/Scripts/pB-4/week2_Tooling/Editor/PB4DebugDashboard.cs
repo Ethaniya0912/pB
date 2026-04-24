@@ -804,6 +804,25 @@ namespace TDA.PB4.Tooling.Editor
             GUI.color = Color.white;
             EditorGUILayout.EndHorizontal();
             GUILayout.EndArea();
+
+            // [v3 NGO 추가] Day 3 Test Lab 탭 버튼 — 별도 창 열기
+            var tabRect = new Rect(bgRect.x + 12, bgRect.yMax + 2, 220, 22);
+            var tabStyle = new GUIStyle(EditorStyles.miniButton)
+            {
+                fontSize = 10,
+                normal = { textColor = C_NEON_MAGENTA },
+                alignment = TextAnchor.MiddleCenter
+            };
+            GUI.color = C_NEON_MAGENTA;
+            if (GUI.Button(tabRect, new GUIContent("◢ DAY 3 TEST LAB  ▶",
+                "Day 3 통합 테스트 창 열기 (Karma / Trust / Alignment / Trauma / Pivot / Command 통합 테스트)"),
+                tabStyle))
+            {
+                PB4_Day3_TestLab.Open();
+            }
+            GUI.color = Color.white;
+            // 버튼 높이만큼 여백 확보
+            GUILayoutUtility.GetRect(0, 24, GUILayout.ExpandWidth(true));
         }
 
         // ==================================================================

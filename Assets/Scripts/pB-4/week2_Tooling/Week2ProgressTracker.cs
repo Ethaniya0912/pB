@@ -1,23 +1,27 @@
 // =============================================================================
-// Week2ProgressTracker.cs  |  pB-4 Week 2 — Day 1 T1.6 (v2 개정)
-// 역할: Week2Checklist의 25항목을 자동 평가하여 Console + 진척률 보고.
+// Week2ProgressTracker.cs  |  pB-4 Week 2 — Day 1 T1.6 (v3 NGO 패턴 추가)
+// 역할: Week2Checklist의 항목을 자동 평가하여 Console + 진척률 보고.
 //       Day 5 T5.1에서 EditorWindow UI + .md 자동 출력 추가.
 // 요구사항 #8 (진척률 가시화)의 1/5 단계.
 //
-// [6종 검증 패턴]
+// [9종 검증 패턴]
 //   1) HasComponent:TypeName       — 씬 내 해당 타입 컴포넌트 1개+ 존재
 //   2) NoActiveStubs               — 모든 Brain이 IsStubFree() true
 //   3) FileExists:RelativePath     — Assets/ 하위 파일 존재
 //   4) BBVectorNonZero             — GameBlackboard.ActiveSituationVector에 non-zero 요소
 //   5) EventSubscribed:EventName   — EventBus의 이벤트에 구독자 1+ (Reflection)
 //   6) TagsCount:Min               — Resolver 평균 ActiveTags 수 >= Min
+//   7) [v3 신규] InheritsFrom:Child:Parent — 자식 클래스의 부모 상속 확인
+//   8) [v3 신규] HasNetworkObject   — 씬 내 NetworkObject 컴포넌트 존재
+//   9) [v3 신규] TypeCount:TypeName:Min — 씬 내 해당 타입 개수 >= Min
 //
-// [v2 코드리뷰 개정]
+// [v3 NGO 추가 — 2026-04-23]
+//   - WK2_C26 (NetworkBehaviour 상속 확인) — InheritsFrom 패턴 사용
+//   - WK2_C27 (NetworkVariable writePerm) — 파일 내용 grep 기반 (FileContains 신규)
+//
+// [v2 코드리뷰 개정 — 기존]
 //   - [T1] CheckEventSubscribers 의 "On" 접두사 중복 로직 명확화.
-//          EventBus 규약: event는 반드시 "On" prefix (OnKarmaShift 등).
-//          verifyMethod의 "EventSubscribed:OnXxx" 또는 "EventSubscribed:Xxx" 모두 지원.
 //   - [T3] FindTypeByName에 Dictionary 캐시 추가.
-//          autoEvaluateInterval 5초 × 25항목마다 전체 어셈블리 순회 → 캐시 후 O(1).
 //   - [T5] Reflection 기반 검증의 IL2CPP 주의사항 주석 추가.
 // =============================================================================
 using System;
@@ -318,6 +322,102 @@ namespace TDA.PB4.Tooling
                 float avgTags = (float)resolvers.Average(r => r.ActiveTags.Count);
                 detail = $"평균 {avgTags:F1}개 (기준 {minCount})";
                 return avgTags >= minCount;
+            }
+
+            // [v3 신규] Pattern 7: InheritsFrom:ChildType:ParentType
+            //   목적: WK2_C26 — NetworkBehaviour 상속 자동 확인
+            //   사용 예: "InheritsFrom:HumanoidAIBrain:NetworkBehaviour"
+            //   로직: Reflection으로 Child 타입 찾아 .BaseType 체인 올라가며 Parent 탐색
+            if (expr.StartsWith("InheritsFrom:"))
+            {
+                var args = expr.Substring("InheritsFrom:".Length).Split(':');
+                if (args.Length != 2)
+                {
+                    detail = $"형식 오류 (InheritsFrom:Child:Parent): {expr}";
+                    return false;
+                }
+                var childType = FindTypeByName(args[0].Trim());
+                var parentType = FindTypeByName(args[1].Trim());
+                if (childType == null) { detail = $"Child 타입 {args[0]} 미발견"; return false; }
+                if (parentType == null) { detail = $"Parent 타입 {args[1]} 미발견"; return false; }
+                bool inherits = parentType.IsAssignableFrom(childType);
+                detail = inherits
+                    ? $"{childType.Name}이 {parentType.Name}을 상속 ✓"
+                    : $"{childType.Name}은 {parentType.Name}을 상속하지 않음 ✗";
+                return inherits;
+            }
+
+            // [v3 신규] Pattern 8: HasNetworkObject
+            //   목적: 씬에 NetworkObject 컴포넌트 존재 (NGO 2.0 필수 배치 확인)
+            //   사용 예: "HasNetworkObject"
+            if (expr == "HasNetworkObject")
+            {
+                var noType = FindTypeByName("NetworkObject");
+                if (noType == null)
+                {
+                    detail = "NetworkObject 타입 미발견 (NGO 패키지 설치 확인)";
+                    return false;
+                }
+                var obj = UnityEngine.Object.FindAnyObjectByType(noType);
+                detail = obj != null
+                    ? $"NetworkObject 발견 ({obj.name})"
+                    : "씬에 NetworkObject 0개 — NPC prefab의 NetworkObject 부착 확인 필요";
+                return obj != null;
+            }
+
+            // [v3 신규] Pattern 9: TypeCount:TypeName:Min
+            //   목적: 씬 내 특정 타입 개수가 Min 이상
+            //   사용 예: "TypeCount:NetworkBehaviour:5" — NetworkBehaviour 5개+ 확인
+            if (expr.StartsWith("TypeCount:"))
+            {
+                var args = expr.Substring("TypeCount:".Length).Split(':');
+                if (args.Length != 2 || !int.TryParse(args[1].Trim(), out int minCount))
+                {
+                    detail = $"형식 오류 (TypeCount:TypeName:Min): {expr}";
+                    return false;
+                }
+                var type = FindTypeByName(args[0].Trim());
+                if (type == null) { detail = $"타입 {args[0]} 미발견"; return false; }
+                var objs = UnityEngine.Object.FindObjectsByType(type, FindObjectsSortMode.None);
+                detail = $"{args[0]} {objs.Length}개 (기준 {minCount}개+)";
+                return objs.Length >= minCount;
+            }
+
+            // [v3 신규] Pattern 10: FileContains:Path:Text
+            //   목적: 파일 내용에 특정 문자열 포함 — WK2_C27 (writePerm: Server) 용
+            //   사용 예: "FileContains:Scripts/pB-4/week4_AI/TrustMatrix.cs:writePerm: NetworkVariableWritePermission.Server"
+            //   주의: Assets/ 기준 상대경로. Text에 ':' 포함 시 그대로 전달됨.
+            if (expr.StartsWith("FileContains:"))
+            {
+                var rest = expr.Substring("FileContains:".Length);
+                int colonIdx = rest.IndexOf(':');
+                if (colonIdx < 0)
+                {
+                    detail = $"형식 오류 (FileContains:Path:Text): {expr}";
+                    return false;
+                }
+                var relPath = rest.Substring(0, colonIdx).Trim();
+                var searchText = rest.Substring(colonIdx + 1);
+                var fullPath = Path.Combine(Application.dataPath, relPath);
+                if (!File.Exists(fullPath))
+                {
+                    detail = $"{relPath} 파일 없음";
+                    return false;
+                }
+                try
+                {
+                    var content = File.ReadAllText(fullPath);
+                    bool contains = content.Contains(searchText);
+                    detail = contains
+                        ? $"{relPath}에 '{searchText.Substring(0, Math.Min(40, searchText.Length))}' 포함 ✓"
+                        : $"{relPath}에 '{searchText.Substring(0, Math.Min(40, searchText.Length))}' 없음";
+                    return contains;
+                }
+                catch (Exception e)
+                {
+                    detail = $"파일 읽기 오류: {e.Message}";
+                    return false;
+                }
             }
 
             // 미지의 패턴

@@ -1,5 +1,6 @@
 // =============================================================================
 // StubImplementations.cs  |  pB-4 Project — Week 0
+//                         |  v3 NGO 2.0 개정 — 2026-04-23
 // Layer  : Core (공유 계층)
 // Owner  : Person A
 //
@@ -7,7 +8,13 @@
 //   모든 인터페이스에 대해 고정값을 반환하는 Stub 구현체.
 //   각 파트가 다른 파트 완성 여부와 무관하게 에디터 런타임을 독립적으로 실행 가능.
 //   Week 1 이후 실제 구현체가 완성되면 DI 컨테이너에서 교체.
+//
+// [v3 NGO 개정]
+//   - IIncidentRecorder: SetVectorIndexer(Action<string, float[]>) 추가
+//   - IKarmaDirector: N:M API 3개 추가 (GetKarmaScore/ApplyKarmaShift/GetTier — ulong 오버로드)
+//   - 기존 string characterId API는 호환을 위해 유지 (ulong → string.ToString로 브릿지)
 // =============================================================================
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using TDA.PB4.Interfaces.Core;
@@ -43,7 +50,7 @@ namespace TDA.PB4.Stubs
 
     public class StubContextAnalyzer : IContextAnalyzer
     {
-        public List<string> AnalyzeTerrain(Vector3 worldPos) 
+        public List<string> AnalyzeTerrain(Vector3 worldPos)
             => new List<string> { "GenericCave" };
     }
 
@@ -55,7 +62,7 @@ namespace TDA.PB4.Stubs
 
     public class StubBiomeSpawnResolver : IBiomeSpawnResolver
     {
-        public float CalculateSpawnProbability(string factionId, int biomeType, Vector3 worldPos) 
+        public float CalculateSpawnProbability(string factionId, int biomeType, Vector3 worldPos)
             => 0.1f;
     }
 
@@ -92,22 +99,43 @@ namespace TDA.PB4.Stubs
         public string RecallSimilarIncident(float[] situationVector, float minSimilarity) => null;
     }
 
+    /// <summary>[v3] IIncidentRecorder Stub — Vector 인덱싱 hook 추가.</summary>
     public class StubIncidentRecorder : IIncidentRecorder
     {
         public void RecordIncident(string incidentId, float intensityScore, string moralAlignment)
             => Debug.Log($"[Stub] Incident recorded: {incidentId}");
+
+        // [v3 NGO-신규] Wk7 RAG 연결 준비용 Vector 인덱싱 hook
+        public void SetVectorIndexer(Action<string, float[]> indexer)
+        {
+            // Stub: hook 주입 요청만 로깅. 실제 인덱싱은 실제 IncidentRecorder에서 수행.
+            Debug.Log("[Stub] SetVectorIndexer 호출됨 (Stub 구현에서는 무시)");
+        }
     }
 
+    /// <summary>[v3] IKarmaDirector Stub — N:M API 3개 추가.</summary>
     public class StubKarmaDirector : IKarmaDirector
     {
+        // 기존 string characterId API (Week 0 초기 호환용) 유지
         public float GetKarmaScore(string characterId) => 0f;
         public void ApplyKarmaShift(string characterId, float delta) { }
+
+        // [v3 NGO-신규] ulong playerId API (Day 3 T3.1)
+        public float GetKarmaScore(ulong playerId) => 0f;
+
+        public void ApplyKarmaShift(ulong playerId, float delta, string reason)
+        {
+            // Stub: 값 유지 + 로깅만
+            Debug.Log($"[Stub] Karma shift: p{playerId}, delta={delta:+0.#;-0.#;0} ({reason})");
+        }
+
+        public KarmaTier GetTier(ulong playerId) => KarmaTier.Neutral;
     }
 
     // ======================== PRESENTATION ========================
     public class StubSpeechAssembler : ISpeechAssembler
     {
-        public string AssembleSpeech(float[] personalityVector, string contextTag) 
+        public string AssembleSpeech(float[] personalityVector, string contextTag)
             => "[Stub] 대사 준비 중...";
     }
 

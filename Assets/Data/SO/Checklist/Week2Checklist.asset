@@ -101,11 +101,11 @@ MonoBehaviour:
     lastLogMessage: 
     lastCheckTime: 
   - id: WK2_C05
-    title: "\uD0DC\uADF8 \uBC1C\uD604 \uB7F0\uD0C0\uC784 \uAC80\uC99D (2+ \uD0DC\uADF8)"
+    title: "\uD0DC\uADF8 \uBC1C\uD604 \uB7F0\uD0C0\uC784 \uAC80\uC99D (1+ \uD0DC\uADF8)"
     description: "Play \uBAA8\uB4DC\uC5D0\uC11C PersonalityTagResolver.ActiveTags\uC5D0
-      \uCD5C\uC18C 2\uAC1C \uD0DC\uADF8\uAC00 \uBC1C\uD604\uB418\uC5B4 \uC788\uB2E4."
+      \uCD5C\uC18C 1\uAC1C \uD0DC\uADF8\uAC00 \uBC1C\uD604\uB418\uC5B4 \uC788\uB2E4 (\uD655\uB960 \uBC1C\uD604 \uD2B9\uC131\uC0C1 1\uAC1C \uAE30\uC900)."
     category: 2
-    verifyMethod: TagsCount:2
+    verifyMethod: TagsCount:1
     assignedDay: 2
     ignoreInProgress: 0
     runtimeStatus: 0
@@ -133,3 +133,114 @@ MonoBehaviour:
     runtimeStatus: 0
     lastLogMessage: 
     lastCheckTime: 
+  - id: WK2_C08
+    title: "DilemmaPivotSO \uC2A4\uD06C\uB9BD\uD2B8 \uC874\uC7AC"
+    description: "Day 3 T3.4\uC758 DilemmaPivotSO.cs \uD30C\uC77C\uC774 week2_Data\uC5D0 \uC874\uC7AC"
+    category: 0
+    verifyMethod: FileExists:Scripts/pB-4/week2_Data/DilemmaPivotSO.cs
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C12
+    title: "KarmaDirector \uC52C \uBC30\uCE58"
+    description: "Day 3 T3.1\uC758 KarmaDirector GameObject\uAC00 \uC52C\uC5D0 \uBC30\uCE58"
+    category: 1
+    verifyMethod: HasComponent:KarmaDirector
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C14
+    title: "NPCAlignmentController \uBD80\uCC29"
+    description: "HumanoidAIBrain\uC5D0 NPCAlignmentController \uBD80\uCC29"
+    category: 1
+    verifyMethod: HasComponent:NPCAlignmentController
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C15
+    title: "IncidentRecorder \uC52C \uBC30\uCE58"
+    description: "IncidentRecorder GameObject\uAC00 \uC52C\uC5D0 \uC874\uC7AC"
+    category: 1
+    verifyMethod: HasComponent:IncidentRecorder
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C16
+    title: "CommandAcceptanceFilter \uBD80\uCC29"
+    description: "NPC\uC5D0 CommandAcceptanceFilter \uBD80\uCC29 (T3.5)"
+    category: 1
+    verifyMethod: HasComponent:CommandAcceptanceFilter
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C17
+    title: "DilemmaPivotResolver \uBD80\uCC29"
+    description: "NPC\uC5D0 DilemmaPivotResolver \uBD80\uCC29 (T3.4)"
+    category: 1
+    verifyMethod: HasComponent:DilemmaPivotResolver
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C26
+    title: "NetworkBehaviour \uC0C1\uC18D \u2014 BaseAIBrain"
+    description: "NGO 2.0 \uB300\uC751: BaseAIBrain\uC774 NetworkBehaviour\uB97C \uC0C1\uC18D"
+    category: 0
+    verifyMethod: InheritsFrom:BaseAIBrain:NetworkBehaviour
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C26b
+    title: "NetworkBehaviour \uC0C1\uC18D \u2014 HumanoidAIBrain"
+    description: "NGO \uC804\uD658: HumanoidAIBrain\uC774 NetworkBehaviour \uC0C1\uC18D"
+    category: 0
+    verifyMethod: InheritsFrom:HumanoidAIBrain:NetworkBehaviour
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C27
+    title: "HumanoidAIBrain writePerm: Server \uBA85\uC2DC"
+    description: "HumanoidAIBrain\uC758 NetworkVariable\uC774 \uC11C\uBC84 \uAD8C\uD55C\uC73C\uB85C \uC124\uC815\uB428"
+    category: 0
+    verifyMethod: FileContains:Scripts/pB-4/week1_AI_HumanoidAI/HumanoidAIBrain.cs:NetworkVariableWritePermission.Server
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C28
+    title: "\uC52C\uC5D0 NetworkObject \uC874\uC7AC"
+    description: "NGO \uD504\uB9AC\uD339 \uC870\uC815 \u2014 \uCD5C\uC18C 1\uAC1C NetworkObject \uBC30\uCE58"
+    category: 1
+    verifyMethod: HasNetworkObject
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+  - id: WK2_C29
+    title: "Karma \uC774\uBCA4\uD2B8 \uAD6C\uB3C5\uC790 \uC874\uC7AC"
+    description: "EventBus.OnKarmaTierChanged\uC5D0 \uAD6C\uB3C5\uC790 \uC788\uC74C"
+    category: 2
+    verifyMethod: EventSubscribed:OnKarmaTierChanged
+    assignedDay: 3
+    ignoreInProgress: 0
+    runtimeStatus: 0
+    lastLogMessage: 
+    lastCheckTime: 
+

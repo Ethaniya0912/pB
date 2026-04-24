@@ -1,21 +1,28 @@
 // =============================================================================
-// HumanoidBootstrapper.cs  |  pB-4 Week 2 — Day 1 T1.4 (v3: debugLog 일괄 제어)
+// HumanoidBootstrapper.cs  |  pB-4 Week 2 — Day 1 T1.4
+//                          |  v2 개정: NGO 2.0 + 4계층 L2 Router 대응
+// -----------------------------------------------------------------------------
 // 역할: 씬 내 모든 HumanoidAIBrain의 초기화를 담당하는 DI 컨테이너.
 //       1) 필요 컴포넌트 자동 부착 (5종)
 //       2) 데이터 SO 주입 (TagRules, ActionConfig, Alignment, DialogueLibrary)
 //       3) 컴포넌트 간 참조 연결 (Brain ↔ Formula/Resolver/Encoder/Trust/Trauma)
 //       4) 초기 태그 발현
-//       5) [v3] debugLog 자동 일괄 켬 (enableDebugLogOnBootstrap 옵션)
-//       6) ProgressTracker에 완료 보고
-// 실행 시점: Scene 로드 직후 (DefaultExecutionOrder(-100))
+//       5) ProgressTracker에 완료 보고
+// 실행 시점: NetworkObject 스폰 완료 후 (OnNetworkSpawn). 서버만 실행.
 //
-// [v3 변경 — Day 2 진단 편의 기능]
-//   - enableDebugLogOnBootstrap 옵션 추가: 체크하면 BootstrapOne 시점에
-//     Formula/Resolver/Trust/Trauma 4개 컴포넌트의 debugLog=true 자동 설정.
-//   - ContextMenu "Toggle All DebugLog" 추가: Play 중 우클릭으로 즉시 전환.
-//   - ContextMenu "Enable All DebugLog" / "Disable All DebugLog" 개별 제어.
+// 계층: L2 Router (개론서 §1.17) — NetworkVariable 갱신 + Domain 배분.
+//      IsServer 가드로 서버 권한 보장. 클라는 NPC 스폰 후 서버가 동기화한
+//      NetworkVariable을 수신.
+//
+// v1 → v2 변경:
+//   [NGO-1] MonoBehaviour → NetworkBehaviour 상속
+//   [NGO-2] Awake() → OnNetworkSpawn() 이관 (NetworkObject 스폰 순서 보장)
+//   [NGO-3] BootstrapOne은 IsServer 게이트 (치팅 방지)
+//   [NGO-4] NetworkManager.OnClientConnectedCallback 구독 — Late-Spawn NPC 대응
 // =============================================================================
+using System.Collections.Generic;
 using System.Linq;
+using Unity.Netcode;                        // [NGO-1]
 using UnityEngine;
 using TDA.PB4.AI;
 using TDA.PB4.AI.Humanoid;
@@ -27,34 +34,18 @@ using TDA.PB4.Interfaces.Core;
 namespace TDA.PB4.Bootstrap
 {
     /// <summary>Bootstrapper 로그 레벨. 개발 중에는 Info, 빌드는 Warn.</summary>
-    public enum BootstrapLogLevel
-    {
-        None = 0,
-        Error = 1,
-        Warn = 2,
-        Info = 3,
-        Verbose = 4
-    }
+    public enum BootstrapLogLevel { None = 0, Error = 1, Warn = 2, Info = 3, Verbose = 4 }
 
-    /// <summary>Humanoid NPC 자동 초기화 및 의존성 주입 컨테이너.</summary>
     [DefaultExecutionOrder(-100)]
-    public class HumanoidBootstrapper : MonoBehaviour
+    public class HumanoidBootstrapper : NetworkBehaviour     // [NGO-1] 변경
     {
-        // ==================================================================
-        // Inspector 필드
-        // ==================================================================
-
+        // ───────────── Inspector 필드 (v1과 동일) ─────────────
         [Header("━━━ Logging ━━━━━━━━━━━━━━━━━━━━━━━")]
 
         [Tooltip("로그 레벨. 개발 중 Info, 디버깅 중 Verbose, 빌드 Warn.")]
         public BootstrapLogLevel logLevel = BootstrapLogLevel.Info;
 
-        [Tooltip("[v3] 부트스트랩 시 Formula/Resolver/Trust/Trauma 4개 컴포넌트의 " +
-                 "debugLog=true를 자동 설정. Day 2 디버깅 편의용. " +
-                 "빌드나 성능 테스트에서는 끄세요.")]
-        public bool enableDebugLogOnBootstrap = false;
-
-        [Header("━━━ 공유 데이터 SO (Day별 점진 연결) ━━")]
+        [Header("━━━ 공유 데이터 SO (Day 2에서 채움) ━━━")]
 
         [Tooltip("모든 Humanoid가 공유할 성격 태그 규칙. Day 2 T2.1에서 HumanoidTagRules.asset 드래그.")]
         public PersonalityTagRuleSO defaultTagRules;
@@ -62,13 +53,14 @@ namespace TDA.PB4.Bootstrap
         [Tooltip("행동 유틸리티 설정. Day 2 T2.2에서 HumanoidActionConfig.asset 드래그.")]
         public UtilityActionConfigSO defaultActionConfig;
 
-        [Tooltip("4 진영 정의. 실제 사용은 Day 3 T3.2 (NPCAlignmentController 부착 시). " +
-                 "Day 1에서는 선언만 되어 있음.")]
+        [Tooltip("4 진영 정의. Day 3 T3.2에서 DefaultAlignments.asset 드래그.")]
         public NPCAlignmentSO defaultAlignmentSO;
 
-        [Tooltip("대사 라이브러리. 실제 사용은 Day 4 T4.5 (SpeechAssembler 부착 시). " +
-                 "Day 1에서는 선언만 되어 있음.")]
+        [Tooltip("대사 라이브러리. Day 4 T4.6에서 입력.")]
         public DialogueLibrarySO defaultDialogueLibrary;
+
+        [Tooltip("Speech Bubble prefab. Day 4 T4.6에서 Assets/Prefabs/UI/SpeechBubble 드래그.")]
+        public GameObject speechBubblePrefab;
 
         [Header("━━━ 실행 조건 ━━━━━━━━━━━━━━━━━━━━━")]
 
@@ -78,38 +70,126 @@ namespace TDA.PB4.Bootstrap
         [Tooltip("Play 중 이 컴포넌트를 비활성화해도 이미 부트스트랩된 NPC는 유지. false로 두세요.")]
         public bool destroyAfterBootstrap = false;
 
-        [Header("━━━ 통계 (읽기 전용, Play 모드에서만 의미 있음) ━━")]
+        [Header("━━━ 통계 (읽기 전용, 디버그용) ━━━━━━━")]
 
-        [Tooltip("부트스트랩된 NPC 수 (Play only).")]
-        [SerializeField] private int bootstrappedCount;
+        [Tooltip("부트스트랩된 NPC 수.")]
+        [SerializeField, HideInInspector] private int bootstrappedCount;
 
-        [Tooltip("부트스트랩 소요 시간 (ms, Play only).")]
-        [SerializeField] private float bootstrapDurationMs;
-
-        [Tooltip("마지막 부트스트랩 실패 로그 (Play only, 텍스트가 길면 잘릴 수 있음).")]
-        [SerializeField] private string lastFailureLog;
-
-        // ==================================================================
-        // 런타임 상태
-        // ==================================================================
+        [Tooltip("부트스트랩 소요 시간 (ms).")]
+        [SerializeField, HideInInspector] private float bootstrapDurationMs;
 
         private IProgressTracker progressTracker;
 
-        // ==================================================================
-        // Awake — 메인 진입점
-        // ==================================================================
+        // [NGO-4] Late-Spawn NPC 추적용 — OnNetworkSpawn 시점에 씬에 없던 Brain은
+        //         이후 서버에서 NetworkObject.Spawn() 호출되며 등장. 중복 부착 방지.
+        private readonly HashSet<int> bootstrappedBrainIds = new();
+
+        // ═════════════════════════════════════════════════════════════════════
+        // [NGO-2] 라이프사이클 — Awake + OnNetworkSpawn 듀얼 (단독 Play 호환)
+        // ═════════════════════════════════════════════════════════════════════
 
         private void Awake()
         {
+            // [단독 Play] NetworkManager 비활성 시: Awake에서 즉시 Bootstrap
+            // NetworkManager 활성 시: OnNetworkSpawn에서 Bootstrap (서버만)
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            {
+                LogInfo("단독 Play 감지 (NetworkManager 비활성) — Awake에서 즉시 부트스트랩.");
+                RunBootstrap();
+            }
+        }
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+
+            // [NGO-3] 서버 권한 가드 — 클라이언트에서는 부트스트랩 실행 금지
+            if (!IsServer)
+            {
+                LogVerbose("클라이언트: 부트스트랩 스킵 (NetworkVariable 동기화로 수신)");
+                return;
+            }
+
+            // [NGO-4] Late-Spawn NPC 대응: 런타임 중 NetworkObject 스폰 시 자동 부착
+            if (NetworkManager.Singleton != null)
+            {
+                NetworkManager.Singleton.OnClientConnectedCallback += OnClientLateConnect;
+            }
+
+            RunBootstrap();
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            // [NGO-4] 이벤트 구독 해제 (씬 전환 유령 객체 방지 — 개론서 §1.17 원칙 ③)
+            if (NetworkManager.Singleton != null)
+            {
+                NetworkManager.Singleton.OnClientConnectedCallback -= OnClientLateConnect;
+            }
+            base.OnNetworkDespawn();
+        }
+
+        // [NGO-4] 새 클라이언트 접속 시 기존 NPC는 이미 부트스트랩됨.
+        //          서버가 추후 NetworkObject.Spawn(npcPrefab)으로 스폰한 Brain만 추적.
+        private void OnClientLateConnect(ulong clientId)
+        {
+            if (!IsServer) return;
+            RescanAndBootstrapNew();
+        }
+
+        /// <summary>씬을 재스캔하여 부트스트랩 안 된 새 Brain만 처리.</summary>
+        private void RescanAndBootstrapNew()
+        {
+            var brains = FindObjectsByType<HumanoidAIBrain>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.InstanceID);
+
+            var bb = GameBlackboard.Instance ?? FindAnyObjectByType<GameBlackboard>();
+            int newCount = 0;
+
+            foreach (var brain in brains)
+            {
+                int id = brain.GetInstanceID();
+                if (bootstrappedBrainIds.Contains(id)) continue;
+
+                try
+                {
+                    BootstrapOne(brain, bb);
+                    bootstrappedBrainIds.Add(id);
+                    bootstrappedCount++;
+                    newCount++;
+                }
+                catch (System.Exception e)
+                {
+                    LogError($"{brain.name} Late-Bootstrap 실패: {e.Message}");
+                }
+            }
+
+            if (newCount > 0)
+                LogInfo($"Late-Bootstrap: +{newCount} NPC (누적 {bootstrappedCount})");
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // 메인 부트스트랩 로직 (v1의 Awake 본문을 메서드로 분리)
+        // ═════════════════════════════════════════════════════════════════════
+
+        private void RunBootstrap()
+        {
             float startTime = Time.realtimeSinceStartup;
 
+            // 1. GameBlackboard 존재 확인
+            //    [v3 수정] Instance 대신 FindAnyObjectByType 사용.
+            //    이유: Bootstrapper(DefaultExecutionOrder -100)가 GameBlackboard.Awake보다 먼저 실행되면
+            //          Instance가 아직 null. FindAnyObjectByType은 Awake 실행 여부 무관하게 씬 객체를 찾음.
             var bb = GameBlackboard.Instance;
+            if (bb == null)
+                bb = FindAnyObjectByType<GameBlackboard>();
+
             if (bb == null)
             {
                 if (!allowStubFallback)
                 {
-                    LogError($"GameBlackboard.Instance 부재. 빌드 코드는 GameBlackboard prefab 필수. " +
-                             $"Scene hierarchy에 GameBlackboard GameObject 추가 요망.");
+                    LogError($"GameBlackboard 부재. 빌드 코드는 GameBlackboard prefab 필수. " +
+                             $"Scene hierarchy 확인 후 GameBlackboard GameObject 추가 요망.");
                     return;
                 }
                 LogWarn("GameBlackboard 없음 → Stub fallback (단독 테스트 모드)");
@@ -119,10 +199,12 @@ namespace TDA.PB4.Bootstrap
                 LogVerbose($"GameBlackboard OK (ActiveTerrainTags 수={bb.ActiveTerrainTags?.Count ?? 0})");
             }
 
+            // 2. ProgressTracker 참조 획득 (T1.6에서 구현체 생성 후 자동 참조)
             progressTracker = FindAnyObjectByType<Week2ProgressTracker>();
             if (progressTracker == null)
                 LogVerbose("Week2ProgressTracker 미배치 - 보고 스킵 (T1.6 이후 자동 연결)");
 
+            // 3. 씬 내 모든 HumanoidAIBrain 수집
             var brains = FindObjectsByType<HumanoidAIBrain>(
                 FindObjectsInactive.Exclude, FindObjectsSortMode.InstanceID);
 
@@ -132,30 +214,32 @@ namespace TDA.PB4.Bootstrap
                 return;
             }
 
-            LogInfo($"{brains.Length}개 HumanoidAIBrain 부트스트랩 시작 " +
-                    $"(debugLog 자동 켬={enableDebugLogOnBootstrap})");
+            LogInfo($"{brains.Length}개 HumanoidAIBrain 부트스트랩 시작 (서버 권한)");
 
+            // 4. 각 Brain 부트스트랩
             foreach (var brain in brains)
             {
                 try
                 {
                     BootstrapOne(brain, bb);
+                    bootstrappedBrainIds.Add(brain.GetInstanceID());  // [NGO-4]
                     bootstrappedCount++;
                 }
                 catch (System.Exception e)
                 {
-                    lastFailureLog = $"{brain.name}: {e.Message}";
                     LogError($"{brain.name} 부트스트랩 실패: {e.Message}\n{e.StackTrace}");
-                    progressTracker?.ReportEvent("BootstrapFailed", false, lastFailureLog);
+                    progressTracker?.ReportEvent("BootstrapFailed", false, $"{brain.name}: {e.Message}");
                 }
             }
 
+            // 5. 완료 처리
             bootstrapDurationMs = (Time.realtimeSinceStartup - startTime) * 1000f;
             LogInfo($"완료. {bootstrappedCount}/{brains.Length} 성공. 소요 {bootstrapDurationMs:F1}ms");
 
-            progressTracker?.ReportEvent("BootstrapComplete", bootstrappedCount == brains.Length,
+            progressTracker?.ReportEvent("BootstrapComplete", true,
                 $"{bootstrappedCount}/{brains.Length} in {bootstrapDurationMs:F0}ms");
 
+            // 6. 정리 옵션
             if (destroyAfterBootstrap)
             {
                 LogVerbose("destroyAfterBootstrap=true → GameObject 제거");
@@ -163,10 +247,16 @@ namespace TDA.PB4.Bootstrap
             }
         }
 
-        // ==================================================================
-        // BootstrapOne — 각 NPC에 대한 4단계 주입
-        // ==================================================================
+        // ═════════════════════════════════════════════════════════════════════
+        // BootstrapOne — v1과 동일 (NGO 변경 없음. Brain의 InjectComponents만 호출)
+        // ═════════════════════════════════════════════════════════════════════
 
+        /// <summary>단일 HumanoidAIBrain에 대한 전체 부트스트랩.</summary>
+        /// <remarks>
+        /// 실행 순서가 중요. 다음 순서 엄수:
+        ///   a) 컴포넌트 부착 → b) SO 주입 → c) Brain에 참조 주입 → d) 초기 태그 발현.
+        /// 이 순서가 바뀌면 null 참조 발생 가능.
+        /// </remarks>
         private void BootstrapOne(HumanoidAIBrain brain, GameBlackboard bb)
         {
             var go = brain.gameObject;
@@ -179,24 +269,25 @@ namespace TDA.PB4.Bootstrap
                         ?? go.AddComponent<PersonalityTagResolver>();
             var encoder = go.GetComponent<SituationVectorEncoder>()
                        ?? go.AddComponent<SituationVectorEncoder>();
+
+            // TrustMatrix, TraumaSystem도 Day 1에서 부착 (매 틱 갱신은 Day 2 T2.4).
             var trust = go.GetComponent<TrustMatrix>()
                      ?? go.AddComponent<TrustMatrix>();
             var trauma = go.GetComponent<TraumaSystem>()
                       ?? go.AddComponent<TraumaSystem>();
 
-            LogVerbose($"{brain.name}: 5개 컴포넌트 부착 완료");
+            // [v3 Day 3] NGO 2.0 신규 컴포넌트 자동 부착
+            //   NPCAlignmentController: 4 진영 동적 전이 (매 1초 + 이벤트)
+            //   DilemmaPivotResolver: Anchor 재설정 + Alignment 강제
+            //   CommandAcceptanceFilter: 플레이어 명령 수락 판정
+            var alignment = go.GetComponent<NPCAlignmentController>()
+                         ?? go.AddComponent<NPCAlignmentController>();
+            var pivotResolver = go.GetComponent<DilemmaPivotResolver>()
+                             ?? go.AddComponent<DilemmaPivotResolver>();
+            var cmdFilter = go.GetComponent<CommandAcceptanceFilter>()
+                         ?? go.AddComponent<CommandAcceptanceFilter>();
 
-            // ═══ a-1) [v3] debugLog 일괄 설정 ═══════════════════════
-            // enableDebugLogOnBootstrap=true 이면 4개 컴포넌트의 debugLog=true.
-            // SituationVectorEncoder와 HumanoidAIBrain은 debugLog 필드 없음 → 대상 제외.
-            if (enableDebugLogOnBootstrap)
-            {
-                formula.debugLog = true;
-                resolver.debugLog = true;
-                trust.debugLog = true;
-                trauma.debugLog = true;
-                LogVerbose($"{brain.name}: 4개 컴포넌트 debugLog 자동 ON");
-            }
+            LogVerbose($"{brain.name}: 5개 + Day 3 3개 = 8개 컴포넌트 부착 완료");
 
             // ═══ b) 데이터 SO 주입 (직접 메서드 호출, Reflection 없음) ═══
             if (defaultTagRules != null)
@@ -222,50 +313,36 @@ namespace TDA.PB4.Bootstrap
             // ═══ c) Brain 의존성 주입 ═══════════════════════════
             if (bb != null)
                 brain.InjectBlackboard(bb);
-
             brain.InjectComponents(formula, resolver, encoder, trust, trauma);
 
             LogVerbose($"{brain.name}: Brain 의존성 주입 완료. IsStubFree={brain.IsStubFree()}");
 
             // ═══ d) 초기 태그 발현 ═══════════════════════════════
+            // Personality 기반 태그를 계산하여 ActiveTags에 저장.
+            // 이 시점에 호출하지 않으면 첫 UpdateDecision에서 빈 태그 리스트로 계산됨.
+            // 서버에서만 실행 (ActiveTags는 NetworkList로 자동 동기화 — Resolver v2)
             resolver.ResolveTagsFromPersonality(brain.Personality);
 
             var activeTags = resolver.ActiveTags;
             var tagsString = activeTags.Count > 0 ? string.Join(",", activeTags) : "(없음)";
-            LogInfo($"{brain.name}: 컴포넌트 5종 부착 + 초기 태그 [{tagsString}]");
+            LogInfo($"{brain.name}: 컴포넌트 8종 부착 (Day 1-2: 5종 + Day 3: 3종) + 초기 태그 [{tagsString}]");
         }
 
-        // ==================================================================
-        // 로그 레벨 기반 출력 헬퍼
-        // ==================================================================
+        // ═════════════════════════════════════════════════════════════════════
+        // 로깅 헬퍼 (v1과 동일)
+        // ═════════════════════════════════════════════════════════════════════
+        private void LogInfo(string msg) { if (logLevel >= BootstrapLogLevel.Info) Debug.Log($"[Bootstrap] {msg}"); }
+        private void LogWarn(string msg) { if (logLevel >= BootstrapLogLevel.Warn) Debug.LogWarning($"[Bootstrap] {msg}"); }
+        private void LogError(string msg) { if (logLevel >= BootstrapLogLevel.Error) Debug.LogError($"[Bootstrap] {msg}"); }
+        private void LogVerbose(string msg) { if (logLevel >= BootstrapLogLevel.Verbose) Debug.Log($"[Bootstrap][V] {msg}"); }
 
-        private void LogInfo(string msg)
-        {
-            if (logLevel >= BootstrapLogLevel.Info) Debug.Log($"[Bootstrap] {msg}");
-        }
-
-        private void LogWarn(string msg)
-        {
-            if (logLevel >= BootstrapLogLevel.Warn) Debug.LogWarning($"[Bootstrap] {msg}");
-        }
-
-        private void LogError(string msg)
-        {
-            if (logLevel >= BootstrapLogLevel.Error) Debug.LogError($"[Bootstrap] {msg}");
-        }
-
-        private void LogVerbose(string msg)
-        {
-            if (logLevel >= BootstrapLogLevel.Verbose) Debug.Log($"[Bootstrap][V] {msg}");
-        }
-
-        // ==================================================================
-        // [v3] DebugLog 일괄 제어 API + ContextMenu
-        // ==================================================================
+        // ═════════════════════════════════════════════════════════════════════
+        // [v3 복원] debugLog 일괄 제어 (Editor 스크립트 + ContextMenu 호출)
+        // ═════════════════════════════════════════════════════════════════════
 
         /// <summary>
         /// 씬 내 모든 Humanoid NPC의 debugLog를 일괄 설정.
-        /// Play 중 호출 가능. ContextMenu로도 접근.
+        /// Play 중 호출 가능. ContextMenu 및 HumanoidBootstrapperEditor에서 접근.
         /// </summary>
         /// <param name="enable">true=켜기, false=끄기</param>
         /// <returns>영향받은 NPC 수</returns>
@@ -295,7 +372,7 @@ namespace TDA.PB4.Bootstrap
             return count;
         }
 
-        /// <summary>[v3] 현재 debugLog 상태를 반전. 씬 첫 번째 Brain의 Formula.debugLog 기준.</summary>
+        /// <summary>현재 debugLog 상태를 반전. 씬 첫 번째 Brain의 Formula.debugLog 기준.</summary>
         public void ToggleAllDebugLog()
         {
             var firstBrain = FindAnyObjectByType<HumanoidAIBrain>();
@@ -317,22 +394,5 @@ namespace TDA.PB4.Bootstrap
 
         [ContextMenu("Disable All DebugLog")]
         private void DebugContextDisableAll() => SetAllDebugLog(false);
-
-        // ==================================================================
-        // 디버그 유틸리티
-        // ==================================================================
-
-        /// <summary>수동 재부트스트랩. Editor Context Menu에서 호출.</summary>
-        [ContextMenu("Re-Bootstrap All NPCs")]
-        public void ReBootstrapManual()
-        {
-            if (!Application.isPlaying)
-            {
-                Debug.LogWarning("[Bootstrap] Re-Bootstrap은 Play 모드에서만 동작");
-                return;
-            }
-            bootstrappedCount = 0;
-            Awake();
-        }
     }
 }
