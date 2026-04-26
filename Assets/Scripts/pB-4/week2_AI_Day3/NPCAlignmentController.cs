@@ -226,7 +226,20 @@ namespace TDA.PB4.AI
                 return;
             }
 
-            float trust = trustMatrix != null ? trustMatrix.GetNormalizedTrust(targetPlayerId) * 100f : 50f;
+            // [옵션 B] TrustMatrix 미부착 시 fallback을 0으로 (보수적). 
+            // 기존 50f는 자동으로 Friendly 진영 임계치 통과시키는 부작용 있었음.
+            float trust;
+            if (trustMatrix != null)
+            {
+                trust = trustMatrix.GetNormalizedTrust(targetPlayerId) * 100f;
+            }
+            else
+            {
+                trust = 0f;
+                if (debugLog)
+                    Debug.LogWarning($"[Alignment] {name}: TrustMatrix 미부착 — trust=0으로 보수적 평가. " +
+                                     $"플레이어 없는 환경에서 자동 진영 전이가 차단됩니다.");
+            }
             float karma = KarmaDirector.Instance != null ? KarmaDirector.Instance.GetKarmaScore(targetPlayerId) : 0f;
 
             var def = alignmentDefinitionSO.FindMatchingDefinition(trust, karma);
@@ -284,12 +297,24 @@ namespace TDA.PB4.AI
             OnAlignmentChanged?.Invoke((int)oldAlignment, (int)target);
             EventBus.RaiseAlignmentChanged(name, (int)oldAlignment, (int)target, reason);
 
-            // SpeechAssembler 통합 (선택)
+            // SpeechAssembler 통합 (Day 4 T4.1 완성)
             if (enableSpeechOnTransition && targetDef != null && !string.IsNullOrEmpty(targetDef.defaultDialogueKey))
             {
                 if (debugLog)
-                    Debug.Log($"[Alignment] {name}: SpeechTrigger '{targetDef.defaultDialogueKey}' (Day 4 SpeechAssembler 연결 예정)");
-                // TODO Day 4: SpeechAssembler.PlayLine(targetDef.defaultDialogueKey);
+                    Debug.Log($"[Alignment] {name}: SpeechTrigger '{targetDef.defaultDialogueKey}' (Day 4 EventBus)");
+
+                // [Day 4 수정] EventBus로 SpeechTrigger 발행 → SpeechDispatcher가 수신
+                //              Context는 Core.Events namespace에 있음 (계층 역류 방지)
+                EventBus.RaiseSpeechTrigger(
+                    targetDef.defaultDialogueKey,
+                    new TDA.PB4.Core.Events.SpeechTriggerContext
+                    {
+                        characterId = name,
+                        targetPlayerId = 0UL,  // TODO: 실제 대상 플레이어 전달 (Week 7에서 확장)
+                        currentAlignment = target,
+                        previousAlignment = oldAlignment,
+                        reason = reason
+                    });
             }
 
             return true;
@@ -356,5 +381,81 @@ namespace TDA.PB4.AI
 
         [ContextMenu("Debug/Reset to Original")]
         private void DebugReset() => TryTransition(originalAlignment, AlignmentChangeReason.Manual);
+
+        // ================================================================
+        // [Day 4 추가] 평가 진단 + 안정화 시간 우회 강제 전이
+        // ================================================================
+
+        [ContextMenu("Debug/평가 상태 진단")]
+        public void DebugDiagnoseEvaluation()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"<color=#FF8C00>[Alignment.DEBUG]</color> {name}: 평가 상태 진단");
+
+            if (trustMatrix != null)
+            {
+                float trust = trustMatrix.GetNormalizedTrust(targetPlayerId) * 100f;
+                sb.AppendLine($"  TrustMatrix: 부착됨, trust(p{targetPlayerId})={trust:F1}");
+            }
+            else
+            {
+                sb.AppendLine($"  TrustMatrix: 미부착 -> fallback trust=0 (보수)");
+            }
+
+            if (KarmaDirector.Instance != null)
+            {
+                float karma = KarmaDirector.Instance.GetKarmaScore(targetPlayerId);
+                sb.AppendLine($"  KarmaDirector: 활성, karma(p{targetPlayerId})={karma:F1}");
+            }
+            else
+            {
+                sb.AppendLine($"  KarmaDirector: 비활성 -> fallback karma=0");
+            }
+
+            sb.AppendLine($"  현재 진영: {currentAlignment}");
+            sb.AppendLine($"  유지 시간: {Time.time - alignmentEnterTime:F1}s");
+
+            float simTrust = trustMatrix != null ? trustMatrix.GetNormalizedTrust(targetPlayerId) * 100f : 0f;
+            float simKarma = KarmaDirector.Instance != null ? KarmaDirector.Instance.GetKarmaScore(targetPlayerId) : 0f;
+            var matched = alignmentDefinitionSO != null
+                        ? alignmentDefinitionSO.FindMatchingDefinition(simTrust, simKarma)
+                        : null;
+            if (matched != null)
+                sb.AppendLine($"  매칭 결과: {matched.alignment} (trust={simTrust:F1}, karma={simKarma:F1})");
+            else
+                sb.AppendLine($"  매칭 결과: 없음");
+
+            Debug.Log(sb.ToString(), this);
+        }
+
+        [ContextMenu("Debug/Hold 무시 + Friendly 강제")]
+        public void DebugForceFriendlyBypassHold() => DebugForceTransition(NPCAlignment.Friendly);
+
+        [ContextMenu("Debug/Hold 무시 + Companion 강제")]
+        public void DebugForceCompanionBypassHold() => DebugForceTransition(NPCAlignment.Companion);
+
+        [ContextMenu("Debug/Hold 무시 + Hostile 강제")]
+        public void DebugForceHostileBypassHold() => DebugForceTransition(NPCAlignment.Hostile);
+
+        [ContextMenu("Debug/Hold 무시 + Neutral 강제")]
+        public void DebugForceNeutralBypassHold() => DebugForceTransition(NPCAlignment.Neutral);
+
+        /// <summary>
+        /// 5초 최소 유지 시간을 무시하고 즉시 전이.
+        /// 기존 DebugForce*는 안정화 시간에 막혀 동작 안 할 수 있음.
+        /// SpeechTestWindow에서 호출.
+        /// </summary>
+        public void DebugForceTransition(NPCAlignment target)
+        {
+            Debug.Log($"<color=#FF8C00>[Alignment.DEBUG]</color> {name}: 강제 전이 {currentAlignment} -> {target} (Hold 무시)", this);
+
+            // 안정화 시간 우회 — alignmentEnterTime을 과거로 설정
+            alignmentEnterTime = Time.time - 1000f;
+
+            var def = alignmentDefinitionSO != null
+                    ? alignmentDefinitionSO.GetDefinition(target)
+                    : null;
+            TryTransition(target, AlignmentChangeReason.Manual, def);
+        }
     }
 }

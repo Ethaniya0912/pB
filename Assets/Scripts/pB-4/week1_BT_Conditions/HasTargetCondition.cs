@@ -22,7 +22,7 @@ using Unity.Properties;
 using UnityEngine;
 
 [Serializable, GeneratePropertyBag]
-[NodeDescription(
+[Condition(
     name: "HasTarget",
     story: "Has a valid [Target]",
     category: "pB-4/Conditions",

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64941787817b3e841874d48ce8208d50, type: 3}
+  m_Name: DialoguePreset_Neutral
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Speech.DialoguePresetSO
+  tone: 2
+  fontColor: {r: 1, g: 1, b: 1, a: 1}
+  backgroundColor: {r: 0, g: 0, b: 0, a: 0.7058824}
+  borderColor: {r: 0.7058824, g: 0.7058824, b: 0.7058824, a: 0.5882353}
+  fontSize: 16
+  fadeInDuration: 0.2
+  displayDuration: 2.5
+  fadeOutDuration: 0.5
+  shakeAmplitude: 0
+  bubbleWidth: 4

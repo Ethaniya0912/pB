@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8aafac90c5ccde44589bd7b88182dc61, type: 3}
+  m_Name: SpeechTemplate_Hostile_Altruist
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Speech.SpeechTemplateSO
+  triggerId: hostile_default
+  profileHint: Altruist
+  variants:
+  - alignment: 0
+    text: "\uC81C\uBC1C... \uB2E4\uAC00\uC624\uC9C0 \uB9C8\uC138\uC694. \uB2E4\uCCD0\uC694."
+    tone: 4
+    durationOverride: 0
+  - alignment: 1
+    text: "\uC870\uC2EC\uD558\uC138\uC694."
+    tone: 1
+    durationOverride: 0
+  - alignment: 2
+    text: "\uB2F9\uC2E0, \uC624\uB298 \uB9CE\uC774 \uD798\uB4DC\uC2E0\uAC00 \uBD10\uC694."
+    tone: 0
+    durationOverride: 0
+  - alignment: 3
+    text: "\uAD1C\uCC2E\uC544\uC694. \uC800\uB294 \uB2F9\uC2E0 \uD3B8\uC774\uC5D0\uC694."
+    tone: 0
+    durationOverride: 0

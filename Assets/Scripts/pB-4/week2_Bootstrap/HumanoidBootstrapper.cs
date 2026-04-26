@@ -287,7 +287,18 @@ namespace TDA.PB4.Bootstrap
             var cmdFilter = go.GetComponent<CommandAcceptanceFilter>()
                          ?? go.AddComponent<CommandAcceptanceFilter>();
 
-            LogVerbose($"{brain.name}: 5개 + Day 3 3개 = 8개 컴포넌트 부착 완료");
+            // ═══ Day 4 T4.1: Speech 파이프라인 (3 컴포넌트) ═══
+            //   SpeechAssembler (L3): Template 매칭 + 플레이스홀더 치환
+            //   DialogueRenderer (L4): 말풍선 UI 표시
+            //   SpeechDispatcher  (L2): EventBus 구독 + 검문 → 위 두 개 호출
+            var speechAssembler = go.GetComponent<TDA.PB4.AI.Speech.SpeechAssembler>()
+                               ?? go.AddComponent<TDA.PB4.AI.Speech.SpeechAssembler>();
+            var dialogueRenderer = go.GetComponent<TDA.PB4.AI.Speech.DialogueRenderer>()
+                                ?? go.AddComponent<TDA.PB4.AI.Speech.DialogueRenderer>();
+            var speechDispatcher = go.GetComponent<TDA.PB4.AI.Speech.SpeechDispatcher>()
+                                ?? go.AddComponent<TDA.PB4.AI.Speech.SpeechDispatcher>();
+
+            LogVerbose($"{brain.name}: 5개 + Day 3 3개 + Day 4 3개 = 11개 컴포넌트 부착 완료");
 
             // ═══ b) 데이터 SO 주입 (직접 메서드 호출, Reflection 없음) ═══
             if (defaultTagRules != null)

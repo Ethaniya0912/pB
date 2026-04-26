@@ -1335,56 +1335,65 @@ namespace TDA.PB4.Bridge
 
         /// <summary>
         /// UtilityWinner, Fear, HasTarget, Target이 Shared 변수인지 확인합니다.
-        /// Shared이면 모든 오크가 같은 값을 읽어 Flee↔Attack 진동이 발생합니다.
+        /// Shared이면 모든 NPC가 같은 값을 읽어 Flee↔Attack 진동이 발생합니다.
         ///
-        /// 수정 방법:
+        /// 판정 원리 (DEBT-01 수정):
+        ///   Unity Behavior 1.0.x에서 BlackboardVariable 객체의 런타임 타입을 확인합니다.
+        ///   - BlackboardVariable&lt;T&gt;        → 일반(Per-Instance, 정상)
+        ///   - SharedBlackboardVariable&lt;T&gt;  → Shared(공유, 문제)
+        ///
+        ///   이전 구현은 변수 이름만으로 판정하여 false positive 발생 (실제 [Shared] OFF인데
+        ///   에러 출력). 이제 GetType().Name이 "SharedBlackboardVariable"로 시작하는지 확인합니다.
+        ///
+        /// 수정 방법(BT 에디터):
         ///   BT 에디터(MobAI_BehaviorGraph) → Blackboard 패널 →
-        ///   UtilityWinner / Fear / HasTarget / Target 각각 선택 →
-        ///   하단 [Shared] 토글 해제.
+        ///   해당 변수 선택 → 하단 [Shared] 토글 해제.
         /// </summary>
         private void CheckSharedVariables()
         {
-            if (btAgent?.BlackboardReference?.Blackboard == null) return;
+            if (btAgent?.BlackboardReference?.Blackboard?.Variables == null) return;
 
-            // Unity Behavior에서 Shared 변수는 BlackboardReference.Blackboard가 아닌
-            // Graph 레벨 Blackboard에 존재합니다.
-            // GetVariableID로 GUID를 얻은 후, 해당 GUID가 Graph 공유 BB에 있으면 Shared.
             var perInstanceKeys = new[] { "UtilityWinner", "Fear", "HasTarget", "Target" };
+            var seenKeys = new System.Collections.Generic.HashSet<string>();
 
-            foreach (var key in perInstanceKeys)
+            // 1) 그래프 BB의 모든 변수를 순회하며 타입 확인
+            foreach (var v in btAgent.BlackboardReference.Blackboard.Variables)
             {
-                if (!btAgent.GetVariableID(key, out _))
-                {
-                    Debug.LogWarning($"[PB4Adapter][SHARED_BB] {name}: BB 변수 '{key}' 없음. BT Blackboard에 추가하세요.");
-                    continue;
-                }
+                if (v == null || string.IsNullOrEmpty(v.Name)) continue;
+                if (System.Array.IndexOf(perInstanceKeys, v.Name) < 0) continue;
 
-                // Variable이 Shared인지 확인: 같은 BT 그래프를 쓰는 다른 에이전트와
-                // GUID가 동일한 변수를 공유하면 Shared입니다.
-                // 직접 API가 없으므로 프록시로 Blackboard.Variables 열거를 사용합니다.
-                bool foundInGraphBB = false;
-                if (btAgent.BlackboardReference?.Blackboard?.Variables != null)
-                {
-                    foreach (var v in btAgent.BlackboardReference.Blackboard.Variables)
-                    {
-                        if (v.Name == key)
-                        {
-                            foundInGraphBB = true;
-                            break;
-                        }
-                    }
-                }
+                seenKeys.Add(v.Name);
 
-                if (foundInGraphBB)
+                // [DEBT-01 수정] 타입 기반 판정 — SharedBlackboardVariable<T>인지 확인
+                // Unity Behavior 내부 타입이므로 typeof로 직접 참조 못 함 → Reflection 이름 비교
+                string typeName = v.GetType().Name;
+                bool isShared = typeName.StartsWith("SharedBlackboardVariable");
+
+                if (isShared)
                 {
                     Debug.LogError(
                         $"<color=red>[PB4Adapter][SHARED_BB] {name}: " +
-                        $"'{key}' 가 Shared(공유) 변수로 확인됩니다!\n" +
-                        $"  이 변수가 Shared이면 {name}이 쓴 값이 씬 내 모든 오크에 전파됩니다.\n" +
+                        $"'{v.Name}' 가 Shared(공유) 변수로 확인됨 (런타임 타입={typeName}).\n" +
+                        $"  이 변수가 Shared이면 {name}이 쓴 값이 씬 내 모든 NPC에 전파됩니다.\n" +
                         $"  증상: Orc_01 공포 주입 → Orc_02/03 BT도 Flee 진입 → 전체 진동.\n" +
-                        $"  ▶ 수정: BT 에디터(MobAI_BehaviorGraph) → Blackboard → '{key}' 선택\n" +
+                        $"  ▶ 수정: BT 에디터(MobAI_BehaviorGraph) → Blackboard → '{v.Name}' 선택\n" +
                         $"           → 하단 [Shared] 토글 OFF\n" +
                         $"  이 수정 없이는 코드 레벨 픽스만으로 해결되지 않습니다.</color>");
+                }
+                else if (debugLog)
+                {
+                    Debug.Log($"[PB4Adapter][SHARED_BB] {name}: '{v.Name}' OK (Per-Instance, 타입={typeName}).");
+                }
+            }
+
+            // 2) 그래프 BB에 변수 자체가 없는 경우 경고
+            foreach (var key in perInstanceKeys)
+            {
+                if (!seenKeys.Contains(key))
+                {
+                    Debug.LogWarning(
+                        $"[PB4Adapter][SHARED_BB] {name}: BB 변수 '{key}' 없음. " +
+                        $"BT Blackboard에 추가하세요.");
                 }
             }
         }

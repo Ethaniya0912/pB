@@ -641,6 +641,10 @@ GameObject:
   - component: {fileID: 2187960731613901782}
   - component: {fileID: 212227040432806844}
   - component: {fileID: 1947142874346906517}
+  - component: {fileID: 6808503888121520632}
+  - component: {fileID: 1778917036455899257}
+  - component: {fileID: 5062653150551271864}
+  - component: {fileID: 7993517952673867679}
   - component: {fileID: -6378788767511415067}
   - component: {fileID: 4105687166604391429}
   - component: {fileID: 8434182046016921837}
@@ -656,9 +660,6 @@ GameObject:
   - component: {fileID: 4970938131516336963}
   - component: {fileID: -282261469178741356}
   - component: {fileID: -9004815254328650616}
-  - component: {fileID: 6808503888121520632}
-  - component: {fileID: 1778917036455899257}
-  - component: {fileID: 5062653150551271864}
   - component: {fileID: 5717506456705042142}
   - component: {fileID: 7072069649473977397}
   - component: {fileID: 5927218572841699087}
@@ -666,6 +667,9 @@ GameObject:
   - component: {fileID: 770793714529308833}
   - component: {fileID: 3842090482814950413}
   - component: {fileID: -3755434321990244949}
+  - component: {fileID: 7293332218415992728}
+  - component: {fileID: 1029634722701367297}
+  - component: {fileID: 601547851451220501}
   m_Layer: 15
   m_Name: Skeleton_Humanoid_01
   m_TagString: Untagged
@@ -887,6 +891,123 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &6808503888121520632
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2d8418b0b9634b1892b0268dd9c2743, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Animation.Rigging::UnityEngine.Animations.Rigging.BoneRenderer
+  boneShape: 1
+  drawBones: 1
+  drawTripods: 0
+  boneSize: 1
+  tripodSize: 1
+  boneColor: {r: 0, g: 0, b: 1, a: 0.5}
+  m_Transforms:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 297868679738301699}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 929910960704787188}
+--- !u!114 &1778917036455899257
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fff0960ef4ea6e04eac66b4a7fd2189d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Animation.Rigging::UnityEngine.Animations.Rigging.RigBuilder
+  m_RigLayers:
+  - m_Rig: {fileID: 6688767066661536966}
+    m_Active: 1
+  m_Effectors: []
+--- !u!195 &5062653150551271864
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 0
+  m_AgentTypeID: 0
+  m_Radius: 0.5
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &7993517952673867679
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0038c16c34866b4f9e25c9c0dc0f7e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Behavior::Unity.Behavior.BehaviorGraphAgent
+  ShowTopMostFoldoutHeaderGroup: 1
+  m_Graph: {fileID: -3900492476542012201, guid: aae83bcf557a9c44a923ecbff3bea144,
+    type: 2}
+  m_BlackboardVariableOverridesList:
+  - rid: 2930110006579167810
+  m_OriginalGraph: {fileID: 0}
+  m_IsInitialised: 0
+  m_IsStarted: 0
+  NetcodeRunOnlyOnOwner: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: 2930110006579167810
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]',
+        ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 1
+          m_Value1: 0
+        Name: Self
+        m_Value: {fileID: 4233442530097016134}
 --- !u!114 &-6378788767511415067
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1421,90 +1542,6 @@ MonoBehaviour:
   headScale: 0.15
   shoulderScale: 0.7
   debugLog: 1
---- !u!114 &6808503888121520632
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b2d8418b0b9634b1892b0268dd9c2743, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Animation.Rigging::UnityEngine.Animations.Rigging.BoneRenderer
-  boneShape: 1
-  drawBones: 1
-  drawTripods: 0
-  boneSize: 1
-  tripodSize: 1
-  boneColor: {r: 0, g: 0, b: 1, a: 0.5}
-  m_Transforms:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 297868679738301699}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 929910960704787188}
---- !u!114 &1778917036455899257
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fff0960ef4ea6e04eac66b4a7fd2189d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Animation.Rigging::UnityEngine.Animations.Rigging.RigBuilder
-  m_RigLayers:
-  - m_Rig: {fileID: 6688767066661536966}
-    m_Active: 1
-  m_Effectors: []
---- !u!195 &5062653150551271864
-NavMeshAgent:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 0
-  m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 3.5
-  m_Acceleration: 8
-  avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
-  m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
-  m_AutoRepath: 1
-  m_Height: 2
-  m_BaseOffset: 0
-  m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
 --- !u!114 &5717506456705042142
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1628,10 +1665,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Bridge.PB4DecisionAdapter
   mobBrain: {fileID: 0}
-  humanoidBrain: {fileID: 0}
+  humanoidBrain: {fileID: -3755434321990244949}
   aiManager: {fileID: -6378788767511415067}
-  btAgent: {fileID: 0}
-  combatProfile: {fileID: 0}
+  btAgent: {fileID: 7993517952673867679}
+  combatProfile: {fileID: 11400000, guid: 72ce16040edaa7a42bb786bfb3d76911, type: 2}
   policyTypeOverride: 
   pursueState: {fileID: 11400000, guid: 3f70b7edde10d0644bf942de81b7c65f, type: 2}
   updateInterval: 0.5
@@ -1689,6 +1726,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb96abeab98f76844b4311f44255a31c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Humanoid.HumanoidAIBrain
+  ShowTopMostFoldoutHeaderGroup: 1
   fear: 0.2
   hunger: 0.2
   greed: 0.1
@@ -1721,6 +1759,67 @@ MonoBehaviour:
   needsTagReEvaluation: 1
   decisionInterval: 0.3
   externallyTicked: 0
+--- !u!114 &7293332218415992728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e296211624aee94ca3e7c2eac892158, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Speech.SpeechAssembler
+  templates:
+  - {fileID: 11400000, guid: 7d390e7f9dd90c647957905e3a262013, type: 2}
+  - {fileID: 11400000, guid: 1ed32d99ad3fdec4384a55e8e7c8089b, type: 2}
+  - {fileID: 11400000, guid: 6feae03d2773cc446803b50721178542, type: 2}
+  - {fileID: 11400000, guid: 4c52fb68be9937645ade19035e14c4b6, type: 2}
+  forceLanguage: 43
+  debugLog: 1
+--- !u!114 &1029634722701367297
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c476794b7e875245a9347119112d7d2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Speech.DialogueRenderer
+  presets:
+  - {fileID: 11400000, guid: 478549c5255ecd3468c664d64902a69a, type: 2}
+  - {fileID: 11400000, guid: 4c38e85a89d3c254d967751450398aa0, type: 2}
+  - {fileID: 11400000, guid: 3af65f356ff41a34fa0dd3241ffe3571, type: 2}
+  - {fileID: 11400000, guid: bcc6cb9618d89a24996956a15ac0311a, type: 2}
+  - {fileID: 11400000, guid: 9c18bb4ae07119a44a55079738452653, type: 2}
+  speechAnchor: {fileID: 2992000648723154679}
+  yOffset: 2
+  bubblePrefab: {fileID: 7841096315491628511, guid: 1e20a0d1b3b73464cb5839c0c293695f,
+    type: 3}
+  debugLog: 1
+--- !u!114 &601547851451220501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e66daf54e6296d4582156f48f70898b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Speech.SpeechDispatcher
+  cooldownSec: 3
+  maxDistanceToPlayer: 20
+  requirePlayerPresence: 1
+  verboseFilterLog: 0
+  verifyCharacterId: 1
+  requireServerAuthority: 1
+  debugLog: 1
 --- !u!1 &4595707506124031444
 GameObject:
   m_ObjectHideFlags: 0
@@ -2029,6 +2128,37 @@ Transform:
   m_LocalRotation: {x: -0.000023007393, y: -0.000000024276744, z: -1.90641e-10, w: 1}
   m_LocalPosition: {x: 0, y: -0.00088140485, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7633726694630331250}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &6286288966438398865
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2992000648723154679}
+  m_Layer: 15
+  m_Name: SpeechAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2992000648723154679
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6286288966438398865}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.0536718e-10, y: 0.004850657, z: -0.0012129019}
+  m_LocalScale: {x: 0.0000001, y: 0.0000001, z: 0.0000001}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7633726694630331250}
@@ -2547,6 +2677,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3948406620017236008}
+  - {fileID: 2992000648723154679}
   m_Father: {fileID: 7656423762663271231}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &9111339443675786157

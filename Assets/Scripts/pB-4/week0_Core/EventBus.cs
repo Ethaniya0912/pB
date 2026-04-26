@@ -1,5 +1,5 @@
 // =============================================================================
-// EventBus.cs  |  pB-4 Project — Week 0 (Day 2 T2.4 v3 Errata F6) → v3 Day 3 확장
+// EventBus.cs  |  pB-4 Project — Week 0 (Day 4 T4.1 확장)
 // Layer  : Core (공유 계층)
 // Owner  : Person A
 //
@@ -18,11 +18,15 @@
 //   - [10] OnKarmaChanged (playerId, oldKarma, newKarma, reason)
 //   - [11] OnKarmaTierChanged (playerId, oldTier, newTier)
 //   - [12] OnAlignmentChanged (npcId, oldAlignment, newAlignment, reason)
+//
+// [Day 4 T4.1 신규 — 2026-04-23]
+//   - [13] OnSpeechTrigger (triggerId, SpeechTriggerContext)
 // =============================================================================
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using TDA.PB4.Interfaces.Narrative;  // [Day 3] KarmaTier, KarmaChangeReason, AlignmentChangeReason
+using TDA.PB4.Core.Events;            // [Day 4 수정] SpeechTriggerContext — Core 소속으로 이동됨
 
 namespace TDA.PB4.Core
 {
@@ -127,6 +131,19 @@ namespace TDA.PB4.Core
             => OnAlignmentChanged?.Invoke(npcId, oldAlignment, newAlignment, reason);
 
         // ==================================================================
+        // [13] [Day 4 T4.1 신규] SpeechTrigger 발행
+        // 발행: NPCAlignmentController.TryTransition (Alignment 전이 시)
+        //       향후 TraumaSystem / DilemmaPivotResolver / CommandFilter 등
+        // 구독: SpeechDispatcher (L2 Router) — 검문 후 Assembler로 배분
+        // 인자: triggerId (예: "companion_default"), ctx (SpeechTriggerContext)
+        //
+        // Week 7 확장 예약: Context에 Personality/Trauma 필드 추가.
+        // ==================================================================
+        public static event Action<string /*triggerId*/, SpeechTriggerContext /*ctx*/> OnSpeechTrigger;
+        public static void RaiseSpeechTrigger(string triggerId, SpeechTriggerContext ctx)
+            => OnSpeechTrigger?.Invoke(triggerId, ctx);
+
+        // ==================================================================
         // 씬 전환 시 모든 구독 강제 해제
         // ==================================================================
         public static void ClearAll()
@@ -143,6 +160,7 @@ namespace TDA.PB4.Core
             OnKarmaChanged = null;           // [Day 3]
             OnKarmaTierChanged = null;       // [Day 3]
             OnAlignmentChanged = null;       // [Day 3]
+            OnSpeechTrigger = null;          // [Day 4]
         }
     }
 }

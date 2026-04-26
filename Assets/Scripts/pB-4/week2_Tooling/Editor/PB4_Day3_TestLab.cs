@@ -34,17 +34,17 @@ namespace TDA.PB4.Tooling.Editor
     public class PB4_Day3_TestLab : EditorWindow
     {
         // ===== 색상 테마 (Dashboard와 동일 네온 팔레트) =====
-        private static readonly Color C_BG = new Color(0.07f, 0.08f, 0.12f);
-        private static readonly Color C_CARD = new Color(0.11f, 0.13f, 0.18f);
-        private static readonly Color C_CARD_LIGHT = new Color(0.14f, 0.16f, 0.22f);
-        private static readonly Color C_NEON_CYAN = new Color(0.20f, 0.90f, 0.95f);
+        private static readonly Color C_BG           = new Color(0.07f, 0.08f, 0.12f);
+        private static readonly Color C_CARD         = new Color(0.11f, 0.13f, 0.18f);
+        private static readonly Color C_CARD_LIGHT   = new Color(0.14f, 0.16f, 0.22f);
+        private static readonly Color C_NEON_CYAN    = new Color(0.20f, 0.90f, 0.95f);
         private static readonly Color C_NEON_MAGENTA = new Color(0.95f, 0.40f, 0.80f);
-        private static readonly Color C_NEON_GREEN = new Color(0.40f, 0.95f, 0.50f);
-        private static readonly Color C_NEON_AMBER = new Color(0.98f, 0.75f, 0.20f);
-        private static readonly Color C_NEON_RED = new Color(0.95f, 0.35f, 0.35f);
-        private static readonly Color C_TEXT_BRIGHT = new Color(0.92f, 0.95f, 1.00f);
-        private static readonly Color C_TEXT_DIM = new Color(0.55f, 0.60f, 0.68f);
-        private static readonly Color C_DIVIDER = new Color(0.18f, 0.21f, 0.27f);
+        private static readonly Color C_NEON_GREEN   = new Color(0.40f, 0.95f, 0.50f);
+        private static readonly Color C_NEON_AMBER   = new Color(0.98f, 0.75f, 0.20f);
+        private static readonly Color C_NEON_RED     = new Color(0.95f, 0.35f, 0.35f);
+        private static readonly Color C_TEXT_BRIGHT  = new Color(0.92f, 0.95f, 1.00f);
+        private static readonly Color C_TEXT_DIM     = new Color(0.55f, 0.60f, 0.68f);
+        private static readonly Color C_DIVIDER      = new Color(0.18f, 0.21f, 0.27f);
 
         // ===== 상태 =====
         private HumanoidAIBrain targetBrain;
@@ -379,19 +379,19 @@ namespace TDA.PB4.Tooling.Editor
             DrawStepHeader(2, "Karma 시스템 테스트", "값 변경 → Tier 전이 → Alignment 연쇄 반응");
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("② -A- Karma +20", "선행 (도움). Saint 방향.", 0.32f))
-            { currentStep = 2; DoKarmaChange(+20f, KarmaChangeReason.RescuedCivilian); }
+                { currentStep = 2; DoKarmaChange(+20f, KarmaChangeReason.RescuedCivilian); }
             if (DrawStepButton("② -B- Karma +60 (→ Saint)", "대대적 선행. Tier: Neutral → Saint", 0.32f))
-            { currentStep = 2; DoKarmaChange(+60f, KarmaChangeReason.RescuedCivilian); }
+                { currentStep = 2; DoKarmaChange(+60f, KarmaChangeReason.RescuedCivilian); }
             if (DrawStepButton("② -C- Reset to 0", "Karma 초기화", 0.32f))
-            { currentStep = 2; DoKarmaReset(); }
+                { currentStep = 2; DoKarmaReset(); }
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("② -D- Karma -30", "악행. Outlaw 방향.", 0.32f))
-            { currentStep = 2; DoKarmaChange(-30f, KarmaChangeReason.KilledCivilian); }
+                { currentStep = 2; DoKarmaChange(-30f, KarmaChangeReason.KilledCivilian); }
             if (DrawStepButton("② -E- Karma -100 (→ Demon)", "극악행. Tier: Neutral → Demon", 0.32f))
-            { currentStep = 2; DoKarmaChange(-100f, KarmaChangeReason.KilledCivilian); }
+                { currentStep = 2; DoKarmaChange(-100f, KarmaChangeReason.KilledCivilian); }
             if (DrawStepButton("② -F- Add +10 반복", "자연 감소 시각화용. 0.05/5s 감소 확인.", 0.32f))
-            { currentStep = 2; DoKarmaChange(+10f, KarmaChangeReason.Manual); }
+                { currentStep = 2; DoKarmaChange(+10f, KarmaChangeReason.Manual); }
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(8);
 
@@ -399,17 +399,17 @@ namespace TDA.PB4.Tooling.Editor
             DrawStepHeader(3, "Trust 시스템 테스트", "Hostility → Doubt → Cooperation → BlindTrust");
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("③ -A- Trust +20", "TacticalAlignment (+15 기본)", 0.32f))
-            { currentStep = 3; DoTrustChange(+20f, TrustChangeReason.TacticalAlignment); }
+                { currentStep = 3; DoTrustChange(+20f, TrustChangeReason.TacticalAlignment); }
             if (DrawStepButton("③ -B- Trust +50 (→ BlindTrust)", "생존 위기 공유. 급격 상승.", 0.32f))
-            { currentStep = 3; DoTrustChange(+50f, TrustChangeReason.SharedSurvival); }
+                { currentStep = 3; DoTrustChange(+50f, TrustChangeReason.SharedSurvival); }
             if (DrawStepButton("③ -C- Reset to 50", "Cooperation 기본값으로 복귀", 0.32f))
-            { currentStep = 3; DoTrustReset(); }
+                { currentStep = 3; DoTrustReset(); }
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("③ -D- Trust -40 (→ Doubt)", "TacticalBetrayal. 급락.", 0.32f))
-            { currentStep = 3; DoTrustChange(-40f, TrustChangeReason.TacticalBetrayal); }
+                { currentStep = 3; DoTrustChange(-40f, TrustChangeReason.TacticalBetrayal); }
             if (DrawStepButton("③ -E- Trust -80 (→ Hostility)", "극심한 배신. 적대 진영 진입 가능", 0.32f))
-            { currentStep = 3; DoTrustChange(-80f, TrustChangeReason.TacticalBetrayal); }
+                { currentStep = 3; DoTrustChange(-80f, TrustChangeReason.TacticalBetrayal); }
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(8);
@@ -418,9 +418,9 @@ namespace TDA.PB4.Tooling.Editor
             DrawStepHeader(4, "Alignment 전이 관찰", "Trust+Karma 조합으로 4 진영 중 결정");
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("④ -A- Force Hostile 조건", "Trust=5, Karma=-95 → 적대 강제 유도", 0.49f))
-            { currentStep = 4; DoForceAlignmentConditions(5f, -95f); }
+                { currentStep = 4; DoForceAlignmentConditions(5f, -95f); }
             if (DrawStepButton("④ -B- Force Companion 조건", "Trust=95, Karma=+95 → 동반자 조건", 0.49f))
-            { currentStep = 4; DoForceAlignmentConditions(95f, +95f); }
+                { currentStep = 4; DoForceAlignmentConditions(95f, +95f); }
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(8);
 
@@ -428,11 +428,11 @@ namespace TDA.PB4.Tooling.Editor
             DrawStepHeader(5, "Trauma 시스템 테스트", "4단계 Stage 전이: None → AcuteShock → Crossroads → PermanentScarring");
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("⑤ -A- Apply Shock 0.8", "높은 충격 → Stage None → AcuteShock", 0.32f))
-            { currentStep = 5; DoApplyShock(0.8f); }
+                { currentStep = 5; DoApplyShock(0.8f); }
             if (DrawStepButton("⑤ -B- Apply Shock 0.3", "낮은 충격 → Fear만 증가, Stage 불변", 0.32f))
-            { currentStep = 5; DoApplyShock(0.3f); }
+                { currentStep = 5; DoApplyShock(0.3f); }
             if (DrawStepButton("⑤ -C- Complete Exploration", "AcuteShock → Crossroads 진행", 0.32f))
-            { currentStep = 5; DoCompleteExploration(); }
+                { currentStep = 5; DoCompleteExploration(); }
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(8);
 
@@ -440,9 +440,9 @@ namespace TDA.PB4.Tooling.Editor
             DrawStepHeader(6, "DilemmaPivot — 통합 연쇄 반응", "Personality 변경 + Alignment 강제 + Karma + Trauma 해결");
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("⑥ -A- Pivot: Mercy", "자비 선택 — Karma +15, Trauma 복구", 0.49f))
-            { currentStep = 6; DoSimulatePivot(true); }
+                { currentStep = 6; DoSimulatePivot(true); }
             if (DrawStepButton("⑥ -B- Pivot: Cruelty", "잔혹 선택 — Karma -25, Alignment 악화", 0.49f))
-            { currentStep = 6; DoSimulatePivot(false); }
+                { currentStep = 6; DoSimulatePivot(false); }
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(8);
 
@@ -450,16 +450,30 @@ namespace TDA.PB4.Tooling.Editor
             DrawStepHeader(7, "Command 수락 판정 테스트", "Trust × Severity × Loyalty 계산 확인");
             EditorGUILayout.BeginHorizontal();
             if (DrawStepButton("⑦ -A- Test Trivial", "Trivial 명령. 거의 무조건 수락.", 0.32f))
-            { currentStep = 7; DoTestCommand(CommandSeverity.Trivial); }
+                { currentStep = 7; DoTestCommand(CommandSeverity.Trivial); }
             if (DrawStepButton("⑦ -B- Test Severe", "위험 명령. Trust+Loyalty 부족 시 거부.", 0.32f))
-            { currentStep = 7; DoTestCommand(CommandSeverity.Severe); }
+                { currentStep = 7; DoTestCommand(CommandSeverity.Severe); }
             if (DrawStepButton("⑦ -C- Test Suicidal", "자기희생급. BlindTrust+Companion만 수락.", 0.32f))
-            { currentStep = 7; DoTestCommand(CommandSeverity.Suicidal); }
+                { currentStep = 7; DoTestCommand(CommandSeverity.Suicidal); }
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(8);
 
-            // ─── STEP 8: 엔드-투-엔드 시나리오 3종 ───────────
-            DrawStepHeader(8, "엔드-투-엔드 시나리오", "3가지 서사 중 선택 — 자동 재생");
+            // ─── STEP 8: Speech 강제 발화 (Day 4 T4.1) ───
+            DrawStepHeader(8, "Speech 강제 발화 (Day 4)", "EventBus → Dispatcher → Assembler → Renderer 파이프라인 테스트");
+            EditorGUILayout.BeginHorizontal();
+            if (DrawStepButton("⑧ -A- Force Hostile", "hostile_default 트리거 발행", 0.24f))
+                { currentStep = 8; DoForceSpeech("hostile_default", TDA.PB4.Data.NPCAlignment.Hostile); }
+            if (DrawStepButton("⑧ -B- Force Neutral", "neutral_default 트리거 발행", 0.24f))
+                { currentStep = 8; DoForceSpeech("neutral_default", TDA.PB4.Data.NPCAlignment.Neutral); }
+            if (DrawStepButton("⑧ -C- Force Friendly", "friendly_default 트리거 발행", 0.24f))
+                { currentStep = 8; DoForceSpeech("friendly_default", TDA.PB4.Data.NPCAlignment.Friendly); }
+            if (DrawStepButton("⑧ -D- Force Companion", "companion_default 트리거 발행", 0.24f))
+                { currentStep = 8; DoForceSpeech("companion_default", TDA.PB4.Data.NPCAlignment.Companion); }
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(8);
+
+            // ─── STEP 9: 엔드-투-엔드 시나리오 3종 ───────────
+            DrawStepHeader(9, "엔드-투-엔드 시나리오", "3가지 서사 중 선택 — 자동 재생");
 
             // 현재 진행 중이면 진행률 표시
             if (scenarioRunning)
@@ -922,6 +936,34 @@ namespace TDA.PB4.Tooling.Editor
             string result = accepted ? "✓ 수락" : "✗ 거부";
             AddLog($"Command [{severity}]: {result} (acceptance={acceptance:F2}, {reason})",
                    accepted ? C_NEON_GREEN : C_NEON_RED);
+        }
+
+        /// <summary>
+        /// [Day 4 T4.1] EventBus.RaiseSpeechTrigger 강제 발행.
+        /// Alignment 전이를 기다리지 않고 즉시 발화 파이프라인 테스트.
+        /// SpeechDispatcher → SpeechAssembler → DialogueRenderer 연쇄 작동 확인용.
+        /// </summary>
+        private void DoForceSpeech(string triggerId, TDA.PB4.Data.NPCAlignment alignment)
+        {
+            if (targetBrain == null) { AddLog("⚠ targetBrain null — 씬에 NPC 없음", C_NEON_RED); return; }
+
+            // 현재 Alignment를 Context로 전달 (실제 Alignment 변경은 안 함)
+            var ctx = new TDA.PB4.Core.Events.SpeechTriggerContext
+            {
+                characterId = targetBrain.name,
+                targetPlayerId = 0UL,
+                currentAlignment = alignment,
+                previousAlignment = alignment,  // 전이 없음, 강제 발화만
+                reason = TDA.PB4.Interfaces.Narrative.AlignmentChangeReason.Manual
+            };
+
+            AddLog($"🗣 Force Speech: '{triggerId}' (alignment={alignment})", C_NEON_MAGENTA);
+
+            // [FIX] Test Lab 편의: 쿨다운 우회하여 연속 테스트 허용
+            var dispatcher = targetBrain.GetComponent<TDA.PB4.AI.Speech.SpeechDispatcher>();
+            if (dispatcher != null) dispatcher.ResetCooldowns();
+
+            TDA.PB4.Core.EventBus.RaiseSpeechTrigger(triggerId, ctx);
         }
 
         private void DoFullReset()
