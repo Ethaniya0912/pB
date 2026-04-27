@@ -1,6 +1,7 @@
 // =============================================================================
 // HumanoidBootstrapper.cs  |  pB-4 Week 2 — Day 1 T1.4
 //                          |  v2 개정: NGO 2.0 + 4계층 L2 Router 대응
+//                          |  v3 개정: [DEBT-13] AlignmentSO 컴포넌트 전파 누락 패치
 // -----------------------------------------------------------------------------
 // 역할: 씬 내 모든 HumanoidAIBrain의 초기화를 담당하는 DI 컨테이너.
 //       1) 필요 컴포넌트 자동 부착 (5종)
@@ -19,6 +20,15 @@
 //   [NGO-2] Awake() → OnNetworkSpawn() 이관 (NetworkObject 스폰 순서 보장)
 //   [NGO-3] BootstrapOne은 IsServer 게이트 (치팅 방지)
 //   [NGO-4] NetworkManager.OnClientConnectedCallback 구독 — Late-Spawn NPC 대응
+//
+// v2 → v3 변경:
+//   [DEBT-13] BootstrapOne() b) 섹션에 alignment.SetAlignmentSO(defaultAlignmentSO)
+//             호출 추가. 기존 코드는 NPCAlignmentController를 AddComponent만 하고
+//             SO를 전파하지 않아 EvaluateAndTransition()이 매 1초 null 가드에 걸려
+//             평가 스킵 → Alignment 전이 불가 → Speech trigger 미발사 (DEBT-12 동반).
+//             부수효과: DEBT-12 자동 해결.
+//             Refs: pB4_Week2_DEBT_Manifest_Table.docx (DEBT-13)
+//                   Reports/DEBT_13_Bootstrapper_OneLine_Patch.md
 // =============================================================================
 using System.Collections.Generic;
 using System.Linq;
@@ -319,6 +329,25 @@ namespace TDA.PB4.Bootstrap
             else
             {
                 LogWarn($"{brain.name}: defaultActionConfig 미지정 → Formula는 하드코딩 fallback 사용");
+            }
+
+            // ═══ [DEBT-13 패치] AlignmentSO 컴포넌트 전파 (Day 5 r2 누락분) ═══
+            //   기존 v2: NPCAlignmentController를 AddComponent만 하고 SO는 미전파.
+            //   결과: EvaluateAndTransition()이 매 1초 alignmentDefinitionSO null 가드에
+            //         걸려 평가 스킵 → Hostile/Friendly/Companion 전이 불가
+            //         → Speech trigger 미발사 (DEBT-12 동반).
+            //   수정: defaultTagRules / defaultActionConfig와 동일한 패턴으로
+            //         alignment.SetAlignmentSO(defaultAlignmentSO) 호출.
+            //         SetAlignmentSO 내부에 null + IsComplete 검증 포함.
+            //   부수효과: DEBT-12 자동 해결, T5.2 v5.x 워치독 우회 코드 제거 가능.
+            if (defaultAlignmentSO != null)
+            {
+                alignment.SetAlignmentSO(defaultAlignmentSO);
+                LogVerbose($"{brain.name}: AlignmentSO 주입 (4 진영)");
+            }
+            else
+            {
+                LogWarn($"{brain.name}: defaultAlignmentSO 미지정 → Alignment 평가 스킵 (Hostile/Friendly/Companion 전이 불가)");
             }
 
             // ═══ c) Brain 의존성 주입 ═══════════════════════════

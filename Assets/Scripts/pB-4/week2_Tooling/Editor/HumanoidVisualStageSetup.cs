@@ -344,11 +344,91 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
             {
                 UnityEditor.AI.NavMeshBuilder.BuildNavMesh();
                 Debug.Log("[T5.2 Stage] NavMesh 자동 베이크 완료.");
+
+                // [v5.9] Cave 없이 Plane 단독 씬에서 NavMeshAgent 자동 활성화
+                // (CaveManager.cs:420-437 패턴 복제 — 프리팹 NavMeshAgent는
+                //  기본 OFF, Cave 베이크 완료 시 자동 enable되지만 테스트 씬은
+                //  Cave가 없어 그 이벤트가 발생하지 않음)
+                EnableAndSnapAllNavMeshAgents();
             }
             catch (Exception e)
             {
                 Debug.LogError($"[T5.2 Stage] NavMesh 베이크 실패: {e.Message}\n수동 베이크: Window > AI > Navigation > Bake");
             }
+        }
+
+        // [v5.9] CaveManager.cs:420-437 패턴 복사 — NavMesh 위로 스냅 + enable
+        // [v5.10] BehaviorGraph BB 변수 'FleeSprintSpeed'가 0인 문제 우회
+        //         (FleeSwarmAction.cs:143이 _nav.speed = FleeSprintSpeed.Value로 덮어씀)
+        private void EnableAndSnapAllNavMeshAgents()
+        {
+            var allAgents = UnityEngine.Object.FindObjectsByType<UnityEngine.AI.NavMeshAgent>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+            int enabled = 0, snapped = 0, bbInjected = 0, bridgeAttached = 0;
+            foreach (var agent in allAgents)
+            {
+                if (agent == null) continue;
+
+                // 1. NavMesh 바닥 스냅
+                if (UnityEngine.AI.NavMesh.SamplePosition(
+                    agent.transform.position,
+                    out UnityEngine.AI.NavMeshHit hit,
+                    5.0f,
+                    UnityEngine.AI.NavMesh.AllAreas))
+                {
+                    agent.transform.position = hit.position;
+                    snapped++;
+                }
+
+                // 2. NavMeshAgent 활성화
+                if (!agent.enabled)
+                {
+                    agent.enabled = true;
+                    enabled++;
+                }
+
+                // 3. [v5.10] NavMeshAgent.speed 디폴트 보장 (BB가 덮어쓰기 전 안전판)
+                if (agent.speed < 0.5f) agent.speed = 6f;
+
+                // 4. [v5.10] FleeSprintSpeed BB 변수 6f 강제 주입
+                //    (코드 디폴트 new(6f)지만 BehaviorGraph 에셋이 0으로 초기화)
+                //    PB4DecisionAdapter.SetBB<T>는 private이라 Reflection 사용
+                var go = agent.gameObject;
+                var adapterComponents = go.GetComponents<MonoBehaviour>();
+                foreach (var comp in adapterComponents)
+                {
+                    if (comp == null) continue;
+                    if (comp.GetType().Name != "PB4DecisionAdapter") continue;
+
+                    var setBBMethod = comp.GetType().GetMethod("SetBB",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (setBBMethod != null)
+                    {
+                        try
+                        {
+                            var generic = setBBMethod.MakeGenericMethod(typeof(float));
+                            generic.Invoke(comp, new object[] { "FleeSprintSpeed", 6f });
+                            bbInjected++;
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogWarning($"[T5.2 Stage] SetBB(FleeSprintSpeed) 실패: {e.Message}");
+                        }
+                    }
+                    break;
+                }
+
+                // 5. [v5.11] T52_LocomotionBridge 부착 — NavMesh→Animator(RootMotion) 다리
+                //    (Skeleton 프리팹에 AICharacterLocomotionManager가 미부착인 경우 우회)
+                if (go.GetComponent<T52_LocomotionBridge>() == null)
+                {
+                    go.AddComponent<T52_LocomotionBridge>();
+                    bridgeAttached++;
+                }
+            }
+
+            Debug.Log($"[T5.2 Stage] NavMeshAgent 자동 활성화: enable {enabled}, snap {snapped}, FleeSprintSpeed BB 주입 {bbInjected}, LocomotionBridge {bridgeAttached} / 전체 {allAgents.Length}");
         }
 
         private void AddKarmaDirectorIfMissing(GameObject parent)
@@ -927,6 +1007,32 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
                             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                             if (prefab != null) { bubbleProp.objectReferenceValue = prefab; assigned++; break; }
                         }
+                    }
+                }
+
+                // [v5.4] HumanoidActionConfig 자동 할당 (DEBT-14: Coward 도주 위해 Flee 액션 정의 필요)
+                var actionConfigProp = so.FindProperty("defaultActionConfig");
+                if (actionConfigProp != null && actionConfigProp.objectReferenceValue == null)
+                {
+                    var guids = AssetDatabase.FindAssets("HumanoidActionConfig t:ScriptableObject");
+                    foreach (var g in guids)
+                    {
+                        var path = AssetDatabase.GUIDToAssetPath(g);
+                        var asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
+                        if (asset != null) { actionConfigProp.objectReferenceValue = asset; assigned++; break; }
+                    }
+                }
+
+                // [v5.4] PersonalityTagRules 자동 할당 (Coward 태그 효과 활성화)
+                var tagRulesProp = so.FindProperty("defaultTagRules");
+                if (tagRulesProp != null && tagRulesProp.objectReferenceValue == null)
+                {
+                    var guids = AssetDatabase.FindAssets("PersonalityTagRules t:ScriptableObject");
+                    foreach (var g in guids)
+                    {
+                        var path = AssetDatabase.GUIDToAssetPath(g);
+                        var asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
+                        if (asset != null) { tagRulesProp.objectReferenceValue = asset; assigned++; break; }
                     }
                 }
 

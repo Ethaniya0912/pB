@@ -657,6 +657,7 @@ GameObject:
   - component: {fileID: 7422508678030370822}
   - component: {fileID: 3579648242230154762}
   - component: {fileID: 6857648610438603969}
+  - component: {fileID: 5894677074397646490}
   - component: {fileID: 4970938131516336963}
   - component: {fileID: -282261469178741356}
   - component: {fileID: -9004815254328650616}
@@ -1440,6 +1441,34 @@ MonoBehaviour:
   showSectionAIExec: 1
   pauseOnGroggy: 0
   pauseOnExecutionStart: 0
+--- !u!114 &5894677074397646490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e458e9af28b66c4fbfd667092be731d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Character.AI.AICharacterLocomotionManager
+  verticalMovement: 0
+  horizontalMovement: 0
+  moveAmount: 0
+  useRootMotionForLocomotion: 1
+  walkingSpeed: 2.2
+  runningSpeed: 5.5
+  rotationSpeed: 15
+  dodgeStaminaCost: 10
+  gravity: -20
+  groundedGravity: -5
+  jumpForwardSpeed: 4
+  inAirControl: 2
+  isRolling: 0
+  isRotationLockedByEvent: 0
+  idleVelocityThreshold: 0.1
+  animatorSmoothTime: 0.15
 --- !u!114 &4970938131516336963
 MonoBehaviour:
   m_ObjectHideFlags: 0

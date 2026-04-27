@@ -8,6 +8,11 @@ namespace TDA.Character.AI
     /// [L3 Domain Layer] 몬스터 및 NPC 전용 스탯 매니저입니다.
     /// CharacterStatsManager를 상속받으며, 인스펙터에서 설정한 
     /// 기본 체력과 스태미나를 기반으로 네트워크 스폰 시 상태를 초기화합니다.
+    ///
+    /// [DEBT-16 패치] 단독 Play 모드 (NetworkManager 비활성) 지원 추가.
+    ///   InitializeAIStats()에서 NetworkManager.Singleton null 가드 누락으로
+    ///   단독 Play 시 line 48에서 NRE 발생하던 문제 해결.
+    ///   부모 CharacterManager.Awake() isNetworkActive 패턴 차용.
     /// </summary>
     public class AICharacterStatsManager : CharacterStatsManager
     {
@@ -43,6 +48,19 @@ namespace TDA.Character.AI
         {
             // 부모의 character 대신 자체 캐싱한 aiCharacter를 사용합니다.
             if (aiCharacter == null || aiCharacter.characterNetworkManager == null) return;
+
+            // [DEBT-16] 단독 Play 모드 가드 — NetworkManager.Singleton이 null일 수 있음
+            // 부모 CharacterManager.Awake() line 95~97의 isNetworkActive 패턴 차용.
+            // NetworkManager 비활성 씬(테스트/단독 Play)에서 .IsServer 호출 시 NRE 발생.
+            // Refs: pB4_Week2_DEBT_Manifest_Table.docx (DEBT-16)
+            bool isNetworkActive = NetworkManager.Singleton != null &&
+                                   NetworkManager.Singleton.IsListening;
+            if (!isNetworkActive)
+            {
+                Debug.Log($"<color=#FFAA66>[AI Stats]</color> {gameObject.name} 단독 Play 모드 — " +
+                          $"NetworkVariable 초기화 스킵 (HP={baseHealth}, SP={baseStamina} 인스펙터값 유지)");
+                return;
+            }
 
             // NGO 환경에서는 서버(호스트)가 값을 세팅해야 모든 클라이언트에게 정상적으로 전파됩니다.
             if (NetworkManager.Singleton.IsServer)

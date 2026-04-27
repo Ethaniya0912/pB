@@ -19,6 +19,13 @@
 //         AI 전용 applyRootMotion 설정 추가 (IsOwner 가드 보상)
 //         → 부모 CharacterLocomotionManager.Update()의 IsOwner 가드가
 //           AI에서 DetermineApplyRootMotion()을 호출하지 않는 문제 해결
+//   pB-4 W3D1 [DEBT-19 진단 패치]
+//         LocoDiag에 3종 박제 추가:
+//           ① NavMeshAgent.updatePosition / updateRotation 실측
+//           ② Animator 파라미터 H/V/moveAmount 존재여부 + 현재값
+//           ③ 현재 State (fullPathHash + normalizedTime) + 클립명
+//         목적: deltaPosition≈0 원인 시나리오(🅐/🅑/🅒) 박제 후 패치 결정.
+//         부수효과 0 — 기존 LocoDiag 형식 유지, UNITY_EDITOR 가드 안.
 //
 // 연동:
 //   AICharacterManager.Awake() 에서 GetComponent<AICharacterLocomotionManager>() 로
@@ -120,6 +127,45 @@ namespace TDA.Character.AI
                 if (navMeshAgent != null)
                 {
                     Vector3 dv = navMeshAgent.desiredVelocity;
+
+                    // ── [DEBT-19 진단] Animator 파라미터/State/클립 실측 ──
+                    // 목적: deltaPosition≈0 원인 박제 — 3가지 시나리오 중 어느 것인지
+                    //   🅐 AnimatorController 전이 조건 문제 (state=Idle 머무름)
+                    //   🅑 NavMeshAgent.updatePosition 충돌 (Agent가 직접 이동)
+                    //   🅒 Animator 파라미터 이름 미스매치 (SetFloat 무시됨)
+                    var anim = aiCharacter.animator;
+                    bool hasH = false, hasV = false, hasMA = false;
+                    float gotH = 0f, gotV = 0f, gotMA = 0f;
+                    string clipName = "?";
+                    int stateHash = 0;
+                    float stateNorm = 0f;
+                    if (anim != null)
+                    {
+                        // 파라미터 존재 여부 검사 (없는 파라미터 GetFloat은 silent 0 반환)
+                        foreach (var p in anim.parameters)
+                        {
+                            if (p.nameHash == AnimatorParameterHash.Horizontal) hasH = true;
+                            else if (p.nameHash == AnimatorParameterHash.Vertical) hasV = true;
+                            else if (p.nameHash == AnimatorParameterHash.moveAmount) hasMA = true;
+                        }
+                        if (hasH) gotH = anim.GetFloat(AnimatorParameterHash.Horizontal);
+                        if (hasV) gotV = anim.GetFloat(AnimatorParameterHash.Vertical);
+                        if (hasMA) gotMA = anim.GetFloat(AnimatorParameterHash.moveAmount);
+
+                        // 현재 State (Layer 0) — fullPathHash로 박제, 이름은 클립으로 추정
+                        var stateInfo = anim.GetCurrentAnimatorStateInfo(0);
+                        stateHash = stateInfo.fullPathHash;
+                        stateNorm = stateInfo.normalizedTime % 1f;
+                        var clips = anim.GetCurrentAnimatorClipInfo(0);
+                        if (clips.Length > 0 && clips[0].clip != null)
+                            clipName = clips[0].clip.name;
+                    }
+
+                    // 박제 출력용 문자열 미리 생성 (보간 표현식 안에 큰따옴표 회피)
+                    string strH = hasH ? gotH.ToString("F2") : "MISSING";
+                    string strV = hasV ? gotV.ToString("F2") : "MISSING";
+                    string strMA = hasMA ? gotMA.ToString("F2") : "MISSING";
+
                     Debug.Log($"<color=yellow>[LocoDiag] {aiCharacter.name}</color>\n" +
                               $"  desiredVel={dv:F3} mag={dv.magnitude:F2}\n" +
                               $"  applyRoot={aiCharacter.animator.applyRootMotion}" +
@@ -131,7 +177,16 @@ namespace TDA.Character.AI
                               $"  facing={aiCharacter.transform.forward:F2}\n" +
                               $"  canMove={aiCharacter.canMove}" +
                               $"  isOwner={aiCharacter.IsOwner}" +
-                              $"  isServer={aiCharacter.IsServer}");
+                              $"  isServer={aiCharacter.IsServer}\n" +
+                              // ── [DEBT-19 진단] 3 박제 라인 ────────────────
+                              $"  <color=#FF8866>★[DEBT-19]</color>" +
+                              $" updatePos={navMeshAgent.updatePosition}" +
+                              $" updateRot={navMeshAgent.updateRotation}\n" +
+                              $"  <color=#FF8866>★animParam:</color>" +
+                              $" H={strH} V={strV} mA={strMA}\n" +
+                              $"  <color=#FF8866>★animState:</color>" +
+                              $" hash={stateHash} norm={stateNorm:F2}" +
+                              $" clip='{clipName}'");
                 }
             }
 #endif

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Ranger
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: ranger_generic
+  displayName: "\uC219\uB828\uB41C \uC815\uCC30\uBCD1"
+  personality: {fileID: 11400000, guid: f3dd2078f5459644bb7c87d10feb2e70, type: 2}
+  startingAlignment: 1
+  startingTrust: 50
+  startingKarma: 0
+  startingTraumas: []
+  combatProfile: {fileID: 11400000, guid: bdf99442d817c39449ef2ce0e420ca02, type: 2}
+  prefab: {fileID: 8286174861153668228, guid: 9ae8640fce611cf4794c4f07f7b1bb37, type: 3}
+  startingEquipmentIds: []
+  spawnContextTag: ranger_patrol
+  notes: 

@@ -18,18 +18,22 @@ MonoBehaviour:
   - alignment: 0
     text: "\uC800\uB294 \uB2F9\uC2E0\uC774 \uB2E4\uC2DC \uB3CC\uC544\uC62C \uAC70\uB77C
       \uBBFF\uC5B4\uC694..."
+    localizedTexts: []
     tone: 4
     durationOverride: 0
   - alignment: 1
     text: "\uB2F9\uC2E0\uC774 \uB204\uAD70\uC9C0 \uCC9C\uCC9C\uD788 \uC54C\uC544\uAC00\uACE0
       \uC2F6\uC5B4\uC694."
+    localizedTexts: []
     tone: 0
     durationOverride: 0
   - alignment: 2
     text: "\uB2F9\uC2E0\uACFC \uD568\uAED8 \uAC77\uB294 \uAE38\uC774 \uD589\uBCF5\uD574\uC694."
+    localizedTexts: []
     tone: 0
     durationOverride: 0
   - alignment: 3
     text: "\uC5B8\uC81C\uB4E0 \uBD80\uB974\uC138\uC694, {playerName}. \uB2EC\uB824\uAC08\uAC8C\uC694."
+    localizedTexts: []
     tone: 0
     durationOverride: 0

@@ -149,7 +149,7 @@ namespace TDA.PB4.AI.Humanoid
         [Header("━━━ 상태 전환 파라미터 ━━━━━━━━━━━━")]
         [Range(0f, 0.5f)] public float idleThreshold = 0.1f;
         [Range(0f, 0.3f)] public float stateSwitchHysteresis = 0.08f;
-        [Range(1, 10)]    public int minStateHoldTicks = 2;
+        [Range(1, 10)] public int minStateHoldTicks = 2;
         private int currentStateHoldTicks;
 
         [Tooltip("태그 재평가 필요 플래그.")]
@@ -397,6 +397,15 @@ namespace TDA.PB4.AI.Humanoid
 
         private void SelectNewState(Dictionary<string, float> scores)
         {
+            // [DEBT-21 v1] holdTicks 시간 기반 누적으로 변경 — 데드락 해소.
+            // 이전 결함: holdTicks++가 ❷ (newState==currentState) 분기 안에만 있어,
+            //          winner가 다른 액션으로 바뀐 순간 영원히 0 유지 → ❸ 영원히 차단.
+            //          v5.7 ForceStateForTesting이 currentState 직접 할당으로 가렸음.
+            //          v5.14 자연 검증 박제로 입증: holdTicks=0 고정 → ❸ 우회로만 전이 성공.
+            // 의미 변화: holdTicks = "현재 상태에 머문 누적 호출 수" (매 호출 ++)
+            //          TransitionTo가 다른 상태로 전이 시 0 리셋 (line 479 그대로).
+            currentStateHoldTicks++;
+
             string winnerAction = "Idle";
             float winnerScore = 0f;
 
@@ -419,7 +428,7 @@ namespace TDA.PB4.AI.Humanoid
 
             if (newState == currentState)
             {
-                currentStateHoldTicks++;
+                // [DEBT-21] currentStateHoldTicks++ 제거 — 위로 옮김 (매 호출 무조건 증가)
                 return;
             }
 
@@ -484,6 +493,29 @@ namespace TDA.PB4.AI.Humanoid
 
             if (verboseLogging)
                 Debug.Log($"[HumanoidAIBrain] {name}: 상태 전환 {oldState} → {newState}");
+
+            ExecuteBTNode(currentState.ToString());
+        }
+
+        // ==================================================================
+        // [v5.7 Day 5] Test-only: 모든 hysteresis/holdTicks 우회하고 강제 전환
+        // utility 점수와 무관하게 즉시 currentState 변경 + ExecuteBTNode 트리거.
+        // 시각 검증 도구(HumanoidVisualAutoVerifier)의 fallback 옵션.
+        //
+        // [v5.9] DirectFleeFallback (transform 직접 조작) 제거 — 가짜 검증 박제.
+        //   진짜 자연 도주는 NavMeshAgent.enabled=true + NavMesh 베이크로 가능.
+        //   (CaveManager.cs:420-437 패턴, Stage Setup이 자동 처리)
+        // ==================================================================
+        public void ForceStateForTesting(HumanoidBTState newState, string reason = "test")
+        {
+            var oldState = currentState;
+            currentState = newState;
+            currentStateHoldTicks = 0;
+
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && IsServer)
+                netCurrentState.Value = (int)newState;
+
+            Debug.Log($"[HumanoidAIBrain] {name}: ★ ForceStateForTesting {oldState} → {newState} (reason: {reason})");
 
             ExecuteBTNode(currentState.ToString());
         }
@@ -561,13 +593,13 @@ namespace TDA.PB4.AI.Humanoid
         {
             switch (goalId)
             {
-                case "Attack":        break;
-                case "Flee":          break;
-                case "Loot":          break;
-                case "Move":          break;
+                case "Attack": break;
+                case "Flee": break;
+                case "Loot": break;
+                case "Move": break;
                 case "FollowCommand": break;
-                case "Idle":          break;
-                default:              break;
+                case "Idle": break;
+                default: break;
             }
         }
 

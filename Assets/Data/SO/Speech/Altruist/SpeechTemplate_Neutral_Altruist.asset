@@ -17,17 +17,21 @@ MonoBehaviour:
   variants:
   - alignment: 0
     text: "\uC800\uC5D0\uAC8C \uBB34\uC2A8 \uC6D0\uD55C\uC774 \uC788\uC73C\uC138\uC694...?"
+    localizedTexts: []
     tone: 4
     durationOverride: 0
   - alignment: 1
     text: "\uC548\uB155\uD558\uC138\uC694!"
+    localizedTexts: []
     tone: 0
     durationOverride: 0
   - alignment: 2
     text: "\uB3C4\uC640\uB4DC\uB9B4 \uC77C \uC788\uC73C\uC138\uC694?"
+    localizedTexts: []
     tone: 0
     durationOverride: 0
   - alignment: 3
     text: "\uC800 \uC544\uC138\uC694? \uBC18\uAC00\uC6CC\uC694, {playerName}\uB2D8."
+    localizedTexts: []
     tone: 0
     durationOverride: 0

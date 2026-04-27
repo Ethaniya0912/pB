@@ -1,5 +1,14 @@
 // =============================================================================
-// AIPerceptionDebugger.cs  |  pB-4 AI 인지 시각화 디버거 v4.0
+// AIPerceptionDebugger.cs  |  pB-4 AI 인지 시각화 디버거 v4.1
+//
+// [v4.0 → v4.1 변경: DEBT-08 패치]
+//   AIPerceptionDebugger는 MobAIBrain 전용 디버깅 도구. Humanoid 프리팹에
+//   부착되면 _brain == null 상태로 OnGUI가 매 프레임 BuildPanelContent /
+//   BuildPanelCells alloc → GC 1,501개/frame 139.1KB, RenderLoop 600ms
+//   (Day 5 r2 측정 박제).
+//   해결: AttachToAllAI()에서 MobAIBrain 없는 GO 부착 거절 + Awake 안전 가드.
+//   Humanoid는 별도 디버거 도구로 처리 (Week 3 이후).
+//   Refs: pB4_Week2_DEBT_Manifest_Table.docx (DEBT-08)
 //
 // [v3.0 전체 보존 + v4.0 신규 기능 추가]
 //
@@ -130,12 +139,20 @@ namespace TDA.PB4.Diagnostics
             };
         }
 
-        /// <summary>씬 내 모든 AICharacterManager에 이 컴포넌트를 부착한다.</summary>
+        /// <summary>씬 내 모든 AICharacterManager에 이 컴포넌트를 부착한다.
+        /// [DEBT-08] Mob 전용 도구 — Humanoid 부착 거절 (FPS 폭주 방지).</summary>
         private static void AttachToAllAI()
         {
             foreach (var ai in FindObjectsByType<AICharacterManager>(FindObjectsSortMode.None))
+            {
+                // [DEBT-08] Humanoid 차단 — _brain == null 상태로 OnGUI가
+                // 매 프레임 BuildPanelContent/BuildPanelCells alloc → GC 폭증
+                // (Day 5 r2: GC 1,501개/frame 139.1KB, RenderLoop 600ms 박제).
+                if (ai.GetComponent<MobAIBrain>() == null) continue;
+
                 if (ai.GetComponent<AIPerceptionDebugger>() == null)
                     ai.gameObject.AddComponent<AIPerceptionDebugger>();
+            }
         }
 #endif
 
@@ -333,6 +350,20 @@ namespace TDA.PB4.Diagnostics
             _ai = GetComponent<AICharacterManager>();
             _nav = GetComponent<NavMeshAgent>();
             _brain = GetComponent<MobAIBrain>();
+
+            // [DEBT-08] Humanoid 안전 가드 — AttachToAllAI 외 경로(수동 부착,
+            // 프리팹 직접 부착 등)로 들어온 경우 자기 제거. _brain == null 상태에서
+            // OnGUI/OnSceneViewGUI 진입 차단을 위해 enabled=false 선행.
+            // Refs: pB4_Week2_DEBT_Manifest_Table.docx (DEBT-08)
+            if (_brain == null)
+            {
+                Debug.LogWarning($"[AIPerceptionDebugger] {name}: MobAIBrain 미발견 " +
+                                 $"(Humanoid 추정). Mob 전용 도구이므로 자기 제거 (DEBT-08).");
+                enabled = false;
+                Destroy(this);
+                return;
+            }
+
             _btAgent = GetComponent<BehaviorGraphAgent>();
             _perception = GetComponent<AIPerceptionSystem>();
 

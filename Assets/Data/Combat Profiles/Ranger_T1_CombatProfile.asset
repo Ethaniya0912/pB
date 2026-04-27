@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b952cde266459a48bcdcd07d47241e8, type: 3}
+  m_Name: Ranger_T1_CombatProfile
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.FactionCombatProfileSO
+  stalkSpeed: 4.5
+  engageRange: 12
+  attackRange: 1
+  orbitRadius: 7
+  strafeAngularSpeed: 20
+  strikeTriggerTime: 0.5
+  fleeSprintSpeed: 7
+  panicChainRadius: 5
+  panicChainMultiplier: 2
+  fearBonusNarrowPath: 0.15
+  fearBonusDeathTrap: 0.25
+  fearBonusSpookyCave: 0.1
+  closeInMaxTime: 0.1
+  feintIntervalMin: 2
+  feintIntervalMax: 5
+  guardBreakReactionDelay: 0.25
+  poiseAttackIntervalMin: 2.5
+  poiseAttackIntervalMax: 5.5
+  forceAttackFear: 0.15
+  stuckCheckInterval: 0.5
+  stuckMoveThreshold: 0.3
+  stuckGiveUpCount: 4
+  fleeDuelInitialFear: 0.25
+  fleeDuelMaxInitialFear: 0.28
+  attackRotationSpeed: 8
+  attackTimeout: 3
+  narrowPathOrbitMult: 0.4
+  narrowPathStrikeTimeMult: 0.5
+  tacticalStaminaRecoverThreshold: 0.3
+  tacticalHealthRecoverThreshold: 0.3
+  tacticalRetreatDist: 5
+  tacticalRecoverDuration: 3
+  tacticalEvasionChance: 0.2
+  tacticalEvasionDist: 2
+  tacticalEvasionDuration: 0.5
+  tacticalFeintChance: 0.15
+  tacticalFeintDist: 1.5
+  tacticalFeintDuration: 0.4
+  perceptionHearingRange: 30
+  perceptionHearingSensitivity: 0.5
+  perceptionThreshold: 0.2
+  perceptionSuspicionDecayTime: 8
+  perceptionAlertDecayTime: 5
+  perceptionVisionRange: 20
+  perceptionVisionAngle: 120
+  perceptionTraceDetectionRange: 10
+  perceptionSoundSearchGiveUpDist: 1.5

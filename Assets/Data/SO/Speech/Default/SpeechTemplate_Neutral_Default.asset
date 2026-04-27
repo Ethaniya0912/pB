@@ -17,17 +17,21 @@ MonoBehaviour:
   variants:
   - alignment: 0
     text: "\uAC00\uAE4C\uC774 \uC624\uC9C0 \uB9C8\uB77C."
+    localizedTexts: []
     tone: 1
     durationOverride: 0
   - alignment: 1
     text: "...\uC6A9\uAC74\uC774 \uBB50\uC694?"
+    localizedTexts: []
     tone: 2
     durationOverride: 0
   - alignment: 2
     text: "\uC5B4\uC11C \uC624\uC138\uC694."
+    localizedTexts: []
     tone: 0
     durationOverride: 0
   - alignment: 3
     text: "\uB2F9\uC2E0\uC774\uAD70\uC694. \uBC18\uAC00\uC6CC\uC694."
+    localizedTexts: []
     tone: 0
     durationOverride: 0

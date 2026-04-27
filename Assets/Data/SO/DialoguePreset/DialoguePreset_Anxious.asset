@@ -19,6 +19,11 @@ MonoBehaviour:
   fontSize: 15
   fadeInDuration: 0.5
   displayDuration: 3
+  autoCalcDuration: 1
+  secondsPerChar: 0.12
+  durationScale: 1
+  minDuration: 1
+  maxDuration: 8
   fadeOutDuration: 0.7
   shakeAmplitude: 2
   bubbleWidth: 4

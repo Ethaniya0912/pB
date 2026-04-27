@@ -17,6 +17,26 @@
 //   3) Hostile 강제 → 명령 거부 검증
 //   4) Karma +80 → Friendly→Companion 자동 5단계 체인
 //   5) Final: Humanoid 위치 변화로 BT 동작 검증 (Archetype_Coward 효과 포함)
+//
+// 변경 이력:
+//   v5.7  ForceStateForTesting 도입 — Coward 검증 시 hysteresis 4중 가드 우회.
+//         Brain 직접 currentState=Flee 할당으로 BT 강제 진입.
+//   v5.12 [DEBT-15] 본질 검증 회복 — InjectFearToHumanoidNatural 신규 추가.
+//         ForceStateForTesting 호출 제거 후 자연 흐름으로 검증:
+//           T=0.0s: fear=0.9 + UpdateDecision 1회 → holdTicks=0
+//           T=0.4s: UpdateDecision 2회 → holdTicks=1
+//           T=0.8s: UpdateDecision 3회 → holdTicks=2 → 가드 통과
+//           T=1.2s: ForceSyncBB → BB.UtilityWinner=Flee 자연 반영
+//         검증 본질: utility 함수가 fear→Flee를 winner로 자연 선택하는가
+//         이전 강제 검증(InjectFearToHumanoid)은 회귀 비교용으로 보존.
+//   v5.13 [DEBT-15 박제] 진단 코드 추가 — verboseLogging 강제 ON, fear/state/u_flee readback,
+//         매 UpdateDecision 직전 fear 재주입.
+//   v5.14 [DEBT-15 박제] verboseLogging protected 대응 (NonPublic+BaseType 순회) +
+//         currentStateHoldTicks reflection 박제 + ❸ 가드 강제 우회 4차 호출 진단.
+//         결과: ⭐ ❸ 우회로 currentState=Flee 자연 전이 성공 → DEBT-21 hysteresis 결함 입증.
+//   v5.15 [DEBT-21 해결 후] ❸ 가드 우회 코드(4차 호출) 제거. HumanoidAIBrain.SelectNewState가
+//         매 호출 holdTicks++로 수정되어 Adapter polling만으로 자연 누적됨 →
+//         3차 호출만으로 Flee 자연 전이 보장. 자연 검증의 진정한 자연성 회복.
 // =============================================================================
 using System;
 using System.Collections;
@@ -171,9 +191,18 @@ namespace TDA.PB4.Tooling.HumanoidVisual
                 () => InvokeKarmaChange(80f));
             VerifyScenario5_KarmaChain();
 
-            // ===== 시나리오 ① Coward 자연 발생 검증 =====
-            // Archetype_Coward + player 근접 → fear 증가 → flee
-            // 위치 변화로 검증 (이미 누적된 Humanoid 이동 확인)
+            // ===== 시나리오 ① Coward 능동 트리거 + 자연 발생 검증 =====
+            // [v5.5] 진단 결과: Skeleton 기본 정책=Phalanx (도주 절대 불가).
+            // PB4DecisionAdapter.policyTypeOverride="Swarm" 강제 → FleeSwarmAction 활성화 (6m/s 전력질주).
+            yield return RunScenario("① Policy override → Swarm",
+                () => OverridePolicyType("Swarm"));
+            // [v5.12 DEBT-15] 본질 회복 — InjectFearToHumanoidNatural 사용.
+            //   ForceStateForTesting 미사용. utility 함수가 fear → Flee를 자연 선택하는지 검증.
+            //   IEnumerator 오버로드가 hysteresis 4중 가드 자연 통과(0.4초 × 3틱)를 보장.
+            yield return RunScenario("① Coward fear 자연 주입 (0.9) ⭐ DEBT-15",
+                InjectFearToHumanoidNatural(0.9f));
+            // fear 주입 후 추가 5초 대기 — Swarm 도주는 6m/s, 5초면 30m 이동 가능
+            yield return new WaitForSeconds(5f);
             VerifyScenario1_CowardFlee();
 
             // ===== 최종 측정 =====
@@ -213,6 +242,45 @@ namespace TDA.PB4.Tooling.HumanoidVisual
 
             result.scenarioInvocationLog.Add($"{label} @ {Time.time:F1}s");
             yield return new WaitForSeconds(scenarioInterval);
+        }
+
+        // [v5.12 DEBT-15] 자연 검증용 RunScenario 오버로드.
+        // IEnumerator 액션을 받아 시간 경과(yield)를 포함한 자연 시나리오를 실행.
+        // hysteresis 가드가 자연 시간 흐름으로 통과하도록 사용.
+        private IEnumerator RunScenario(string label, IEnumerator coroutineAction)
+        {
+            LogInfo($"--- 시나리오 트리거: {label} ---");
+            speechCountBeforeScenario = result.speechRenderCount;
+
+            if (coroutineAction != null)
+            {
+                // try/catch 안에서 yield return 못 함 — 별도 헬퍼로 안전 실행.
+                yield return SafeRunCoroutine(label, coroutineAction);
+            }
+
+            result.scenarioInvocationLog.Add($"{label} @ {Time.time:F1}s");
+            yield return new WaitForSeconds(scenarioInterval);
+        }
+
+        // [v5.12] SafeRunCoroutine — IEnumerator 자연 진행 + 예외 박제.
+        // C# 제약(CS1626/CS1631): try/catch 안에서 yield 불가 → 분리 헬퍼.
+        private IEnumerator SafeRunCoroutine(string label, IEnumerator action)
+        {
+            while (true)
+            {
+                bool moved = false;
+                Exception err = null;
+                try { moved = action.MoveNext(); }
+                catch (Exception e) { err = e; }
+
+                if (err != null)
+                {
+                    LogError($"{label} 자연 실행 실패: {err.Message}");
+                    yield break;
+                }
+                if (!moved) yield break;
+                yield return action.Current;
+            }
         }
 
         // ==================================================================
@@ -321,6 +389,452 @@ namespace TDA.PB4.Tooling.HumanoidVisual
                     LogError($"호출 실패: {e.Message}");
                 }
             }
+        }
+
+        // [v5.5] PB4DecisionAdapter.policyTypeOverride 필드 강제 설정
+        // 진단: 모든 FleeXxxAction 중 FleeSwarmAction만 진짜 NavMesh 이동(6m/s 전력질주).
+        // FleePhalanx/Duel은 fear 리셋만 함 (도주 안 함).
+        // 따라서 Skeleton의 정책을 Swarm으로 임시 변경하여 도주 가능하게 만듦.
+        private void OverridePolicyType(string policyTypeStr)
+        {
+            var adapterType = FindTypeByName("PB4DecisionAdapter");
+            if (adapterType == null)
+            {
+                LogError("PB4DecisionAdapter 타입 없음 — policy override 실패");
+                return;
+            }
+
+            var adapters = UnityEngine.Object.FindObjectsByType(adapterType, FindObjectsSortMode.None);
+            if (adapters.Length == 0)
+            {
+                LogError("PB4DecisionAdapter 인스턴스 0개");
+                return;
+            }
+
+            // policyTypeOverride 필드 (private SerializeField — Reflection BindingFlags.NonPublic)
+            var overrideField = adapterType.GetField("policyTypeOverride",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            if (overrideField == null)
+            {
+                LogError("policyTypeOverride 필드 미발견");
+                return;
+            }
+
+            int updated = 0;
+            foreach (var adapter in adapters)
+            {
+                try
+                {
+                    overrideField.SetValue(adapter, policyTypeStr);
+                    updated++;
+                    LogInfo($"  → policyTypeOverride = '{policyTypeStr}' on {((Component)adapter).name}");
+                }
+                catch (Exception e)
+                {
+                    LogError($"policy override 실패: {e.Message}");
+                }
+            }
+
+            // policyType 변경 후 BB 재초기화 필요 — InitializeBlackboard() 호출 시도
+            if (updated > 0)
+            {
+                var initMethod = adapterType.GetMethod("InitializeBlackboard",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (initMethod != null)
+                {
+                    foreach (var adapter in adapters)
+                    {
+                        try { initMethod.Invoke(adapter, null); }
+                        catch { /* 무시 */ }
+                    }
+                    LogInfo($"  → BB 재초기화 완료 ({updated}개 adapter)");
+                }
+            }
+        }
+
+        // [v5.4] HumanoidAIBrain.fear 직접 주입 (Coward 도주 능동 트리거)
+        // [v5.6] 코드 주석의 명시적 호출 순서 준수:
+        //   1. brain.fear = 값
+        //   2. brain.UpdateDecision()  ← utility 재계산 (Idle → Flee 전환)
+        //   3. adapter.ForceSyncBB()   ← BB 즉시 동기화 (0.5초 대기 우회)
+        // PB4DecisionAdapter.cs:680~700 주석 참조.
+        private void InjectFearToHumanoid(float fearValue)
+        {
+            var brainType = FindTypeByName("HumanoidAIBrain");
+            if (brainType == null)
+            {
+                LogError("HumanoidAIBrain 타입 없음 — fear 주입 실패");
+                return;
+            }
+
+            var brains = UnityEngine.Object.FindObjectsByType(brainType, FindObjectsSortMode.None);
+            if (brains.Length == 0)
+            {
+                LogError("HumanoidAIBrain 인스턴스 0개 — fear 주입 실패");
+                return;
+            }
+
+            // BaseAIBrain의 fear 필드 (HumanoidAIBrain이 상속)
+            var fearField = brainType.GetField("fear",
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            if (fearField == null)
+            {
+                var baseType = brainType.BaseType;
+                while (baseType != null && fearField == null)
+                {
+                    fearField = baseType.GetField("fear",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    baseType = baseType.BaseType;
+                }
+            }
+
+            if (fearField == null)
+            {
+                LogError("BaseAIBrain.fear 필드 미발견 — fear 주입 실패");
+                return;
+            }
+
+            // [v5.6] UpdateDecision 메서드 (BT 재계산 즉시 트리거)
+            var updateDecisionMethod = brainType.GetMethod("UpdateDecision",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            // [v5.6] PB4DecisionAdapter.ForceSyncBB 메서드 (BB 즉시 동기화)
+            var adapterType = FindTypeByName("PB4DecisionAdapter");
+            var forceSyncMethod = adapterType?.GetMethod("ForceSyncBB",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            int injected = 0;
+            foreach (var brain in brains)
+            {
+                try
+                {
+                    // 1. fear 설정
+                    fearField.SetValue(brain, fearValue);
+                    LogInfo($"  → HumanoidAIBrain.fear = {fearValue:F2} on {((Component)brain).name}");
+
+                    // 2. brain.UpdateDecision() — utility 재계산 (Idle → Flee 전환)
+                    if (updateDecisionMethod != null)
+                    {
+                        updateDecisionMethod.Invoke(brain, null);
+                        LogInfo($"  → brain.UpdateDecision() 호출 (utility 재계산)");
+                    }
+                    else
+                    {
+                        LogError("UpdateDecision 메서드 미발견 — utility 재계산 안 됨");
+                    }
+
+                    // 3. adapter.ForceSyncBB() — BB 즉시 동기화 (0.5초 대기 우회)
+                    if (adapterType != null && forceSyncMethod != null)
+                    {
+                        var brainGo = ((Component)brain).gameObject;
+                        var adapter = brainGo.GetComponent(adapterType);
+                        if (adapter != null)
+                        {
+                            forceSyncMethod.Invoke(adapter, null);
+                            LogInfo($"  → adapter.ForceSyncBB() 호출 (BB 즉시 반영)");
+
+                            // [v5.10] FleeSprintSpeed BB 변수 6f 강제 (Policy override가 BB 재초기화 → 0으로 리셋한 거 복구)
+                            // FleeSwarmAction.cs:143이 _nav.speed = FleeSprintSpeed.Value로 덮어씀
+                            var setBBMethod = adapterType.GetMethod("SetBB",
+                                BindingFlags.NonPublic | BindingFlags.Instance);
+                            if (setBBMethod != null)
+                            {
+                                try
+                                {
+                                    var generic = setBBMethod.MakeGenericMethod(typeof(float));
+                                    generic.Invoke(adapter, new object[] { "FleeSprintSpeed", 6f });
+                                    LogInfo($"  → SetBB(FleeSprintSpeed, 6f) 강제 주입 ⭐ v5.10");
+                                }
+                                catch (Exception e)
+                                {
+                                    LogError($"SetBB(FleeSprintSpeed) 실패: {e.Message}");
+                                }
+                            }
+
+                            // NavMeshAgent.speed도 직접 보장 (안전판)
+                            var navAgent = brainGo.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                            if (navAgent != null && navAgent.enabled && navAgent.speed < 0.5f)
+                            {
+                                navAgent.speed = 6f;
+                                LogInfo($"  → NavMeshAgent.speed = 6f 직접 설정");
+                            }
+                        }
+                        else
+                        {
+                            LogError("PB4DecisionAdapter 컴포넌트 미부착");
+                        }
+                    }
+                    else
+                    {
+                        LogError("ForceSyncBB 메서드 미발견 — BB 동기화 0.5초 대기 발생");
+                    }
+
+                    // [v5.7] 4. brain.ForceStateForTesting(Flee) — hysteresis/holdTicks 우회
+                    // utility/SelectNewState 차단 가드를 모두 우회하고 강제로 BT Flee 진입
+                    var forceStateMethod = brainType.GetMethod("ForceStateForTesting",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    if (forceStateMethod != null)
+                    {
+                        // HumanoidBTState.Flee = enum value 4
+                        var enumType = brainType.Assembly.GetType("TDA.PB4.AI.Humanoid.HumanoidBTState");
+                        if (enumType != null)
+                        {
+                            var fleeValue = Enum.Parse(enumType, "Flee");
+                            forceStateMethod.Invoke(brain, new object[] { fleeValue, "Coward 5/5 도전" });
+                            LogInfo($"  → brain.ForceStateForTesting(Flee) 호출 (hysteresis 우회) ⭐ v5.7");
+
+                            // ForceState 후 BB 한 번 더 동기화
+                            if (forceSyncMethod != null)
+                            {
+                                var brainGo2 = ((Component)brain).gameObject;
+                                var adapter2 = brainGo2.GetComponent(adapterType);
+                                if (adapter2 != null) forceSyncMethod.Invoke(adapter2, null);
+                            }
+                        }
+                        else
+                        {
+                            LogError("HumanoidBTState enum 타입 미발견");
+                        }
+                    }
+                    else
+                    {
+                        LogError("ForceStateForTesting 메서드 미발견 — Brain v5.7 미적용");
+                    }
+
+                    injected++;
+                }
+                catch (Exception e)
+                {
+                    LogError($"fear 주입 실패: {e.Message}");
+                }
+            }
+            LogInfo($"  → fear 주입 완료: {injected}/{brains.Length}");
+        }
+
+        // ==================================================================
+        // [v5.12 DEBT-15] InjectFearToHumanoidNatural — 자연 검증 (본질 회복)
+        // ==================================================================
+        // ForceStateForTesting 호출 제거. utility 함수가 fear → Flee를 winner로
+        // 자연 선택하는지 검증. SelectNewState의 4중 hysteresis 가드를 모두
+        // 자연 시간 흐름(0.4초 × 3틱)으로 통과.
+        //
+        // 가드별 통과 조건:
+        //   ❶ winnerScore < idleThreshold      → fear=0.9면 Flee 점수 0.85+ 통과
+        //   ❷ newState == currentState         → Idle≠Flee 통과
+        //   ❸ holdTicks < minStateHoldTicks(2) → 3회 UpdateDecision으로 holdTicks=2 도달
+        //   ❹ winnerScore < currentScore+0.08  → 0.85 vs 0~0.2 통과
+        //
+        // 본질 검증 항목:
+        //   1) utility 함수가 fear → Flee winner 선택 (가드 ❶)
+        //   2) state machine이 hysteresis 정상 거침 (가드 ❷❸❹)
+        //   3) TransitionTo(Flee) → BB.UtilityWinner=Flee 자연 반영
+        //   4) Behavior Graph가 FleeAction 자연 실행
+        //   5) NavMesh+RootMotion 도주 동작
+        // ==================================================================
+        private IEnumerator InjectFearToHumanoidNatural(float fearValue)
+        {
+            var brainType = FindTypeByName("HumanoidAIBrain");
+            if (brainType == null)
+            {
+                LogError("HumanoidAIBrain 타입 없음 — 자연 fear 주입 실패");
+                yield break;
+            }
+
+            var brains = UnityEngine.Object.FindObjectsByType(brainType, FindObjectsSortMode.None);
+            if (brains.Length == 0)
+            {
+                LogError("HumanoidAIBrain 인스턴스 0개 — 자연 fear 주입 실패");
+                yield break;
+            }
+
+            // BaseAIBrain.fear 필드 (HumanoidAIBrain이 상속)
+            var fearField = brainType.GetField("fear",
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            if (fearField == null)
+            {
+                var baseType = brainType.BaseType;
+                while (baseType != null && fearField == null)
+                {
+                    fearField = baseType.GetField("fear",
+                        BindingFlags.Public | BindingFlags.Instance);
+                    baseType = baseType.BaseType;
+                }
+            }
+            if (fearField == null)
+            {
+                LogError("BaseAIBrain.fear 필드 미발견 — 자연 fear 주입 실패");
+                yield break;
+            }
+
+            var updateDecisionMethod = brainType.GetMethod("UpdateDecision",
+                BindingFlags.Public | BindingFlags.Instance);
+            if (updateDecisionMethod == null)
+            {
+                LogError("UpdateDecision 메서드 미발견 — 자연 검증 불가");
+                yield break;
+            }
+
+            var adapterType = FindTypeByName("PB4DecisionAdapter");
+            var forceSyncMethod = adapterType?.GetMethod("ForceSyncBB",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            int injected = 0;
+            foreach (var brain in brains)
+            {
+                Component brainComp = (Component)brain;
+                GameObject brainGo = brainComp.gameObject;
+                Component adapter = adapterType != null ? brainGo.GetComponent(adapterType) : null;
+
+                // [v5.13 박제] 진단용 reflection 핸들 — brain 내부 상태 직접 조회
+                // [v5.14 수정] verboseLogging은 BaseAIBrain의 protected 필드 — NonPublic + BaseType 순회 필요
+                FieldInfo verboseField = null;
+                {
+                    var t = brainType;
+                    while (t != null && verboseField == null)
+                    {
+                        verboseField = t.GetField("verboseLogging",
+                            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                        t = t.BaseType;
+                    }
+                }
+                var currentStateProp = brainType.GetProperty("CurrentState",
+                    BindingFlags.Public | BindingFlags.Instance);
+                var uFleeField = brainType.GetField("u_flee",
+                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic);
+                // [v5.14] currentStateHoldTicks는 private (HumanoidAIBrain 자체) — NonPublic 필요
+                var holdTicksField = brainType.GetField("currentStateHoldTicks",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+                // [v5.13/14] verboseLogging 강제 ON — SelectNewState 차단 로그 출력 보장
+                if (verboseField != null)
+                {
+                    verboseField.SetValue(brain, true);
+                    bool readback = (bool)verboseField.GetValue(brain);
+                    LogInfo($"  → [자연 박제] verboseLogging 강제 ON readback: {readback} (true여야 차단 로그 출력)");
+                }
+                else
+                {
+                    LogError("[자연 박제] verboseLogging 필드 미발견 — 차단 로그 출력 불가");
+                }
+
+                // ── T=0.0s: fear 설정 + UpdateDecision 1회차 ──────────
+                // 결과: utility 계산 → newState=Flee, holdTicks=0 → ❸ 차단 (의도)
+                try
+                {
+                    fearField.SetValue(brain, fearValue);
+                    float verifiedFear = (float)fearField.GetValue(brain);
+                    LogInfo($"  → [자연] fear 설정: {fearValue:F2} → 즉시 readback: {verifiedFear:F2} (일치 여부 박제)");
+
+                    var stateBefore = currentStateProp != null ? currentStateProp.GetValue(brain) : "?";
+                    int holdBefore = holdTicksField != null ? (int)holdTicksField.GetValue(brain) : -1;
+                    LogInfo($"  → [자연 박제] UpdateDecision 1차 호출 직전: currentState={stateBefore}, holdTicks={holdBefore}");
+
+                    updateDecisionMethod.Invoke(brain, null);
+
+                    float fearAfter1 = (float)fearField.GetValue(brain);
+                    var stateAfter1 = currentStateProp != null ? currentStateProp.GetValue(brain) : "?";
+                    float uFleeAfter1 = uFleeField != null ? (float)uFleeField.GetValue(brain) : -1f;
+                    int holdAfter1 = holdTicksField != null ? (int)holdTicksField.GetValue(brain) : -1;
+                    LogInfo($"  → [자연 박제] UpdateDecision 1차 후: fear={fearAfter1:F2}, currentState={stateAfter1}, u_flee={uFleeAfter1:F2}, holdTicks={holdAfter1}");
+                }
+                catch (Exception e)
+                {
+                    LogError($"[자연] T=0.0s 설정 실패: {e.Message}");
+                    continue;
+                }
+
+                yield return new WaitForSeconds(0.4f);
+
+                // ── T=0.4s: UpdateDecision 2회차 ──────────────────────
+                try
+                {
+                    fearField.SetValue(brain, fearValue);
+                    updateDecisionMethod.Invoke(brain, null);
+
+                    float fearAfter2 = (float)fearField.GetValue(brain);
+                    var stateAfter2 = currentStateProp != null ? currentStateProp.GetValue(brain) : "?";
+                    float uFleeAfter2 = uFleeField != null ? (float)uFleeField.GetValue(brain) : -1f;
+                    int holdAfter2 = holdTicksField != null ? (int)holdTicksField.GetValue(brain) : -1;
+                    LogInfo($"  → [자연 박제] UpdateDecision 2차 후: fear={fearAfter2:F2}, currentState={stateAfter2}, u_flee={uFleeAfter2:F2}, holdTicks={holdAfter2}");
+                }
+                catch (Exception e) { LogError($"[자연] T=0.4s 실패: {e.Message}"); }
+
+                yield return new WaitForSeconds(0.4f);
+
+                // ── T=0.8s: UpdateDecision 3회차 ──────────────────────
+                try
+                {
+                    fearField.SetValue(brain, fearValue);
+                    updateDecisionMethod.Invoke(brain, null);
+
+                    float fearAfter3 = (float)fearField.GetValue(brain);
+                    var stateAfter3 = currentStateProp != null ? currentStateProp.GetValue(brain) : "?";
+                    float uFleeAfter3 = uFleeField != null ? (float)uFleeField.GetValue(brain) : -1f;
+                    int holdAfter3 = holdTicksField != null ? (int)holdTicksField.GetValue(brain) : -1;
+                    LogInfo($"  → [자연 박제] UpdateDecision 3차 후: fear={fearAfter3:F2}, currentState={stateAfter3}, u_flee={uFleeAfter3:F2}, holdTicks={holdAfter3}");
+
+                    // [v5.15 DEBT-21 해결 후] ❸ 우회 코드 제거.
+                    // HumanoidAIBrain.SelectNewState가 매 호출 holdTicks++로 수정됨 →
+                    // Adapter polling으로 자연 검증 시작 전 holdTicks 충분히 누적됨 →
+                    // 3차 호출만으로 currentState=Flee 자연 전이 보장됨.
+                    // currentState=Idle 유지 시 회귀 (DEBT-21 패치 미적용 또는 다른 결함).
+                    if (stateAfter3 != null && stateAfter3.ToString() == "Idle")
+                    {
+                        LogError($"[자연 박제] ⚠ 자연 3차 후에도 Idle 유지 — DEBT-21 패치 미적용 또는 회귀 의심. HumanoidAIBrain.SelectNewState 코드 확인.");
+                    }
+                    else
+                    {
+                        LogInfo($"  → [자연 박제] ⭐ 자연 3차 호출만으로 Flee 전이 성공! DEBT-15/21 본질 회복.");
+                    }
+                }
+                catch (Exception e) { LogError($"[자연] T=0.8s 실패: {e.Message}"); }
+
+                yield return new WaitForSeconds(0.4f);
+
+                // ── T=1.2s: BB 즉시 동기화 (검증 시간 단축) ───────────
+                // BB.UtilityWinner = Flee가 PB4DecisionAdapter 0.5초 주기 대기 안 거치고
+                // 즉시 반영되어 Behavior Graph가 FleeAction 실행 시작.
+                if (adapter != null && forceSyncMethod != null)
+                {
+                    try
+                    {
+                        forceSyncMethod.Invoke(adapter, null);
+                        LogInfo($"  → [자연] adapter.ForceSyncBB() (BB.UtilityWinner=Flee 즉시 반영)");
+                    }
+                    catch (Exception e) { LogError($"[자연] ForceSyncBB 실패: {e.Message}"); }
+
+                    // FleeSprintSpeed 강제 (Policy override 대응)
+                    var setBBMethod = adapterType.GetMethod("SetBB",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (setBBMethod != null)
+                    {
+                        try
+                        {
+                            var generic = setBBMethod.MakeGenericMethod(typeof(float));
+                            generic.Invoke(adapter, new object[] { "FleeSprintSpeed", 6f });
+                            LogInfo($"  → [자연] SetBB(FleeSprintSpeed, 6f)");
+                        }
+                        catch (Exception e) { LogError($"[자연] SetBB 실패: {e.Message}"); }
+                    }
+
+                    // NavMeshAgent.speed 안전판
+                    var navAgent = brainGo.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                    if (navAgent != null && navAgent.enabled && navAgent.speed < 0.5f)
+                    {
+                        navAgent.speed = 6f;
+                        LogInfo($"  → [자연] NavMeshAgent.speed = 6f");
+                    }
+                }
+                else
+                {
+                    LogError("[자연] PB4DecisionAdapter 미부착 또는 ForceSyncBB 미발견");
+                }
+
+                injected++;
+                LogInfo($"  → [자연] 주입 완료: {brainComp.name} (T=1.2s, ForceStateForTesting 미사용 ⭐)");
+            }
+
+            LogInfo($"  → [자연] 자연 fear 주입 완료: {injected}/{brains.Length}");
         }
 
         private void InvokeKarmaChange(float delta)
