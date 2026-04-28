@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Bard
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: bard_traveler
+  displayName: "\uC720\uB791 \uC74C\uC720\uC2DC\uC778"
+  personality: {fileID: 11400000, guid: 4926d71d7b8e5702604507d757bf86c6, type: 2}
+  startingAlignment: 2
+  startingTrust: 75
+  startingKarma: 10
+  startingTraumas: []
+  combatProfile: {fileID: 0}
+  prefab: {fileID: 0}
+  startingEquipmentIds: []
+  spawnContextTag: tavern_stage
+  notes: "\uC220\uC9D1\u00B7\uAD11\uC7A5\uC5D0\uC11C \uB178\uB798/\uC774\uC57C\uAE30.\n\uC815\uBCF4 \uC218\uC9D1\uACFC \uC804\uD30C\uC758 \uD5C8\uBE0C.\n\uD765\uBBF8\uB85C\uC6B4 \uC0AC\uAC74\uC5D4 \uB530\uB77C\uB098\uC12C."

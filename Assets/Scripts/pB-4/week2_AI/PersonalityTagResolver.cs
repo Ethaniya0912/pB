@@ -21,6 +21,21 @@
 //   - [NGO-4] NetworkList<FixedString32Bytes> netActiveTags — 서버 결정 → 전 클라 자동 전파
 //   - [NGO-5] 기존 List<string> activeTags 유지 (Inspector 표시 + 단독 Play + API 호환)
 //   - [NGO-6] OnNetworkDespawn에서 NetworkList.Dispose
+//
+// [v4 DEBT-24 v1 — Week 3 D1]
+//   - [DEBT-24] netActiveTags Awake에서 무조건 new로 변경.
+//               이전: OnNetworkSpawn에서만 할당 → 단독 Play 시 null 유지 →
+//                     ExitPlaymode → NetworkBehaviour.OnDestroy → InitializeVariables NRE.
+//               이후: Awake에서 항상 NetworkList 인스턴스 보장. OnNetworkSpawn은 OnListChanged 등록만.
+//               OnNetworkDespawn에서 Dispose/null 제거 (OnDestroy가 NGO 표준으로 처리).
+//
+// [v5 DEBT-24 v2 — Week 3 D1 후속]
+//   - [DEBT-24 v2] ResolveTagsFromPersonality의 isNetworked 판정에 IsSpawned 추가.
+//                  v1 부작용 박제: 단독 Play에서 매 polling마다 NetworkVariable dirty 워닝.
+//                  원인: v1으로 netActiveTags가 항상 non-null → isNetworked = true →
+//                        Clear/Add가 MarkNetworkBehaviourDirty 시도 →
+//                        NetworkObject 미스폰이라 워닝 출력.
+//                  해결: IsSpawned 시에만 NetworkList 갱신. 단독 Play는 activeTags만 갱신.
 // =============================================================================
 using System;
 using System.Collections;
@@ -122,11 +137,23 @@ namespace TDA.PB4.AI
 
         // ==================================================================
         // [v3 NGO-2] 이중 초기화 — 단독 Play + Network 동시 지원
+        // [DEBT-24 v1] netActiveTags 무조건 초기화 — ExitPlaymode NRE 회피
         // ==================================================================
 
         /// <summary>단독 Play 경로. NetworkManager 비활성 시 기존 Day 1~2 동작.</summary>
         private void Awake()
         {
+            // [DEBT-24 v1] netActiveTags 무조건 초기화.
+            // 이전: NetworkManager null 시 netActiveTags가 null로 유지 → ExitPlaymode 시
+            //       NetworkBehaviour.OnDestroy → InitializeVariables가 NetworkVariable null 검증 → throw.
+            // 변경: 단독 Play에서도 NetworkList 인스턴스 보장. NetworkObject 미스폰이라
+            //       실제 동기화는 안 일어나고, Dispose는 NGO가 OnDestroy에서 표준 처리.
+            if (netActiveTags == null)
+            {
+                netActiveTags = new NetworkList<FixedString32Bytes>(
+                    writePerm: NetworkVariableWritePermission.Server);
+            }
+
             if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
             {
                 // 단독 Play: 네트워크 변수 없이 List 기반 동작
@@ -140,24 +167,25 @@ namespace TDA.PB4.AI
         {
             base.OnNetworkSpawn();
 
-            // [NGO-4] NetworkList 런타임 할당 (필드 초기화 불가)
-            netActiveTags = new NetworkList<FixedString32Bytes>(
-                writePerm: NetworkVariableWritePermission.Server);
-
+            // [DEBT-24] netActiveTags는 Awake에서 이미 할당됨. OnListChanged 등록만.
             // [NGO-5] NetworkList 변경 시 activeTags(List<string>)에 동기화 — Inspector 표시 유지
             netActiveTags.OnListChanged += OnNetActiveTagsChanged;
 
             InitializeRulesSource();
         }
 
-        /// <summary>[NGO-6] NetworkList 해제.</summary>
+        /// <summary>[NGO-6] NetworkList 정리 — 핸들러 해제.</summary>
+        /// <remarks>
+        /// [DEBT-24] Dispose + null 할당 제거. 이유:
+        ///   - OnNetworkDespawn 후에도 OnDestroy가 호출되며 NGO가 InitializeVariables로 null 검증
+        ///   - netActiveTags = null 시 ExitPlaymode 시점에 throw (DEBT-24와 같은 결함 재발)
+        ///   - NetworkList Dispose는 NetworkBehaviour.OnDestroy 표준 동작이 처리
+        /// </remarks>
         public override void OnNetworkDespawn()
         {
             if (netActiveTags != null)
             {
                 netActiveTags.OnListChanged -= OnNetActiveTagsChanged;
-                netActiveTags.Dispose();
-                netActiveTags = null;
             }
             base.OnNetworkDespawn();
         }
@@ -262,8 +290,14 @@ namespace TDA.PB4.AI
             // 기존 로직 (서버에서 결정)
             activeTags.Clear();
 
-            // [NGO-4] 네트워크 Play 시 NetworkList도 초기화
-            bool isNetworked = netActiveTags != null;
+            // [DEBT-24 v2] NetworkList 갱신 조건에 IsSpawned 추가.
+            // 이전 v1: Awake에서 무조건 new → 단독 Play에서도 isNetworked = true →
+            //         NetworkList.Clear/Add가 MarkNetworkBehaviourDirty 시도 →
+            //         NetworkObject 미스폰이라 'NetworkVariable is written to, but
+            //         doesn't know its NetworkBehaviour yet' 워닝 매 호출마다 출력.
+            // v2: IsSpawned 시에만 NetworkList 갱신. 단독 Play는 List<string> activeTags만 갱신.
+            //     네트워크 Play 정상 동작 유지 (Spawn 후 OnNetworkSpawn에서 OnListChanged 등록 시점부터 IsSpawned == true).
+            bool isNetworked = netActiveTags != null && IsSpawned;
             if (isNetworked) netActiveTags.Clear();
 
             foreach (var rule in rules)

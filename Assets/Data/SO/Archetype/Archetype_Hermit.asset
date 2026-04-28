@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Hermit
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: hermit_recluse
+  displayName: "\uC740\uB454 \uD604\uC790"
+  personality: {fileID: 11400000, guid: 78d13b1126ee0d5de78224d56bc8e0ee, type: 2}
+  startingAlignment: 1
+  startingTrust: 50
+  startingKarma: 0
+  startingTraumas: []
+  combatProfile: {fileID: 0}
+  prefab: {fileID: 0}
+  startingEquipmentIds: []
+  spawnContextTag: mountain_shrine
+  notes: "\uC678\uB534 \uAC70\uC8FC\uC9C0\uC5D0\uC11C \uBA85\uC0C1.\n\uBC29\uBB38\uC790 \uAC70\uC758 \uBC1B\uC9C0 \uC54A\uC74C.\n\uB3C4\uC6C0 \uC694\uCCAD\uC5D4 \uC9E7\uAC8C\uB9CC \uC751\uD568."

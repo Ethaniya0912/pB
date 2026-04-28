@@ -730,7 +730,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2504438377
+  GlobalObjectIdHash: 2339133806
   InScenePlacedSourceGlobalObjectIdHash: 1383825015
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1523,6 +1523,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
   debugForceIdleStretch: 0
+  verboseLogging: 0
   shutterAngle: 360
   targetFPS: 60
   globalIntensity: 2
@@ -1570,7 +1571,7 @@ MonoBehaviour:
   spineCap: 0.35
   headScale: 0.15
   shoulderScale: 0.7
-  debugLog: 1
+  debugLog: 0
 --- !u!114 &5717506456705042142
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1618,6 +1619,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
   skinningCacheShader: {fileID: 7200000, guid: 5180e7e0d86f1e248a4e04abe3856aa2, type: 3}
   targetSMR: {fileID: 0}
+  verboseLogging: 0
   _dbgStatus: Initializing
   _dbgVertexCount: 0
   _dbgReady: 0
@@ -1636,6 +1638,7 @@ MonoBehaviour:
   blurController: {fileID: 0}
   characterEventManager: {fileID: 0}
   characterControllerOverride: {fileID: 0}
+  verboseLogging: 0
   attackBlurMultiplier: 3
   heavyBlurMultiplier: 1.5
   blurAttackRampUp: 8

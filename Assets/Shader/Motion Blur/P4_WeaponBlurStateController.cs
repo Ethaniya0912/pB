@@ -45,6 +45,10 @@ public class P4_WeaponBlurStateController : MonoBehaviour, IAnimationEventListen
              "TDA는 Rigidbody를 직접 사용하지 않으므로 CharacterController가 기본입니다.")]
     public CharacterController characterControllerOverride;
 
+    [Tooltip("AutoResolve 진단 로그 출력 여부 (기본 OFF — 노이즈 감소).\n" +
+             "디버깅 시에만 켜서 [P4_BlurState] 의존성 탐색 결과 로그를 받습니다.")]
+    public bool verboseLogging = false;
+
     [Header("Attack Blur Boost")]
     [Tooltip("공격 중 추가 블러 배율. P2 ShutterMult에 곱해짐.\n" +
              "1.0=기본, 5.0=5배, 10.0=10배 강도.")]
@@ -319,7 +323,8 @@ public class P4_WeaponBlurStateController : MonoBehaviour, IAnimationEventListen
             Debug.LogWarning("<color=yellow>[P4_BlurState]</color> CharacterController 자동 탐색 실패. 속도 감지 비활성화.", this);
         
         // 탐색 성공 요약 로그
-        Debug.Log($"<color=cyan>[P4_BlurState]</color> AutoResolve 완료 | BlurCtrl:{_dbgBlurCtrlFound} | EventMgr:{_dbgEventMgrFound} | CC:{_dbgCCFound}", this);
+        if (verboseLogging)
+            Debug.Log($"<color=cyan>[P4_BlurState]</color> AutoResolve 완료 | BlurCtrl:{_dbgBlurCtrlFound} | EventMgr:{_dbgEventMgrFound} | CC:{_dbgCCFound}", this);
     }
 
     private void Subscribe()

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Cultist
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: cultist_fanatic
+  displayName: "\uAD11\uC2E0\uB3C4"
+  personality: {fileID: 11400000, guid: b63e3653fcbbc302c35a33d9a00fc3e9, type: 2}
+  startingAlignment: 0
+  startingTrust: 30
+  startingKarma: -20
+  startingTraumas: []
+  combatProfile: {fileID: 0}
+  prefab: {fileID: 0}
+  startingEquipmentIds: []
+  spawnContextTag: hidden_temple
+  notes: "\uC758\uC2DD \uAC70\uC810 \uC0AC\uC218.\n\uC678\uBD80\uC778 \uCE68\uC785 \uC2DC \uACA9\uB82C\uD788 \uACF5\uACA9.\n\uC7A1\uD600\uB3C4 \uAD50\uB9AC \uC678\uCE68 \uBA48\uCD94\uC9C0 \uC54A\uC74C."

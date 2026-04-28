@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Bandit
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: bandit_thug_01
+  displayName: "\uB178\uC0C1 \uAC15\uB3C4"
+  personality: {fileID: 11400000, guid: 6c56552141be2480ac07c04406d415cc, type: 2}
+  startingAlignment: 0
+  startingTrust: 20
+  startingKarma: -25
+  startingTraumas: []
+  combatProfile: {fileID: 0}
+  prefab: {fileID: 0}
+  startingEquipmentIds: []
+  spawnContextTag: road_ambush
+  notes: "\uC57D\uD574 \uBCF4\uC774\uB294 NPC \uC989\uAC01 \uACF5\uACA9.\n\uBB34\uB9AC\uC9C0\uC5B4 \uB9E4\uBCF5.\n\uAC15\uC790 \uB4F1\uC7A5 \uC2DC \uBE60\uB978 \uB3C4\uC8FC."

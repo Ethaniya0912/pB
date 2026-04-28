@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f40bc4d9d769bf545834c28aeba86ac6, type: 3}
+  m_Name: Knight
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.PersonalityMatrixSO
+  control: 0.8
+  stability: 0.85
+  openness: 0.4
+  agreeable: 0.7
+  directness: 0.75
+  presetName: Knight
+  description: "\uACE0\uACB0. \uC790\uC81C\uB825+\uC548\uC815\uC131 \uADF9\uC0C1, \uC815\uC758\uAC10 \uC9C1\uC124.\nValiant \uD0DC\uADF8 \uBC1C\uD604."

@@ -45,6 +45,10 @@ public class ObjectMotionBlurController : MonoBehaviour, ICameraEffectReceiver
              "이 옵션을 켜면 Idle 상태에서도 ShutterMult=1로 강제해 테스트 가능합니다.")]
     public bool debugForceIdleStretch = false;
 
+    [Tooltip("BlurState 전환 로그 출력 여부 (기본 OFF — 노이즈 감소).\n" +
+             "디버깅 시에만 켜서 매 상태 변경마다 [P2_BlurCtrl] 로그를 받습니다.")]
+    public bool verboseLogging = false;
+
     [Tooltip("셔터 앵글 (도). 180°=표준, 270~360°=강한 블러.")]
     [Range(1f, 360f)] public float shutterAngle = 180f;
 
@@ -258,7 +262,7 @@ public class ObjectMotionBlurController : MonoBehaviour, ICameraEffectReceiver
         _dbgBlurState = currentState.ToString();
         _dbgShutterMult = StateShutterMultiplier[(int)currentState];
         _dbgEffectiveMult = shutterMult;
-        if (prevState != _dbgBlurState)
+        if (prevState != _dbgBlurState && verboseLogging)
             Debug.Log($"<color=cyan>[P2_BlurCtrl]</color> BlurState: {prevState} → {_dbgBlurState} | Mult: {_dbgEffectiveMult:F2}×", this);
 #endif
 

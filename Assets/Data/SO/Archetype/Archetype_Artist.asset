@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Artist
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: artist_eccentric
+  displayName: "\uAD34\uD30D\uD55C \uC608\uC220\uAC00"
+  personality: {fileID: 11400000, guid: 252bff93f8d34c9195160cc4a5477dd6, type: 2}
+  startingAlignment: 1
+  startingTrust: 55
+  startingKarma: 5
+  startingTraumas: []
+  combatProfile: {fileID: 0}
+  prefab: {fileID: 0}
+  startingEquipmentIds: []
+  spawnContextTag: art_studio
+  notes: "\uC601\uAC10 \uBC1B\uC740 \uC7A5\uC18C\u00B7\uC0AC\uAC74\uC5D0 \uBAB0\uC785.\n\uC77C\uC0C1\uC5D4 \uBB34\uAD00\uC2EC, \uC608\uC220 \uC8FC\uC81C\uC5D4 \uD3ED\uBC1C\uC801 \uC9D1\uC911.\n\uBE44\uD3C9\uC5D4 \uACA9\uD558\uAC8C \uBC18\uC751."

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Innkeeper
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: innkeeper_jovial
+  displayName: "\uCF8C\uD65C\uD55C \uC5EC\uAD00\uC8FC\uC778"
+  personality: {fileID: 11400000, guid: e52477badcfcc7f762c454bbe2098607, type: 2}
+  startingAlignment: 2
+  startingTrust: 85
+  startingKarma: 15
+  startingTraumas: []
+  combatProfile: {fileID: 0}
+  prefab: {fileID: 0}
+  startingEquipmentIds: []
+  spawnContextTag: tavern_counter
+  notes: "\uC190\uB2D8 \uC811\uB300, \uC815\uBCF4 \uC218\uC9D1\uC758 \uD5C8\uBE0C.\n\uBD84\uC7C1 \uC2DC \uC911\uC7AC \uC2DC\uB3C4.\n\uB9E4\uC6B0 \uC704\uD5D8\uD55C \uC190\uB2D8\uC740 \uC815\uC911\uD788 \uAC70\uC808."

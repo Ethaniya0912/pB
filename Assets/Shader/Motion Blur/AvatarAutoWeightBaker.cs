@@ -179,10 +179,13 @@ public class AvatarAutoWeightBaker : MonoBehaviour
         if (_controller != null)
         {
             _controller.InjectWeightBuffer(_weightBuffer);
-            // 주입 완료는 debugLog 관계없이 항상 출력 — 연결 확인용
-            Debug.Log(
-                $"[AvatarAutoWeightBaker] '{name}': WeightBuffer → " +
-                $"'{_controller.name}' 주입 완료 (버텍스 {vertWeights.Length}개)");
+            // [v2 노이즈 정리] debugLog 가드 추가 — 매 캐릭터 스폰마다 출력되어 노이즈
+            if (debugLog)
+            {
+                Debug.Log(
+                    $"[AvatarAutoWeightBaker] '{name}': WeightBuffer → " +
+                    $"'{_controller.name}' 주입 완료 (버텍스 {vertWeights.Length}개)");
+            }
         }
         else
         {
@@ -191,6 +194,7 @@ public class AvatarAutoWeightBaker : MonoBehaviour
             _smr.GetPropertyBlock(mpb);
             mpb.SetBuffer(PropBlurWeightBuffer, _weightBuffer);
             _smr.SetPropertyBlock(mpb);
+            // 폴백 경고는 debugLog 무관하게 유지 — 설정 오류 알림
             Debug.LogWarning(
                 $"[AvatarAutoWeightBaker] '{name}': ObjectMotionBlurController를 찾을 수 없어 " +
                 "직접 MPB 설정. 루트에 ObjectMotionBlurController가 부착되어 있는지 확인하세요.");

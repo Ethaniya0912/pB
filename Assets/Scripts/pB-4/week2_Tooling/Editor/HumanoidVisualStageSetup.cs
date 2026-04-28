@@ -421,11 +421,15 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
 
                 // 5. [v5.11] T52_LocomotionBridge 부착 — NavMesh→Animator(RootMotion) 다리
                 //    (Skeleton 프리팹에 AICharacterLocomotionManager가 미부착인 경우 우회)
+                //    [DEBT-18] T52_LocomotionBridge가 Obsolete 표시됨 → 워닝 억제.
+                //    AICharacterLocomotionManager 부착 시 T52는 Start에서 자동 비활성화됨.
+                #pragma warning disable CS0618 // Type or member is obsolete
                 if (go.GetComponent<T52_LocomotionBridge>() == null)
                 {
                     go.AddComponent<T52_LocomotionBridge>();
                     bridgeAttached++;
                 }
+                #pragma warning restore CS0618
             }
 
             Debug.Log($"[T5.2 Stage] NavMeshAgent 자동 활성화: enable {enabled}, snap {snapped}, FleeSprintSpeed BB 주입 {bbInjected}, LocomotionBridge {bridgeAttached} / 전체 {allAgents.Length}");

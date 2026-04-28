@@ -149,7 +149,7 @@ namespace TDA.PB4.AI.Humanoid
         [Header("━━━ 상태 전환 파라미터 ━━━━━━━━━━━━")]
         [Range(0f, 0.5f)] public float idleThreshold = 0.1f;
         [Range(0f, 0.3f)] public float stateSwitchHysteresis = 0.08f;
-        [Range(1, 10)] public int minStateHoldTicks = 2;
+        [Range(1, 10)]    public int minStateHoldTicks = 2;
         private int currentStateHoldTicks;
 
         [Tooltip("태그 재평가 필요 플래그.")]
@@ -593,13 +593,13 @@ namespace TDA.PB4.AI.Humanoid
         {
             switch (goalId)
             {
-                case "Attack": break;
-                case "Flee": break;
-                case "Loot": break;
-                case "Move": break;
+                case "Attack":        break;
+                case "Flee":          break;
+                case "Loot":          break;
+                case "Move":          break;
                 case "FollowCommand": break;
-                case "Idle": break;
-                default: break;
+                case "Idle":          break;
+                default:              break;
             }
         }
 

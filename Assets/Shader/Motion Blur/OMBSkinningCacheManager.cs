@@ -32,6 +32,10 @@ public class OMBSkinningCacheManager : MonoBehaviour
     [Tooltip("스킨닝할 SMR. 비워두면 자동 탐색.")]
     public SkinnedMeshRenderer targetSMR;
 
+    [Header("Logging")]
+    [Tooltip("초기화 완료 로그 출력 여부 (기본 OFF — 노이즈 감소).")]
+    public bool verboseLogging = false;
+
     [Header("Debug (ReadOnly)")]
     [SerializeField] private string _dbgStatus   = "Initializing";
     [SerializeField] private int    _dbgVertexCount;
@@ -92,7 +96,8 @@ public class OMBSkinningCacheManager : MonoBehaviour
         }
         _dbgReady  = true;
         _dbgStatus = $"Running (GVB) — {_vertexCount} verts";
-        Debug.Log($"[OMBSkinning] '{name}' 초기화 완료 — {_vertexCount} 버텍스", this);
+        if (verboseLogging)
+            Debug.Log($"[OMBSkinning] '{name}' 초기화 완료 — {_vertexCount} 버텍스", this);
     }
 
     private bool InitBuffers()

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3e4ed8fe875e84ea30b75e0c625595, type: 3}
+  m_Name: Archetype_Mercenary
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
+  archetypeId: mercenary_pragmatic
+  displayName: "\uC2E4\uC6A9\uC801 \uC6A9\uBCD1"
+  personality: {fileID: 11400000, guid: 57ce572304b71bb3ea2ff12ed49bcd7c, type: 2}
+  startingAlignment: 1
+  startingTrust: 55
+  startingKarma: -5
+  startingTraumas: []
+  combatProfile: {fileID: 0}
+  prefab: {fileID: 0}
+  startingEquipmentIds: []
+  spawnContextTag: tavern_recruit
+  notes: "\uACC4\uC57D \uC870\uAC74\uB9CC \uC9C0\uD0A4\uBA74 \uB204\uAD6C\uB4E0 \uC704\uD574 \uC2F8\uC6C0.\n\uBCF4\uC218 \uC885\uB8CC \uC2DC \uBBF8\uB828 \uC5C6\uC774 \uC774\uD0C8.\n\uB3D9\uB8CC \uC8FD\uC74C\uC5D0\uB3C4 \uC9E7\uC740 \uCE68\uBB35."
