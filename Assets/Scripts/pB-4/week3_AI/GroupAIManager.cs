@@ -19,6 +19,17 @@
 //   - MobAIBrain: GroupAI가 결정한 역할/토큰을 개별 몹에 전달
 //   - EventBus.OnEscalationTriggered: 에스컬레이션 레벨 변경 시 발행
 //   - FactionGroupPolicySO: 팩션별 정책 파라미터 참조
+//
+// [v3.2 D3 갱신 — 2026-04-29]
+//   ★ IGroupAIInfo (TDA.PB4.Interfaces) 인터페이스 구현 추가:
+//     - 기존 currentMorale (private SerializeField) → GetMorale() 노출
+//     - 기존 activeTokenCount > 0 → HasAvailableToken() 노출
+//     ContextManager.Sample()가 본 인터페이스 통해 그룹 상태 조회.
+//     Week3Bootstrapper.FindGroupAIInfo()가 자동 발견 (FindObjectsOfType
+//     순회 시 IGroupAIInfo 캐스팅 성공).
+//
+//   ★ 기존 로직은 변경 없음 (Wk1 동결 영역 보존).
+//     기존 외부 API (CurrentMorale, ActiveTokenCount 등 read-only 프로퍼티)도 그대로 유지.
 // =============================================================================
 using System;
 using System.Collections.Generic;
@@ -26,6 +37,7 @@ using UnityEngine;
 using TDA.PB4.Core;
 using TDA.PB4.Data;
 using TDA.PB4.AI.Mob;
+using TDA.PB4.Interfaces;  // ★ v3.2 추가: IGroupAIInfo
 
 namespace TDA.PB4.AI
 {
@@ -59,7 +71,12 @@ namespace TDA.PB4.AI
         Striker
     }
 
-    public class GroupAIManager : MonoBehaviour
+    /// <summary>
+    /// ★ v3.2: IGroupAIInfo 인터페이스 구현 추가.
+    ///   - GetMorale()           : ContextManager가 그룹 사기 조회
+    ///   - HasAvailableToken()   : ContextManager가 공격 토큰 가용성 조회
+    /// </summary>
+    public class GroupAIManager : MonoBehaviour, IGroupAIInfo
     {
         [Header("━━━ 팩션 정책 ━━━━━━━━━━━━━━━━━━━━━━")]
         [Tooltip("이 그룹이 사용하는 팩션 정책 SO. " +
@@ -122,6 +139,27 @@ namespace TDA.PB4.AI
         private Interfaces.Intelligence.IFactionGroupPolicy policy;
         private float tokenTimer = 0f;
         private float moraleTimer = 0f;
+
+        // ==================================================================
+        // ★ v3.2 IGroupAIInfo 구현 — D3 통합 검증용 (2 메서드)
+        // ContextManager.Sample()이 본 메서드들 호출.
+        // ==================================================================
+
+        /// <summary>
+        /// [IGroupAIInfo] 그룹 사기 (0~1).
+        /// 1.0 = 만전, 0.0 = 패주.
+        /// 빈 그룹 (멤버 0명)도 currentMorale 초기값 1.0 반환 → 안전.
+        /// </summary>
+        public float GetMorale() => currentMorale;
+
+        /// <summary>
+        /// [IGroupAIInfo] 공격 토큰 가용성.
+        /// activeTokenCount > 0 → true (현재 어떤 멤버가 토큰 보유).
+        /// 빈 그룹은 activeTokenCount=0 → false.
+        /// 단, D3 단위 검증 시 멤버 등록 전에는 false 반환됨에 주의.
+        /// (멤버 등록 후 ReassignAttackTokens()이 1회 실행되어야 토큰 발급)
+        /// </summary>
+        public bool HasAvailableToken() => activeTokenCount > 0;
 
         // ==================================================================
         // Lifecycle

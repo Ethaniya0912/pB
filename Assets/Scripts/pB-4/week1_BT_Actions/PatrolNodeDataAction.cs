@@ -14,8 +14,25 @@
 // 폴백:
 //   CaveNodeGraph가 없거나 인접 노드가 없으면
 //   랜덤 방향 10m 이동 (기존 GetWanderLocation 대체).
+//
+// [v3.3 D3 갱신 — 2026-04-29]
+//   ★ BB 변수 표준 정합 (개론서 v9 §1.20 GameBlackboard 스키마 동결):
+//     - BlackboardVariable<string> TerrainTags (Wk1 임시 명명, 표준 동결 전 작성)
+//        → BlackboardVariable<List<string>> ActiveTerrainTags  (D3 표준)
+//     - 사유:
+//        ① 개론서 v9 §1.20에서 activeTerrainTags(List<string>) 동결 박제
+//        ② DEBT-17에서 사전 등록 7변수 표준 명단에 ActiveTerrainTags 박제
+//        ③ D2 BlackboardUpdater가 ActiveTerrainTags + List<string> 직접 주입
+//        ④ tech_v2.md / practical_v4.md / day2_techguide.md 등 모든 문서 일관
+//     - 영향:
+//        실제 코드 내 사용 0건 (변수 선언만 존재, 본 클래스 내부는 폴백 모드).
+//        BG editor 인스턴스에서 본 노드의 ActiveTerrainTags 슬롯을
+//        BB 변수 ActiveTerrainTags (String List)에 다시 연결 필요.
+//   ★ TODO §117-122 가상 코드도 List<string>.Contains() 패턴으로 자연스럽게 작동
+//     (List<T>가 .Contains() 메서드 보유, string도 동일 패턴이라 변경 영향 없음).
 // =============================================================================
 using System;
+using System.Collections.Generic;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
@@ -32,8 +49,13 @@ public partial class PatrolNodeDataAction : Action
 {
     [SerializeReference] public BlackboardVariable<GameObject> Self;
 
-    /// <summary>현재 지형 태그. 방향 가중치에 사용.</summary>
-    [SerializeReference] public BlackboardVariable<string> TerrainTags;
+    /// <summary>
+    /// 현재 활성 지형 태그 리스트. 방향 가중치 계산에 사용.
+    /// ★ v3.3: BB 표준 동결에 맞춰 List<string> 타입 + 명명 ActiveTerrainTags.
+    /// 자연 발현 5종 (Narrow/Open/Dense/Sparse/HighGround) +
+    /// Wk5+ 복합 태그 (NarrowPath/DeathTrap 등) 모두 포함.
+    /// </summary>
+    [SerializeReference] public BlackboardVariable<List<string>> ActiveTerrainTags;
 
     private NavMeshAgent _nav;
     private Transform _selfTransform;
@@ -112,11 +134,15 @@ public partial class PatrolNodeDataAction : Action
     {
         // ── TODO: 실제 CaveNodeGraph 연동 ──
         // var adjacent = CaveNodeGraphBuilder.Instance.GetAdjacentNodes(currentNodeId);
+        // var currentTags = ActiveTerrainTags.Value;  // List<string>, null 안전 처리 필요
         // foreach (var node in adjacent)
         // {
         //     float weight = 1.0f;
-        //     if (node.tags.Contains("DeathTrap")) weight *= 0.1f;
+        //     if (node.tags.Contains("DeathTrap"))  weight *= 0.1f;
         //     if (node.tags.Contains("NarrowPath")) weight *= 0.5f;
+        //     // 또는 현재 태그 기반 회피:
+        //     // if (currentTags != null && currentTags.Contains("Narrow"))
+        //     //     weight *= (node.tags.Contains("Open") ? 1.5f : 1.0f);
         //     weightedList.Add(node, weight);
         // }
         // return WeightedRandom(weightedList).position;

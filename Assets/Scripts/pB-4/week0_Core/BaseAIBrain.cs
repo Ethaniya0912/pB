@@ -101,6 +101,25 @@ namespace TDA.PB4.AI
         /// <summary>
         /// 현재 위치의 지형 태그를 블랙보드에서 읽어 공포 수치에 반영.
         /// Narrow, Dark 등의 태그가 있으면 fear 증가.
+        /// 
+        /// [v3.5 D3 갱신 — 2026-04-29 R6 박제용 보너스 강화]
+        /// ★ v3.4 → v3.5 변경:
+        ///   Wk3 단순 태그 보너스 값을 R6(Winner=FleeAction 전이) 박제 가능한
+        ///   수준으로 상향 조정. Stub 환경 fear 임계값 정합.
+        ///     - Narrow:     0.10 → 0.30 (+0.20)
+        ///     - Dense:      0.05 → 0.15 (+0.10)
+        ///     - HighGround: -0.05 → -0.10 (안전감 강화)
+        ///   계산: targetFear = 0.20 + (Narrow 0.30 + Dense 0.15) = 0.65
+        ///         → fear 0.65는 일반적 Flee 임계값 (0.5+) 초과
+        ///         → Winner=FleeAction 전이 박제 가능
+        ///
+        /// [v3.4 D3 갱신 — 2026-04-29]
+        /// ★ Wk3 단순 5종 태그 case 추가 (비파괴적 변경, Wk0 동결 보존):
+        ///     - Wk3 D3 시점 ContextAnalyzerStub이 게시하는 단순 태그 5종
+        ///     - Wk5+ FuzzyTagConverter 복합 태그는 기존 누적 동작 그대로 보존
+        ///     - Wk3 표준은 개론서 v9 §1.20 GameBlackboard 스키마 동결 시점에 도입
+        /// ★ Wk3 태그는 매 틱 발현되므로 누적 방지 (목표값 동작),
+        ///   Wk5+ 태그는 한 시점 발현 가정으로 기존 누적 동작 유지.
         /// </summary>
         protected virtual void UpdateFearFromTerrain()
         {
@@ -109,19 +128,46 @@ namespace TDA.PB4.AI
             var tags = blackboard.GetActiveTerrainTags();
             if (tags == null) return;
 
-            float terrainFearBonus = 0f;
+            // ── Wk5+ 복합 태그 누적 (기존 동작 그대로) ─────────────
+            float legacyBonus = 0f;
+            // ── Wk3 단순 태그 목표값 (★ v3.4 신규) ─────────────────
+            float wk3Bonus = 0f;
+            bool hasWk3Tag = false;
+
             foreach (var tag in tags)
             {
                 switch (tag)
                 {
-                    case "NarrowPath": terrainFearBonus += 0.1f; break;
-                    case "SpookyCave": terrainFearBonus += 0.15f; break;
-                    case "DeathTrap": terrainFearBonus += 0.25f; break;
-                    case "DifficultEscape": terrainFearBonus += 0.05f; break;
+                    // Wk5+ 복합 태그 (FuzzyTagConverter, 기존 동결)
+                    case "NarrowPath":      legacyBonus += 0.1f; break;
+                    case "SpookyCave":      legacyBonus += 0.15f; break;
+                    case "DeathTrap":       legacyBonus += 0.25f; break;
+                    case "DifficultEscape": legacyBonus += 0.05f; break;
+                    // ★ v3.5: Wk3 단순 태그 (ContextAnalyzerStub) — R6 박제용 강화
+                    case "Narrow":          wk3Bonus += 0.30f; hasWk3Tag = true; break;
+                    case "Dense":           wk3Bonus += 0.15f; hasWk3Tag = true; break;
+                    case "HighGround":      wk3Bonus -= 0.10f; hasWk3Tag = true; break; // 고지대 = 안전감 강화
+                    case "Open":            hasWk3Tag = true; break; // 중립
+                    case "Sparse":          hasWk3Tag = true; break; // 중립
                 }
             }
 
-            fear = Mathf.Clamp01(fear + terrainFearBonus);
+            // Wk5+ 누적 (기존 동작 보존)
+            if (legacyBonus != 0f)
+            {
+                fear = Mathf.Clamp01(fear + legacyBonus);
+            }
+
+            // ★ v3.4: Wk3 태그는 목표값 동작 (매 틱 누적 방지)
+            if (hasWk3Tag)
+            {
+                const float FEAR_BASE = 0.20f; // Inspector 기본값
+                float targetFear = Mathf.Clamp01(FEAR_BASE + wk3Bonus);
+                if (fear < targetFear)
+                {
+                    fear = targetFear;
+                }
+            }
         }
 
         // ==================================================================
