@@ -545,11 +545,145 @@ namespace TDA.PB4.Tooling
             EvaluateAll();
             if (checklist == null) return;
 
-            // Day 1 v0: Console 요약만.
-            // Day 5 T5.1에서 .md 파일 출력 + EditorWindow UI 추가.
+            // [Day 5 T5.1] Console 요약 + .md 파일 자동 출력
             Log(TrackerLogLevel.Info,
                 $"═══ 최종 보고서 ═══ {checklist.PassedCount}/{checklist.RelevantTotal} " +
                 $"({checklist.ProgressRatio:P0})");
+
+            ExportToMarkdown();
+        }
+
+        // ==================================================================
+        // [Day 5 T5.1] Markdown 보고서 자동 출력
+        // ==================================================================
+
+        /// <summary>
+        /// 체크리스트 결과를 Markdown 파일로 출력.
+        /// 출력 위치: Assets/../Reports/Week2_Progress_{yyyyMMdd_HHmmss}.md (프로젝트 루트의 Reports 폴더)
+        /// </summary>
+        [ContextMenu("Export to Markdown")]
+        public void ExportToMarkdown()
+        {
+            if (checklist == null)
+            {
+                Log(TrackerLogLevel.Warn, "체크리스트 SO 미할당. .md 출력 스킵.");
+                return;
+            }
+
+            EvaluateAll();
+
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            string reportsDir = Path.Combine(projectRoot, "Reports");
+            if (!Directory.Exists(reportsDir))
+                Directory.CreateDirectory(reportsDir);
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string filename = $"Week2_Progress_{timestamp}.md";
+            string filepath = Path.Combine(reportsDir, filename);
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("# pB-4 Week 2 진척률 보고서");
+            sb.AppendLine();
+            sb.AppendLine($"**생성 일시**: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"**진척률**: {checklist.PassedCount}/{checklist.RelevantTotal} ({checklist.ProgressRatio:P0})");
+            sb.AppendLine();
+
+            // 상태별 카운트
+            int passedCount = 0, failedCount = 0, notCheckedCount = 0, externalDepCount = 0;
+            foreach (var item in checklist.items)
+            {
+                switch (item.runtimeStatus)
+                {
+                    case CheckStatus.Passed: passedCount++; break;
+                    case CheckStatus.Failed: failedCount++; break;
+                    case CheckStatus.NotChecked: notCheckedCount++; break;
+                    case CheckStatus.ExternalDep: externalDepCount++; break;
+                }
+            }
+
+            sb.AppendLine("## 요약");
+            sb.AppendLine();
+            sb.AppendLine($"- 통과: {passedCount}건");
+            sb.AppendLine($"- 실패: {failedCount}건");
+            sb.AppendLine($"- 미평가: {notCheckedCount}건");
+            sb.AppendLine($"- 외부 의존: {externalDepCount}건");
+            sb.AppendLine();
+
+            // Day별 그룹
+            sb.AppendLine("## 항목별 결과 (Day별 정렬)");
+            sb.AppendLine();
+            sb.AppendLine("| ID | Day | 상태 | 항목 | 검증 방법 | 마지막 메시지 |");
+            sb.AppendLine("|------|:---:|:---:|------|------|------|");
+
+            var sortedItems = new List<ChecklistItem>(checklist.items);
+            sortedItems.Sort((a, b) => {
+                int cmp = string.Compare(a.assignedDay, b.assignedDay, StringComparison.Ordinal);
+                if (cmp != 0) return cmp;
+                return string.Compare(a.id, b.id, StringComparison.Ordinal);
+            });
+
+            foreach (var item in sortedItems)
+            {
+                string statusIcon = item.runtimeStatus switch
+                {
+                    CheckStatus.Passed => "✅",
+                    CheckStatus.Failed => "❌",
+                    CheckStatus.NotChecked => "⏳",
+                    CheckStatus.ExternalDep => "🔗",
+                    _ => "?"
+                };
+                string day = string.IsNullOrEmpty(item.assignedDay) ? "-" : item.assignedDay;
+                string lastMsg = string.IsNullOrEmpty(item.lastLogMessage) ? "-" : item.lastLogMessage.Replace("|", "\\|").Replace("\n", " ");
+                if (lastMsg.Length > 80) lastMsg = lastMsg.Substring(0, 77) + "...";
+                sb.AppendLine($"| {item.id} | {day} | {statusIcon} | {item.title} | `{item.verifyMethod}` | {lastMsg} |");
+            }
+
+            sb.AppendLine();
+
+            // 실패 항목 상세
+            if (failedCount > 0)
+            {
+                sb.AppendLine("## 실패 항목 상세");
+                sb.AppendLine();
+                foreach (var item in checklist.items)
+                {
+                    if (item.runtimeStatus != CheckStatus.Failed) continue;
+                    sb.AppendLine($"### [{item.id}] {item.title}");
+                    sb.AppendLine($"- 검증 방법: `{item.verifyMethod}`");
+                    sb.AppendLine($"- 실패 사유: {item.lastLogMessage}");
+                    sb.AppendLine($"- Day: {item.assignedDay}");
+                    sb.AppendLine();
+                }
+            }
+
+            // 미평가 항목
+            if (notCheckedCount > 0)
+            {
+                sb.AppendLine("## 미평가 항목");
+                sb.AppendLine();
+                foreach (var item in checklist.items)
+                {
+                    if (item.runtimeStatus != CheckStatus.NotChecked) continue;
+                    sb.AppendLine($"- [{item.id}] {item.title} (Day {item.assignedDay})");
+                }
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine("> 본 보고서는 Window > pB-4 > Week 2 Progress 또는 Tracker.ExportToMarkdown ContextMenu에서 자동 생성됩니다.");
+
+            try
+            {
+                File.WriteAllText(filepath, sb.ToString());
+                Log(TrackerLogLevel.Info,
+                    $"Markdown 보고서 출력 완료: {filepath}");
+            }
+            catch (Exception e)
+            {
+                Log(TrackerLogLevel.Error,
+                    $"Markdown 출력 실패: {e.Message}");
+            }
         }
 
         /// <summary>디버그: 현재 모든 항목 상태를 상태별로 그룹화하여 Console 덤프.</summary>
