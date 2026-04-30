@@ -464,6 +464,23 @@ namespace CaveSystem
                 CaveSystem.Multiplayer.CaveSpawnerManager.Instance.UnregisterChunk(parsedPos.Value);
             }
 
+            // [Phase 3-B / B-5] 규칙 #23 확장 적용 - Ghost boundary cache 정리.
+            //   ChunkGhostDataManager._cache 에서 이 chunk의 boundary edges 제거.
+            //   enablePhase3OverlapRemoval=false 상태에서도 안전 (cache 비어있으면 no-op).
+            //   chunk pool 재사용 시 stale ghost 참조 방지.
+            if (ChunkGhostDataManager.Instance != null && parsedPos.HasValue)
+            {
+                ChunkGhostDataManager.Instance.UnregisterChunk(parsedPos.Value);
+            }
+
+            // [F-4-RB] Re-bake tracking 정리 — _bakedChunks/_rebakeSet에서 제거
+            //   기능적으로 필수는 아니지만 누적 방지 목적 (streaming 장시간 시 HashSet 증가).
+            //   Stale pos가 큐에 남아있어도 RequestRebake에서 TryGetActiveChunk 검증으로 no-op 처리.
+            if (CaveNormalBaker.Instance != null && parsedPos.HasValue)
+            {
+                CaveNormalBaker.Instance.NotifyChunkUnregistered(parsedPos.Value);
+            }
+
             // [FIX-TEX] 풀링 전 NormalBaker 텍스처 Destroy (누수 방지)
             //   MaterialPropertyBlock에 할당된 _DCNormalMap_X/Y/Z 텍스처는
             //   GameObject가 풀로 반환되어도 GPU 메모리에 영구 존재
@@ -570,7 +587,8 @@ namespace CaveSystem
             {
                 ChunkPos = targetPos,
                 State = ChunkState.Generating,
-                ChunkObject = coarseObj
+                ChunkObject = coarseObj,
+                IsCoarse = true   // [Approach B] Coarse 프리뷰 chunk — Ghost Cache/Mirror/Halo skip
             };
 
             if (CaveManager.Instance != null)
@@ -731,6 +749,16 @@ namespace CaveSystem
                 return new Vector3Int(x, y, z);
             }
             return null;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // [F-4-RB Re-Bake Trigger] 외부 접근 API
+        //   DCMeshBuilder.RequestRebake에서 chunkPos → ChunkRequestContext 조회에 사용.
+        //   기존 private activeChunks를 read-only로 노출.
+        // ═══════════════════════════════════════════════════════════════════════════════
+        public bool TryGetActiveChunk(Vector3Int pos, out ChunkRequestContext context)
+        {
+            return activeChunks.TryGetValue(pos, out context);
         }
     }
 }

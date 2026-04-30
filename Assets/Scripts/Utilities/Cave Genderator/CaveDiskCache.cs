@@ -32,7 +32,50 @@ namespace CaveSystem
         [Tooltip("최대 캐시 크기 (MB). 초과 시 LRU 삭제")]
         public int maxCacheSizeMB = 2048;
 
-        private const ushort FORMAT_VERSION = 2; // [β] 1→2: 과거 캐시 오염 원천 차단 (B1 토글 도입 + 개발 중 누적 오염)
+        // [Phase 3-B] FORMAT_VERSION 2→3 승격
+        //   이전: 1 (원본)
+        //   이전: 3 (Phase 3-B DC Overlap Removal 반영)
+        //   이전: 4 (CaveBiomeMath.hlsl Case 1/4/5 terrace jitter 적용)
+        //   이전: 5 (Case 0 fBm octave 4→3, amp 2.0→1.2 — Nyquist 한계 준수)
+        //   이전: 6 (Case 0 Karst Cave 재설계 — 4-layer 구조, 4원칙 적용)
+        //   이전: 7 (Case 1 Columnar Jointing 재설계 — 주상절리 수직 기둥 구조)
+        //          Case 2 Faulted Sedimentary 재설계 — 수평 bedding + 경사 단층
+        //   이전: 8 (Case 1 verticalCrack 튜닝 — chunk empty 방지)
+        //   이전: 9 (B-6~B-10 통합: auto regen + Phase 2 토글 + Stitcher 튜닝 + KPI)
+        //   이전: 10 (Phase C: Completion Cooldown + DCMeshBuilder collider skip 수정)
+        //           MeshCollider null 버그 해결: 1차 완료 후 cache HIT 경로 중복 dispatch 차단.
+        //   이전: 11 (Erosion 3D Bias-Only + Per-Voxel DepthLayer Blend — 2+4 병행 patch)
+        //           Bias-Only 모드는 단방향 주입으로 detail 손실 확인 → 이번 버전에서 은퇴.
+        //           Per-Voxel Layer Blend는 성공 평가 유지.
+        //   현재: 12 (Erosion 3D Bias-Only 은퇴 + Signed Narrow-mask 도입)
+        //           Bias-Only(-|n|)를 Signed Narrow-mask(+n × narrow saturate)로 대체.
+        //             양방향 detail 유지 + 3D noise Y-decorrelation + narrow mask로 영향범위
+        //             제한 → 파편 이론 v28의 P(좁은 통로) factor 억제 경로로 AND 붕괴.
+        //           Per-Voxel Layer Blend는 FV 11 구조 그대로 유지.
+        //           shader 수식 변경 → 규칙 #15에 의해 FORMAT_VERSION 승격 필수.
+        //   규칙 #15: mesh 포맷 또는 shader 수식 변경 시 자동 캐시 무효화 보장.
+        //   규칙 #25: SDF 최고 frequency ≤ 1/(voxelSize×2.5) — 모든 layer 준수.
+        //   규칙 #28: biome 설계 우선순위 — analytical 우선, noise는 표면 detail만.
+        //   토글 OFF 상태에서도 caching 경로의 전역 공유를 위해 버전 승격.
+        //   (토글 ON/OFF 차이는 paramHash에서 구분됨)
+        //   [주의] shader 수식 변경은 paramHash 미반영 → FORMAT_VERSION 승격만이 유효
+        //
+        //   [v13] F-4 Ghost Density Buffer (Halo Exchange 패턴):
+        //         ChunkGhostDataManager에 density cache 등록 + SampleDensityGhostAware.
+        //         NormalBaker와 DCMeshBuilder의 PerVertexSubVoxelJob에서 인접 chunk density 조회.
+        //         Normal texture 및 Per-Vertex subNormal UV2 결과가 변경됨 → 캐시 무효화 필요.
+        //         (Mesh position/topology는 무변 → paramHash 불필요, 규칙 #10 미적용)
+        //         Toggle OFF 시 byte-identical (규칙 #6) — 그러나 cache 정합성 위해 승격.
+        //
+        //   [v19] Phase 3-B Cross-Chunk QEF 경로 완성 (규칙 #24/#25 적용):
+        //         DCPipelineExtension에 ExtractBoundaryHermiteEdges kernel dispatch +
+        //         async readback + ChunkGhostData.facesEdges 저장 경로 추가.
+        //         이전까지 "작동 안 하던" enablePhase3OverlapRemoval 토글이 실제로 작동.
+        //         토글 ON 시 boundary cell QEF가 neighbor ghost edges 포함 → mesh vertex 위치 변경.
+        //         토글 OFF 시에도 Extract kernel dispatch 경로 자체는 코드 경로가 달라졌으므로
+        //         (규칙 #6은 syntactic bit-identical까진 보장하나 cache 정합성은 승격으로 보장) 승격.
+        //         토글 ON/OFF 차이는 paramHash에서 구분.
+        private const ushort FORMAT_VERSION = 26;  // [E-α.10] Phase 4 완료: E-α.1 primitive library, E-α.2 라우터, E-α.3 enum, E-α.4 primitive routing, E-α.5 EdgeConstraint SO, E-α.6 Case-aware graph+CardinalBias, E-α.7 RoomGeometryMatrix SO, E-α.8 Cliff Joint, E-α.9 Auditor/Visualizer 확장+Map size 통합. 전체 토글 OFF 시 byte-identical.
         private static readonly byte[] MAGIC = { 0x44, 0x43, 0x43, 0x48 }; // "DCCH"
 
         private string _cacheDir;
@@ -67,10 +110,44 @@ namespace CaveSystem
             bool enableReducedSmoothing, bool enableFloorSmoothingJob,
             bool enableCompressedHermite, bool enableCompressedVertex,
             float dcNormalAmplify,
-            bool enableHermiteStableT = false,
-            bool enableAdaptiveClassify = false,
-            bool enablePhantomScale = false,
-            bool enableEdgeFragmentPull = false)
+            // [Phase 1/2/3-A/3-B] mesh 결과에 영향하는 추가 토글 — 규칙 #10
+            bool enablePhase1ExpandedSnap = false,
+            bool enablePhase1BestMatch = false,
+            bool enablePhase1RecalculateNormals = false,
+            bool enablePhase1UploadMeshData = false,
+            float phase1SnapMultiplier = 1.0f,
+            bool enableMassPointA = false,
+            bool enableMassPointB = false,
+            bool enablePhase2MassPointQEF = false,
+            float phase2MassPointStrength = 0.0f,
+            bool enablePhase3OverlapRemoval = false,
+            // [FORMAT_VERSION 11] 신규 토글 — default false/0 로 기존 호출자 하위 호환
+            //   기존 호출자는 이 4개를 전달 안 해도 컴파일 OK, 결과 해시는 기존과 다른 값
+            //   (FORMAT_VERSION 자체가 10→11 승격되어 모든 기존 캐시 무효 — 규칙 #15)
+            bool enableErosion3DSignedNarrow = false,
+            bool enablePerVoxelLayerBlend = false,
+            float layerBlendWidth = 0.0f,
+            int allLayerHash = 0,
+            // [Gate 5 Phase E-β.3] Edge curvature amp — 규칙 #10
+            //   effectiveCurvAmp = enableCurvedTunnels ? curvatureAmplitude : 0
+            //   default 0 → 기존 호출자 하위 호환 (단, FV 22 승급으로 기존 cache 전부 무효)
+            float curvatureAmp = 0f,
+            // [Gate 5 Phase E-β.9] Floor/Ceil variation — 규칙 #10
+            //   둘 다 0 기본 → byte-identical
+            //   biomeFloor × 전역 multiplier 곱한 effective 값 전달
+            float floorVariationAmp = 0f,
+            float ceilVariationAmp = 0f,
+            // [Gate 5 Phase A.12] A.4 WarpY/Recursive + A.8 Stalactite — 규칙 #10
+            //   전부 0 기본 → byte-identical
+            float warpYScale = 0f,
+            float warpRecursive = 0f,
+            float enableStalactite = 0f,
+            // [Gate 5 Phase E-α.10] Primitive routing + Cliff joint — 규칙 #10
+            //   전부 0 기본 → byte-identical
+            float enablePrimRouting = 0f,
+            int tunnelPrim = 0,
+            int roomPrim = 0,
+            float enableCliffJoint = 0f)
         {
             using (var sha = SHA256.Create())
             {
@@ -105,6 +182,38 @@ namespace CaveSystem
                     bw.Write(layer.floorDetailFrequency);
                     bw.Write(layer.floorDetailRadius);
 
+                    // [Gate 5 Phase A.1] v34 MD §6.1 신규 필드 — paramHash 포함 (규칙 #10)
+                    //   기존 asset은 모두 0 → Dispatcher fallback으로 기존 동작 유지
+                    //   그러나 paramHash 값은 바뀌므로 기존 cache는 첫 play 시 자동 regen
+                    //   새 mesh는 fallback으로 기존과 byte-identical (규칙 #6)
+                    bw.Write(layer.canyonCeilingHeight);
+                    bw.Write(layer.warpAmplitudeOverride);
+
+                    // [Gate 5 Phase E-β.3] Edge curvature amp (규칙 #10)
+                    //   0 = 직선 sdCapsule (기존 동작 byte-identical)
+                    //   > 0 = EvaluateCurvedTunnel capsule chain
+                    bw.Write(curvatureAmp);
+
+                    // [Gate 5 Phase E-β.9] Floor/Ceil Y variation (규칙 #10)
+                    //   둘 다 0 = 평탄 (기존 동작 byte-identical)
+                    //   > 0 = shader에서 noise 기반 변조 (hard bound 내부 clamp)
+                    bw.Write(floorVariationAmp);
+                    bw.Write(ceilVariationAmp);
+
+                    // [Gate 5 Phase A.12] A.4 WarpY/Recursive + A.8 Stalactite (규칙 #10)
+                    //   전부 0 = 기존 동작 byte-identical
+                    bw.Write(warpYScale);
+                    bw.Write(warpRecursive);
+                    bw.Write(enableStalactite);
+
+                    // [Gate 5 Phase E-α.10] Primitive routing + Cliff joint (규칙 #10)
+                    //   enablePrimRouting=0 OR prim=0 → 기본 경로
+                    //   enableCliffJoint=0 → cliff skip
+                    bw.Write(enablePrimRouting);
+                    bw.Write(tunnelPrim);
+                    bw.Write(roomPrim);
+                    bw.Write(enableCliffJoint);
+
                     // SDF 토글
                     bw.Write(enableScaling);
                     bw.Write(enableWidthVariation);
@@ -124,31 +233,44 @@ namespace CaveSystem
                     // NormalBaker amplify (normalmap에 영향)
                     bw.Write(dcNormalAmplify);
 
-                    // [B1] Hermite t 안정화 토글 — 조건부 해시 포함
-                    //   OFF: 해시 쓰기 생략 → 기존 캐시 재사용 (규칙 #6 정신)
-                    //   ON : "B1:ON" 마커 기록 → 새 해시 생성, 캐시 재계산
-                    //   규칙 #10 준수: ON 경로 변경 시 캐시 무효. 
-                    //                  OFF 경로는 원본 해시와 일치 → 캐시 보존
-                    if (enableHermiteStableT)
-                    {
-                        bw.Write((byte)0xB1); // 마커: B1 ON
-                    }
-                    // [B2] ClassifyFeature voxelSize 의존 토글 — 조건부 해시 포함
-                    //   동일 원칙: OFF 시 해시 쓰기 생략 → 기존 해시 보존
-                    if (enableAdaptiveClassify)
-                    {
-                        bw.Write((byte)0xB2); // 마커: B2 ON
-                    }
-                    // [γ2] Fix-Phantom voxelSize 비례 토글 — 조건부 해시 포함
-                    if (enablePhantomScale)
-                    {
-                        bw.Write((byte)0xC2); // 마커: γ2 ON
-                    }
-                    // [γ3] Edge-Fragment Pull 토글 — 조건부 해시 포함
-                    if (enableEdgeFragmentPull)
-                    {
-                        bw.Write((byte)0xC3); // 마커: γ3 ON
-                    }
+                    // [Phase 1 — Stitcher 긴급 패치] 규칙 #10
+                    //   mesh vertex 위치가 stitcher에 의해 수정됨 → 캐시된 mesh와 달라짐
+                    bw.Write(enablePhase1ExpandedSnap);
+                    bw.Write(enablePhase1BestMatch);
+                    bw.Write(enablePhase1RecalculateNormals);
+                    bw.Write(enablePhase1UploadMeshData);
+                    bw.Write(phase1SnapMultiplier);
+
+                    // [Phase 2 — Mass Point QEF] 규칙 #10
+                    //   QEF solver 경로 변경 → vertex 위치 변경
+                    bw.Write(enableMassPointA);
+                    bw.Write(enableMassPointB);
+                    bw.Write(enablePhase2MassPointQEF);
+                    bw.Write(phase2MassPointStrength);
+
+                    // [Phase 3-B — DC Overlap Removal] 규칙 #10
+                    //   DCPointsPerAxis + bakedBasePos 변경 → mesh 구조 자체 변경
+                    //   Phase 3-A는 collider 타이밍만 영향 → mesh 내용 무변경 → paramHash 제외
+                    bw.Write(enablePhase3OverlapRemoval);
+
+                    // ═══════════════════════════════════════════════════════════════════
+                    // [FORMAT_VERSION 12] 신규 토글 — SDF 결과에 직접 영향 → 규칙 #10 필수
+                    //   enableErosion3DSignedNarrow: Erosion 수식 변경 (2-oct XZ signed → 3-oct 3D signed narrow)
+                    //   enablePerVoxelLayerBlend: FloorClamp/CeilClamp/FloorDetail 경로 변경
+                    //   layerBlendWidth: blend 전이 구간 폭
+                    //   allLayerHash: depthLayers 배열 자체 변경 시 (neighbor blend에 영향)
+                    //                 chunk당 단일 cacheLayer만 기록되면 neighbor layer 변경
+                    //                 감지 실패 → 별도 해시 추가
+                    //
+                    //   OFF 조합 (enableErosion3DSignedNarrow=false, enablePerVoxelLayerBlend=false)
+                    //   시 아래 4개 bw.Write는 실행되지만 기본값이 모두 false/0 이므로
+                    //   paramHash 전체 바이트 시퀀스는 변경되고(→ 새 캐시 파일) 값은 고정되어
+                    //   동일 OFF 설정에서는 동일 해시가 반복 생성됨 (cache 재활용 정상).
+                    // ═══════════════════════════════════════════════════════════════════
+                    bw.Write(enableErosion3DSignedNarrow);
+                    bw.Write(enablePerVoxelLayerBlend);
+                    bw.Write(layerBlendWidth);
+                    bw.Write(allLayerHash);
 
                     bw.Flush();
                     byte[] hash = sha.ComputeHash(ms.ToArray());
@@ -428,62 +550,25 @@ namespace CaveSystem
             _manifest.Clear();
             _totalCacheBytes = 0;
 
-            // [β] 캐시 오염 방지: manifest-level 버전 체크
-            //   과거 캐시(formatVersion 불일치)가 해시 우연 일치로 로드되는 사고 방지
-            //   manifest.json에 manifestFormatVersion 필드 추가 → 불일치 시 전체 폐기
-            //   이는 개별 .dcmesh 파일 안의 FORMAT_VERSION 체크보다 선제적으로 작동
-            bool manifestOutdated = false;
-
             if (File.Exists(manifestPath))
             {
                 try
                 {
                     string json = File.ReadAllText(manifestPath);
                     var wrapper = JsonUtility.FromJson<ManifestWrapper>(json);
-                    if (wrapper != null)
+                    if (wrapper != null && wrapper.entries != null)
                     {
-                        // [β] 버전 필드가 없거나(legacy) 현재 버전과 다르면 전체 폐기
-                        if (wrapper.manifestFormatVersion != FORMAT_VERSION)
+                        foreach (var e in wrapper.entries)
                         {
-                            manifestOutdated = true;
-                            Debug.LogWarning($"[DiskCache] manifestFormatVersion 불일치 " +
-                                             $"(file={wrapper.manifestFormatVersion}, current={FORMAT_VERSION}) " +
-                                             $"→ 오염 방지를 위해 전체 캐시 재생성");
-                        }
-                        else if (wrapper.entries != null)
-                        {
-                            foreach (var e in wrapper.entries)
-                            {
-                                _manifest[e.key] = e.lastAccessTick;
-                                string fp = GetCachePath(e.key);
-                                if (File.Exists(fp))
-                                    _totalCacheBytes += new FileInfo(fp).Length;
-                            }
+                            _manifest[e.key] = e.lastAccessTick;
+                            string fp = GetCachePath(e.key);
+                            if (File.Exists(fp))
+                                _totalCacheBytes += new FileInfo(fp).Length;
                         }
                     }
                 }
-                catch { manifestOutdated = true; /* corrupt manifest — 전체 폐기 */ }
+                catch { /* corrupt manifest — start fresh */ }
             }
-
-            // [β] 버전 불일치 또는 manifest 손상 시 전체 .dcmesh 파일 삭제
-            //   규칙 #6 준수: enableDiskCache=OFF 경로는 이 함수를 타지 않음
-            if (manifestOutdated)
-            {
-                try
-                {
-                    if (Directory.Exists(_cacheDir))
-                    {
-                        foreach (var f in Directory.GetFiles(_cacheDir, "*.dcmesh"))
-                        {
-                            try { File.Delete(f); } catch { }
-                        }
-                    }
-                }
-                catch { }
-                _manifest.Clear();
-                _totalCacheBytes = 0;
-            }
-
             _manifestLoaded = true;
         }
 
@@ -491,7 +576,6 @@ namespace CaveSystem
         {
             string manifestPath = Path.Combine(_cacheDir, "manifest.json");
             var wrapper = new ManifestWrapper();
-            wrapper.manifestFormatVersion = FORMAT_VERSION; // [β] 버전 명시 기록
             lock (_manifest)
             {
                 wrapper.entries = new List<ManifestEntry>(_manifest.Count);
@@ -542,9 +626,6 @@ namespace CaveSystem
         [Serializable]
         private class ManifestWrapper
         {
-            // [β] 과거 캐시 오염 방지용 버전 필드
-            //   기존 manifest에는 없는 필드 → JsonUtility가 0으로 초기화 → legacy로 자동 감지
-            public ushort manifestFormatVersion = 0;
             public List<ManifestEntry> entries;
         }
         [Serializable]

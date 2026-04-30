@@ -14,5 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveTerrainConfig
   targetWorldChunkSize: 16
   voxelSize: 0.15
+  enablePhase3OverlapRemoval: 1
+  enableBoundaryOwnership: 0
+  enableVertexPositionMirror: 0
+  vertexMirrorSnapMultiplier: 1.5
+  enableHaloAwareBake: 1
+  enableGhostDensityBaking: 1
+  enableCurvedTunnels: 1
+  curvatureAmplitude: 3
+  enableFloorVariation: 1
+  floorVariationMultiplier: 1
+  enableCeilVariation: 1
+  ceilVariationMultiplier: 1
+  enableWarpY: 1
+  warpYScale: 0.1
+  enableWarpRecursive: 1
+  enableStalactite: 1
   viewDistance: 5
   viewDistanceY: 3

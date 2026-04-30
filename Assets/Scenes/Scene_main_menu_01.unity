@@ -1869,11 +1869,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.ChunkSeamStitcher
   stitchedPairCount: 0
-  enablePhase1ExpandedSnap: 0
-  phase1SnapMultiplier: 3.67
-  enablePhase1BestMatch: 0
-  enablePhase1RecalculateNormals: 0
-  enablePhase1UploadMeshData: 0
+  enableNormalTexelStitch: 0
+  texelStripWidth: 4
+  texelStitchLogs: 0
 --- !u!114 &359781327
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1919,6 +1917,9 @@ MonoBehaviour:
   lastBakeVertexCount: 0
   lastBakeTimeMs: 0
   lastTexResolution: 0
+  enableRebakeTrigger: 1
+  maxRebakesPerFrame: 2
+  rebakeDebugLogs: 0
 --- !u!114 &359781329
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1931,7 +1932,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c70185489de327449823c6dc473bfc3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.DCMeshBuilder
-  caveMaterial: {fileID: 0}
+  caveMaterial: {fileID: 2100000, guid: 06176ee8cef908b4b89c0ff7abe19ff3, type: 2}
   gpuNormalBlend: 1
   enableNormalBlend: 0
   enablePerVertexNormal: 0
@@ -1944,8 +1945,7 @@ MonoBehaviour:
   enableFloorSmoothingJob: 0
   enableAsyncFloorSmoothing: 0
   enablePhysicsBakeAsync: 0
-  enablePhase3AColliderGuard: 0
-  existingMeshJobManager: {fileID: 0}
+  existingMeshJobManager: {fileID: 359781341}
 --- !u!114 &359781330
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2085,6 +2085,18 @@ MonoBehaviour:
   showGizmos: 0
   currentSeed: 0
   lastFoundIssues: []
+--- !u!114 &359781341 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+    type: 3}
+  m_PrefabInstance: {fileID: 359781320}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359781321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
 --- !u!1 &361213665
 GameObject:
   m_ObjectHideFlags: 0
@@ -6534,7 +6546,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.0009765625, y: -12.730957}
+  m_AnchoredPosition: {x: 0.0009765625, y: -12.731079}
   m_SizeDelta: {x: -190.503, y: -171.617}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1027095442
@@ -8728,6 +8740,9 @@ MonoBehaviour:
   lastBakeVertexCount: 0
   lastBakeTimeMs: 0
   lastTexResolution: 0
+  enableRebakeTrigger: 1
+  maxRebakesPerFrame: 2
+  rebakeDebugLogs: 1
 --- !u!114 &1464201088
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8753,8 +8768,7 @@ MonoBehaviour:
   enableFloorSmoothingJob: 1
   enableAsyncFloorSmoothing: 1
   enablePhysicsBakeAsync: 1
-  enablePhase3AColliderGuard: 0
-  existingMeshJobManager: {fileID: 1464201165}
+  existingMeshJobManager: {fileID: 1464201142}
 --- !u!114 &1464201089
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8768,11 +8782,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.ChunkSeamStitcher
   stitchedPairCount: 0
-  enablePhase1ExpandedSnap: 1
-  phase1SnapMultiplier: 3.67
-  enablePhase1BestMatch: 1
-  enablePhase1RecalculateNormals: 1
-  enablePhase1UploadMeshData: 1
+  enableNormalTexelStitch: 1
+  texelStripWidth: 4
+  texelStitchLogs: 1
+--- !u!114 &1464201142 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+    type: 3}
+  m_PrefabInstance: {fileID: 1670054366}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
 --- !u!114 &1464201152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8861,18 +8885,46 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveDiskCache
   enableDiskCache: 1
   maxCacheSizeMB: 2048
---- !u!114 &1464201165 stripped
+--- !u!114 &1464201168
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3354250196118440665, guid: f1e329cac9258814b8fd13b3c668e657,
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c43d49b813e170447aaddef728daeee9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.ChunkGhostDataManager
+  showDebugLogs: 1
+  maxCachedChunks: 200
+--- !u!114 &1464201169
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f7f85ac9a3a59a4e83506e23299182f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.TerrainContextAnalyzer
+  graphBuilder: {fileID: 1464201170}
+  tagLUT: {fileID: 11400000, guid: 132c6cb0ea48f994abfa9ff80b9a99a4, type: 2}
+--- !u!114 &1464201170 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
     type: 3}
   m_PrefabInstance: {fileID: 1670054366}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1464201060}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec8ae68ebfeecc842b761081a9ddbdbf, type: 3}
+  m_Script: {fileID: 11500000, guid: 276eb6ff577a7f54dafbfc99a142d392, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveMeshJobManager
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveNodeGraphBuilder
 --- !u!224 &1466137898 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3286728277505491436, guid: b4c5370b3c09bce4a996898584135628,
@@ -9999,13 +10051,33 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: enableJ5DiagLog
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: loopProbability
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: targetRoomCount
-      value: 10
+      value: 15
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: enableFloorYClamp
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableSpatialHash
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableRoutePlanner
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -10019,8 +10091,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: enableBiomeAwareRouting
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: bossRoomRadiusMultiplier
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableCentralityAwareSpawn
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5470916156110361977, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: useShaderCompatBiomeSampling
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5654663744512938626, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -10061,9 +10148,24 @@ PrefabInstance:
         type: 3}
     - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: biomeSyncMode
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: navMeshSurface
       value: 
       objectReference: {fileID: 1464201074}
+    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableAsyncNavMeshBuild
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5663994727461010306, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableIncrementalNavMesh
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
       propertyPath: enableRMod
@@ -10096,13 +10198,33 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: enableStitching
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: ecotoneThreshold
+      value: 0.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: enableDomainWarp
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: enableEcotoneSDF
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: enableFloorGuard
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableStitchLogs
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -10141,8 +10263,18 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: snapDistMultiplier
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: enableParabolicLift
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enablePhase2Erosion
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -10161,8 +10293,53 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
+      propertyPath: enableBlendCalmDetail
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableNormalAveraging
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: debugDisableBiomeBlend
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableErosion3DBiasOnly
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableSingleSourceNoise
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
       propertyPath: enableWarpNormalization
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enablePerVoxelLayerBlend
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableColumnarSoftTerrace
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableColumnarVoronoiNoise
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      propertyPath: enableBlendDetailSuppression
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6742086907179902921, guid: f1e329cac9258814b8fd13b3c668e657,
         type: 3}
@@ -10258,6 +10435,14 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1464201158}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201168}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201169}
   m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1 &1693359577
 GameObject:

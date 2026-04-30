@@ -189,7 +189,21 @@ namespace CaveSystem
     //   원본 SampleSubVoxelNormal과 비트 동일 알고리즘 (trilinear SDF gradient)
     //   NormalBakerJobV5.SampleDensity 와 동일 파라미터 규약 사용
     //   주의: densities는 i와 무관한 인덱스 접근 → NativeDisableParallelForRestriction 필수
-    // =========================================================================
+    //
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // [F-4 / FORMAT_VERSION 13] PerVertexSubVoxelJob — Ghost-Aware Sampling
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 배경: 기존 Clamp(0, dcN-2)는 chunk 경계에서 비대칭 반응 → Image 4의 세로 stripe.
+    //       CaveNormalBaker의 동일 문제와 쌍둥이 — F-4 패키지로 해결.
+    //
+    // 원리 (업계 표준 Halo Exchange):
+    //   ChunkGhostDataManager에 각 chunk의 density를 ref-only 등록 → 이 Job이 PackedNeighborDensity로
+    //   받아서 out-of-range 시 neighbor 조회 → 수학적으로 gradient 완전 일치.
+    //
+    // 토글:
+    //   f4_enabled=0 (기본): 원본 clamp 경로 (byte-identical)
+    //   f4_enabled=1       : ghost-aware (self 우선, neighbor 조회, fallback clamp)
+    // ═══════════════════════════════════════════════════════════════════════════════
     [BurstCompile(FloatPrecision.Standard, FloatMode.Fast)]
     public struct PerVertexSubVoxelJob : IJobParallelFor
     {
@@ -204,9 +218,81 @@ namespace CaveSystem
         public float voxelSize;
         public float step;
 
-        // Trilinear density sample (SampleSubVoxelNormal의 local Sample과 동일)
+        // [F-4] Ghost density 패키지 (CaveNormalBaker와 동일 schema)
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<float>  f4_densityBuffer;
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<int>    f4_offsetTable;
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<float3> f4_dcBasePosTable;
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<int>    f4_dcNTable;
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<int>    f4_existsMask;
+        public int f4_enabled;  // 0=OFF (기존 clamp), 1=ON (ghost-aware)
+
+        // [F-4] 공용 trilinear — slot의 offset 시작 주소에서 N 크기로 샘플링
+        private static float TrilinearAt(NativeArray<float> buf, int bufOffset,
+                                          int N, float fx, float fy, float fz)
+        {
+            int x0 = math.clamp((int)fx, 0, N - 2);
+            int y0 = math.clamp((int)fy, 0, N - 2);
+            int z0 = math.clamp((int)fz, 0, N - 2);
+            float tx = fx - x0, ty = fy - y0, tz = fz - z0;
+            int n2 = N * N;
+            int bi = bufOffset;
+            float d000 = buf[bi + x0     + y0     * N + z0     * n2];
+            float d100 = buf[bi + x0 + 1 + y0     * N + z0     * n2];
+            float d010 = buf[bi + x0     + (y0+1) * N + z0     * n2];
+            float d110 = buf[bi + x0 + 1 + (y0+1) * N + z0     * n2];
+            float d001 = buf[bi + x0     + y0     * N + (z0+1) * n2];
+            float d101 = buf[bi + x0 + 1 + y0     * N + (z0+1) * n2];
+            float d011 = buf[bi + x0     + (y0+1) * N + (z0+1) * n2];
+            float d111 = buf[bi + x0 + 1 + (y0+1) * N + (z0+1) * n2];
+            return math.lerp(
+                math.lerp(math.lerp(d000, d100, tx), math.lerp(d010, d110, tx), ty),
+                math.lerp(math.lerp(d001, d101, tx), math.lerp(d011, d111, tx), ty), tz);
+        }
+
         private float SampleDensity(float wx, float wy, float wz)
         {
+            // [F-4] Ghost-aware 경로
+            if (f4_enabled == 1)
+            {
+                float fxG = (wx - dcBasePos.x) / voxelSize;
+                float fyG = (wy - dcBasePos.y) / voxelSize;
+                float fzG = (wz - dcBasePos.z) / voxelSize;
+
+                bool inRange = (fxG >= 0f) & (fxG <= dcN - 2) &
+                               (fyG >= 0f) & (fyG <= dcN - 2) &
+                               (fzG >= 0f) & (fzG <= dcN - 2);
+                if (inRange)
+                    return TrilinearAt(f4_densityBuffer, 0, dcN, fxG, fyG, fzG);
+
+                int face = -1;
+                float maxViolation = 0f, vCur;
+                vCur = -fxG;             if (vCur > maxViolation) { maxViolation = vCur; face = 1; }
+                vCur = fxG - (dcN - 2);  if (vCur > maxViolation) { maxViolation = vCur; face = 0; }
+                vCur = -fyG;             if (vCur > maxViolation) { maxViolation = vCur; face = 3; }
+                vCur = fyG - (dcN - 2);  if (vCur > maxViolation) { maxViolation = vCur; face = 2; }
+                vCur = -fzG;             if (vCur > maxViolation) { maxViolation = vCur; face = 5; }
+                vCur = fzG - (dcN - 2);  if (vCur > maxViolation) { maxViolation = vCur; face = 4; }
+
+                if (face >= 0 && f4_existsMask[face + 1] == 1)
+                {
+                    float3 nBase = f4_dcBasePosTable[face + 1];
+                    int    nN    = f4_dcNTable[face + 1];
+                    float  nfx   = (wx - nBase.x) / voxelSize;
+                    float  nfy   = (wy - nBase.y) / voxelSize;
+                    float  nfz   = (wz - nBase.z) / voxelSize;
+                    bool inN = (nfx >= 0f) & (nfx <= nN - 2) &
+                               (nfy >= 0f) & (nfy <= nN - 2) &
+                               (nfz >= 0f) & (nfz <= nN - 2);
+                    if (inN)
+                    {
+                        int nOff = f4_offsetTable[face + 1];
+                        return TrilinearAt(f4_densityBuffer, nOff, nN, nfx, nfy, nfz);
+                    }
+                }
+                return TrilinearAt(f4_densityBuffer, 0, dcN, fxG, fyG, fzG);
+            }
+
+            // ── OFF 경로 (byte-identical 원본) ───────────────────────────
             float fx = (wx - dcBasePos.x) / voxelSize;
             float fy = (wy - dcBasePos.y) / voxelSize;
             float fz = (wz - dcBasePos.z) / voxelSize;
@@ -443,23 +529,6 @@ namespace CaveSystem
         [Tooltip("ON: Physics.BakeMesh를 IJob에서 worker로 수행 (메인 -23ms/청크, 버스트 -118ms). OFF: 즉시 sync (원본)")]
         public bool enablePhysicsBakeAsync = false;
 
-        // ─────────────────────────────────────────────────────────────
-        // [Phase 3-A] Collider Race Fallback Guard
-        //   증상: Fine async bake schedule 이후 k 프레임 동안 collider.sharedMesh=null
-        //         → 이 구간에 플레이어가 해당 chunk 위에 있으면 관통 추락.
-        //   방안 1 (CaveChunkManager.CleanupCompletedCoarse)이 Coarse→Fine 경로만 커버.
-        //   enableCoarseFirst=false 경로 + 풀 재사용 경로에서는 Coarse 자체가 없음.
-        //   → Phase 3-A: Fine async bake schedule <strong>이전에</strong> 즉시 sync bake를 
-        //     한 번 실행하여 collider.sharedMesh 유효성 보장. Async bake는 후속 정밀 bake로만 기능.
-        //   비용: 첫 sync bake 약 5~15ms (메인 스레드) — 원본 sync 경로와 동일 부하
-        //         이후 async로 정밀 bake 진행 → 결과적 지연 거의 없음
-        //   규칙 #6: OFF 시 기존 async-only 경로 유지 → bit-identical
-        //   상세: phase3_b_c_design.html 참조
-        // ─────────────────────────────────────────────────────────────
-        [Tooltip("Phase 3-A: Async bake 시작 전 즉시 sync bake 1회 실행 → collider 공백 제거. " +
-                 "OFF=기존 async-only(공백 발생 가능). enablePhysicsBakeAsync=OFF 시 무시됨.")]
-        public bool enablePhase3AColliderGuard = false;
-
         [Header("References")]
         public CaveMeshJobManager existingMeshJobManager;
 
@@ -551,9 +620,7 @@ namespace CaveSystem
                 while (budget-- > 0 && _stitchQueue.Count > 0)
                 {
                     var s = _stitchQueue.Dequeue();
-                    // [FIX-STALE-STITCH] Pool 반환/LOD cull로 mesh 또는 transform이 Destroy된 경우 skip.
-                    //   기존 체크에 chunkTransform 누락되어 있었고, Unity == null 연산자로 Destroyed 감지 가능.
-                    //   ChunkSeamStitcher.RegisterAndStitch 내부에서도 lazy cache cleanup 추가됨.
+                    // 청크 제거 방어 (LOD cull로 mesh/transform destroyed 가능)
                     if (s.mesh == null || s.chunkTransform == null) continue;
                     ChunkSeamStitcher.Instance.RegisterAndStitch(
                         s.chunkPos, s.mesh, s.chunkTransform,
@@ -578,11 +645,27 @@ namespace CaveSystem
                                  && pb.collider.gameObject.activeInHierarchy;
                     if (valid)
                     {
-                        // collider에 이미 다른 mesh가 할당된 경우 → 풀 재사용 → skip
-                        var cur = pb.collider.sharedMesh;
-                        if (cur == null || cur == pb.expectedMesh)
+                        // [Phase C / FIX-COLLIDER-SKIP 2026]
+                        //   기존: if (cur == null || cur == pb.expectedMesh) → assign, else skip
+                        //   문제: 중복 dispatch 시 1차 pending bake가 취소되고 2차가 등록되면
+                        //         2차 완료 시점에 collider.sharedMesh가 "다른 mesh"로 보임 →
+                        //         skip → MeshCollider 영원히 null/stale → 플레이어 관통 낙하.
+                        //   관측: "[DC-Cache] HIT" 후 이 skip 경로로 진입하여 collider 누락.
+                        //
+                        //   수정: 풀 재사용 체크를 "활성 상태 검증"으로 대체.
+                        //         activeInHierarchy + gameObject 이름이 "Chunk_Pooled"가 아님 확인.
+                        //         유효한 chunk에 대해서는 pb.expectedMesh를 무조건 할당.
+                        //         → Phase C cooldown과 함께 중복 dispatch race 완전 제거.
+                        //
+                        //   안전성:
+                        //   - 풀 반환된 collider는 ReturnToPool에서 CancelPendingPhysicsBakesForCollider
+                        //     호출로 pending 제거되므로 여기 도달 안 함.
+                        //   - 같은 mesh re-assign은 PhysX cache hit로 무비용.
+                        //   - 다른 mesh 상황(실제 풀 재사용)은 activeInHierarchy=false 또는 "Pooled" 이름으로 걸러짐.
+                        bool isPooled = pb.collider.gameObject.name == "Chunk_Pooled";
+                        if (!isPooled)
                         {
-                            pb.collider.sharedMesh = pb.expectedMesh;  // PhysX cache hit → 즉시 완료
+                            pb.collider.sharedMesh = pb.expectedMesh;  // 무조건 할당 (stale skip 제거)
                         }
                     }
                     _pendingPhysicsBakes.RemoveAt(i);
@@ -905,15 +988,25 @@ namespace CaveSystem
                     Vector3 chunkOffset = context.ChunkObject.transform.position;
                     float step = context.DensityVoxelSize * subVoxelFactor;
                     var subNormals = new Vector3[finalVertCount];
+                    // [F-4] CaveTerrainConfig 토글 조회
+                    bool f4On = CaveManager.Instance != null
+                        && CaveManager.Instance.chunkManager != null
+                        && CaveManager.Instance.chunkManager.terrainConfig != null
+                        && CaveManager.Instance.chunkManager.terrainConfig.enableGhostDensityBaking;
                     ComputePerVertexSubVoxel(
                         finalPositions, finalNormals, finalVertCount,
                         chunkOffset, context.DensityCache, context.DensityDcBasePos,
                         context.DensityDcN, context.DensityVoxelSize, step,
-                        subNormals);
+                        subNormals,
+                        context.ChunkPos, f4On);
                     mesh.SetUVs(2, subNormals);
                     #if CAVE_VERBOSE
                     Debug.Log($"[DCMeshBuilder] Per-Vertex 편차 인코딩 적용: {finalVertCount} verts, step={step:F4}m");
                     #endif
+                    // [F-4-RB] Per-Vertex 경로에서도 MarkChunkBaked 필수
+                    //   (Baker 경로는 BakeNormalMap 내부에서 자동 호출, 이 경로는 수동 필요)
+                    if (f4On && CaveNormalBaker.Instance != null)
+                        CaveNormalBaker.Instance.MarkChunkBaked(context.ChunkPos);
                 }
                 else
                 {
@@ -922,9 +1015,15 @@ namespace CaveSystem
                     var normalBaker = GetComponent<CaveNormalBaker>();
                     if (normalBaker != null && normalBaker.enabled)
                     {
+                        // [F-4] CaveTerrainConfig 토글 조회
+                        bool f4Bake = CaveManager.Instance != null
+                            && CaveManager.Instance.chunkManager != null
+                            && CaveManager.Instance.chunkManager.terrainConfig != null
+                            && CaveManager.Instance.chunkManager.terrainConfig.enableGhostDensityBaking;
                         if (context.DensityCache != null && context.DensityCache.Length > 0)
                             normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
-                                context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
+                                context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize,
+                                context.ChunkPos, f4Bake);
                         else
                             normalBaker.BakeFlat3(mesh, renderer);
                     }
@@ -950,17 +1049,6 @@ namespace CaveSystem
                 {
                     // 기존에 할당된 mesh가 있으면 먼저 풀 재사용 pending 정리
                     CancelPendingPhysicsBakesForCollider(collider);
-
-                    // [Phase 3-A] Async bake schedule 전 즉시 sync 할당으로 collider 공백 차단.
-                    //   OFF: 기존 경로 (async만, k 프레임 공백 가능)
-                    //   ON : sync 할당 즉시 수행 → 추후 async bake가 정밀 cook으로 업데이트
-                    //        첫 cook은 기존 sync 경로와 동일하게 blocking — 메인 +5~15ms
-                    //        But 이후 프레임부터 async가 worker에서 돌아 추가 부담 없음
-                    if (enablePhase3AColliderGuard)
-                    {
-                        collider.sharedMesh = mesh;  // 즉시 sync 확보 (공백 차단)
-                    }
-
                     var bake = new BakeMeshJob { meshID = mesh.GetInstanceID(), convex = false };
                     JobHandle bh = bake.Schedule();
                     _pendingPhysicsBakes.Add(new PendingPhysicsBake {
@@ -1056,26 +1144,69 @@ namespace CaveSystem
                 var normalBaker = GetComponent<CaveNormalBaker>();
                 if (normalBaker != null && normalBaker.enabled)
                 {
+                    // [F-4] CaveTerrainConfig 토글 조회
+                    bool f4Bake = CaveManager.Instance != null
+                        && CaveManager.Instance.chunkManager != null
+                        && CaveManager.Instance.chunkManager.terrainConfig != null
+                        && CaveManager.Instance.chunkManager.terrainConfig.enableGhostDensityBaking;
                     if (context.DensityCache != null && context.DensityCache.Length > 0)
                         normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
-                            context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
+                            context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize,
+                            context.ChunkPos, f4Bake);
                     else
                         normalBaker.BakeFlat3(mesh, renderer);
                 }
                 s_MarkerNormalBake.End();
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // [Gate 3 v3 FIX] Cache HIT 경로에서도 MarkChunkBaked 필수
+                //   문제: 일반 경로는 FinalizeChunkAfterFS_Native에서 MarkChunkBaked 호출,
+                //         Cache HIT 경로에서는 호출 누락 → _bakedChunks에 등록 안 됨
+                //         → 인접 chunks의 neighbor count 미달 → Stitch trigger 실패
+                //   증상: Cache HIT chunks ((-1,0,0), (-1,0,1) 등)가 Stitch 로그에서 누락,
+                //         외곽 cache-miss chunks만 stitch되는 현상
+                //   수정: AssignCachedMeshToScene에도 MarkChunkBaked 호출 추가
+                // ═══════════════════════════════════════════════════════════════════════
+                if (CaveNormalBaker.Instance != null)
+                {
+                    CaveNormalBaker.Instance.MarkChunkBaked(context.ChunkPos);
+                }
+
+                // ═══════════════════════════════════════════════════════════════════════
+                // [Gate 4-A / Path B] Cache HIT 경로 Ghost Cache Boundary Vertex 등록
+                //   Mirror는 불필요 (mesh 이미 고정) — 하지만 Save는 필수:
+                //     이 cache-hit chunk의 "neighbor가 나중에 생성"될 때
+                //     Mirror가 이 chunk의 boundary vertex를 조회할 수 있어야 함
+                //   → 양방향 매칭 (cache+new 혼재) 커버리지 100% 확보
+                //
+                //   좌표계: mesh.vertices는 chunk local (MeshFilter local space)
+                //           → 실제 world pos = ChunkObject.transform.position + local
+                //           → SaveBoundaryVerticesFromMesh에 transform.position 전달
+                //   규칙 #6: enableVertexPositionMirror=false 시 skip (bit-identical)
+                // ═══════════════════════════════════════════════════════════════════════
+                if (!context.IsCoarse &&
+                    ChunkGhostDataManager.Instance != null &&
+                    CaveManager.Instance != null &&
+                    CaveManager.Instance.chunkManager != null &&
+                    CaveManager.Instance.chunkManager.terrainConfig != null &&
+                    CaveManager.Instance.chunkManager.terrainConfig.enableVertexPositionMirror &&
+                    context.ChunkObject != null && mesh != null)
+                {
+                    // [Approach B] Fine chunks만 Ghost Cache에 boundary vertex 등록.
+                    //   Coarse chunk는 곧 Fine으로 교체되므로 임시 데이터 등록 불필요.
+                    int cs = CaveManager.Instance.chunkManager.terrainConfig.ChunkSize;
+                    Vector3 chunkTransformPos = context.ChunkObject.transform.position;
+                    Vector3[] meshVerts = mesh.vertices;
+                    Vector3[] meshNormals = mesh.normals;   // [G4-C] Halo bake용
+                    ChunkGhostDataManager.Instance.SaveBoundaryVerticesFromMesh(
+                        context.ChunkPos, meshVerts, chunkTransformPos, voxelSize, cs, meshNormals);
+                }
 
                 // MeshCollider
                 var collider = context.ChunkObject.GetOrAddComponent<MeshCollider>();
                 if (enablePhysicsBakeAsync)
                 {
                     CancelPendingPhysicsBakesForCollider(collider);
-
-                    // [Phase 3-A] Async bake schedule 전 즉시 sync 할당 (collider 공백 차단)
-                    if (enablePhase3AColliderGuard)
-                    {
-                        collider.sharedMesh = mesh;
-                    }
-
                     var bake = new BakeMeshJob { meshID = mesh.GetInstanceID(), convex = false };
                     Unity.Jobs.JobHandle bh = bake.Schedule();
                     _pendingPhysicsBakes.Add(new PendingPhysicsBake {
@@ -1143,6 +1274,22 @@ namespace CaveSystem
             ChunkRequestContext context, int chunkSize, float voxelSize,
             Action<ChunkRequestContext> onCompleted)
         {
+            // [Approach B / LOD Isolation — S2 보강] Coarse mesh 씬 배치 완전 차단
+            //   S1 (CaveManager IsCoarse=true) 은 Ghost Cache 오염 방지만 해결 →
+            //   Coarse mesh 자체는 여전히 씬에 배치되어 Fine과 공존 overlap 유발.
+            //   본 가드: Coarse chunk는 mesh build/assign 전체를 skip.
+            //   - Prebake 목적이 "density 사전 계산 + cache 워밍업"이면 여기서 종료해도 무방
+            //     (density는 이미 GenerateDensity kernel 완료 시점에 생성됨).
+            //   - 이후 Fine chunk가 같은 chunkPos 생성 시 Cache HIT 경로 또는 정상 경로로 mesh 구축.
+            //   규칙 #6: IsCoarse=false(기본) 시 기존 경로 그대로 (bit-identical).
+            if (context.IsCoarse)
+            {
+                Debug.Log($"[DCMeshBuilder:S2] Coarse chunk {context.ChunkPos} → mesh scene build skip (IsCoarse=true)");
+                context.State = ChunkState.Completed;
+                onCompleted?.Invoke(context);
+                return;
+            }
+
             // ── 1. 리매핑 + NativeList 수집 (단일 스레드, 파편 방지) ──
             int triIndexCount = quadCount * 6;
             // 초기 용량: Fine 기준 ~54K vertex, ~345K index
@@ -1354,12 +1501,21 @@ namespace CaveSystem
                     Vector3[] finalPos = mesh.vertices;   // Mesh에서 읽기 (FloorSmoothing 반영)
                     Vector3[] finalNorm = mesh.normals;
                     var subNormals = new Vector3[finalVertCount];
+                    // [F-4] CaveTerrainConfig 토글 조회
+                    bool f4On2 = CaveManager.Instance != null
+                        && CaveManager.Instance.chunkManager != null
+                        && CaveManager.Instance.chunkManager.terrainConfig != null
+                        && CaveManager.Instance.chunkManager.terrainConfig.enableGhostDensityBaking;
                     ComputePerVertexSubVoxel(
                         finalPos, finalNorm, finalVertCount,
                         chunkOffset, context.DensityCache, context.DensityDcBasePos,
                         context.DensityDcN, context.DensityVoxelSize, step,
-                        subNormals);
+                        subNormals,
+                        context.ChunkPos, f4On2);
                     mesh.SetUVs(2, subNormals);
+                    // [F-4-RB] Per-Vertex 경로에서도 MarkChunkBaked 필수
+                    if (f4On2 && CaveNormalBaker.Instance != null)
+                        CaveNormalBaker.Instance.MarkChunkBaked(context.ChunkPos);
                 }
                 else
                 {
@@ -1367,9 +1523,15 @@ namespace CaveSystem
                     var normalBaker = GetComponent<CaveNormalBaker>();
                     if (normalBaker != null && normalBaker.enabled)
                     {
+                        // [F-4] CaveTerrainConfig 토글 조회
+                        bool f4Bake = CaveManager.Instance != null
+                            && CaveManager.Instance.chunkManager != null
+                            && CaveManager.Instance.chunkManager.terrainConfig != null
+                            && CaveManager.Instance.chunkManager.terrainConfig.enableGhostDensityBaking;
                         if (context.DensityCache != null && context.DensityCache.Length > 0)
                             normalBaker.BakeNormalMap(mesh, renderer, context.DensityCache,
-                                context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize);
+                                context.DensityDcBasePos, context.DensityDcN, context.DensityVoxelSize,
+                                context.ChunkPos, f4Bake);
                         else
                             normalBaker.BakeFlat3(mesh, renderer);
                     }
@@ -1393,13 +1555,6 @@ namespace CaveSystem
                 if (enablePhysicsBakeAsync && !isCoarseDraft_native)
                 {
                     CancelPendingPhysicsBakesForCollider(collider);
-
-                    // [Phase 3-A] Async bake schedule 전 즉시 sync 할당 (collider 공백 차단)
-                    if (enablePhase3AColliderGuard)
-                    {
-                        collider.sharedMesh = mesh;
-                    }
-
                     var bake = new BakeMeshJob { meshID = mesh.GetInstanceID(), convex = false };
                     JobHandle bh = bake.Schedule();
                     _pendingPhysicsBakes.Add(new PendingPhysicsBake {
@@ -1465,12 +1620,16 @@ namespace CaveSystem
         //   enablePerVertexJob=ON → Burst IJobParallelFor (-2.2ms)
         //   enablePerVertexJob=OFF → CPU for 루프 (원본)
         //   결과(subDeltas) 알고리즘 동일 — 메시 품질 영향 0
+        //
+        //   [F-4 확장] chunkPos + f4Enabled 파라미터로 ghost-aware sampling 선택.
+        //   f4Enabled=false 시 기존 clamp 경로 유지 (byte-identical).
         // =====================================================================
         private void ComputePerVertexSubVoxel(
             Vector3[] finalPositions, Vector3[] finalNormals, int finalVertCount,
             Vector3 chunkOffset, float[] densityCache, Vector3 dcBasePos,
             int dcN, float voxelSize, float step,
-            Vector3[] subNormalsOut)
+            Vector3[] subNormalsOut,
+            Vector3Int chunkPos, bool f4Enabled)
         {
             if (enablePerVertexJob)
             {
@@ -1479,6 +1638,10 @@ namespace CaveSystem
                 var naMeshNormals = new NativeArray<Vector3>(finalNormals, Allocator.TempJob);
                 var naDensities = new NativeArray<float>(densityCache, Allocator.TempJob);
                 var naSubDeltas = new NativeArray<Vector3>(finalVertCount, Allocator.TempJob);
+
+                // [F-4] Ghost density pack (CaveNormalBaker와 동일 schema)
+                var f4Pack = PrepareF4NeighborPackDCMB(
+                    chunkPos, densityCache, dcBasePos, dcN, voxelSize, f4Enabled);
 
                 var job = new PerVertexSubVoxelJob
                 {
@@ -1490,7 +1653,14 @@ namespace CaveSystem
                     dcBasePos = dcBasePos,
                     dcN = dcN,
                     voxelSize = voxelSize,
-                    step = step
+                    step = step,
+                    // [F-4]
+                    f4_densityBuffer  = f4Pack.densityBuffer,
+                    f4_offsetTable    = f4Pack.offsetTable,
+                    f4_dcBasePosTable = f4Pack.dcBasePosTable,
+                    f4_dcNTable       = f4Pack.dcNTable,
+                    f4_existsMask     = f4Pack.existsMask,
+                    f4_enabled        = f4Pack.enabled,
                 };
                 // batch=64: vertex 수가 ~54K → 병렬성 충분 + 오버헤드 최소
                 job.Schedule(finalVertCount, 64).Complete();
@@ -1502,10 +1672,11 @@ namespace CaveSystem
                 naMeshNormals.Dispose();
                 naDensities.Dispose();
                 naSubDeltas.Dispose();
+                DisposeF4NeighborPackDCMB(f4Pack);  // [F-4]
             }
             else
             {
-                // ── CPU for 루프 (원본) ──
+                // ── CPU for 루프 (원본) — F-4 비적용 (loop path는 레거시)
                 for (int i = 0; i < finalVertCount; i++)
                 {
                     Vector3 wp = finalPositions[i] + chunkOffset;
@@ -1514,6 +1685,104 @@ namespace CaveSystem
                     subNormalsOut[i] = subN - finalNormals[i];
                 }
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // [F-4] DCMeshBuilder 로컬 Prepare/Dispose 헬퍼
+        //   CaveNormalBaker의 PrepareF4NeighborPack과 동일 schema.
+        //   별도 구현 이유: NormalBaker는 public 접근 불허 (internal static)
+        // ═══════════════════════════════════════════════════════════════════════════════
+        private static PackedNeighborDensity PrepareF4NeighborPackDCMB(
+            Vector3Int chunkPos, float[] selfDensity, Vector3 selfDcBasePos,
+            int selfDcN, float voxelSize, bool f4Enabled)
+        {
+            if (!f4Enabled)
+            {
+                return new PackedNeighborDensity {
+                    densityBuffer   = new NativeArray<float>(1, Allocator.TempJob),
+                    offsetTable     = new NativeArray<int>(8, Allocator.TempJob),
+                    dcBasePosTable  = new NativeArray<float3>(7, Allocator.TempJob),
+                    dcNTable        = new NativeArray<int>(7, Allocator.TempJob),
+                    existsMask      = new NativeArray<int>(7, Allocator.TempJob),
+                    voxelSize       = voxelSize,
+                    enabled         = 0
+                };
+            }
+
+            DensitySnapshot[] neighbors = (ChunkGhostDataManager.Instance != null)
+                ? ChunkGhostDataManager.Instance.QueryDensityNeighbors(chunkPos)
+                : new DensitySnapshot[6];
+
+            int selfSize = selfDensity.Length;
+            long totalSize = selfSize;
+            var slotSizes = new int[7];
+            slotSizes[0] = selfSize;
+            for (int f = 0; f < 6; f++)
+            {
+                if (neighbors[f].exists && neighbors[f].densityCache != null)
+                {
+                    slotSizes[f + 1] = neighbors[f].densityCache.Length;
+                    totalSize += neighbors[f].densityCache.Length;
+                }
+            }
+
+            var densityBuffer  = new NativeArray<float>((int)totalSize, Allocator.TempJob);
+            var offsetTable    = new NativeArray<int>(8, Allocator.TempJob);
+            var dcBasePosTable = new NativeArray<float3>(7, Allocator.TempJob);
+            var dcNTable       = new NativeArray<int>(7, Allocator.TempJob);
+            var existsMask     = new NativeArray<int>(7, Allocator.TempJob);
+
+            int offset = 0;
+            offsetTable[0] = 0;
+            NativeArray<float>.Copy(selfDensity, 0, densityBuffer, 0, selfSize);
+            dcBasePosTable[0] = new float3(selfDcBasePos.x, selfDcBasePos.y, selfDcBasePos.z);
+            dcNTable[0] = selfDcN;
+            existsMask[0] = 1;
+            offset += selfSize;
+
+            for (int f = 0; f < 6; f++)
+            {
+                int slotIdx = f + 1;
+                offsetTable[slotIdx] = offset;
+                if (neighbors[f].exists && neighbors[f].densityCache != null)
+                {
+                    NativeArray<float>.Copy(neighbors[f].densityCache, 0,
+                                             densityBuffer, offset, slotSizes[slotIdx]);
+                    dcBasePosTable[slotIdx] = new float3(
+                        neighbors[f].dcBasePos.x,
+                        neighbors[f].dcBasePos.y,
+                        neighbors[f].dcBasePos.z);
+                    dcNTable[slotIdx]   = neighbors[f].dcN;
+                    existsMask[slotIdx] = 1;
+                    offset += slotSizes[slotIdx];
+                }
+                else
+                {
+                    dcBasePosTable[slotIdx] = float3.zero;
+                    dcNTable[slotIdx]       = 0;
+                    existsMask[slotIdx]     = 0;
+                }
+            }
+            offsetTable[7] = offset;
+
+            return new PackedNeighborDensity {
+                densityBuffer   = densityBuffer,
+                offsetTable     = offsetTable,
+                dcBasePosTable  = dcBasePosTable,
+                dcNTable        = dcNTable,
+                existsMask      = existsMask,
+                voxelSize       = voxelSize,
+                enabled         = 1
+            };
+        }
+
+        private static void DisposeF4NeighborPackDCMB(PackedNeighborDensity pack)
+        {
+            if (pack.densityBuffer.IsCreated)  pack.densityBuffer.Dispose();
+            if (pack.offsetTable.IsCreated)    pack.offsetTable.Dispose();
+            if (pack.dcBasePosTable.IsCreated) pack.dcBasePosTable.Dispose();
+            if (pack.dcNTable.IsCreated)       pack.dcNTable.Dispose();
+            if (pack.existsMask.IsCreated)     pack.existsMask.Dispose();
         }
 
         /// <summary>
@@ -1740,6 +2009,124 @@ namespace CaveSystem
 
             mesh.vertices = verts;
             mesh.RecalculateBounds();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // [F-4-RB] Re-Bake Trigger — 외부(CaveNormalBaker.Update) 호출용 Public API
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // 배경: 새 neighbor chunk density가 등록됐을 때 기존 bake된 chunk의 normal을 재계산.
+        //       이 시점에는 neighbor density가 확보돼 있으므로 완전한 ghost-aware 결과.
+        //
+        // 호출 조건 (모두 통과해야 re-bake):
+        //   1. CaveChunkManager.activeChunks에 chunkPos 존재 (아직 pool 반환 안 됨)
+        //   2. context.ChunkObject 유효 (파괴되지 않음)
+        //   3. MeshFilter.sharedMesh 유효 + vertexCount > 0
+        //   4. ChunkGhostDataManager에 자기 density 등록됨
+        //   5. terrainConfig.enableGhostDensityBaking = true
+        //
+        // 실행 분기:
+        //   - enablePerVertexNormal=ON → ComputePerVertexSubVoxel 재실행 → mesh.SetUVs(2, ...)
+        //   - enablePerVertexNormal=OFF → NormalBaker.BakeNormalMap 재실행 (Async OK)
+        //
+        // 안전성:
+        //   - Async bake 진행 중 re-bake 오면 CancelPendingBakesForRenderer로 정리 후 새 bake
+        //   - 기존 normal texture는 DestroyOldDCNormalTextures가 MPB 교체 시 삭제
+        // ═══════════════════════════════════════════════════════════════════════════════
+        public void RequestRebake(Vector3Int chunkPos)
+        {
+            // ── 1. CaveManager / chunkManager / config 접근 ──
+            var caveMgr = CaveManager.Instance;
+            if (caveMgr == null) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: CaveManager.Instance null"); return; }
+            var chunkMgr = caveMgr.chunkManager;
+            if (chunkMgr == null) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: chunkManager null"); return; }
+            var cfg = chunkMgr.terrainConfig;
+            if (cfg == null || !cfg.enableGhostDensityBaking)
+            {
+                Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: F-4 toggle off");
+                return;
+            }
+
+            // ── 2. chunk가 아직 활성인지 확인 ──
+            if (!chunkMgr.TryGetActiveChunk(chunkPos, out var context))
+            {
+                Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: not in activeChunks (likely pooled)");
+                return;
+            }
+            if (context == null) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: context null"); return; }
+            if (context.ChunkObject == null) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: ChunkObject null"); return; }
+
+            // ── 3. mesh/renderer 확보 ──
+            var filter = context.ChunkObject.GetComponent<MeshFilter>();
+            var renderer = context.ChunkObject.GetComponent<MeshRenderer>();
+            if (filter == null || renderer == null) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: no MeshFilter/Renderer"); return; }
+            var mesh = filter.sharedMesh;
+            if (mesh == null || mesh.vertexCount == 0) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: mesh null or empty"); return; }
+
+            // ── 4. ChunkGhostDataManager에서 자기 density snapshot 조회 ──
+            //   Instance null 시 FindObjectOfType fallback (중복 부착/타이밍 race 방어)
+            //   Fallback 성공 시 진단 로그로 원인 추적 가능.
+            var ghostMgr = ChunkGhostDataManager.Instance;
+            if (ghostMgr == null)
+            {
+                ghostMgr = UnityEngine.Object.FindObjectOfType<ChunkGhostDataManager>();
+                if (ghostMgr != null)
+                {
+                    Debug.LogWarning($"[F-4-RB:DIAG] RequestRebake {chunkPos}: Instance was NULL but FindObjectOfType FOUND one " +
+                                     $"(gameObject={ghostMgr.gameObject.name}). Possible singleton race / component re-assignment.");
+                    // cache를 위해 로컬에만 사용 (static Instance는 private set이라 직접 쓰기 불가)
+                }
+                else
+                {
+                    Debug.LogError($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: ChunkGhostDataManager NOT found in scene! " +
+                                   "Component may not be attached. Check Hierarchy for a GameObject with ChunkGhostDataManager.");
+                    return;
+                }
+            }
+
+            if (!ghostMgr.TryGetDensity(chunkPos, out var snap))
+            {
+                Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: density not registered " +
+                          $"(ghostMgr has {(ghostMgr != null ? "running" : "null")})");
+                return;
+            }
+            if (snap.densityCache == null || snap.densityCache.Length == 0) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: density cache empty"); return; }
+
+            // ── 5. Re-bake 실행 ──
+            Debug.Log($"[F-4-RB:DIAG] ✓ RequestRebake {chunkPos} EXECUTING (perVertex={enablePerVertexNormal}, verts={mesh.vertexCount})");
+
+            Vector3 chunkOffset = context.ChunkObject.transform.position;
+            float step = snap.voxelSize * subVoxelFactor;
+
+            if (enablePerVertexNormal)
+            {
+                // Per-Vertex 편차 인코딩 재실행
+                Vector3[] positions = mesh.vertices;
+                Vector3[] normals   = mesh.normals;
+                int vertCount = positions.Length;
+                if (vertCount == 0) return;
+
+                var subNormals = new Vector3[vertCount];
+                ComputePerVertexSubVoxel(
+                    positions, normals, vertCount,
+                    chunkOffset, snap.densityCache, snap.dcBasePos,
+                    snap.dcN, snap.voxelSize, step,
+                    subNormals,
+                    chunkPos, /*f4Enabled=*/true);
+                mesh.SetUVs(2, subNormals);
+            }
+            else
+            {
+                // Baker 경로 재실행 (Async 안전)
+                var baker = GetComponent<CaveNormalBaker>();
+                if (baker == null || !baker.enabled) return;
+
+                // [안전] 진행 중 bake가 있다면 강제 완료+정리 후 새 bake
+                baker.CancelPendingBakesForRenderer(renderer);
+
+                baker.BakeNormalMap(mesh, renderer, snap.densityCache,
+                    snap.dcBasePos, snap.dcN, snap.voxelSize,
+                    chunkPos, /*f4Enabled=*/true);
+            }
         }
     }
 }

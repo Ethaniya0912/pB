@@ -76,6 +76,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39c83a7d1a298db4ba4e95f97e978b31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveChunkManager
+  terrainConfig: {fileID: 0}
   ChunkSize: 64
   VoxelSize: 0.5
   ViewDistance: 4
@@ -90,6 +91,14 @@ MonoBehaviour:
   MaxPoolSize: 500
   ChunkPrefab: {fileID: 9027138362142067134, guid: f57f2bdd811060a43849a95f3ed6cd44,
     type: 3}
+  enableCoarseFirst: 0
+  coarseTargetChunkSize: 64
+  fineFirstRadius: 0
+  useFovPriority: 0
+  fovDotThreshold: 0.3
+  enablePredictiveLoading: 0
+  predictAheadChunks: 2
+  predictMinSpeed: 1
 --- !u!114 &3354250196118440665
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -138,6 +147,39 @@ MonoBehaviour:
   densityShader: {fileID: 7200000, guid: 109b418452deb21488a3bde6a416c600, type: 3}
   marchingCubesShader: {fileID: 7200000, guid: 50a3c771e823573458e84e488530c10e, type: 3}
   caveSettings: {fileID: 11400000, guid: acad8bf6b55fbb64682085d03e4e588c, type: 2}
+  warpAmplitude: 0.5
+  enableAdaptiveMargin: 0
+  enableChunkPreFilter: 0
+  enablePhase2FloorClamp: 1
+  enablePhase2CeilClamp: 1
+  enablePhase2FloorBump: 1
+  enablePhase2Erosion: 1
+  enablePhase2Sinkhole: 1
+  enablePhase2Ore: 1
+  enableErosion3DSignedNarrow: 0
+  enablePerVoxelLayerBlend: 0
+  layerBlendWidth: 2
+  enableInFlightDedup: 1
+  enablePendingRetryQueue: 1
+  enableRaceFixDiagLogs: 1
+  enableCompletionCooldown: 1
+  completionCooldownSeconds: 0.5
+  enableAutoRegeneration: 1
+  regenerationBatchSize: 2
+  enableRegenDiagLogs: 1
+  enableStitching: 1
+  snapDistMultiplier: 0.75
+  enableStitchLogs: 0
+  enableNormalAveraging: 0
+  enableKpiMeasurement: 0
+  enableRegressionMode: 0
+  kpiSampleChunkCount: 100
+  enableWarpNormalization: 0
+  warpNormalizationBaseVoxelSize: 0.125
+  enableScaling: 0
+  enableWidthVariation: 0
+  enableSediment: 0
+  enableFloorDetail: 0
 --- !u!114 &8864940877554877188
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -205,7 +247,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2519618729728016252}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 27263613291009e478b2cc92821929f9, type: 3}
+  m_Script: {fileID: 11500000, guid: 276eb6ff577a7f54dafbfc99a142d392, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveNodeGraphBuilder
   targetRoomCount: 20

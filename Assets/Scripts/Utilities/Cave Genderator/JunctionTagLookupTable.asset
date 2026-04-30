@@ -1,0 +1,236 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c63c724baf3c5ec47be934fab62903c0, type: 3}
+  m_Name: JunctionTagLookupTable
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.JunctionTagLookupTable
+  identityRules:
+  - ruleId: boss_role_mirror
+    category: Identity
+    reasoning: "Boss role\uC744 \uC678\uBD80\uC5D0 \uB178\uCD9C"
+    phase: Phase18_LookupTable
+    priority: 10
+    conditionKind: 1
+    requiredFlags: 2
+    requiredFlags2: 0
+    identityToApply: 2
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: spawn_role_mirror
+    category: Identity
+    reasoning: "Spawn role \uC678\uBD80 \uB178\uCD9C"
+    phase: Phase18_LookupTable
+    priority: 10
+    conditionKind: 1
+    requiredFlags: 1
+    requiredFlags2: 0
+    identityToApply: 1
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: treasure_role_mirror
+    category: Identity
+    reasoning: "Treasure role \uC678\uBD80 \uB178\uCD9C"
+    phase: Phase18_LookupTable
+    priority: 10
+    conditionKind: 1
+    requiredFlags: 3
+    requiredFlags2: 0
+    identityToApply: 4
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: hub_role_mirror
+    category: Identity
+    reasoning: "Hub role (degree \u2265 3) \uC678\uBD80 \uB178\uCD9C"
+    phase: Phase18_LookupTable
+    priority: 8
+    conditionKind: 3
+    requiredFlags: 3
+    requiredFlags2: 0
+    identityToApply: 16
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 0
+  stateRules:
+  - ruleId: state_narrow
+    category: State
+    reasoning: "Narrow \uD1B5\uB85C (5~7m)"
+    phase: Phase15_5m
+    priority: 10
+    conditionKind: 4
+    requiredFlags: 8
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 1
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: state_standard
+    category: State
+    reasoning: "Standard \uD1B5\uB85C (7~10m, fallback)"
+    phase: Phase15_5m
+    priority: 10
+    conditionKind: 4
+    requiredFlags: 1
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 2
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: state_wide
+    category: State
+    reasoning: "Wide \uD1B5\uB85C (10~15m)"
+    phase: Phase15_5m
+    priority: 10
+    conditionKind: 4
+    requiredFlags: 2
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 4
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: state_grand
+    category: State
+    reasoning: "Grand \uD1B5\uB85C (>15m, Boss \uC9C4\uC785)"
+    phase: Phase15_5m
+    priority: 10
+    conditionKind: 4
+    requiredFlags: 9
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 8
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: state_critical_risk
+    category: State
+    reasoning: "RiskScore Critical \uD1B5\uB85C"
+    phase: Phase18_LookupTable
+    priority: 5
+    conditionKind: 7
+    requiredFlags: 0
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 32768
+    eventToApply: 0
+    potentialToApply: 0
+  - ruleId: state_multibiome
+    category: State
+    reasoning: "\u2605 3+ biome \uD1B5\uACFC (F15)"
+    phase: Phase18_LookupTable
+    priority: 5
+    conditionKind: 8
+    requiredFlags: 0
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 768
+    eventToApply: 0
+    potentialToApply: 0
+  eventRules:
+  - ruleId: event_chamber_locked
+    category: Event
+    reasoning: "\u2605 N1 (Phase 14)\uC73C\uB85C chamber \uB2E8\uC77C\uD654\uB428"
+    phase: Phase14_N1
+    priority: 10
+    conditionKind: 11
+    requiredFlags: 0
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 4
+    potentialToApply: 0
+  - ruleId: event_repositioned
+    category: Event
+    reasoning: "\u2605 R1 (Phase 24)\uC73C\uB85C \uC0AC\uC804 \uD68C\uD53C \uC774\uB3D9"
+    phase: Phase24_R1
+    priority: 10
+    conditionKind: 9
+    requiredFlags: 0
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 1
+    potentialToApply: 0
+  - ruleId: event_desperately_placed
+    category: Event
+    reasoning: "\u2605 \uC635\uC158 B desperately quota \uBD80\uB4DD\uC774 boundary
+      \uBC30\uCE58"
+    phase: OptionB_Desperate
+    priority: 10
+    conditionKind: 10
+    requiredFlags: 0
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 2
+    potentialToApply: 0
+  - ruleId: event_sub5m_violation
+    category: Event
+    reasoning: "\u2605 5m \uC815\uCC45 \uC704\uBC18 \uD1B5\uB85C (Phase 15)"
+    phase: Phase15_5m
+    priority: 10
+    conditionKind: 4
+    requiredFlags: 0
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 8192
+    potentialToApply: 0
+  potentialRules:
+  - ruleId: potential_ambush_narrow_branch
+    category: Potential
+    reasoning: "\u2605 Narrow + \uBD84\uAE30 \u2192 AI \uB9E4\uBCF5 \uC704\uCE58
+      \uD6C4\uBCF4"
+    phase: Phase18_LookupTable
+    priority: 8
+    conditionKind: 12
+    requiredFlags: 0
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 17
+  - ruleId: potential_sacred_venue_bridge
+    category: Potential
+    reasoning: "\u2605 Bridge passage \u2192 \uC678\uBD80 Sacred \uACB0\uC815 \uD6C4\uBCF4"
+    phase: Phase18_LookupTable
+    priority: 7
+    conditionKind: 4
+    requiredFlags: 5
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 128
+  - ruleId: potential_rush_grand
+    category: Potential
+    reasoning: "Grand passage \u2192 \uBE60\uB978 \uC9C4\uC785/\uCD94\uACA9 \uD6C4\uBCF4"
+    phase: Phase18_LookupTable
+    priority: 6
+    conditionKind: 4
+    requiredFlags: 9
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 1032
+  - ruleId: potential_fall_hazard_bridge
+    category: Potential
+    reasoning: "Bridge \u2192 \uB099\uD558 \uC704\uD5D8"
+    phase: Phase18_LookupTable
+    priority: 7
+    conditionKind: 4
+    requiredFlags: 5
+    requiredFlags2: 0
+    identityToApply: 0
+    stateToApply: 0
+    eventToApply: 0
+    potentialToApply: 4

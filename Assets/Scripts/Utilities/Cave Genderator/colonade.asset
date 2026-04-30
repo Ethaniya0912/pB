@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 722646992251fae478a84c262c51de0a, type: 3}
+  m_Name: colonade
+  m_EditorClassIdentifier: Assembly-CSharp::CaveSystem.CaveBiomeData
+  biomeName: colonade
+  noiseType: 3
+  noiseFrequency: 0.1
+  yCompression: 1
+  sminStrength: 2.5
+  terraceSteps: 1
+  blendDamping: 0.7
+  nodeDensityWeight: 1
+  bumpAmplitude: 1
+  bumpFrequency: 0.1
+  terrainMaterial: {fileID: 0}
+  wetnessMultiplier: 0.49
+  curvatureAmp: 0
+  tunnelPrimitive: 0
+  roomPrimitive: 0
+  edgeConstraint: {fileID: 0}
+  floorVarAmp: 0
+  ceilVarAmp: 0
+  maxSlope: 45
+  tideLineY: 0
+  subBiomes: []

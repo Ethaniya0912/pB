@@ -18,6 +18,7 @@
 #pragma kernel ClearDCVertexBuffer  // [P0.5-A] GPU Clear
 #pragma kernel SplitVoxelBuffer     // [P1-A] CaveVoxel 16B → density 4B + ore 4B
 #pragma kernel CompactAndRemap     // [P1-B] 유효 vertex compact + remapTable
+#pragma kernel ExtractBoundaryHermiteEdges  // [Phase 3-B] boundary edge 추출 (CPU readback용)
 #pragma kernel RemapQuads          // [P1-B] quad 인덱스 리매핑
 
 // [O3] DCHermiteEdge 압축 토글 — 32B→16B
@@ -236,6 +237,22 @@ int   _EnableMassPointA;     // [Phase 2-C-A] 0=OFF, 1=ON(eigenvalue confidence 
 int   _EnableMassPointB;     // [Phase 2-C-B] 0=OFF, 1=ON(lambda 0.01→0.1)
 
 // ═════════════════════════════════════════════════════════════
+// [Gate 2 / B-α] Boundary Ownership — Mesh Overlap 근본 제거
+// ═════════════════════════════════════════════════════════════
+// 배경: dcBasePos = chunkBasePos - voxelSize이므로 cell sid[axis]=0 인 cell의
+//       axis 방향 edge는 world X = chunkBasePos - 0.5*voxelSize 위치.
+//       이는 -axis neighbor chunk 담당 영역임에도 현재 chunk가 quad 생성
+//       → mesh overlap 발생 (지그재그 아티팩트 원인)
+//
+// 동작: _EnableBoundaryOwnership=1 시 sid[axis]=0 cell의 axis edge quad 생성 skip
+//       → 자기 담당 영역 edge만 생성 → 인접 chunk와 mesh 중복 제거
+//
+// 규칙 #6: OFF(=0) 시 기존 동작 완전 유지 (bit-identical)
+// 규칙 #3: GenerateQuads kernel 내부 분기만 — 다른 kernel 미영향
+// ═════════════════════════════════════════════════════════════
+int   _EnableBoundaryOwnership;   // 0=OFF(overlap 유지), 1=ON(내 담당 edge만)
+
+// ═════════════════════════════════════════════════════════════
 // [Phase 2 — Mass Point QEF (Schaefer/Warren 2005)] 
 //   수학: min ||Ax - b||² + λ_mp ||x - c_m||²
 //          → (AᵀA + (λ_reg + λ_mp)·I) x = Aᵀb + λ_mp·c_m
@@ -257,6 +274,45 @@ int   _EnableMassPointB;     // [Phase 2-C-B] 0=OFF, 1=ON(lambda 0.01→0.1)
 // ═════════════════════════════════════════════════════════════
 int   _EnablePhase2MassPointQEF;    // 0=OFF(원본), 1=ON(Mass Point bias 통합)
 float _Phase2MassPointStrength;     // λ_mp — mass point bias 강도 (권장 0.1~1.0)
+
+// ═════════════════════════════════════════════════════════════
+// [Phase 3-B — DC Overlap Removal / Ghost QEF]
+//
+// 목적:
+//   DCPointsPerAxis=ChunkSize+1 상태에서 boundary cell의 QEF 계산 시
+//   인접 chunk의 boundary edge 정보를 함께 사용해 seam vertex를 bit-identical 일치.
+//
+// 데이터 구조:
+//   GhostEdge = { intersectionPoint(3f), normal(3f), cellIndexLinear(int), edgeAxis(int) } = 32B
+//   _GhostEdgeBuffer: 모든 6면의 edge를 단일 버퍼에 직렬화
+//   _GhostFaceOffsets (int4 × 2): face별 버퍼 내 시작 offset
+//                                  x/y/z/w = +X/-X/+Y/-Y face 시작 index
+//                                  _GhostFaceOffsetsZ.xy = +Z/-Z 시작 index (별도 uniform)
+//   _GhostFaceCounts (int4 × 2): face별 edge 개수
+//                                  x/y/z/w = +X/-X/+Y/-Y
+//                                  _GhostFaceCountsZ.xy = +Z/-Z
+//
+// 규칙 #3: GenerateQuads 커널 미수정. SolveQEF 내부 boundary 분기만.
+// 규칙 #6: _EnablePhase3GhostQEF=0 시 ghost 버퍼 참조 안 함 → bit-identical.
+// 규칙 #19: ghost edges의 출처 — 인접 chunk의 Hermite buffer에서 CPU 측 추출 후 주입.
+// 규칙 #22: ghost가 ATA/ATb/massPoint에 누적됨 → 이후 Mass Point QEF + AABB clamp +
+//          Edge snap + Ridge relaxation chain을 정상 통과.
+//          → 양쪽 chunk가 같은 ghost input → 같은 chain 결과 → seam 일치.
+// ═════════════════════════════════════════════════════════════
+struct GhostEdge
+{
+    float3 intersectionPoint;   // chunk local 좌표
+    float3 normal;              // unit
+    int    cellIndexLinear;     // 경계면 내 1D 인덱스 (face 평면상 i*N+j)
+    int    edgeAxis;            // 0=X, 1=Y, 2=Z
+};
+
+int _EnablePhase3GhostQEF;               // 0=OFF(원본), 1=ON(boundary에 ghost edges 통합)
+StructuredBuffer<GhostEdge> _GhostEdgeBuffer;
+int4 _GhostFaceOffsets;                  // +X/-X/+Y/-Y face 시작 index
+int2 _GhostFaceOffsetsZ;                 // +Z/-Z face 시작 index
+int4 _GhostFaceCounts;                   // +X/-X/+Y/-Y face edge 개수
+int2 _GhostFaceCountsZ;                  // +Z/-Z face edge 개수
 
 // [P1-A] 압축 토글
 int   _UseCompressedVoxel;   // 0=OFF(원본 _VoxelBuffer), 1=ON(압축 _DensityBuffer+_OreBuffer)
@@ -428,6 +484,107 @@ float3 SolveQEF_Cholesky_MassPoint(
     float x0 = (y0 - l10 * x1 - l20 * x2) / l00;
 
     return float3(x0, x1, x2);
+}
+
+
+// ════════════════════════════════════════════════════════════════════
+// [Phase 3-B] Ghost Edge 누적 헬퍼
+//   boundary cell의 QEF 계산에 인접 chunk의 edge intersection/normal을 포함.
+//
+// 동작:
+//   1. sid (current cell)가 어느 face의 경계 cell인지 판정
+//   2. 해당 face의 ghost edges를 순회
+//   3. 각 ghost edge의 cellIndexLinear가 이 cell의 face-local index와 일치하면
+//      intersection + normal을 ATA/ATb/massPoint에 누적
+//
+// Face → Cell index mapping:
+//   +X face: cellIndex = sid.y * N + sid.z  (YZ 평면)
+//   -X face: 동일 (YZ 평면)
+//   +Y face: cellIndex = sid.x * N + sid.z  (XZ 평면)
+//   -Y face: 동일
+//   +Z face: cellIndex = sid.x * N + sid.y  (XY 평면)
+//   -Z face: 동일
+//
+// 성능:
+//   각 boundary cell은 최대 1개 face에 속함 (corner cell은 복수).
+//   edge 순회는 해당 face의 edges만 (전체 ghost 버퍼가 아니라 offset~offset+count)
+//   실제 부담: boundary cell 당 평균 10~30 edges 순회 + ATA 누적
+//   전체 비용: 경계면 cells × 평균 edges = 11,449 × 25 = ~286k 연산 / chunk (수용 가능)
+// ════════════════════════════════════════════════════════════════════
+void AccumulateGhostEdges(
+    int3 sid,
+    inout float3x3 ATA,
+    inout float3 ATb,
+    inout float3 massPoint,
+    inout int edgeCount)
+{
+    int N = _PointsPerAxis;
+
+    // Face 경계 판정: 각 축의 최소/최대 cell
+    // DCPointsPerAxis=ChunkSize+1 시 유효 cell range [0, N-2]
+    // boundary cell은 sid.axis==0 (음의 face) 또는 sid.axis==N-2 (양의 face)
+    bool onPosX = (sid.x == N - 2);
+    bool onNegX = (sid.x == 0);
+    bool onPosY = (sid.y == N - 2);
+    bool onNegY = (sid.y == 0);
+    bool onPosZ = (sid.z == N - 2);
+    bool onNegZ = (sid.z == 0);
+
+    // 여섯 faces에 대해 관련 edges를 순회
+    // face index: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
+    int faceOffsets[6] = {
+        _GhostFaceOffsets.x, _GhostFaceOffsets.y,
+        _GhostFaceOffsets.z, _GhostFaceOffsets.w,
+        _GhostFaceOffsetsZ.x, _GhostFaceOffsetsZ.y
+    };
+    int faceCounts[6] = {
+        _GhostFaceCounts.x, _GhostFaceCounts.y,
+        _GhostFaceCounts.z, _GhostFaceCounts.w,
+        _GhostFaceCountsZ.x, _GhostFaceCountsZ.y
+    };
+    bool faceActive[6] = { onPosX, onNegX, onPosY, onNegY, onPosZ, onNegZ };
+
+    // 각 face의 cell index (해당 평면에서 이 cell의 1D index)
+    // face 평면에 직교하지 않는 두 축의 (i, j) → i*N + j
+    int faceCellIdx[6];
+    faceCellIdx[0] = sid.y * N + sid.z;   // +X
+    faceCellIdx[1] = sid.y * N + sid.z;   // -X (같은 YZ 평면)
+    faceCellIdx[2] = sid.x * N + sid.z;   // +Y
+    faceCellIdx[3] = sid.x * N + sid.z;   // -Y
+    faceCellIdx[4] = sid.x * N + sid.y;   // +Z
+    faceCellIdx[5] = sid.x * N + sid.y;   // -Z
+
+    [unroll]
+    for (int f = 0; f < 6; f++)
+    {
+        if (!faceActive[f]) continue;
+        int offset = faceOffsets[f];
+        int cnt = faceCounts[f];
+        int targetCellIdx = faceCellIdx[f];
+
+        // 해당 face의 edge 리스트 순회
+        // (CPU 측에서 이미 cellIndexLinear로 정렬하면 binary search 가능 but 현재는 linear)
+        for (int i = 0; i < cnt; i++)
+        {
+            GhostEdge ge = _GhostEdgeBuffer[offset + i];
+            if (ge.cellIndexLinear != targetCellIdx) continue;
+
+            float3 p = ge.intersectionPoint;
+            float3 n = ge.normal;
+
+            if (length(n) < 0.01) continue;
+
+            ATA[0][0] += n.x * n.x; ATA[0][1] += n.x * n.y; ATA[0][2] += n.x * n.z;
+            ATA[1][0] += n.y * n.x; ATA[1][1] += n.y * n.y; ATA[1][2] += n.y * n.z;
+            ATA[2][0] += n.z * n.x; ATA[2][1] += n.z * n.y; ATA[2][2] += n.z * n.z;
+
+            float d = dot(n, p);
+            ATb += n * d;
+
+            massPoint += p;
+            edgeCount++;
+        }
+    }
 }
 
 
@@ -684,6 +841,21 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
     int3 sid = (int3)id;
     int  idx = FlatIndex(sid);
 
+    // [Gate 2 / B-α 보강 — padding cell 전면 skip]
+    //   sid.x/y/z == 0 인 cell은 dcBasePos = chunkBasePos - voxelSize 구조상
+    //   청크 공간 *밖* (인접 chunk 담당 영역). 기존 L1080 axisIdx==0 continue는
+    //   동일 axis 방향 edge quad만 차단 → 다른 축 quad가 여전히 padding vertex를
+    //   참조하여 mesh가 chunk 경계 밖으로 삐져나가는 현상 발생.
+    //   여기서 featureType=-1로 마크하면 어떤 quad에서도 사용 안 됨.
+    //   규칙 #6: _EnableBoundaryOwnership=0 시 기존 로직 유지 (bit-identical).
+    //   Ghost Density는 영향 없음 (density sampling은 별도 경로).
+    //   Vertex Mirror: self padding vertex는 애초에 mesh에 없으므로 불필요.
+    if (_EnableBoundaryOwnership != 0 && (sid.x == 0 || sid.y == 0 || sid.z == 0))
+    {
+        WriteDCVertex(idx, float3(0,0,0), float3(0,1,0), float2(0,0), -1, 0, -1.0);
+        return;
+    }
+
     float3x3 ATA = (float3x3)0;
     float3 ATb = float3(0, 0, 0);
     float3 massPoint = float3(0, 0, 0);
@@ -719,6 +891,17 @@ void SolveQEF(uint3 id : SV_DispatchThreadID)
             massPoint += p;
             edgeCount++;
         }
+    }
+
+    // [Phase 3-B] Ghost Edge 누적 — boundary cell인 경우 인접 chunk의 edges 포함
+    //   규칙 #6: _EnablePhase3GhostQEF=0 시 호출 안 됨 → ATA/ATb/massPoint/edgeCount 변화 없음
+    //            → 기존 경로와 bit-identical
+    //   규칙 #22: 이 누적 이후 기존 post-processing chain (AABB clamp + Edge snap + 
+    //            Ridge relaxation)이 정상 진행 → 양쪽 chunk가 같은 ghost input → 같은 출력
+    //   규칙 #19: ghost edges는 원시 intersectionPoint + normal (합성 지표 미사용)
+    if (_EnablePhase3GhostQEF == 1)
+    {
+        AccumulateGhostEdges(sid, ATA, ATb, massPoint, edgeCount);
     }
 
     // [FIX-4] edgeCount==0 → featureType=-1 마킹 (GenerateQuads에서 쿼드 차단)
@@ -908,6 +1091,17 @@ void GenerateQuads(uint3 id : SV_DispatchThreadID)
 
     for (int axis = 0; axis < 3; axis++)
     {
+        // [Gate 2 / B-α] Boundary Ownership — overlap edge 생성 skip
+        //   sid[axis]=0 인 cell의 axis edge는 world position = chunkBasePos - 0.5*voxelSize
+        //   → -axis neighbor chunk 담당 영역 (자기 영역 밖)
+        //   → OFF(=0) 시 이 cell에서도 quad 생성 (기본 동작 — overlap 발생 지점)
+        //   → ON(=1) 시 skip (자기 담당 edge만 생성 → mesh 중복 근본 제거)
+        if (_EnableBoundaryOwnership != 0)
+        {
+            int axisIdx = (axis == 0) ? sid.x : ((axis == 1) ? sid.y : sid.z);
+            if (axisIdx == 0) continue;
+        }
+
         int3 nid = sid + axisNeighbors[axis];
         if (nid.x >= N || nid.y >= N || nid.z >= N)
             continue;
@@ -955,6 +1149,20 @@ void GenerateQuads(uint3 id : SV_DispatchThreadID)
                 valid = false;
                 break;
             }
+
+            // [Gate 2 / B-α 보강 — Quad vertex padding check (이중 안전장치)]
+            //   SolveQEF에서 padding cell은 featureType=-1로 마크되므로 아래
+            //   FIX-4 체크로 자동 차단. 하지만 방어적으로 index 기반으로도 명시.
+            //   규칙 #6: OFF 시 이 체크 비활성 (기존 로직).
+            if (_EnableBoundaryOwnership != 0)
+            {
+                if (vid.x == 0 || vid.y == 0 || vid.z == 0)
+                {
+                    valid = false;
+                    break;
+                }
+            }
+
             int flatIdx = FlatIndex(vid);
 
             // [FIX-4] featureType=-1 → 무효 버텍스 → 쿼드 스킵
@@ -1054,4 +1262,135 @@ void RemapQuads(uint3 id : SV_DispatchThreadID)
     q.v2 = _RemapTable[q.v2];
     q.v3 = _RemapTable[q.v3];
     _DCQuadBuffer[i] = q;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// [Phase 3-B / Gate 2-γ] ExtractBoundaryHermiteEdges kernel
+//
+// 목적:
+//   CollectHermiteData kernel이 N³ × 3 = ~4M edges를 생성한 후,
+//   6개 boundary face에 위치한 edges만 compact buffer로 추출 → CPU readback.
+//   CPU는 이를 GhostEdgeSnapshot으로 포장해 neighbor chunk의 SolveQEF에 주입.
+//
+// 출력:
+//   AppendStructuredBuffer<ExtractedGhostEdge> _BoundaryHermiteOutput
+//   각 edge는 faceId 태그 (0=+X 1=-X 2=+Y 3=-Y 4=+Z 5=-Z) 포함 — CPU가 face별 분리.
+//
+// 주의:
+//   - Corner cell은 여러 face에 중복 append됨 (의도됨 — AccumulateGhostEdges face별 처리).
+//   - faceId 필드는 추출 전용 (shader의 GhostEdge struct에는 없음).
+//
+// 규칙 #3: CollectHermiteData kernel 미수정, 별도 kernel 분리.
+// 규칙 #6: 호출 안 되면 no-op. _EnablePhase3GhostQEF=0 시 dispatcher가 skip.
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct ExtractedGhostEdge
+{
+    float3 intersectionPoint;   // 12B (offset 0)
+    float3 normal;              // 12B (offset 12)
+    int    cellIndexLinear;     // 4B  (offset 24)
+    int    edgeAxis;            // 4B  (offset 28)
+    int    faceId;              // 4B  (offset 32) — 추출 전용 태그
+    int    _pad;                // 4B  (offset 36) — 40B align
+};
+// Total: 40 bytes
+
+AppendStructuredBuffer<ExtractedGhostEdge> _BoundaryHermiteOutput;
+
+[numthreads(8, 8, 8)]
+void ExtractBoundaryHermiteEdges(uint3 id : SV_DispatchThreadID)
+{
+    int3 sid = (int3)id;
+    int N = _PointsPerAxis;
+
+    // valid cell range: [0, N-2] (N-1 cells per axis, N-1인 index는 마지막 cell)
+    // cell 0 = -축 boundary, cell N-2 = +축 boundary
+    if (sid.x > N - 2 || sid.y > N - 2 || sid.z > N - 2) return;
+
+    bool onPosX = (sid.x == N - 2);
+    bool onNegX = (sid.x == 0);
+    bool onPosY = (sid.y == N - 2);
+    bool onNegY = (sid.y == 0);
+    bool onPosZ = (sid.z == N - 2);
+    bool onNegZ = (sid.z == 0);
+
+    // 어느 boundary face에도 속하지 않으면 skip
+    if (!(onPosX || onNegX || onPosY || onNegY || onPosZ || onNegZ)) return;
+
+    float3 voxelCorner = GetVoxelLocalPos((uint3)sid);
+
+    // 이 cell의 3 축 Hermite edges 순회
+    [unroll]
+    for (int axis = 0; axis < 3; axis++)
+    {
+        int edgeIdx = FlatIndex(sid) * 3 + axis;
+        float3 iPos, iNrm;
+        int readAxis;
+        ReadHermiteEdge(edgeIdx, voxelCorner, iPos, iNrm, readAxis);
+
+        // Invalid edge (normal zero/near-zero) skip
+        if (length(iNrm) < 0.01) continue;
+
+        // 이 cell이 속한 모든 face에 append (corner cell은 최대 3개 face에 중복)
+        if (onPosX) {
+            ExtractedGhostEdge ege;
+            ege.intersectionPoint = iPos;
+            ege.normal = iNrm;
+            ege.cellIndexLinear = sid.y * N + sid.z;    // YZ plane
+            ege.edgeAxis = axis;
+            ege.faceId = 0;  // +X
+            ege._pad = 0;
+            _BoundaryHermiteOutput.Append(ege);
+        }
+        if (onNegX) {
+            ExtractedGhostEdge ege;
+            ege.intersectionPoint = iPos;
+            ege.normal = iNrm;
+            ege.cellIndexLinear = sid.y * N + sid.z;
+            ege.edgeAxis = axis;
+            ege.faceId = 1;  // -X
+            ege._pad = 0;
+            _BoundaryHermiteOutput.Append(ege);
+        }
+        if (onPosY) {
+            ExtractedGhostEdge ege;
+            ege.intersectionPoint = iPos;
+            ege.normal = iNrm;
+            ege.cellIndexLinear = sid.x * N + sid.z;    // XZ plane
+            ege.edgeAxis = axis;
+            ege.faceId = 2;
+            ege._pad = 0;
+            _BoundaryHermiteOutput.Append(ege);
+        }
+        if (onNegY) {
+            ExtractedGhostEdge ege;
+            ege.intersectionPoint = iPos;
+            ege.normal = iNrm;
+            ege.cellIndexLinear = sid.x * N + sid.z;
+            ege.edgeAxis = axis;
+            ege.faceId = 3;
+            ege._pad = 0;
+            _BoundaryHermiteOutput.Append(ege);
+        }
+        if (onPosZ) {
+            ExtractedGhostEdge ege;
+            ege.intersectionPoint = iPos;
+            ege.normal = iNrm;
+            ege.cellIndexLinear = sid.x * N + sid.y;    // XY plane
+            ege.edgeAxis = axis;
+            ege.faceId = 4;
+            ege._pad = 0;
+            _BoundaryHermiteOutput.Append(ege);
+        }
+        if (onNegZ) {
+            ExtractedGhostEdge ege;
+            ege.intersectionPoint = iPos;
+            ege.normal = iNrm;
+            ege.cellIndexLinear = sid.x * N + sid.y;
+            ege.edgeAxis = axis;
+            ege.faceId = 5;
+            ege._pad = 0;
+            _BoundaryHermiteOutput.Append(ege);
+        }
+    }
 }

@@ -40,6 +40,27 @@ float2 Hash2D_Shader(float seed)
 
 float _BandHeight;  // [P0.5-C] Y-Offset 대역 높이. enableBakerV5=OFF 시 미사용
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [Track D — FORMAT_VERSION 12] Triplanar Softening — chunk overlap 영역 완화용
+// ═══════════════════════════════════════════════════════════════════════════════
+// 목적: Chunk overlap ghost voxel 영역에서 인접 chunk의 vertex normal ε 차이(10⁻³~10⁻²)가
+//       두 비선형성 지점에서 증폭되어 material(dirt/rock/moss) binary flip을 유발.
+//       → _TriplanarSharpness로 L1 비선형성(pow), _SlopeSoftWidth로 L2 비선형성(smoothstep)을 완화.
+//
+// OFF (기본값): 원본 수식과 수치적으로 동일 — byte-identical
+//   _TriplanarSharpness = 4.0        → 원본 pow(blend, 4.0)
+//   _SlopeSoftWidth     = 0.0        → 원본 smoothstep(0.5, 0.9, slope) (폭 0.4)
+//
+// ON (Softening 적용):
+//   _TriplanarSharpness = 2.0 ~ 3.0  → axis 전환이 smooth해지고 화면 artifact 감소
+//   _SlopeSoftWidth     = 0.2 ~ 0.4  → smoothstep 대역 확대, slope 경계 급변 완화
+//
+// 기본값이 "원본 일치"이므로 Inspector에서 값만 바꿔 튜닝 가능. 셰이더 재컴파일만 필요.
+// 규칙 #15: rendering-only 변경이라 FORMAT_VERSION 영향 없음. mesh/SDF paramHash 무관.
+// ═══════════════════════════════════════════════════════════════════════════════
+float _TriplanarSharpness;  // 기본 4.0 (원본 유지). 낮추면 축 전환 smooth
+float _SlopeSoftWidth;      // 기본 0.0 (원본 유지). 높이면 dirt/rock/moss 전환 부드럽게
+
 float4 SampleTriplanar(TEXTURE2D_PARAM( tex, samp),
 float3 worldPos, float3 blendWeights, float tiling)
 {
@@ -131,7 +152,11 @@ void GetCaveSurfaceData(
 
     // ── blendWeights는 L1 보정된 법선 기준 ──────────────────────────
     float3 blendWeights = abs(correctedNormal);
-    blendWeights = pow(blendWeights, 4.0);
+    // [Track D] sharpness를 uniform으로 — _TriplanarSharpness=4.0(기본)이면 원본과 동일
+    //   값을 2.0~3.0으로 낮추면 chunk overlap 영역의 축 전환 artifact 완화
+    //   단 texture projection 선명도가 약간 저하되는 trade-off (전 표면 공통 영향)
+    float safeSharpness = max(_TriplanarSharpness, 0.01);
+    blendWeights = pow(blendWeights, safeSharpness);
     float sumWeights = dot(blendWeights, (float3) 1.0);
     blendWeights = sumWeights < 0.0001 ? float3(0, 1, 0) : (blendWeights / sumWeights);
 
@@ -209,8 +234,22 @@ void GetCaveSurfaceData(
     float4 mossMOHR = SampleTriplanar(_MossMask, sampler_MossMask, samplePos, blendWeights, tiling);
 
     float slope = safeNormal.y;
-    float mossWeight = saturate(smoothstep(0.5, 0.9, slope) + (mossMOHR.b * 0.3));
-    float dirtWeight = saturate(smoothstep(0.5, 0.9, -slope) + (dirtMOHR.b * 0.3));
+    // [Track D] slope 경계 smoothstep 대역을 uniform으로 확장 가능하게 변경
+    //   _SlopeSoftWidth = 0.0 (기본): smoothstep(0.5, 0.9, slope) — 원본과 동일 (폭 0.4)
+    //   _SlopeSoftWidth > 0.0:        대역을 ±softHalf/2 만큼 양쪽으로 벌려 전환 부드럽게
+    //
+    //   ★ Issue 2 주범 해소 핵심:
+    //   chunk overlap 영역에서 normal.y 차이 ε(~10⁻²)이 smoothstep 대역(원본 0.4)
+    //   내에 있어도 slope가 0.5±ε 부근이면 두 chunk에서 dirtWeight가 수 배 차이 →
+    //   texture binary flip. 대역을 0.6~0.8로 넓히면 slope=0.5±ε에서 dirtWeight 차이가
+    //   선형적으로 작아짐 → flip 해소.
+    float softHalf = max(_SlopeSoftWidth, 0.0) * 0.5;
+    float mossLo = 0.5 - softHalf;  // 원본 0.5
+    float mossHi = 0.9 + softHalf;  // 원본 0.9
+    float dirtLo = 0.5 - softHalf;
+    float dirtHi = 0.9 + softHalf;
+    float mossWeight = saturate(smoothstep(mossLo, mossHi, slope) + (mossMOHR.b * 0.3));
+    float dirtWeight = saturate(smoothstep(dirtLo, dirtHi, -slope) + (dirtMOHR.b * 0.3));
     float heightMask = 1.0 - saturate((worldPos.y - dirtFadeStart) / max(0.001, dirtFadeEnd - dirtFadeStart));
     dirtWeight *= heightMask;
     float rockWeight = saturate(1.0 - (dirtWeight + mossWeight));

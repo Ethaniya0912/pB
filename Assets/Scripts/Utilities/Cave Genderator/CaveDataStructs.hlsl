@@ -40,16 +40,22 @@ struct NodeData
     float3 position;
     float radius;
     int roomType;
-    float3 padding;
+    float3 sculptFlags;  // [A.5] padding 재활용 — x=wantNarrow, y=wantHighGround, z=wantOpen
 };
 
-// C#의 EdgeData와 동일 (32 bytes)
+// C#의 EdgeData와 동일 (72 bytes) — Phase 4.5-G Stage 3-C
 struct EdgeData
 {
-    float3 startPos;
-    float3 endPos;
-    float width;
-    float padding;
+    float3 startPos;      // offset 0
+    float3 endPos;        // offset 12
+    float  width;         // offset 24
+    float  curvatureAmp;  // offset 28 — per-edge curvature
+    uint   w1_packed;     // offset 32 — waypoint 1 (half3 packed)
+    uint   w2_packed;     // offset 36 — waypoint 2 (half3 packed)
+    uint   flags;         // offset 40 — bits[0..1] = numWaypoints (0/1/2)
+    uint   _padWP;        // offset 44 — alignment
+    float3 aabbMin;       // offset 48 — pre-computed AABB
+    float3 aabbMax;       // offset 60
 };
 
 // C#의 BiomeParamData와 동일 (32 bytes)
@@ -63,7 +69,7 @@ struct BiomeParamData
     float bumpAmplitude;
     float bumpFrequency;
     int noiseType;
-    float padding;
+    float blendDamping;   // [Phase 4.5-G Stage 1-A] blend 중심 detail amp 감쇠 (0.3~1.0)
 };
 
 #endif

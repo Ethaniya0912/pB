@@ -9,6 +9,10 @@ Shader "CaveSystem/CaveDreamcoreTerrain"
         _Tiling ("Triplanar Tiling", Float) = 0.2
         _HeightScale ("Height Scale (POM)", Float) = 0.05
         _NormalScale ("Normal Scale", Float) = 1.0
+
+        [Header(Track D Triplanar Softening)]
+        _TriplanarSharpness ("Triplanar Sharpness (4=original, 2~3=softer)", Range(0.5, 8.0)) = 4.0
+        _SlopeSoftWidth ("Slope Transition Soft Width (0=original, 0.2~0.4=softer)", Range(0.0, 1.0)) = 0.0
         
         [Header(POM Settings)]
         [Toggle] _EnableSafePom ("Enable Safe POM", Float) = 1.0

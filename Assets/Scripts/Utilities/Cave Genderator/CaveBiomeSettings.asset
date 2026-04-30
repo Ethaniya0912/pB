@@ -19,8 +19,12 @@ MonoBehaviour:
   gain: 0.5
   macroBiomeScale: 500
   globalBiomes:
-  - {fileID: 11400000, guid: 23062ff654eafe2438553c5eb819c6e9, type: 2}
-  - {fileID: 11400000, guid: 2e0520f991830f042949f12073e0b060, type: 2}
+  - {fileID: 11400000, guid: f7c0adba451c8f04e98c17c18b31be91, type: 2}
+  - {fileID: 11400000, guid: cf515ae18817bf64c9bda4a7407ce7bb, type: 2}
+  - {fileID: 11400000, guid: 5b3e73372c0e6a24fae679c18634fcdb, type: 2}
+  sdfProfiles: []
+  cardinalBias: {fileID: 0}
+  roomGeometryMatrix: {fileID: 0}
   depthLayers:
   - layerName: 1F
     maxAltitude: 15
@@ -47,3 +51,5 @@ MonoBehaviour:
     layerFogColor: {r: 0.22745098, g: 0.20784314, b: 0.1882353, a: 0}
     waterLevel: -4
     oreDistributions: []
+    canyonCeilingHeight: 0
+    warpAmplitudeOverride: 0

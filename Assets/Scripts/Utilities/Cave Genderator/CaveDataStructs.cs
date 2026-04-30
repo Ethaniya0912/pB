@@ -75,7 +75,12 @@ namespace CaveSystem
         public Vector3 position; // 12 bytes (Offset 0)
         public float radius;     // 4 bytes  (Offset 12)
         public int roomType;     // 4 bytes  (Offset 16) : 0=일반, 1=스폰, 2=보스, 3=보물, 4=싱크홀
-        public Vector3 padding;  // 12 bytes (Offset 20) : 정렬 마감
+        public Vector3 sculptFlags;  // 12 bytes (Offset 20) [A.5] padding → sculpt 편향
+        //                                                   x = wantNarrow    (-1~+1: 넓게↔좁게)
+        //                                                   y = wantHighGround (-1~+1: 낮게↔높게)
+        //                                                   z = wantOpen      (-1~+1: 밀집↔개방)
+        //                                                   NodeGraphBuilder가 roomType별 자동 설정.
+        //                                                   Shader 소비는 A.7/.8에서 (현재 padding 역할).
     }
 
     /// <summary>
@@ -84,10 +89,34 @@ namespace CaveSystem
     [StructLayout(LayoutKind.Sequential)]
     public struct EdgeData
     {
-        public Vector3 startPos; // 12 bytes (Offset 0)
-        public Vector3 endPos;   // 12 bytes (Offset 12)
-        public float width;      // 4 bytes  (Offset 24)
-        public float padding;    // 4 bytes  (Offset 28) : 정렬 마감
+        // ── 기본 (32B, 기존 호환) ──────────────────────────────────────
+        public Vector3 startPos;     // 12 bytes (Offset 0)
+        public Vector3 endPos;       // 12 bytes (Offset 12)
+        public float width;          // 4 bytes  (Offset 24)
+        public float curvatureAmp;   // 4 bytes  (Offset 28) [E-β.3.5] padding 재활용
+        //                                                   0 = 직선 (기본), > 0 = capsule chain
+        //                                                   NodeGraphBuilder가 biome.curvatureAmp 주입
+
+        // ── Route A* waypoint (16B) — [Phase 4.5-G Stage 3-C] ─────────
+        // Packed half3 (R10G11B11 유사) — midpoint 기준 offset (±10m, 0.01m step)
+        // numWaypoints=0 → 기존 fast-path (byte-identical 유지)
+        public uint w1_packed;       // 4 bytes (Offset 32) — waypoint 1 offset
+        public uint w2_packed;       // 4 bytes (Offset 36) — waypoint 2 offset
+        public uint flags;           // 4 bytes (Offset 40)
+        //   bits[0..1] = numWaypoints (0/1/2)
+        //   bit[2]     = [Phase 4.5-G Stage 3-D D4] BypassBlendBoost
+        //                디자이너가 좁은 통로 의도 시 set → BlendWidthBoost 무시
+        //   bit[3]     = [D4] WidthBoosted   (D4가 width 확장함)
+        //   bit[4]     = [D4] WidthNarrowed  (D4가 width 축소함)
+        //   bits[5..31] = reserved
+        public uint _padWP;          // 4 bytes (Offset 44) — 16B alignment
+
+        // ── Pre-computed AABB (24B) — [Phase 4.5-G Stage 3-C, O1] ────
+        // Runtime에서 실시간 계산 대신 pregen 시 저장 (immutable phase 활용)
+        // Waypoint edges는 전체 sub-segment 커버하는 tight AABB
+        public Vector3 aabbMin;      // 12 bytes (Offset 48)
+        public Vector3 aabbMax;      // 12 bytes (Offset 60)
+        //                                                   총 72 bytes
     }
 
     /// <summary>
@@ -104,7 +133,9 @@ namespace CaveSystem
         public float bumpAmplitude;  // 4 bytes (Offset 16)
         public float bumpFrequency;  // 4 bytes (Offset 20)
         public int noiseType;        // 4 bytes (Offset 24)
-        public float padding;        // 4 bytes (Offset 28) : 정렬 마감
+        public float blendDamping;   // 4 bytes (Offset 28) [Phase 4.5-G Stage 1-A]
+                                      //   Blend 중심 detail amp 감쇠 비율 (0.3~1.0)
+                                      //   기존 padding 슬롯 재활용 — 구조체 크기 변경 없음
     }
 
     // ====================================================================
@@ -124,6 +155,22 @@ namespace CaveSystem
 
         // [Phase 2] featureType 배열 — Laplacian 억제에 사용
         public int[] FeatureTypes;  // dcVerts 인덱스 기준, -1=무효/0=Smooth/1=Edge/2=Corner
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // [Approach B / LOD Isolation] IsCoarse 플래그
+        //   역할: Coarse-First 프리뷰 chunk인지 식별.
+        //   true  → 임시 저해상 mesh. Ghost Cache 등록 skip, Mirror skip, Halo Bake skip.
+        //           Fine chunk 도착 시 파괴됨 (CleanupCompletedCoarse).
+        //   false → 정상 Fine chunk. 모든 G4-A / G4-C 로직 적용 대상.
+        //
+        //   설정 위치: CaveChunkManager.TryProcessCoarseQueue (Coarse 생성 시 true)
+        //              기본값 false (Fine 기본 경로).
+        //
+        //   미래 Multi-LOD (Approach A) 업그레이드 시:
+        //     bool IsCoarse → int LodLevel (0=Fine, 1=Medium, 2=Coarse)로 확장 가능.
+        //     이 플래그는 "L0 vs 非L0"의 이분법을 유지하여 점진 마이그레이션 보조.
+        // ═══════════════════════════════════════════════════════════════════════════
+        public bool IsCoarse = false;
 
         public void Dispose() { DensityCache = null; FeatureTypes = null; }
     }

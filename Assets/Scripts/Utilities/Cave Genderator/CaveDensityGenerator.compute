@@ -39,6 +39,71 @@ float _FloorBlendRadius;
 float _WarpAmplitude;  // CaveComputeDispatcher.cs에서 SetFloat로 제어 (권장: 0.5)
 float _CeilBlendRadius;
 
+// [Gate 5 Phase A.1] DepthLayer.canyonCeilingHeight 전달용
+//   기본값 25.0 (기존 하드코딩 호환). Dispatcher fallback이 0 → 25.0 변환 처리.
+//   Case 5 EvaluateSkeleton의 canyonPt.y 수직 상한에만 영향.
+float _MaxCanyonHeight;
+
+// [Gate 5 Phase E-β.2] Edge curvature amplitude (m)
+//   0 = 직선 (sdCapsule 기존 동작, byte-identical)
+//   > 0 = EvaluateCurvedTunnel로 capsule chain 사용 (플레이어빌리티 가드 내장)
+//   CaveTerrainConfig.enableCurvedTunnels + curvatureAmplitude로 제어
+//   규칙 #6: 기본 0 → 기존 동작 유지
+float _CurvatureAmplitude;
+
+// [Gate 5 Phase E-β.4] Floor Y variation amplitude (m)
+//   0 = 평탄 (기존 동작, byte-identical)
+//   > 0 = worldPos.xz 기반 noise로 floorY 변조 (±amp m 기복)
+//   Hard Lower Bound: 변조된 floorY가 layerParams.minAltitude 아래로 절대 안 내려감
+//   Hard Upper Bound: +1.5m (플레이어 jump 한계)
+//   CaveTerrainConfig.enableFloorVariation × floorVariationAmplitude × biome override
+float _FloorVariationAmp;
+
+// [Gate 5 Phase E-β.5] Ceiling Y variation amplitude (m)
+//   0 = 평탄 (기존 동작, byte-identical)
+//   > 0 = worldPos.xz 기반 noise로 ceilY 변조 (±amp m 변이)
+//   Hard Upper Bound: layerParams.maxAltitude 위로 절대 안 올라감
+//   Hard Lower Bound: floorY + 2.2m (플레이어 pass 보장)
+float _CeilVariationAmp;
+
+// [Gate 5 Phase A.4] DomainWarp 확장
+//   _WarpYScale: Y 축 warp 스케일 (0 = 기존 XZ만, > 0 = Y에도 warp)
+//   _WarpRecursive: 1.0 = 재귀 warp 활성, 0.0 = 1단 warp만 (규칙 #6: 기본 0)
+float _WarpYScale;
+float _WarpRecursive;
+
+// [Gate 5 Phase A.8] Stalactite 활성 토글
+//   0 = OFF (byte-identical), 1 = ON (Case 0 천장에 종유석 추가)
+//   선언은 CaveBiomeMath.hlsl에서 forward declaration (L11)
+//   compute shader는 SetFloat로 값 주입만
+
+// [Gate 5 Phase A.9] Sinkhole 활성 토글 (기존 _SinkholeProb과 별개 master switch)
+//   0 = OFF, 1 = ON (DepthLayer.sinkholeProbability 적용)
+float _EnableSinkhole;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// [Gate 5 Phase E-α.4] Primitive Routing uniforms
+//
+//   _EnablePrimitiveRouting: 0=OFF (byte-id), 1=ON (biome enum 소비)
+//   _TunnelPrimitive: TunnelPrimitiveType enum (0=Capsule, 1=HexPrism, ...)
+//   _RoomPrimitive:   RoomPrimitiveType enum (0=Sphere, 1=Pear, ...)
+//   현재 single-biome 단일 uniform. 다중 biome 확장은 E-α.5 이후.
+//
+//   byte-identical 보장:
+//     _EnablePrimitiveRouting = 0 OR _TunnelPrimitive = 0 → 기존 sdCapsule 경로
+//     _EnablePrimitiveRouting = 0 OR _RoomPrimitive = 0 → 기존 sphere 경로
+// ═══════════════════════════════════════════════════════════════════════════
+float _EnablePrimitiveRouting;
+int _TunnelPrimitive;
+int _RoomPrimitive;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// [Gate 5 Phase E-α.8] Cliff Joint toggle
+//   0 = OFF (byte-identical, cliffJoint 무시)
+//   1 = ON (Case 5 경계 cliff plane 적용)
+// ═══════════════════════════════════════════════════════════════════════════
+float _EnableCliffJoint;
+
 float _FloorBumpFrequency;
 float _FloorBumpAmplitude;
 
@@ -56,6 +121,144 @@ int _DebugStage;
 // [AABB] Dispatcher가 계산한 적응형 마진 (OFF=10.0, ON=smin×3+warp+2)
 float _AABBMargin;
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [Phase 4.5-G] Atomic Biome Sync Preset 및 부속 토글
+//   각 토글은 D2 원칙: default 0 → byte-identical to Route_Astar baseline.
+//   Dispatcher가 SetInt로 각 값 전달, 미설정 시 0 (안전).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// [I7] Ecotone SDF — blend 중심 영역 안전 SDF (Anchor 패턴)
+//   OFF (0, 기본): byte-identical, ApplyBiomeDetail_Ecotone 호출 안 됨
+//   ON  (1): blendCentrality > _EcotoneThreshold 영역에서 ecotoneDensity로 lerp
+//            Anchor 패턴: typeA/B 중 하나가 Replacement (Case 2/3/5)면 baseSDF anchor
+int _EnableEcotoneSDF;
+float _EcotoneThreshold;  // 기본 0.3 — Ecotone 활성 centrality 임계
+
+// [E4 Phase 1] Blend Detail Suppression — 옵션 토글 (Anchor 패턴이 보통 대체)
+//   OFF (0, 기본): Stage 1-A 정통식 사용 (R-VIS 보존)
+//   ON  (1): ampDampingFactor = lerp(0.95, 0.0, blendCentrality) — 자기 영역 5% 감쇠
+//   주의: Anchor 패턴이 활성화되면 통상 OFF로 두는 것이 권장
+int _EnableBlendDetailSuppression;
+
+// [E4 Phase 2] Blend Calm Detail — blend 중심 ripple (시각 보강)
+//   OFF (0, 기본): byte-identical
+//   ON  (1): finalDensity += ripple × centrality × wallMask (amp ±0.13m)
+int _EnableBlendCalmDetail;
+
+// [H1] Disable Biome Blend (DEBUG) — biome 경계 hard step
+//   OFF (0, 기본): smooth blendWeight 그대로
+//   ON  (1): blendWeight를 0/1로 강제 step (DEBUG용, 운영 빌드 OFF)
+int _DisableBiomeBlend;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [Phase 4.5-G P2] Single-Source-of-Noise 모델 (γ State)
+//
+//   _BiomeBlendMode = 0 (default): Legacy/GpuAligned dual blend 그대로
+//                                    → finalDensity = lerp(densityA, densityB, w) × ampDampingFactor
+//   _BiomeBlendMode = 1 (γ State):  Single-Source 모델
+//                                    → 한 noise만 사용, amp = (1 - centrality) × ampScale
+//                                    → blend center (w=0.5) blank skeleton
+//                                    → P1/P2 자동 안전, Stage 1-B 자동 대체, I7 Anchor 자동 대체
+//
+//   Single-Source 시 동작:
+//     w < 0.5: typeA noise만 (Karst 등), amp 자기영역 비례
+//     w > 0.5: typeB noise만, amp 자기영역 비례
+//     w = 0.5: blank (faded ecotone)
+//
+//   사용자 결정: blend center 최소화 + faded 영역 최대화 — _SingleSourceFadePower로 제어
+// ═══════════════════════════════════════════════════════════════════════════════
+int _BiomeBlendMode;        // 0 = dual (legacy), 1 = single-source
+float _SingleSourceFadePower;  // 1.0 = linear (1-c), 2.0 = quadratic (faded 영역 ↑), 0.5 = sqrt (blend center 좁힘)
+
+// ═══════════════════════════════════════════════════════════════════════
+// [Phase 12] Single-Source 정신 + 통로 침해 방지 — 3 토글
+//
+//   사용자 보고서 정합:
+//     (1) blend 영역 noise 점진 0 — 능선/기둥 평탄화
+//     (2) 동굴 base capsule 보존 — Single-Source 정신 유지
+//     (3) 통로 영역 침해 절대 금지 — fBm 양방향 [-1,+1] 양수 침투 차단
+//
+//   4원칙 준수: 모든 변수 명시적 가드 — 0이면 OFF (D2 byte-identical)
+//
+//   Phase 12-A (★ 옵션 ζ — Boundary Blank Zone):
+//     blend boundary 근처 (bw ∈ [0.5-w/2, 0.5+w/2]) 명시적 평탄
+//     finalDensity = baseSDF (typeA/typeB ApplyBiomeDetail 호출 안 함)
+//     사용자 의도: "중간 지점의 평탄화" — 능선/sediment/기둥 자연 zero화
+//     default 0 → 기존 동작 (1 voxel만 blank), 양수면 ~spatial 폭 확장
+//
+//   Phase 12-B (★ 옵션 G1 — Tunnel Surface Protection):
+//     noise 양수 (detailOffset > 0)일 때 baseSDF 깊이 비례 약화
+//     guardFactor = smoothstep(-_TunnelGuardMargin, _OuterFadeMargin, baseSDF)
+//     detailOffset 음수 (외부 확장)는 항상 허용 — 통로 안전
+//     default 0 → guardFactor 항상 1.0 → 기존 동작
+//
+//   D2 보장: 모든 default 0 → byte-identical
+// ═══════════════════════════════════════════════════════════════════════
+float _BlankZoneWidth;      // [Phase 12-A] ζ 평탄 zone 폭 (bw 단위, default 0=OFF, 권장 0.10)
+float _TunnelGuardMargin;   // [Phase 12-B] G1 통로 보호 거리 (m, default 0=OFF, 권장 1.5)
+float _OuterFadeMargin;     // [Phase 12-B] G1 외부 fade 끝 (m, default 0.5)
+
+// ═══════════════════════════════════════════════════════════════════════
+// [Phase 12-E] ★ M5 — Base Level Normalization (모든 case 단층 해결)
+//
+//   문제: max() / -= 패턴 case (Sediment, Colonnade, Rocky, Canyon, Marine)
+//         은 detailSDF 평균 음수 → biome간 surface baseline 차이 → 단층
+//
+//   해결: baseSDF 자체를 biome별 평균만큼 사전 보정
+//         baseSDF -= biomeMeanOffset (음수 → +로 더해짐, 통로 안쪽으로 확장)
+//         → 모든 biome 통로 surface가 같은 baseline에서 시작
+//
+//   Colonnade NEVER MODIFIED 룰 준수 — case 안 건드리고 baseSDF만 보정
+//
+//   D2 보장: _EnableBaseSDFLevelOffset = 0이면 OFF (또는 모든 lookup 값 0)
+// ═══════════════════════════════════════════════════════════════════════
+float _EnableBaseSDFLevelOffset;  // [Phase 12-E] M5 활성 (default 0=OFF)
+StructuredBuffer<float> _BiomeMeanOffsetLookup;  // [Phase 12-E] biome별 평균 detailSDF offset (음수)
+
+// ═══════════════════════════════════════════════════════════════════════
+// [Phase 13] ★ G2 — Tunnel Width Expansion (디테일 100% 유지하면서 통로 확장)
+//
+//   문제: noise (특히 Karst fBm 양수 시)가 통로 안쪽으로 침투 가능
+//         G1 (Attenuation)은 noise 약화 → 디테일 일부 손실
+//
+//   해결: baseSDF 사전 확장 — capsule이 안쪽으로 expansion만큼 확장
+//         expansion = min(biomeAmp, _MaxTunnelExpansion) × _TunnelExpansionFactor
+//         → noise가 들어와도 finalSDF가 원래 통로 폭으로 복귀
+//         → ★ 디테일 100% 유지 + 통로 보호
+//
+//   D2 보장: _TunnelExpansionFactor = 0이면 OFF
+// ═══════════════════════════════════════════════════════════════════════
+float _TunnelExpansionFactor;  // [Phase 13] G2 강도 (0~1, default 0=OFF, 권장 0.5)
+float _MaxTunnelExpansion;     // [Phase 13] G2 최대 확장 cap (m, default 1.5)
+StructuredBuffer<float> _BiomeAmpLookup;  // [Phase 13] biome별 max amp (양수)
+
+// ═══════════════════════════════════════════════════════════════════════
+// [Phase 14] ★ N1 — Node Chamber Biome Lock (★ 사용자 단층 본질 해결)
+//
+//   목적: chamber radius 안 voxel을 노드 위치 biome으로 강제 통일
+//         (★ F2 boundary 노드, F10 큰 chamber, F19 boundary cluster)
+//
+//   메커니즘: 4-C (bIdxA/bIdxB/blendWeight 결정) 직후 활성
+//     1. 가장 가까운 노드까지 거리 dist 계산 (★ spatial hash 활용)
+//     2. dist < lockRadius (노드 chamber radius × multiplier) 시
+//     3. lockStrength = smoothstep(lockRadius, lockRadius * innerFrac, dist)
+//     4. blendWeight = lerp(blendWeight, nodeOwnBW, lockStrength)
+//        → chamber 안 voxel 들이 노드 위치 biome으로 통일
+//
+//   D2 보장: _NodeChamberLockRadiusMul = 0이면 OFF (전체 skip)
+//   atomic preset: η/ε에서 자동 lockRadiusMul = 1.5 (chamber radius × 1.5)
+//
+//   관련 form: F2/F10/F19 (R2 + R1과 결합 시 효과 ↑)
+// ═══════════════════════════════════════════════════════════════════════
+float _NodeChamberLockRadiusMul;  // [Phase 14] N1 lockRadius 배수 (0=OFF, 권장 1.5)
+float _NodeChamberLockInnerFrac;  // [Phase 14] N1 fade 시작 fraction (default 0.5)
+
+// [Phase 4.5-G P3] Columnar (Case 1) Soft-Terrace
+//   _EnableColumnarSoftTerrace uniform은 CaveBiomeMath.hlsl 헤더에 선언됨 (line 34).
+//   compute가 hlsl을 include하므로 같은 scope의 uniform 단일 선언으로 충분.
+//   여기서는 중복 선언 안 함 — '_EnableStalactite' 동일 패턴.
+//   Dispatcher가 SetInt("_EnableColumnarSoftTerrace", ...) 호출하면 같은 uniform에 주입.
+
 // [Phase 1] SDF 기능 토글 — OFF 시 원본 동작
 float _TunnelWidthScale;   // Dispatcher 폴백: 0→1.0
 float _RoomSizeScale;      // 동일
@@ -68,16 +271,214 @@ float _FloorDetailAmplitude;
 float _FloorDetailFrequency;
 float _FloorDetailRadius;
 
-// ─────────────────────────────────────────────────────────────
-// [Phase 1.5 / 옵션 B Parabolic Lift] — 제거됨.
-// 원인: finalDensity를 "통로로부터의 거리" 지표로 사용한 설계 오류. 
-//       합성된 bulk SDF(room+tunnel+warp+noise smin/smax)를 원시 tunnel 거리로 
-//       오인하여 Y 전역에서 lift가 전역적으로 발동 → 수평층 파편 유발.
-// 상세: phase_15_test_analysis.html (옵션 B 설계 오류 섹션) 및
-//       본 제거 보고서 phase_15_chunk_boundary_analysis.html 참조.
-// 대체: 옵션 A (Floor Y-Clamp, CaveNodeGraphBuilder)가 같은 목적을 더 안전하게 달성.
-// 규칙 #19 (신규): SDF 단계 개입 시 합성 상태 문서화 의무.
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// [B-7] Phase 2 Compatibility Toggles — 개별 기능 ON/OFF (회귀 테스트용)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dispatcher가 SetInt로 각 토글 전달.
+// OFF 시 해당 기능 완전 스킵 → 원본 동작 또는 부분 동작 확인 가능.
+// 기본값 1 (ON). Dispatcher 폴백: uniform 미설정 시 0 → Dispatcher가 항상 1 set.
+// ═══════════════════════════════════════════════════════════════════════════════
+int _EnablePhase2FloorClamp;      // bool: 바닥 Y clamp (floorPlaneSDF smax)
+int _EnablePhase2CeilClamp;       // bool: 천장 Y clamp (ceilPlaneSDF smax)
+int _EnablePhase2FloorBump;       // bool: 바닥 자연 요철 (floorBump)
+int _EnablePhase2Erosion;         // bool: 표면 침식 노이즈
+int _EnablePhase2Sinkhole;        // bool: sinkhole 생성
+int _EnablePhase2Ore;             // bool: ore flag 쓰기
+// ═══════════════════════════════════════════════════════════════════════════════
+// [FORMAT_VERSION 12] 신규 토글 — OFF 시 원본과 byte-identical 보장
+//   FV 11의 _EnableErosion3DBiasOnly는 detail 손실로 은퇴 → _EnableErosion3DSignedNarrow로 대체
+// ═══════════════════════════════════════════════════════════════════════════════
+int _EnableErosion3DSignedNarrow; // bool: Erosion 3D 3-oct signed + narrow mask 모드
+                                  //       OFF: 2-oct signed XZ-only (원본), ON: 3-oct signed 3D narrow
+int _EnablePerVoxelLayerBlend;    // bool: DepthLayer per-voxel blend (인접청크 SDF C⁰ 연속 확보)
+                                  //       OFF: chunkBasePos.y 단일 layer (원본), ON: worldPos.y 기반 blend
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [FORMAT_VERSION 11] Per-voxel DepthLayer Blend — GPU-transmitted layer array
+//   _EnablePerVoxelLayerBlend == 1 시에만 사용.
+//   OFF 시 DispatchBlendedLayer(...)는 호출 안 되고 기존 uniform이 그대로 SDF 계산에
+//   사용되므로 backup과 byte-identical 동작 (Toggle OFF 원칙 준수).
+//   Struct size: 80 bytes = 5 × float4 (16-byte aligned). CaveBiomeSettings.cs의
+//   DepthLayerGPUData와 필드 순서 완전 일치 필수.
+// ═══════════════════════════════════════════════════════════════════════════════
+struct DepthLayerData
+{
+    float minAltitude;
+    float maxAltitude;
+    float floorBlendRadius;
+    float ceilBlendRadius;
+    float floorBumpAmplitude;
+    float floorBumpFrequency;
+    float sdfSmoothness;
+    float sinkholeProbability;
+    float sinkholeMinRadius;
+    float sinkholeMaxRadius;
+    float sinkholeSmoothness;
+    float ledgeStepHeight;
+    float spiralFrequency;
+    float spiralAmplitude;
+    float tunnelWidthScale;
+    float roomSizeScale;
+    float sedimentAmplitude;
+    float floorDetailAmplitude;
+    float floorDetailFrequency;
+    float floorDetailRadius;
+};
+
+StructuredBuffer<DepthLayerData> _DepthLayerBuffer;
+int _DepthLayerCount;
+float _LayerBlendWidth;  // 경계 soft 구간 (m). 기본 2.0. Dispatcher에서 SetFloat.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 두 layer를 weight t로 lerp (t=0 → a, t=1 → b)
+// ─────────────────────────────────────────────────────────────────────────────
+DepthLayerData LerpLayer(DepthLayerData a, DepthLayerData b, float t)
+{
+    DepthLayerData r;
+    r.minAltitude          = lerp(a.minAltitude,          b.minAltitude,          t);
+    r.maxAltitude          = lerp(a.maxAltitude,          b.maxAltitude,          t);
+    r.floorBlendRadius     = lerp(a.floorBlendRadius,     b.floorBlendRadius,     t);
+    r.ceilBlendRadius      = lerp(a.ceilBlendRadius,      b.ceilBlendRadius,      t);
+    r.floorBumpAmplitude   = lerp(a.floorBumpAmplitude,   b.floorBumpAmplitude,   t);
+    r.floorBumpFrequency   = lerp(a.floorBumpFrequency,   b.floorBumpFrequency,   t);
+    r.sdfSmoothness        = lerp(a.sdfSmoothness,        b.sdfSmoothness,        t);
+    r.sinkholeProbability  = lerp(a.sinkholeProbability,  b.sinkholeProbability,  t);
+    r.sinkholeMinRadius    = lerp(a.sinkholeMinRadius,    b.sinkholeMinRadius,    t);
+    r.sinkholeMaxRadius    = lerp(a.sinkholeMaxRadius,    b.sinkholeMaxRadius,    t);
+    r.sinkholeSmoothness   = lerp(a.sinkholeSmoothness,   b.sinkholeSmoothness,   t);
+    r.ledgeStepHeight      = lerp(a.ledgeStepHeight,      b.ledgeStepHeight,      t);
+    r.spiralFrequency      = lerp(a.spiralFrequency,      b.spiralFrequency,      t);
+    r.spiralAmplitude      = lerp(a.spiralAmplitude,      b.spiralAmplitude,      t);
+    r.tunnelWidthScale     = lerp(a.tunnelWidthScale,     b.tunnelWidthScale,     t);
+    r.roomSizeScale        = lerp(a.roomSizeScale,        b.roomSizeScale,        t);
+    r.sedimentAmplitude    = lerp(a.sedimentAmplitude,    b.sedimentAmplitude,    t);
+    r.floorDetailAmplitude = lerp(a.floorDetailAmplitude, b.floorDetailAmplitude, t);
+    r.floorDetailFrequency = lerp(a.floorDetailFrequency, b.floorDetailFrequency, t);
+    r.floorDetailRadius    = lerp(a.floorDetailRadius,    b.floorDetailRadius,    t);
+    return r;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// y 좌표를 포함하는 layer 인덱스 반환. 깊이 순서 무관하게 minAltitude < y <= maxAltitude
+// 매칭 첫 발견. 미발견 시 마지막 layer (GetLayerSettings의 CPU측 fallback과 일관).
+// ─────────────────────────────────────────────────────────────────────────────
+int FindLayerIndex(float y)
+{
+    int idx = _DepthLayerCount - 1; // fallback
+    for (int i = 0; i < _DepthLayerCount; i++)
+    {
+        if (y > _DepthLayerBuffer[i].minAltitude && y <= _DepthLayerBuffer[i].maxAltitude)
+        {
+            idx = i;
+            break;
+        }
+    }
+    return idx;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// worldPos.y 기준 soft-blended DepthLayer 반환.
+// 경계에서 _LayerBlendWidth 반경 이내에 있으면 인접 layer와 smoothstep lerp.
+// 원칙 3 (C⁰ 불연속 관리): smoothstep은 C¹ 연속 → SDF도 C¹ 보장.
+//
+// [FIX] DXC(d3d11)의 "potentially uninitialized variable" 경고 회피를 위해
+//   단일 return path로 재작성. 중간 early-return이 struct field initialization
+//   추적을 방해하는 경우가 있음. result를 cur로 초기화 후 조건부 override만 수행.
+// ─────────────────────────────────────────────────────────────────────────────
+DepthLayerData GetLayerBlended(float y)
+{
+    int idx = FindLayerIndex(y);
+    DepthLayerData cur = _DepthLayerBuffer[idx];
+    DepthLayerData result = cur;  // 모든 field를 cur로 완전 초기화 (early default)
+
+    // 단일 layer인 경우 blend 불필요 — result = cur 유지
+    if (_DepthLayerCount > 1 && _LayerBlendWidth > 0.001)
+    {
+        float distToUpper = cur.maxAltitude - y;
+        float distToLower = y - cur.minAltitude;
+        bool blended = false;
+
+        // 상단 경계 쪽 — 더 위의 layer와 blend
+        // (cur.maxAltitude와 인접 layer.minAltitude가 일치하는 것을 찾아 blend)
+        if (distToUpper < _LayerBlendWidth)
+        {
+            for (int i = 0; i < _DepthLayerCount; i++)
+            {
+                if (i != idx &&
+                    abs(_DepthLayerBuffer[i].minAltitude - cur.maxAltitude) < 0.01)
+                {
+                    float t = smoothstep(0.0, _LayerBlendWidth, distToUpper);
+                    // t=0 (경계) → neighbor와 cur 중간 → smooth 출발
+                    // t=1 (경계에서 _LayerBlendWidth 이상 안쪽) → cur 그대로
+                    result = LerpLayer(_DepthLayerBuffer[i], cur, t);
+                    blended = true;
+                    break;
+                }
+            }
+        }
+
+        // 하단 경계 쪽 — 더 아래 layer와 blend (상단 blend와 동시 발생하지 않음)
+        if (!blended && distToLower < _LayerBlendWidth)
+        {
+            for (int i = 0; i < _DepthLayerCount; i++)
+            {
+                if (i != idx &&
+                    abs(_DepthLayerBuffer[i].maxAltitude - cur.minAltitude) < 0.01)
+                {
+                    float t = smoothstep(0.0, _LayerBlendWidth, distToLower);
+                    result = LerpLayer(_DepthLayerBuffer[i], cur, t);
+                    break;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 현재 voxel 위치의 layer 파라미터 반환.
+// OFF 경로: 기존 uniform들을 struct로 packing만 (실행 결과 uniform 직접 사용과 동일)
+// ON  경로: GetLayerBlended(worldPos.y)로 soft-blended 결과 반환
+// 이 헬퍼를 거친 struct를 사용하는 모든 계산은 _EnablePerVoxelLayerBlend==0 시
+// uniform 값과 완전히 동일한 수치 → byte-identical 보장.
+//
+// [FIX] 단일 return path로 재작성. default로 uniform-기반 struct를 먼저 완전 초기화.
+// ─────────────────────────────────────────────────────────────────────────────
+DepthLayerData ResolveLayerForVoxel(float3 worldPos)
+{
+    // OFF 경로 struct를 항상 먼저 완전 초기화 (DXC의 uninit 추적 안전)
+    DepthLayerData u;
+    u.minAltitude          = _FloorAltitude;
+    u.maxAltitude          = _CeilAltitude;
+    u.floorBlendRadius     = _FloorBlendRadius;
+    u.ceilBlendRadius      = _CeilBlendRadius;
+    u.floorBumpAmplitude   = _FloorBumpAmplitude;
+    u.floorBumpFrequency   = _FloorBumpFrequency;
+    u.sdfSmoothness        = 0.0; // 미사용 (EvaluateSkeleton 내부 처리)
+    u.sinkholeProbability  = _SinkholeProb;
+    u.sinkholeMinRadius    = _SinkholeMinRadius;
+    u.sinkholeMaxRadius    = _SinkholeMaxRadius;
+    u.sinkholeSmoothness   = _SinkholeSmoothness;
+    u.ledgeStepHeight      = _LedgeStepHeight;
+    u.spiralFrequency      = _SpiralFrequency;
+    u.spiralAmplitude      = _SpiralAmplitude;
+    u.tunnelWidthScale     = _TunnelWidthScale;
+    u.roomSizeScale        = _RoomSizeScale;
+    u.sedimentAmplitude    = _SedimentAmplitude;
+    u.floorDetailAmplitude = _FloorDetailAmplitude;
+    u.floorDetailFrequency = _FloorDetailFrequency;
+    u.floorDetailRadius    = _FloorDetailRadius;
+
+    // ON 경로 시 blended result로 override
+    if (_EnablePerVoxelLayerBlend == 1 && _DepthLayerCount > 0)
+    {
+        u = GetLayerBlended(worldPos.y);
+    }
+    return u;
+}
+// ═══════════════════════════════════════════════════════════════════════════════
 
 int GetVoxelIndex(int x, int y, int z)
 {
@@ -88,16 +489,19 @@ int GetVoxelIndex(int x, int y, int z)
 // [신규] 뼈대 생성 및 협곡 변형 평가 함수
 // canyonWeight에 따라 둥근 터널과 열린 협곡 사이를 자연스럽게 변형(Morph)시킵니다.
 // ===============================================================================
-float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out int closestRoomType)
+float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out int closestRoomType, out float closestEdgeID)
 {
     float baseSDF = 100.0;
     closestRoomType = 0;
+    closestEdgeID = -1.0;          // ★ Phase 7: 가장 가까운 edge ID 추적
     float minNodeDist = 100000.0;
+    float minEdgeDist = 100000.0;  // ★ Phase 7: edge 거리 추적
 
-    // [최적화 적용] 유저가 느끼기에 충분히 높은 협곡의 천장 제한 높이 설정
-    // 일반적인 캐릭터 키(약 2m)를 고려했을 때, 바닥에서 15~20m 정도 솟아있으면 충분히 웅장합니다.
-    // _CeilAltitude를 활용하거나 고정값을 사용할 수 있습니다. 여기서는 노드의 중심을 기준으로 상한선을 둡니다.
-    float maxCanyonHeight = 25.0;
+    // [Gate 5 Phase A.1] 협곡 수직 상한을 uniform _MaxCanyonHeight로 외부화
+    //   기존: 하드코딩 25.0 (모든 DepthLayer 공통)
+    //   신규: DepthLayer.canyonCeilingHeight가 >0 이면 해당 값, 아니면 Dispatcher가 25.0 주입
+    //   규칙 #6: DepthLayer에 0 값이면 fallback 25.0 → 기존 동작 byte-identical
+    //   규칙 #28: CaveBiomeSettings.DepthLayer.canyonCeilingHeight 참고
 
     for (int i = 0; i < _NodeCount; i++)
     {
@@ -112,14 +516,25 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
         float nodeR = (_EnableScaling == 1) ? node.radius * _RoomSizeScale : node.radius;
         if (nodeR < 0.1) continue;
 
-        float dNormal = length(p - node.position) - nodeR;
+        // [Gate 5 Phase E-α.4] Room primitive routing
+        //   _EnablePrimitiveRouting=0 OR _RoomPrimitive=0 → 기존 sphere (byte-id)
+        //   _EnablePrimitiveRouting=1 AND enum > 0 → EvaluateRoomByBiome 라우터
+        float dNormal;
+        if (_EnablePrimitiveRouting > 0.5 && _RoomPrimitive > 0)
+        {
+            dNormal = EvaluateRoomByBiome(_RoomPrimitive, p, node.position, nodeR);
+        }
+        else
+        {
+            dNormal = length(p - node.position) - nodeR;
+        }
         
         // --- 협곡 노드 변형 (최적화 포함) ---
         float3 canyonPt = node.position;
         if (p.y > node.position.y)
         {
-            // 무한히 올라가는 대신 maxCanyonHeight에서 상승을 멈춤(Ceiling 닫힘)
-            canyonPt.y = min(p.y, node.position.y + maxCanyonHeight);
+            // 무한히 올라가는 대신 _MaxCanyonHeight에서 상승을 멈춤(Ceiling 닫힘)
+            canyonPt.y = min(p.y, node.position.y + _MaxCanyonHeight);
         }
         float dCanyon = length(p - canyonPt) - nodeR;
         float flatBottom = (node.position.y - nodeR * 0.7) - p.y;
@@ -154,7 +569,40 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
             : 1.0;
         float effectiveWidth = edgeW * wv;
 
-        float dNormal = sdCapsule(p, edge.startPos, edge.endPos, effectiveWidth);
+        // [Gate 5 Phase E-β.2] sdCapsule → EvaluateCurvedTunnel 교체
+        //   [E-β.3.5 개정] per-edge amp × 전역 multiplier
+        //     effectiveAmp = edge.curvatureAmp (biome별) × _CurvatureAmplitude (전역 multiplier)
+        //   _CurvatureAmplitude=0 또는 edge.curvatureAmp=0 이면 fast-path (sdCapsule)
+        //   → 규칙 #6 byte-identical 보장
+        //   주의: sediment/canyon 부속 로직은 여전히 직선 edge 기준 (pragmatic prototype)
+        //         완전 통합은 E-β 후속 iteration에서
+        //
+        // [Gate 5 Phase E-α.4] Primitive Routing 통합
+        //   우선순위: (1) curvature active → EvaluateCurvedTunnel (capsule chain, primitive 무관)
+        //             (2) primitive routing active + enum > 0 → EvaluateTunnelByBiome
+        //             (3) 기본 → sdCapsule (기존, byte-id)
+        //   이유: curvature chain은 여러 sub-capsule 연결이라 primitive 교체와 호환 어려움.
+        //         curvature + primitive 동시 활성은 향후 Phase에서 통합.
+        float effectiveCurv = edge.curvatureAmp * _CurvatureAmplitude;
+        float dNormal;
+        if (effectiveCurv > 0.01)
+        {
+            // (1) Curvature active (chain 사용)
+            dNormal = EvaluateCurvedTunnel(p, edge.startPos, edge.endPos,
+                                            effectiveWidth, float(j), effectiveCurv);
+        }
+        else if (_EnablePrimitiveRouting > 0.5 && _TunnelPrimitive > 0)
+        {
+            // (2) Primitive routing active
+            dNormal = EvaluateTunnelByBiome(_TunnelPrimitive, p, edge.startPos, edge.endPos, effectiveWidth);
+        }
+        else
+        {
+            // (3) 기본 sdCapsule — byte-identical fallback
+            //   EvaluateCurvedTunnel은 effectiveCurv=0일 때 내부적으로 sdCapsule fast-path로 동작.
+            //   여기서도 효율상 직접 호출 (같은 결과, 분기 단순화)
+            dNormal = sdCapsule(p, edge.startPos, edge.endPos, effectiveWidth);
+        }
         
         // --- 협곡 통로 변형 (최적화 포함) ---
         float3 pa = p - edge.startPos, ba = edge.endPos - edge.startPos;
@@ -177,7 +625,7 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
         if (p.y > closestPt.y)
         {
             // 통로 역시 무한 확장을 막고 일정 높이에서 천장을 덮습니다.
-            canyonEdgePt.y = min(p.y, closestPt.y + maxCanyonHeight);
+            canyonEdgePt.y = min(p.y, closestPt.y + _MaxCanyonHeight);
         }
         float dCanyonEdge = length(p - canyonEdgePt) - effectiveWidth;
         float flatBottomEdge = (closestPt.y - effectiveWidth * 0.7) - p.y;
@@ -186,6 +634,14 @@ float EvaluateSkeleton(float3 p, BiomeParamData curP, float canyonWeight, out in
         
         float d = lerp(dNormal, dCanyonEdge, canyonWeight);
         baseSDF = smin(baseSDF, d, curP.sminStrength);
+
+        // ★ Phase 7: 가장 가까운 edge ID 추적 (Decorrelation용)
+        //   D2 보장: closestEdgeID는 out 변수로만 영향, baseSDF 자체는 변경 없음.
+        if (d < minEdgeDist)
+        {
+            minEdgeDist = d;
+            closestEdgeID = float(j);
+        }
     }
     
     return baseSDF;
@@ -219,21 +675,153 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     int bIdxB = clamp(bIdxA + 1, 0, _BiomeCount - 1);
     float blendWeight = smoothstep(0.0, 1.0, frac(scaledMap));
 
+    // ═══════════════════════════════════════════════════════════════════
+    // [Phase 14] ★ N1 — Node Chamber Biome Lock
+    //
+    //   ★ chamber radius 안 voxel을 노드 위치 biome으로 강제 통일
+    //   ★ F2 boundary 노드 / F10 큰 chamber / F19 boundary cluster 단층 해결
+    //
+    //   D2 보장: _NodeChamberLockRadiusMul = 0이면 전체 skip (byte-identical)
+    // ═══════════════════════════════════════════════════════════════════
+    if (_NodeChamberLockRadiusMul > 0.001 && _NodeCount > 0)
+    {
+        // ★ 가장 가까운 노드 찾기 (현재 brute force, ε에서 spatial hash 활용 권장)
+        float minDistSq = 1e9;
+        int nearestNodeIdx = -1;
+        float nearestRadius = 0.0;
+        for (int ni = 0; ni < _NodeCount; ni++)
+        {
+            NodeData nd = _NodeBuffer[ni];
+            float3 d = worldPos - nd.position;
+            float dSq = dot(d.xz, d.xz);  // ★ XZ 평면 거리 (chamber radius도 XZ)
+            if (dSq < minDistSq)
+            {
+                minDistSq = dSq;
+                nearestNodeIdx = ni;
+                nearestRadius = nd.radius;
+            }
+        }
+
+        if (nearestNodeIdx >= 0 && nearestRadius > 0.001)
+        {
+            float dist = sqrt(minDistSq);
+            float lockRadius = nearestRadius * _NodeChamberLockRadiusMul;
+
+            if (dist < lockRadius)
+            {
+                // ★ 노드 위치의 macroBiome 계산
+                NodeData nodeAtIdx = _NodeBuffer[nearestNodeIdx];
+                float nodeMacro = snoise2D(nodeAtIdx.position.xz / max(_MacroBiomeScale, 1.0));
+                float nodeNorm = nodeMacro * 0.5 + 0.5;
+                float nodeScaled = nodeNorm * max((float) (_BiomeCount - 1), 0.0);
+                int nodeBIdxA = clamp((int) floor(nodeScaled), 0, _BiomeCount - 1);
+                int nodeBIdxB = clamp(nodeBIdxA + 1, 0, _BiomeCount - 1);
+                float nodeBW = smoothstep(0.0, 1.0, frac(nodeScaled));
+
+                // ★ lockStrength: 안쪽일수록 강하게 lock
+                //   inner fraction (예: 0.5) 안: lockStrength = 1 (완전 lock)
+                //   inner~outer 사이: smoothstep fade
+                //   outer 밖: lockStrength = 0 (영향 없음)
+                float innerR = lockRadius * _NodeChamberLockInnerFrac;
+                float lockStrength = 1.0 - smoothstep(innerR, lockRadius, dist);
+
+                // ★ 노드 biome 으로 강제 — bIdxA/B + blendWeight 모두 lerp
+                //   (Single-Source 정신: blendWeight를 노드값으로 끌어옴)
+                if (lockStrength > 0.001)
+                {
+                    bIdxA = (lockStrength >= 0.5) ? nodeBIdxA : bIdxA;
+                    bIdxB = (lockStrength >= 0.5) ? nodeBIdxB : bIdxB;
+                    blendWeight = lerp(blendWeight, nodeBW, lockStrength);
+                }
+            }
+        }
+    }
+    // ═══════════════════════════════════════════════════════════════════
+
     BiomeParamData pA = _BiomeBuffer[bIdxA];
     BiomeParamData pB = _BiomeBuffer[bIdxB];
 
     // 2. 파라미터 보간
     BiomeParamData curP;
-    curP.noiseFrequency = lerp(pA.noiseFrequency, pB.noiseFrequency, blendWeight);
-    curP.yCompression = lerp(pA.yCompression, pB.yCompression, blendWeight);
-    curP.sminStrength = lerp(pA.sminStrength, pB.sminStrength, blendWeight);
-    curP.terraceSteps = lerp(pA.terraceSteps, pB.terraceSteps, blendWeight);
-    curP.bumpAmplitude = lerp(pA.bumpAmplitude, pB.bumpAmplitude, blendWeight);
-    curP.bumpFrequency = lerp(pA.bumpFrequency, pB.bumpFrequency, blendWeight);
-    
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [η DebugAware Fix — B안] Single-Source curP lerp pair 안정화
+    //
+    //   문제 (가능성 4 분석):
+    //     bIdxA = floor(scaledMap)이 정수 boundary를 통과할 때
+    //     {pA, pB} lerp pair가 {Columnar, Sediment} → {Sediment, Colonnade}로 점프.
+    //     같은 biome (Sediment)을 평가하더라도 curP의 미세 lerp 차이 (~4%)가
+    //     noiseFrequency/bumpAmplitude 등을 점프시켜 fBm/Voronoi 패턴 위치 점프
+    //     → '반듯이 잘린 단면' 발생.
+    //
+    //   해결 (Single-Source 정신 일치):
+    //     '한 voxel = 한 biome param + 한 noise'
+    //     blendWeight 기준으로 chosenP를 단일 biome param으로 고정.
+    //     boundary에서 ampScale fade가 별도로 작동하므로
+    //     '두 noise 둘 다 약화' 메커니즘은 그대로 유지됨 (직교적).
+    //
+    //   D2 보장:
+    //     _BiomeBlendMode == 0 (Legacy/dual blend)에서는 기존 lerp 그대로.
+    //     _BiomeBlendMode == 1 (γ Single-Source)에서만 curP 단일화.
+    // ═══════════════════════════════════════════════════════════════════
+    if (_BiomeBlendMode == 1)
+    {
+        // ★ Single-Source: curP를 단일 biome param으로 (lerp 우회)
+        //   blendWeight < 0.5 → typeA의 BiomeParam 그대로
+        //   blendWeight > 0.5 → typeB의 BiomeParam 그대로
+        //   blendWeight == 0.5 → blank zone이지만 typeA로 (downstream에서 어차피 amp=0)
+        //
+        //   ★ HLSL 안전성: ternary struct 대입 (BiomeParamData chosenP = cond ? pA : pB)
+        //   대신 if/else 분기로 명시적 처리 (일부 HLSL 컴파일러 호환성)
+        if (blendWeight < 0.5)
+        {
+            curP.noiseFrequency = pA.noiseFrequency;
+            curP.yCompression   = pA.yCompression;
+            curP.sminStrength   = pA.sminStrength;
+            curP.terraceSteps   = pA.terraceSteps;
+            curP.bumpAmplitude  = pA.bumpAmplitude;
+            curP.bumpFrequency  = pA.bumpFrequency;
+            curP.noiseType      = pA.noiseType;
+            curP.blendDamping   = pA.blendDamping;
+        }
+        else
+        {
+            curP.noiseFrequency = pB.noiseFrequency;
+            curP.yCompression   = pB.yCompression;
+            curP.sminStrength   = pB.sminStrength;
+            curP.terraceSteps   = pB.terraceSteps;
+            curP.bumpAmplitude  = pB.bumpAmplitude;
+            curP.bumpFrequency  = pB.bumpFrequency;
+            curP.noiseType      = pB.noiseType;
+            curP.blendDamping   = pB.blendDamping;
+        }
+    }
+    else
+    {
+        // Legacy dual blend — 기존 lerp 그대로 (D2 보장)
+        curP.noiseFrequency = lerp(pA.noiseFrequency, pB.noiseFrequency, blendWeight);
+        curP.yCompression = lerp(pA.yCompression, pB.yCompression, blendWeight);
+        curP.sminStrength = lerp(pA.sminStrength, pB.sminStrength, blendWeight);
+        curP.terraceSteps = lerp(pA.terraceSteps, pB.terraceSteps, blendWeight);
+        curP.bumpAmplitude = lerp(pA.bumpAmplitude, pB.bumpAmplitude, blendWeight);
+        curP.bumpFrequency = lerp(pA.bumpFrequency, pB.bumpFrequency, blendWeight);
+        // ★ noiseType / blendDamping은 Ecotone 분기에서 별도 set (Legacy 호환)
+        curP.noiseType = pA.noiseType;        // default — Ecotone OFF 시 사용 안 함
+        curP.blendDamping = pA.blendDamping;  // default — Ecotone OFF 시 사용 안 함
+    }
+    // ═══════════════════════════════════════════════════════════════════
+
     int typeA = pA.noiseType;
     int typeB = pB.noiseType;
 
+    // ═══════════════════════════════════════════════════════════════════
+    // [Gate 5 Phase A.7] canyonWeight smoothing + Cliff Joint
+    //
+    // 기존 (binary): noiseType==5일 때만 전체 가중치 → 경계에서 hard transition
+    // A.7 smoothing: biome blend weight 기반으로 smooth (이미 구현됨)
+    //                추가로 cliff joint — Case 5와 인접 Case 간 vertical cliff 
+    //                적용 여부 계산 (현재 골격만, shader 소비는 후속 iteration)
+    // ═══════════════════════════════════════════════════════════════════
     // [핵심] 현재 위치가 Case 5(협곡 스타일)일 확률 계산
     float canyonWeight = 0.0;
     if (typeA == 5)
@@ -241,17 +829,71 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     if (typeB == 5)
         canyonWeight += blendWeight;
 
+    // [A.7] canyonWeight smoothing — binary를 smoothstep으로 변환
+    //   edge 경계에서의 abrupt transition을 완화
+    //   기존 0~1 선형 → smoothstep(0, 1, canyonWeight)으로 S-curve 적용
+    canyonWeight = smoothstep(0.0, 1.0, canyonWeight);
+
+    // [A.7] Cliff Joint Factor — Case 5 ↔ 非Case 5 경계에서 수직 절벽 효과
+    //   typeA != typeB 이고 한쪽이 Case 5면 경계에 cliff 적용 가능
+    //   [Gate 5 Phase E-α.8] cliffJoint 실제 소비 — 현재 경계 SDF에 cliff plane 혼합
+    float cliffJoint = 0.0;
+    if ((typeA == 5) != (typeB == 5))  // XOR: 한쪽만 Case 5
+    {
+        // blend 중간 영역 (0.3~0.7)에서 cliff 강도 피크
+        cliffJoint = smoothstep(0.2, 0.5, blendWeight) * smoothstep(0.8, 0.5, blendWeight);
+    }
+    // [E-α.8] cliffJoint 변수 shader 소비 활성화
+    //   _EnableCliffJoint 토글로 제어. 기본 OFF → byte-identical.
+    //   활성 시: Case 5 경계에서 Y 기반 수직 절벽 plane을 max()로 추가.
+    //   이 효과는 baseSDF 생성 이후 finalDensity에 적용 (후반부 참조).
+
     // 3. 뼈대 생성 (협곡 변형 적용)
     int closestRoomType = 0;
-    // [바닥자연화] Domain Warp — EvaluateSkeleton 좌표를 노이즈로 왜곡
-    //   XZ만 warp (Y=0): 높이는 유지하며 평면 형태만 비정형화
-    //   amplitude 0.8~1.2: 통로 반경(3~5m) 대비 최대 20~25% 변형 → 통과성 보장
-    // [Inspector] _WarpAmplitude는 CaveComputeDispatcher.SetFloat로 외부 설정
+    // ═══════════════════════════════════════════════════════════════════
+    // [Gate 5 Phase A.4] DomainWarp XYZ 3축 + 재귀 옵션
+    //
+    // 기존 (Phase 이전): XZ 2축만 warp (Y=0)
+    //   → 바닥 평탄 유지 이점, 그러나 "층화된 평평함" 느낌
+    //
+    // A.4 개선:
+    //   [1] XYZ 3축 warp — Y에도 소량 warp (yCompression 기반 scaling)
+    //   [2] 재귀 warp — warp된 좌표를 다시 warp (fractal displacement)
+    //   [3] 토글: _WarpRecursive, _WarpYScale — 규칙 #6
+    //
+    // 플레이어빌리티:
+    //   Y warp amplitude = _WarpAmplitude × _WarpYScale (기본 0.3)
+    //   → XZ warp의 30% 강도만 Y에 적용 → 바닥 절대 무너뜨리지 않음
+    //   재귀는 1차 warp amp의 0.4배 2차 warp로 fractal 느낌만 추가
+    // ═══════════════════════════════════════════════════════════════════
     float warpX = snoise2D((worldPos.xz + float2(1.7, 9.2)) * 0.11) * _WarpAmplitude;
     float warpZ = snoise2D((worldPos.xz + float2(8.3, 2.8)) * 0.11) * _WarpAmplitude;
-    // Y warp 제외: 바닥 높이 안정성 유지 (Domain Warp가 바닥면을 왜곡하지 않음)
-    float3 warpedPos = worldPos + float3(warpX, 0.0, warpZ);
-    float baseSDF = EvaluateSkeleton(warpedPos, curP, canyonWeight, closestRoomType);
+
+    // [A.4] Y warp 추가 — 작은 scale (플레이어빌리티 보호)
+    float warpY = 0.0;
+    if (_WarpYScale > 0.01)
+    {
+        // 3D noise 사용: pos.xz + pos.y 기반 → Y 따라 변화하는 warp
+        warpY = snoise(float3(worldPos.x * 0.08, worldPos.y * 0.12, worldPos.z * 0.08)
+                       + float3(17.1, 5.3, 23.9)) * _WarpAmplitude * _WarpYScale;
+    }
+    float3 warpedPos = worldPos + float3(warpX, warpY, warpZ);
+
+    // [A.4] 재귀 warp — fractal displacement
+    //   1차 warp된 좌표를 다시 warp 소스로 사용 → 자연 fractal 느낌
+    //   amp는 1차의 40%로 감쇠 → 플레이어빌리티 유지
+    if (_WarpRecursive > 0.5)
+    {
+        float recAmp = _WarpAmplitude * 0.4;
+        float rwarpX = snoise2D((warpedPos.xz + float2(31.1, 7.7)) * 0.18) * recAmp;
+        float rwarpZ = snoise2D((warpedPos.xz + float2(4.5, 19.3)) * 0.18) * recAmp;
+        warpedPos += float3(rwarpX, 0.0, rwarpZ);  // 재귀 단계는 XZ만 (안전)
+    }
+
+    // ★ Phase 7: closestEdgeID 추가 (Decorrelation용)
+    //   default: -1.0 (no nearest edge — 토글 OFF 또는 vacuum 영역)
+    float closestEdgeID = -1.0;
+    float baseSDF = EvaluateSkeleton(warpedPos, curP, canyonWeight, closestRoomType, closestEdgeID);
 
     if (_DebugStage == 0)
     {
@@ -265,14 +907,340 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     // 3.5. 바닥 보호를 위한 기울기(Normal Y) 추정
     // Y축 위/아래로 살짝 샘플링하여 지형이 평지인지 수직 절벽인지 파악합니다.
     int tempRoom;
-    float baseUp = EvaluateSkeleton(worldPos + float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
-    float baseDn = EvaluateSkeleton(worldPos - float3(0, 1.0, 0), curP, canyonWeight, tempRoom);
+    float tempEdgeID;  // ★ Phase 7: dummy out (normalY 추정에는 불필요)
+    float baseUp = EvaluateSkeleton(worldPos + float3(0, 1.0, 0), curP, canyonWeight, tempRoom, tempEdgeID);
+    float baseDn = EvaluateSkeleton(worldPos - float3(0, 1.0, 0), curP, canyonWeight, tempRoom, tempEdgeID);
     float normalY = (baseUp - baseDn) * 0.5;
 
-    // 4. 이중 SDF 블렌딩 (바닥 보호 마스킹 전달)
-    float densityA = ApplyBiomeDetail(typeA, worldPos, baseSDF, normalY, curP);
-    float densityB = ApplyBiomeDetail(typeB, worldPos, baseSDF, normalY, curP);
-    float finalDensity = lerp(densityA, densityB, blendWeight);
+    // ═══════════════════════════════════════════════════════════════════
+    // [Phase 4.5-G Stage 1-A] Per-biome Blend Damping
+    //
+    // Blend 중심 (blendWeight ≈ 0.5)에서 detail noise amplitude 감쇠.
+    // 두 biome 중 "작은 blendDamping" 기준으로 적용 (보수적).
+    //   effective = min(pA.blendDamping, pB.blendDamping)
+    //   damping factor = 1.0 - (1.0 - effective) * 4 * w * (1-w)
+    //     w=0 or 1 → factor = 1.0 (감쇠 없음)
+    //     w=0.5   → factor = effective (최대 감쇠)
+    //
+    // [Stage 1-B] Colonnade 예외 처리
+    //   typeA==3 (Colonnade) 또는 typeB==3 이면 blendWeight을 강제로 0 또는 1로
+    //   (blend 자체 최소화, Colonnade 특성 완벽 보존).
+    //   다만 hard transition 방지를 위해 매우 좁은 transition zone (±0.1) 유지.
+    // ═══════════════════════════════════════════════════════════════════
+    
+    // [Stage 1-B] Colonnade blend minimization
+    float effectiveBlendWeight = blendWeight;
+    if (typeA == 3 || typeB == 3)  // Colonnade code = 3
+    {
+        // 좁은 transition zone ±0.1 외에는 0 또는 1 로 강제
+        if (blendWeight < 0.4)      effectiveBlendWeight = 0.0;
+        else if (blendWeight > 0.6) effectiveBlendWeight = 1.0;
+        else                         effectiveBlendWeight = smoothstep(0.4, 0.6, blendWeight);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [Phase 4.5-G H1] Disable Biome Blend (DEBUG) — biome 경계 hard step
+    //   OFF (기본): byte-identical
+    //   ON: effectiveBlendWeight 0/1 강제 → 인접 voxel은 100% bIdxA 또는 100% bIdxB
+    //   주의: P2 C¹ 위반 — DEBUG 모드 한정 사용
+    // ═══════════════════════════════════════════════════════════════════
+    if (_DisableBiomeBlend == 1)
+    {
+        effectiveBlendWeight = (effectiveBlendWeight < 0.5) ? 0.0 : 1.0;
+    }
+
+    // [Stage 1-A] Per-biome blend damping factor — Route_Astar baseline 정통식 보존
+    float effectiveDamping = min(pA.blendDamping, pB.blendDamping);
+    float blendCentrality = 4.0 * effectiveBlendWeight * (1.0 - effectiveBlendWeight);  // [0, 1]
+    float ampDampingFactor = 1.0 - (1.0 - effectiveDamping) * blendCentrality;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [Phase 4.5-G E4 Phase 1] Blend Detail Suppression — 옵션 토글
+    //   OFF (기본, 권장): Stage 1-A 정통식 그대로 (R-VIS 보존)
+    //   ON: ampDampingFactor 강화식으로 덮어씀
+    //       → 자기 영역 5% 감쇠 (R-VIS 트레이드오프)
+    //       → 모든 blend 영역 detail 글로벌 약화
+    //
+    //   주의: 통상 I7 Anchor 패턴이 Add↔Rep 미스매치를 국부적으로 처리하므로
+    //   이 토글은 디자인 결정 시에만 ON. atomic preset (BiomeSyncMode)에 포함 안 됨.
+    // ═══════════════════════════════════════════════════════════════════
+    if (_EnableBlendDetailSuppression == 1)
+    {
+        ampDampingFactor = lerp(0.95, 0.0, blendCentrality);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [Phase 4.5-G P2] Single-Source-of-Noise 분기 (γ State)
+    //
+    // _BiomeBlendMode = 0 (default, Legacy/GpuAligned):
+    //   기존 dual blend 식 그대로 — densityA/B 모두 evaluate, lerp
+    //   byte-identical 보장 (γ 미선택 시)
+    //
+    // _BiomeBlendMode = 1 (γ State, Single-Source):
+    //   한 noise만 evaluate (typeA 또는 typeB), amp는 (1-centrality)^power로 감쇠
+    //   blend center (w=0.5) → amp 0 (blank skeleton, ecotone)
+    //   FadePower:
+    //     1.0 = linear (1-c) 감쇠곡선
+    //     2.0 = quadratic (faded 영역 길게, blend center 좁힘) ★ 사용자 요청
+    //     0.5 = sqrt (faded 영역 짧게)
+    //
+    //   사용자 결정: blend center 최소화 + faded 영역 길게 → power 2.0 권장
+    //   GPU 비용 절감: noise function call 2× → 1× (절반)
+    // ═══════════════════════════════════════════════════════════════════
+    float densityA, densityB;
+    float finalDensity;
+
+    if (_BiomeBlendMode == 1)
+    {
+        // ── Single-Source 분기 ────────────────────────────────────────
+        // (1-centrality)^power로 amp scale 계산
+        //   power 1.0: linear (자기영역 1.0, blend center 0.0)
+        //   power 2.0: quadratic — faded 영역 ↑, blend center 더 좁음
+        //              c=0   → ampScale=1.0 (자기영역 100%)
+        //              c=0.3 → ampScale=0.49 (faded 시작)
+        //              c=0.5 → ampScale=0.25 (이미 약화)
+        //              c=0.7 → ampScale=0.09 (거의 blank)
+        //              c=1.0 → ampScale=0.0 (완전 blank)
+        //
+        // ★ Single-Source 핵심 철학 (사용자 보고서):
+        //    "한 voxel에 한 noise만"
+        //    "두 noise가 한 voxel에 동시 표시되는 것이 파편의 근원"
+        //    blend boundary 근처에서 ampScale이 자동 0으로 수렴 → 자동 fade
+        //    Cross-fade overlap zone 등 두 noise 합산은 이 철학 위반.
+        float fadeBase = 1.0 - blendCentrality;
+        float ampScale = pow(max(fadeBase, 0.0), max(_SingleSourceFadePower, 0.001));
+
+        // ═══════════════════════════════════════════════════════════════
+        // [Phase 12-E] ★ M5 — Base Level Normalization (★ ζ 이전 적용)
+        //
+        //   biome별 평균 detailSDF offset만큼 baseSDF 사전 보정
+        //   → 모든 biome 통로 surface가 같은 baseline → vertical 단층 사라짐
+        //
+        //   적용 위치: ζ 이전 (M5가 baseSDF 변경 → ζ도 보정된 baseSDF early exit)
+        //   D2 보장: _EnableBaseSDFLevelOffset = 0이면 skip
+        //   bIdxA/bIdxB 효과 분리: effective biome (현재 평가 noise) 기준
+        // ═══════════════════════════════════════════════════════════════
+        int effectiveBi = (effectiveBlendWeight < 0.5) ? bIdxA : bIdxB;
+        float baseSDFAdjusted = baseSDF;  // ★ 작업 사본 (원본 baseSDF는 ampScale 곱셈 base 유지)
+
+        if (_EnableBaseSDFLevelOffset > 0.5)
+        {
+            float meanOffset = _BiomeMeanOffsetLookup[effectiveBi];
+            // meanOffset 음수 (예: Sediment -1.5) → baseSDFAdjusted += 1.5 → 통로 안쪽 확장
+            baseSDFAdjusted -= meanOffset;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // [Phase 13] ★ G2 — Tunnel Width Expansion (★ M5 이후 적용)
+        //
+        //   biome별 amp만큼 baseSDF 사전 확장 → noise가 들어올 공간 확보
+        //   → ★ noise 디테일 100% 유지 + 통로 침해 방지
+        //
+        //   적용 위치: M5 이후 (보정된 baseSDF에 추가 확장)
+        //   _TunnelExpansionFactor 0~1: 0=OFF, 1=full amp
+        //   _MaxTunnelExpansion: 절대 cap (P4 위반 biome 방지)
+        // ═══════════════════════════════════════════════════════════════
+        if (_TunnelExpansionFactor > 0.001)
+        {
+            float biomeAmp = _BiomeAmpLookup[effectiveBi];
+            float expansion = min(biomeAmp, _MaxTunnelExpansion) * _TunnelExpansionFactor;
+            baseSDFAdjusted -= expansion;  // ★ 통로 안쪽 확장
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // [Phase 12-A] ★ 옵션 ζ — Boundary Blank Zone (early exit)
+        //
+        //   blend boundary (bw=0.5) 근처 명시적 평탄 zone:
+        //     distFromBoundary = |bw - 0.5|
+        //     inBlankZone = distFromBoundary < _BlankZoneWidth × 0.5
+        //
+        //   사용자 의도: "능선/기둥이 평탄화 영역으로 접근하면서 점진 zero화"
+        //   현재 ampScale 곡선이 이미 점진 fade하지만 명시적 0 zone 1 voxel만 →
+        //   ζ로 명시적 평탄 영역 확장 (default 0 → OFF, 권장 0.10 → spatial ~33m)
+        //
+        //   ★ early exit: ApplyBiomeDetail 호출 안 함 (GPU 비용 절감)
+        //   ★ Single-Source 정신 유지: typeA OR typeB 합산 없음, baseSDF만
+        //   ★ M5/G2 정합: 보정된 baseSDFAdjusted 반환 (단층 분산)
+        //   ★ D2 보장: _BlankZoneWidth = 0이면 inBlankZone 항상 false
+        // ═══════════════════════════════════════════════════════════════
+        float distFromBoundary = abs(effectiveBlendWeight - 0.5);
+        bool inBlankZone = (_BlankZoneWidth > 0.001
+                            && distFromBoundary < _BlankZoneWidth * 0.5);
+
+        if (inBlankZone)
+        {
+            // ★ ζ 강제 평탄 — 보정된 baseSDF (M5/G2 적용 후) 그대로
+            //   bIdxA / bIdxB 양쪽 noise 모두 비활성
+            finalDensity = baseSDFAdjusted;
+            densityA = baseSDFAdjusted;
+            densityB = baseSDFAdjusted;
+        }
+        else if (effectiveBlendWeight < 0.5)
+        {
+            // typeA만 evaluate (★ GPU 비용 절감)
+            // ★ Phase 7: edge ID Decorrelation (atomic 토글, 한 noise 안에서 pos perturb만)
+            //   ApplyBiomeDetail은 ★ 보정된 baseSDFAdjusted를 input으로 사용
+            //   → noise가 보정된 baseline에서 출발 → 일관성 유지
+            float singleDensity = (_EnableEdgeIDDecorrelation > 0.5 && closestEdgeID >= 0.0)
+                ? ApplyBiomeDetailDecorr(typeA, worldPos, baseSDFAdjusted, normalY, curP, closestEdgeID)
+                : ApplyBiomeDetail(typeA, worldPos, baseSDFAdjusted, normalY, curP);
+            float detailOffset = (singleDensity - baseSDFAdjusted) * ampDampingFactor;
+
+            // ═══════════════════════════════════════════════════════════
+            // [Phase 12-B] ★ 옵션 G1 — Tunnel Surface Protection
+            //   ★ guardFactor도 보정된 baseSDFAdjusted 기반 — M5/G2와 일관
+            // ═══════════════════════════════════════════════════════════
+            float guardFactor = (_TunnelGuardMargin > 0.001)
+                ? smoothstep(-_TunnelGuardMargin, _OuterFadeMargin, baseSDFAdjusted)
+                : 1.0;
+            float protectedOffset = (detailOffset > 0)
+                ? detailOffset * guardFactor   // 침투 방향 약화
+                : detailOffset;                 // 외부 확장 그대로
+
+            finalDensity = baseSDFAdjusted + protectedOffset * ampScale;
+            densityA = finalDensity;  // for downstream code consistency
+            densityB = finalDensity;
+        }
+        else if (effectiveBlendWeight > 0.5)
+        {
+            // typeB만 evaluate
+            // ★ Phase 7: edge ID Decorrelation
+            float singleDensity = (_EnableEdgeIDDecorrelation > 0.5 && closestEdgeID >= 0.0)
+                ? ApplyBiomeDetailDecorr(typeB, worldPos, baseSDFAdjusted, normalY, curP, closestEdgeID)
+                : ApplyBiomeDetail(typeB, worldPos, baseSDFAdjusted, normalY, curP);
+            float detailOffset = (singleDensity - baseSDFAdjusted) * ampDampingFactor;
+
+            // [Phase 12-B] ★ 옵션 G1 — Tunnel Surface Protection (typeB도 동일)
+            float guardFactor = (_TunnelGuardMargin > 0.001)
+                ? smoothstep(-_TunnelGuardMargin, _OuterFadeMargin, baseSDFAdjusted)
+                : 1.0;
+            float protectedOffset = (detailOffset > 0)
+                ? detailOffset * guardFactor
+                : detailOffset;
+
+            finalDensity = baseSDFAdjusted + protectedOffset * ampScale;
+            densityA = finalDensity;
+            densityB = finalDensity;
+        }
+        else
+        {
+            // 정확히 w==0.5 — blank skeleton (자연스런 ecotone)
+            finalDensity = baseSDFAdjusted;
+            densityA = baseSDFAdjusted;
+            densityB = baseSDFAdjusted;
+        }
+    }
+    else
+    {
+        // ── Legacy dual blend (default, _BiomeBlendMode == 0) ─────────
+        // 4. 이중 SDF 블렌딩 (바닥 보호 마스킹 전달)
+        // ★ Phase 7: edge ID Decorrelation (dual blend 양쪽 모두)
+        if (_EnableEdgeIDDecorrelation > 0.5 && closestEdgeID >= 0.0)
+        {
+            densityA = ApplyBiomeDetailDecorr(typeA, worldPos, baseSDF, normalY, curP, closestEdgeID);
+            densityB = ApplyBiomeDetailDecorr(typeB, worldPos, baseSDF, normalY, curP, closestEdgeID);
+        }
+        else
+        {
+            densityA = ApplyBiomeDetail(typeA, worldPos, baseSDF, normalY, curP);
+            densityB = ApplyBiomeDetail(typeB, worldPos, baseSDF, normalY, curP);
+        }
+
+        // [Stage 1-A] Detail amplitude 감쇠 적용 — baseSDF 대비 detail offset 만 감쇠
+        //   baseSDF = skeleton 구조 (건드리면 안 됨, 통로 자체)
+        //   detail offset = density - baseSDF (biome별 장식 노이즈)
+        //   감쇠 후: density = baseSDF + (density - baseSDF) × factor
+        float detailOffsetA = densityA - baseSDF;
+        float detailOffsetB = densityB - baseSDF;
+        densityA = baseSDF + detailOffsetA * ampDampingFactor;
+        densityB = baseSDF + detailOffsetB * ampDampingFactor;
+
+        finalDensity = lerp(densityA, densityB, effectiveBlendWeight);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [Phase 4.5-G I7] Ecotone SDF — Blend 영역 전용 안전 SDF (Anchor 패턴)
+    //   OFF (기본): byte-identical (위 lerp 결과 그대로 유지, D2)
+    //   ON: blendCentrality > _EcotoneThreshold 영역에서 ecotoneDensity로 전이
+    //
+    //   Anchor 패턴 핵심:
+    //     typeA, typeB 중 하나가 Replacement (Case 2/3/5)면 baseSDF anchor 사용
+    //     → lerp(baseSDF, ecotoneDensity, w) — |Δ| 작음 → P1 안전
+    //     Add↔Add 안전 pair에선 finalDensity_orig 그대로 사용 → R-VIS 보존
+    //
+    //   D2 원칙: OFF 시 이 분기 skip → curP.noiseType / blendDamping 초기화도 안 함
+    // ═══════════════════════════════════════════════════════════════════
+    if (_BiomeBlendMode == 0 && _EnableEcotoneSDF == 1 && blendCentrality > _EcotoneThreshold)
+    {
+        // (1) curP.noiseType / blendDamping 초기화 — 토글 안에 묶음 (D2 강화)
+        //     ApplyBiomeDetail_Ecotone가 사용하는 필드들
+        curP.noiseType    = (effectiveBlendWeight < 0.5) ? pA.noiseType : pB.noiseType;
+        curP.blendDamping = lerp(pA.blendDamping, pB.blendDamping, effectiveBlendWeight);
+        
+        // (2) Ecotone SDF 계산 (Add only, amp × 0.5)
+        float ecotoneDensity = ApplyBiomeDetail_Ecotone(
+            typeA, typeB,
+            worldPos, baseSDF, normalY,
+            curP, effectiveBlendWeight);
+        
+        // (3) Stage 1-A ampDampingFactor 동일 적용
+        float ecotoneOffset = ecotoneDensity - baseSDF;
+        ecotoneDensity = baseSDF + ecotoneOffset * ampDampingFactor;
+        
+        // (4) ★ Anchor 결정 — Add↔Rep 미스매치 자동 검출
+        //     Replacement cases: 2 (Sedimentary fault), 3 (Colonnade), 5 (Canyon)
+        bool typeA_isRep = (typeA == 2 || typeA == 3 || typeA == 5);
+        bool typeB_isRep = (typeB == 2 || typeB == 3 || typeB == 5);
+        bool isMismatch  = (typeA_isRep != typeB_isRep);
+        
+        // 미스매치 시 baseSDF anchor → lerp |Δ| 작아져 P1 안전
+        // 정합 (Add↔Add 또는 Rep↔Rep) 시 finalDensity_orig 그대로 → R-VIS 보존
+        float anchor = isMismatch ? baseSDF : finalDensity;
+        
+        // (5) lerp transition (smoothstep으로 부드러운 진입)
+        float ecotoneWeight = smoothstep(_EcotoneThreshold, 1.0, blendCentrality);
+        finalDensity = lerp(anchor, ecotoneDensity, ecotoneWeight);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [Phase 4.5-G E4 Phase 2] Blend Calm Detail — ripple (시각 보강)
+    //   OFF (기본): byte-identical
+    //   ON: blend 중심 영역에 ±0.13m ripple 추가 (P3/P4 안전)
+    //
+    //   λ_x = λ_z ≈ 15.7m (sin(0.4×) × cos(0.4×))
+    //   λ_y ≈ 4.2m (sin(1.5×))
+    //   amp: lateral ±0.08, vertical ±0.05, total ±0.13m × wallMask × centrality
+    // ═══════════════════════════════════════════════════════════════════
+    if (_EnableBlendCalmDetail == 1 && blendCentrality > 0.05)
+    {
+        float lateralRipple  = sin(worldPos.x * 0.4) * cos(worldPos.z * 0.4) * 0.08;
+        float verticalRipple = sin(worldPos.y * 1.5) * 0.05;
+        float calmWallMask   = smoothstep(0.7, 0.25, abs(normalY));
+        finalDensity += (lateralRipple + verticalRipple) * blendCentrality * calmWallMask;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // [Gate 5 Phase E-α.8] Cliff Joint 적용 — Case 5 경계 수직 절벽
+    //
+    // cliffJoint (A.7에서 계산된 XOR + smoothstep 강도) × _EnableCliffJoint 전역 토글
+    //   _EnableCliffJoint = 0 → cliffJoint 무시 (byte-identical)
+    //   _EnableCliffJoint = 1 AND cliffJoint > 0.01 → cliff plane max() 적용
+    //
+    // Cliff 효과:
+    //   Case 5 ↔ 非Case 5 경계에서 XZ 평면 따라 수직 절벽 생성.
+    //   수직 절벽 SDF: plane normal을 +Y로 하는 half-space (worldPos.y 기준 height)
+    //   height = node Y의 가중평균 근사 (chunk 중심 Y 사용, 간략화)
+    // ═══════════════════════════════════════════════════════════════════
+    if (_EnableCliffJoint > 0.5 && cliffJoint > 0.01)
+    {
+        // Cliff height reference: world Y=0 (DepthLayer origin 기반)
+        //   정밀도 낮으나 골격 구현. 후속에서 per-edge cliff height로 확장.
+        float cliffPlaneSDF = 2.0 - worldPos.y;  // y < 2m에서 cliff 경계
+        //   (이 값은 chunk 생성 범위에 따라 조정 필요. 현재 FloorAltitude=-5, CeilAltitude=15 가정)
+        //   cliff 강도에 비례해서 적용: strength=0 → 영향 없음, strength=1 → 완전 cliff plane
+        float cliffContribution = cliffPlaneSDF * cliffJoint * 0.3;  // 0.3 = max 영향 강도 clamp
+        finalDensity = smax(finalDensity, cliffContribution, 1.0);
+    }
 
     if (_DebugStage == 1)
     {
@@ -284,34 +1252,129 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
     }
 
     // 5. 플레이어블 바닥(Global Floor) 캡핑
-    float floorBump = snoise2D(worldPos.xz * max(curP.bumpFrequency, 0.001)) * curP.bumpAmplitude;
-    float floorPlaneSDF = (_FloorAltitude + floorBump) - worldPos.y;
-    float ceilPlaneSDF = worldPos.y - _CeilAltitude;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // [FORMAT_VERSION 11] Per-voxel DepthLayer 해석
+    //   _EnablePerVoxelLayerBlend == 0 → ResolveLayerForVoxel이 기존 uniform을
+    //                                    struct에 그대로 복사 → byte-identical 보장
+    //   _EnablePerVoxelLayerBlend == 1 → worldPos.y 기준 인접 layer soft-blend
+    //                                    → 인접 chunk 경계 SDF C⁰ 연속
+    //   적용 범위 (이번 패치): FloorClamp / CeilClamp / FloorDetail
+    //   제외 (별도 patch): Sinkhole (chunk-local 단일 sphere), EvaluateSkeleton 내부
+    // ═══════════════════════════════════════════════════════════════════════════
+    DepthLayerData layerParams = ResolveLayerForVoxel(worldPos);
+
+    // [B-7] FloorBump 토글 — curP(Biome)의 bumpFreq/Amp 사용 (DepthLayer 무관)
+    float floorBump = 0.0;
+    if (_EnablePhase2FloorBump == 1)
+        floorBump = snoise2D(worldPos.xz * max(curP.bumpFrequency, 0.001)) * curP.bumpAmplitude;
+
+    // [Gate 5 Phase E-β.4] Floor Y Variation
+    //   기존 평탄 floor(minAltitude + floorBump)에 edge 독립 "장기 기복" 추가.
+    //   주기 λ≈6.67m (freq 0.15), Nyquist 44× 안전 여유.
+    //   Hard bound: [-0.5m, +1.5m] jump 한계, 절대 minAltitude 아래 안 내려감.
+    //   _FloorVariationAmp=0이면 floorVar=0 → byte-identical (규칙 #6)
+    float floorVar = 0.0;
+    if (_FloorVariationAmp > 0.01)
+    {
+        float2 floorSeed = worldPos.xz * 0.15 + float2(7.3, 11.1);
+        float rawVar = snoise2D(floorSeed) * _FloorVariationAmp;
+        // 비대칭 clamp: -0.5m ~ +amp (하한 엄격, 상한 amp까지)
+        //   이유: 하한 완화는 jump 한계 초과 위험, 상한은 상대적으로 안전
+        floorVar = clamp(rawVar, -0.5, min(_FloorVariationAmp, 1.5));
+    }
+    float floorPlaneSDF = (layerParams.minAltitude + floorBump + floorVar) - worldPos.y;
+
+    // [Gate 5 Phase E-β.5] Ceiling Y Variation
+    //   ceiling은 per-chunk 변이 (floor와 다른 seed로 독립 noise).
+    //   Hard bound: [-amp, +0] — maxAltitude 아래로만 변조 (위로 넘어가면 chunk 벽 구멍).
+    //   floorY + 2.2m 하한은 이 단계에서는 floor와 ceil 간 거리가 충분하다는 가정.
+    //     실제 chunk 상 minAltitude(-5) + maxAltitude(15) = 20m 차이 → 여유 충분.
+    float ceilVar = 0.0;
+    if (_CeilVariationAmp > 0.01)
+    {
+        float2 ceilSeed = worldPos.xz * 0.12 + float2(23.7, 41.3);
+        float rawCeilVar = snoise2D(ceilSeed) * _CeilVariationAmp;
+        // 음의 방향만 변조 (ceil은 내려오는 방향만 자연스러움, 위로 솟는 것 금지)
+        ceilVar = clamp(rawCeilVar, -_CeilVariationAmp, 0.0);
+    }
+    float ceilPlaneSDF = worldPos.y - (layerParams.maxAltitude + ceilVar);
     
-    finalDensity = smax(finalDensity, floorPlaneSDF, max(_FloorBlendRadius, 0.1));
-    finalDensity = smax(finalDensity, ceilPlaneSDF, max(_CeilBlendRadius, 0.1));
+    // [B-7] FloorClamp/CeilClamp 토글
+    if (_EnablePhase2FloorClamp == 1)
+        finalDensity = smax(finalDensity, floorPlaneSDF, max(layerParams.floorBlendRadius, 0.1));
+    if (_EnablePhase2CeilClamp == 1)
+        finalDensity = smax(finalDensity, ceilPlaneSDF, max(layerParams.ceilBlendRadius, 0.1));
 
     // [Phase 1.5: FloorDetail] OFF → 건너뜀 (원본에 없는 기능)
     // normalY로 벽면 방지: normalY>0.7(수평바닥)=풀 적용, normalY<0.3(수직벽)=0
-    if (_EnableFloorDetail == 1 && _FloorDetailAmplitude > 0.001)
+    if (_EnableFloorDetail == 1 && layerParams.floorDetailAmplitude > 0.001)
     {
-        float rawDist = worldPos.y - _FloorAltitude;
+        float rawDist = worldPos.y - layerParams.minAltitude;
         float floorMask = (rawDist >= 0.0)
-            ? saturate(1.0 - rawDist / max(_FloorDetailRadius, 0.1))
+            ? saturate(1.0 - rawDist / max(layerParams.floorDetailRadius, 0.1))
             : 0.0;
         float wallReject = smoothstep(0.3, 0.7, normalY);
-        float floorDetail = snoise2D(worldPos.xz * max(_FloorDetailFrequency, 0.001))
-                            * _FloorDetailAmplitude;
+        float floorDetail = snoise2D(worldPos.xz * max(layerParams.floorDetailFrequency, 0.001))
+                            * layerParams.floorDetailAmplitude;
         finalDensity += floorDetail * floorMask * wallReject;
     }
 
     // [바닥자연화] 고주파 침식 노이즈
-    float erosionMask = saturate(1.0 - abs(finalDensity) * 0.5);
-    float erosionNoise = snoise2D(worldPos.xz * 0.6 + float2(3.1, 7.4)) * 0.35
-                       + snoise2D(worldPos.xz * 1.3 + float2(5.5, 2.2)) * 0.12;
-    finalDensity += erosionNoise * erosionMask * 0.7;
+    // [B-7] Erosion 토글
+    if (_EnablePhase2Erosion == 1)
+    {
+        // ═══════════════════════════════════════════════════════════════════════
+        // [Erosion-3DSN] 3-octave Signed Narrow-mask Erosion (FORMAT_VERSION 12)
+        //   토글: _EnableErosion3DSignedNarrow
+        //     OFF (== 0): 원본 2-octave signed XZ-only erosion (byte-identical)
+        //     ON  (== 1): 3-octave signed 3D erosion + narrow erosionMask
+        //
+        //   [FORMAT_VERSION 11 → 12 변경점]
+        //     FV11의 Bias-Only 모드(-|noise|)는 단방향 주입으로 detail 손실("뭉툭함") 유발 →
+        //     사용자 보고에 따라 즉시 은퇴. 이 분기 완전 삭제.
+        //     대체: Signed Narrow-mask — 양방향 detail 유지 + P(좁은 통로)=0 접근으로 파편 방지.
+        //
+        //   파편 이론 v28 AND 붕괴 경로 (Bias-Only와 상이):
+        //     Bias-Only:     P(공간 정렬) = 0   (-|n| → sign flip 수학적 불가)
+        //     Signed Narrow: P(좁은 통로) ≈ 0   (mask 폭 단일 cell → 누적 flip 확률 급감)
+        //                  + P(공간 정렬) 감쇠  (3D noise → Y-decorrelation)
+        //
+        //   규칙 준수 매트릭스 (ON 경로):
+        //     규칙 #25 Nyquist: λ = 1.67m / 0.83m / 0.50m (모두 ≥ 0.375m)
+        //     원칙 4 Amplitude: total 0.35m < edge.width × 0.3 (sidePath 1.2m)
+        //     fBm 감쇠: 0.20 → 0.10 → 0.05 (표준 0.5^n)
+        // ═══════════════════════════════════════════════════════════════════════
+        if (_EnableErosion3DSignedNarrow == 1)
+        {
+            // 3 octave, 비정수배 frequency, 3D noise, seed stagger (Y-decorrelation)
+            float n0 = snoise(worldPos * 0.6 + float3(3.1, 2.5, 7.4));  // λ=1.67m
+            float n1 = snoise(worldPos * 1.2 + float3(5.5, 1.8, 2.2));  // λ=0.83m
+            float n2 = snoise(worldPos * 2.0 + float3(1.7, 4.3, 9.1));  // λ=0.50m
 
-    if (_SinkholeProb > 0.01 && hash2D(_ChunkBasePosition.xz).x < _SinkholeProb)
+            // Signed fBm: 양방향 detail 유지 (bump + pit 모두 존재)
+            //   total amp = 0.35m = voxelSize × 2.33
+            float erosionNoise = n0 * 0.20 + n1 * 0.10 + n2 * 0.05;
+
+            // Narrow mask: 기존 0.5 → 1.5 (mask 폭 3× 압축)
+            //   |d| >= 0.67m에서 mask=0 → 영향 범위를 ~4 voxel 반경 이내로 제한
+            //   single cell 범위라 sign flip이 여러 cell로 확산 불가 → 파편 방지
+            float narrowMask = saturate(1.0 - abs(finalDensity) * 1.5);
+
+            finalDensity += erosionNoise * narrowMask;
+        }
+        else
+        {
+            // [원본 보존] 기존 2-octave signed XZ-only erosion
+            //   _EnableErosion3DSignedNarrow == 0 시 원본 동작 (byte-identical)
+            float erosionMask = saturate(1.0 - abs(finalDensity) * 0.5);
+            float erosionNoise = snoise2D(worldPos.xz * 0.6 + float2(3.1, 7.4)) * 0.35
+                               + snoise2D(worldPos.xz * 1.3 + float2(5.5, 2.2)) * 0.12;
+            finalDensity += erosionNoise * erosionMask * 0.7;
+        }
+    }
+
+    // [B-7] Sinkhole 토글
+    if (_EnablePhase2Sinkhole == 1 && _SinkholeProb > 0.01 && hash2D(_ChunkBasePosition.xz).x < _SinkholeProb)
     {
         float sinkholeRadius = lerp(_SinkholeMinRadius, _SinkholeMaxRadius, hash2D(_ChunkBasePosition.zx).y);
         float distToSinkhole = length(worldPos.xz - _ChunkBasePosition.xz);
@@ -333,7 +1396,10 @@ void GenerateDensity(uint3 id : SV_DispatchThreadID)
         finalDensity = 100.0;
     _VoxelBuffer[index].density = finalDensity;
 
-    int isOre = (finalDensity < 0.0 && hash2D(worldPos.xz * 10.0).x > 0.98) ? 1 : 0;
+    // [B-7] Ore generation 토글
+    int isOre = 0;
+    if (_EnablePhase2Ore == 1)
+        isOre = (finalDensity < 0.0 && hash2D(worldPos.xz * 10.0).x > 0.98) ? 1 : 0;
     _VoxelBuffer[index].oreType = (closestRoomType << 16) | isOre;
 }
 
