@@ -171,6 +171,11 @@ namespace CaveSystem
         //   - paramHash 직접 계산보다 "전체 기록된 chunk → dirty queue" 방식 사용
         //   - DetectDirtyChunks()가 현재 paramHash와 비교하여 변경된 것만 등록
         // ═══════════════════════════════════════════════════════════════════════════════
+
+        [Header("디버깅 — 진단 로그")]
+        [Tooltip("ON → DC/MC 콜백 충돌 등 진단 LogWarning 출력.")]
+        [SerializeField] private bool _verboseDiagLogging = false;
+
         [ContextMenu("B-6: Trigger Parameter Dirty (재생성 트리거)")]
         public void TriggerParamDirty()
         {
@@ -586,7 +591,10 @@ namespace CaveSystem
             var dcExt = computeDispatcher != null ? computeDispatcher.GetComponent<DCPipelineExtension>() : null;
             if (dcExt != null && dcExt.useDualContouring)
             {
-                Debug.LogWarning("[CaveManager] DC 모드에서 MC 콜백이 호출되었습니다. 무시합니다.");
+                if (_verboseDiagLogging)
+                {
+                    Debug.LogWarning("[CaveManager] DC 모드에서 MC 콜백이 호출되었습니다. 무시합니다.");
+                }
                 computeDispatcher.IsBusy = false;
                 return;
             }

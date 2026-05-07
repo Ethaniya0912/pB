@@ -16,6 +16,18 @@
 //   ① NetworkVariable 변경은 반드시 Owner(= 서버) 에서만 수행
 //   ② Rpc 는 NGO 2.0 [Rpc(SendTo.Server)] / [Rpc(SendTo.ClientsAndHost)] 사용
 //   ③ 모든 OnValueChanged 구독은 OnNetworkSpawn/OnNetworkDespawn 쌍으로 관리
+//
+// [v1.1 — 씬 배치 자동 Spawn 추가]
+//   ★ 씬에 수동 배치된 AI 프리팹의 NetworkObject 자체-Spawn 로직 통합.
+//     각 AI가 자기 NetworkObject 라이프사이클을 관리하는 분산 책임 패턴.
+//     NetworkManager 상태 자동 감지 → 4가지 케이스 분기:
+//       - Singleton == null               → 오프라인 모드, 무동작
+//       - !IsListening                    → OnServerStarted 구독, 호스트 시작 시 자체 Spawn
+//       - IsListening && IsServer         → 즉시 자체 Spawn
+//       - IsListening && !IsServer (client)→ 무동작 (서버 권한, 클라는 자동 수신)
+//   ★ 기존 OnNetworkSpawn 흐름과 충돌 없음:
+//     자체 Spawn 호출 → NGO가 OnNetworkSpawn() 콜백 발화 → 기존 NetworkVariable 구독 정상 동작.
+//   ★ 런타임 스폰된 AI(CaveSpawnerManager 경유)는 Start 시점에 IsSpawned=true 이므로 자동 스킵.
 // =============================================================================
 using System.Collections;
 using Unity.Netcode;
@@ -76,9 +88,29 @@ namespace TDA.Character.AI
             NetworkVariableWritePermission.Server);
 
         // =====================================================================
+        // [v1.1] 씬 배치 자동 Spawn 설정
+        // =====================================================================
+
+        [Header("━━━ 씬 배치 자동 Spawn (v1.1) ━━━━━━━")]
+        [Tooltip("씬에 수동 배치된 AI 프리팹의 NetworkObject 자체-Spawn 활성화 여부. " +
+                 "true(기본)이면 Start 시점에 NetworkManager 상태를 감지하여 필요 시 자체 Spawn 호출. " +
+                 "런타임 스폰된 AI(CaveSpawnerManager 등)는 IsSpawned=true이므로 자동 스킵. " +
+                 "프리팹 단위로 끄고 싶다면 인스턴스에서 false 설정.")]
+        public bool autoSpawnIfPlacedInScene = true;
+
+        [Tooltip("자동 Spawn 진단 로그 출력. " +
+                 "Spawn 성공/실패/스킵 사유, OnServerStarted 구독 상태 등을 콘솔에 출력. " +
+                 "Warning은 이 플래그 무관하게 항상 출력.")]
+        public bool autoSpawnDebugLog = false;
+
+        // =====================================================================
         // 내부 참조
         // =====================================================================
         private AICharacterManager _ai;
+
+        // [v1.1] 자동 Spawn 상태 추적 (중복 호출 방지)
+        private bool _autoSpawnInvoked = false;
+        private bool _autoSpawnSubscribedToServerStart = false;
 
         // =====================================================================
         // 생명주기
@@ -87,6 +119,23 @@ namespace TDA.Character.AI
         {
             base.Awake();
             _ai = GetComponent<AICharacterManager>();
+        }
+
+        // [v1.1] Start 시점에 자체-Spawn 시도.
+        // Awake 보다 늦게 실행되므로 NetworkManager.Singleton 참조 가능성이 높다.
+        private void Start()
+        {
+            TrySelfSpawnIfNeeded();
+        }
+
+        private void OnDestroy()
+        {
+            // [v1.1] OnServerStarted 구독 정리 (씬 전환/오브젝트 파괴 시 누수 방지)
+            if (_autoSpawnSubscribedToServerStart && NetworkManager.Singleton != null)
+            {
+                NetworkManager.Singleton.OnServerStarted -= OnServerStartedSelfSpawn;
+                _autoSpawnSubscribedToServerStart = false;
+            }
         }
 
         public override void OnNetworkSpawn()
@@ -213,6 +262,146 @@ namespace TDA.Character.AI
         public override void NotifyWarpAttackClientRpc(ulong targetId, int boneIndex)
         {
             // AI 는 모션 워핑을 사용하지 않으므로 의도적으로 비워둡니다.
+        }
+
+        // =====================================================================
+        // [v1.1] 씬 배치 자동 Spawn — 핵심 로직
+        // =====================================================================
+
+        /// <summary>
+        /// NetworkManager 상태에 따라 자체 Spawn 분기 실행.
+        /// Start() 에서 한 번 호출. 인스펙터에서 [Force Self Spawn Now] 컨텍스트 메뉴로도 호출 가능.
+        ///
+        /// 분기 매트릭스:
+        ///   ┌───────────────────────────────────────┬────────────────────────────────┐
+        ///   │ 상태                                   │ 동작                          │
+        ///   ├───────────────────────────────────────┼────────────────────────────────┤
+        ///   │ NetworkObject == null                  │ 경고 + 종료                   │
+        ///   │ NetworkObject.IsSpawned == true        │ 이미 정상 → 스킵              │
+        ///   │ NetworkManager.Singleton == null       │ 오프라인 모드 → 스킵          │
+        ///   │ IsListening && IsServer                │ 즉시 Spawn                    │
+        ///   │ IsListening && !IsServer (client)      │ 서버 권한 없음 → 스킵         │
+        ///   │ !IsListening                           │ OnServerStarted 구독 → 대기   │
+        ///   └───────────────────────────────────────┴────────────────────────────────┘
+        /// </summary>
+        [ContextMenu("Force Self Spawn Now")]
+        public void TrySelfSpawnIfNeeded()
+        {
+            if (!autoSpawnIfPlacedInScene) return;
+            if (_autoSpawnInvoked) return;
+
+            var netObj = NetworkObject;
+            if (netObj == null)
+            {
+                Debug.LogWarning(
+                    $"[AINetSpawn:WARN:{name}] NetworkObject 컴포넌트 없음 — 자체 Spawn 불가.", this);
+                return;
+            }
+
+            // NGO가 이미 정상 처리한 경우 → 스킵 (가장 흔한 정상 케이스)
+            if (netObj.IsSpawned)
+            {
+                AutoSpawnLog("#90A4AE", "이미 IsSpawned=true → NGO가 정상 처리함, 스킵.");
+                return;
+            }
+
+            // 오프라인 모드
+            if (NetworkManager.Singleton == null)
+            {
+                AutoSpawnLog("#90A4AE",
+                    "NetworkManager.Singleton == null → 오프라인 모드. " +
+                    "Mob은 일반 GameObject로 동작 (CharacterManager.isNetworkActive 가드가 처리).");
+                return;
+            }
+
+            var nm = NetworkManager.Singleton;
+
+            // 호스트 활성 → 즉시 Spawn
+            if (nm.IsListening && nm.IsServer)
+            {
+                AutoSpawnLog("#FFD54F",
+                    "호스트 활성 (IsListening && IsServer) → 즉시 자체 Spawn 시도.");
+                DoSpawn();
+                return;
+            }
+
+            // 클라이언트 → 무동작 (서버가 Spawn하면 자동 수신)
+            if (nm.IsListening && !nm.IsServer)
+            {
+                AutoSpawnLog("#90A4AE",
+                    "클라이언트 모드 (IsListening && !IsServer) → 서버가 Spawn할 때까지 대기. " +
+                    "서버 Spawn 후 자동 수신됨.");
+                return;
+            }
+
+            // NetworkManager 존재하지만 미시작 → OnServerStarted 구독
+            nm.OnServerStarted += OnServerStartedSelfSpawn;
+            _autoSpawnSubscribedToServerStart = true;
+            AutoSpawnLog("#FFD54F",
+                "호스트 미시작 (NetworkManager 존재, !IsListening) → OnServerStarted 구독. " +
+                "추후 StartHost 호출 시점에 자동 Spawn 예정.");
+        }
+
+        /// <summary>
+        /// NetworkManager.OnServerStarted 콜백.
+        /// 호스트가 시작된 시점에 자체 Spawn을 시도한다.
+        /// </summary>
+        private void OnServerStartedSelfSpawn()
+        {
+            // 1회성 콜백 — 즉시 구독 해제
+            if (NetworkManager.Singleton != null)
+                NetworkManager.Singleton.OnServerStarted -= OnServerStartedSelfSpawn;
+            _autoSpawnSubscribedToServerStart = false;
+
+            AutoSpawnLog("#FFD54F", "OnServerStarted 수신 → 자체 Spawn 시도.");
+            DoSpawn();
+        }
+
+        /// <summary>
+        /// 실제 NetworkObject.Spawn() 호출. 모든 가드 검사를 다시 수행하여 안전성 보장.
+        /// </summary>
+        private void DoSpawn()
+        {
+            if (_autoSpawnInvoked) return;
+
+            var netObj = NetworkObject;
+            if (netObj == null) return;
+            if (netObj.IsSpawned)
+            {
+                _autoSpawnInvoked = true;
+                AutoSpawnLog("#90A4AE", "DoSpawn 시점에 이미 IsSpawned=true → 스킵.");
+                return;
+            }
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            {
+                Debug.LogWarning(
+                    $"[AINetSpawn:WARN:{name}] DoSpawn 호출됐지만 서버 권한 없음 → 무시.", this);
+                return;
+            }
+
+            _autoSpawnInvoked = true;
+
+            try
+            {
+                netObj.Spawn(true);  // destroyWithScene=true (씬 배치 객체에 적합)
+                AutoSpawnLog("#FFD54F",
+                    $"<b>✔ 자체 Spawn 성공</b> (NetworkObjectId={netObj.NetworkObjectId})");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning(
+                    $"[AINetSpawn:WARN:{name}] NetworkObject.Spawn() 예외 → " +
+                    $"{e.GetType().Name}: {e.Message}", this);
+            }
+        }
+
+        /// <summary>
+        /// 자동 Spawn 진단 로그. autoSpawnDebugLog=true일 때만 출력.
+        /// </summary>
+        private void AutoSpawnLog(string colorHex, string msg)
+        {
+            if (!autoSpawnDebugLog) return;
+            Debug.Log($"<color={colorHex}>[AINetSpawn:{name}]</color> {msg}", this);
         }
     }
 }

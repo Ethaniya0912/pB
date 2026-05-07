@@ -2,6 +2,7 @@
 // HumanoidBootstrapper.cs  |  pB-4 Week 2 — Day 1 T1.4
 //                          |  v2 개정: NGO 2.0 + 4계층 L2 Router 대응
 //                          |  v3 개정: [DEBT-13] AlignmentSO 컴포넌트 전파 누락 패치
+//                          |  ★ v4 개정 (Wk3 Phase 5): WorldAIManager 이벤트 구독 추가
 // -----------------------------------------------------------------------------
 // 역할: 씬 내 모든 HumanoidAIBrain의 초기화를 담당하는 DI 컨테이너.
 //       1) 필요 컴포넌트 자동 부착 (5종)
@@ -29,6 +30,16 @@
 //             부수효과: DEBT-12 자동 해결.
 //             Refs: pB4_Week2_DEBT_Manifest_Table.docx (DEBT-13)
 //                   Reports/DEBT_13_Bootstrapper_OneLine_Patch.md
+//
+// ★ v3 → v4 변경 (Wk3 Phase 5 — 2026-05-04):
+//   [WK3-LATESPAWN] 기존 OnClientLateConnect (새 클라이언트 접속 시) 만으로는
+//                   WorldAIManager 가 호스트에서 NPC 스폰하는 케이스 미처리.
+//                   해결: WorldAIManager.OnAllCharactersSpawned 이벤트 구독 →
+//                         스폰 완료 시 RescanAndBootstrapNew 자동 호출.
+//                   증상: Skeleton 스폰됐으나 utilityFormula/tagResolver=null
+//                         → HumanoidAIBrain 의 Week 1 fallback 매 틱 트리거
+//                         → currentState=Unknown 빨간색 표시.
+//                   해결 후: 11 개 컴포넌트 + SO 자동 부착 → Personality 5축 활성.
 // =============================================================================
 using System.Collections.Generic;
 using System.Linq;
@@ -80,6 +91,14 @@ namespace TDA.PB4.Bootstrap
         [Tooltip("Play 중 이 컴포넌트를 비활성화해도 이미 부트스트랩된 NPC는 유지. false로 두세요.")]
         public bool destroyAfterBootstrap = false;
 
+        // ★ v4 (Wk3 Phase 5) — Personality 무작위 적용
+        [Header("━━━ ★ Phase 5 — 개체 다양화 ━━━━━━━━━")]
+
+        [Tooltip("ON → 부트스트랩 시 각 NPC 의 Personality 5축을 무작위로 재설정. " +
+                 "같은 prefab 5 마리도 다른 행동 시각 검증 가능. " +
+                 "OFF → prefab 의 personality 값 그대로 사용 (5 마리 모두 동일).")]
+        public bool randomizePersonality = false;
+
         [Header("━━━ 통계 (읽기 전용, 디버그용) ━━━━━━━")]
 
         [Tooltip("부트스트랩된 NPC 수.")]
@@ -126,6 +145,12 @@ namespace TDA.PB4.Bootstrap
                 NetworkManager.Singleton.OnClientConnectedCallback += OnClientLateConnect;
             }
 
+            // ★ v4 (Wk3 Phase 5) — WorldAIManager 의 NPC 스폰 사이클 종료 이벤트 구독.
+            //   목적: OnClientLateConnect 와 별개 트리거 — "호스트의 NPC 스폰" 케이스 처리.
+            //   v3 까지: WorldAIManager 가 NPC 스폰해도 부트스트랩 안 됨 (Late-Spawn 누락 버그).
+            //   v4 부터: OnAllCharactersSpawned → RescanAndBootstrapNew 자동 호출.
+            WorldAIManager.OnAllCharactersSpawned += OnNPCsSpawnedByWorldAIManager;
+
             RunBootstrap();
         }
 
@@ -136,6 +161,10 @@ namespace TDA.PB4.Bootstrap
             {
                 NetworkManager.Singleton.OnClientConnectedCallback -= OnClientLateConnect;
             }
+
+            // ★ v4 (Wk3 Phase 5) — WorldAIManager 이벤트 구독 해제 (씬 전환 유령 방지)
+            WorldAIManager.OnAllCharactersSpawned -= OnNPCsSpawnedByWorldAIManager;
+
             base.OnNetworkDespawn();
         }
 
@@ -144,6 +173,43 @@ namespace TDA.PB4.Bootstrap
         private void OnClientLateConnect(ulong clientId)
         {
             if (!IsServer) return;
+            RescanAndBootstrapNew();
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ★ v4 (Wk3 Phase 5) — WorldAIManager 이벤트 핸들러
+        // ═════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// ★ v4 — WorldAIManager 가 NPC 스폰 사이클 완료 시 트리거.
+        /// 새로 스폰된 NPC 들에 11 개 컴포넌트 자동 부착 + SO 데이터 주입.
+        ///
+        /// ★ 호출 흐름:
+        ///   WorldAIManager.SpawnAllCharactersRoutine 끝부분
+        ///   → OnAllCharactersSpawned?.Invoke(newlySpawned)
+        ///   → 본 메서드 호출
+        ///   → BootstrapNewlySpawnedAfterDelay 코루틴 시작 (1 프레임 대기)
+        ///   → RescanAndBootstrapNew() — 미부트스트랩 Brain 만 처리 (중복 방지)
+        ///
+        /// ★ 보장: bootstrappedBrainIds HashSet 이 중복 처리 방지.
+        ///        WorldAIManager 가 같은 NPC 를 두 번 이벤트 발행해도 안전.
+        /// </summary>
+        private void OnNPCsSpawnedByWorldAIManager(List<GameObject> newlySpawned)
+        {
+            if (!IsServer) return;
+
+            LogInfo($"WorldAIManager 스폰 이벤트 수신 — {newlySpawned?.Count ?? 0}개 NPC 부트스트랩 시작");
+            StartCoroutine(BootstrapNewlySpawnedAfterDelay());
+        }
+
+        /// <summary>★ v4 — 1 프레임 대기 후 RescanAndBootstrapNew 호출.</summary>
+        /// <remarks>
+        /// WorldAIManager 가 이미 POST_SPAWN_DELAY_SEC (0.1초) 대기 후 이벤트 발행하므로
+        /// 보통 즉시 OK. 안전 마진으로 한 번 더 대기.
+        /// </remarks>
+        private System.Collections.IEnumerator BootstrapNewlySpawnedAfterDelay()
+        {
+            yield return null;  // 한 프레임 대기 (Awake / OnNetworkSpawn 처리 보장)
             RescanAndBootstrapNew();
         }
 
@@ -353,6 +419,21 @@ namespace TDA.PB4.Bootstrap
             // ═══ c) Brain 의존성 주입 ═══════════════════════════
             if (bb != null)
                 brain.InjectBlackboard(bb);
+
+            // ★ v4 (Wk3 Phase 5) — Personality 무작위 적용 (개체 다양화)
+            //   ON 일 때 각 NPC 의 Personality 5축을 무작위로 재설정 → 같은 prefab 도 다른 행동
+            if (randomizePersonality)
+            {
+                var randomPersonality = PersonalityMatrix.Random();
+                brain.SetPersonality(randomPersonality);
+                LogInfo($"{brain.name}: Personality 무작위 적용 — " +
+                        $"stability={randomPersonality.stability:F2}, " +
+                        $"openness={randomPersonality.openness:F2}, " +
+                        $"agreeable={randomPersonality.agreeable:F2}, " +
+                        $"control={randomPersonality.control:F2}, " +
+                        $"directness={randomPersonality.directness:F2}");
+            }
+
             brain.InjectComponents(formula, resolver, encoder, trust, trauma);
 
             LogVerbose($"{brain.name}: Brain 의존성 주입 완료. IsStubFree={brain.IsStubFree()}");

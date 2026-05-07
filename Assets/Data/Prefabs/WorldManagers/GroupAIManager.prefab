@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &766506817125188722
+--- !u!1 &6924516805971638618
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,44 +8,51 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 354361478326391590}
-  - component: {fileID: 461029932042778349}
+  - component: {fileID: 2491643649186464617}
+  - component: {fileID: 4520067226039995413}
   m_Layer: 0
-  m_Name: World AI Manager
+  m_Name: GroupAIManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &354361478326391590
+--- !u!4 &2491643649186464617
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 766506817125188722}
+  m_GameObject: {fileID: 6924516805971638618}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.537376, y: -2.562442, z: -4.2652526}
+  m_LocalPosition: {x: 0.53044, y: -0, z: 0.11956}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &461029932042778349
+--- !u!114 &4520067226039995413
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 766506817125188722}
+  m_GameObject: {fileID: 6924516805971638618}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f822fdae15bfc94da6e70f0dad60ee5, type: 3}
+  m_Script: {fileID: 11500000, guid: c441303751262b94ba3aa9c614a6fb61, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
-  despawnCharacters: 0
-  respawnCharacters: 0
-  aiCharacters:
-  - {fileID: 4233442530097016134, guid: 33ed2cb71e48ee54a830ff237ddf6885, type: 3}
-  spawnedInCharacters: []
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.GroupAIManager
+  policySO: {fileID: 11400000, guid: 6d2785f752a058c4495d297d1bab5f46, type: 2}
+  policyImplementor: {fileID: 0}
+  members: []
+  tokenMultiplier: 1.2
+  tokenReassignInterval: 2
+  currentMorale: 1
+  currentEscalationLevel: 0
+  combatElapsedTime: 0
+  encircleProgress: 0
+  debugLog: 1
+  activeTokenCount: 0
+  maxTokenCount: 0

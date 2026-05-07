@@ -21,15 +21,28 @@
 //   - [H4~H10] 세부 개선
 //
 // [v3 NGO 2.0 개정 — 2026-04-23]
-//   - [NGO-1] BaseAIBrain이 NetworkBehaviour → HumanoidAIBrain도 자동 상속
-//   - [NGO-2] Awake + OnNetworkSpawn 양쪽에서 anchorPersonality 설정 (단독 Play + Network)
-//   - [NGO-3] Update() BT Tick은 서버/단독 Play만 실행
-//   - [NGO-4] PivotPersonality → 서버 권한 (ServerRpc)
-//   - [NGO-5] PersonalityMatrix에 INetworkSerializable 구현 (NetworkVariable 전송)
-//   - [NGO-6] netPersonality, netCurrentState NetworkVariable로 전 클라 동기화
+//   - [NGO-1~6] NetworkVariable 동기화
+//
+// [★ v3.1 Personality 진단 강화 — 2026-05-04]
+//   - [DIAG-1] DiagState enum + 상태 분류 (Healthy / EmptyTags / ZeroPersonality / TagResolverMissing)
+//   - [DIAG-2] RunPersonalityDiagnostic — 상태 변화 시에만 색상 로그 (console 폭주 방지)
+//   - [DIAG-3] ContextMenu "★ Diagnose Personality State (Force)" 추가
+//   - [DIAG-4] IsPersonalityAllZero / IsPersonalityNearZero 헬퍼
+//   - [DIAG-5] autoDiagnostic Inspector 토글 + UpdateDecision 자동 호출
+//   - [DIAG-6] 색상 코드: 빨강(심각) / 노랑(경고) / 녹색(정상) / 시안(정보)
+//
+// [★ v3.1.1 — 2026-05-04 핫픽스]
+//   - SetPersonality 메서드 추가 (Phase 5 v5 호환)
+//     HumanoidBootstrapper.randomizePersonality 가 이미 v5 적용된 상태라 미스매치 발생.
+//     personality + anchorPersonality 갱신 + needsTagReEvaluation = true + NetVar 동기화.
+//
+// [★ v3.1.2 — 2026-05-04 추적 로깅 강화]
+//   - InjectComponents 진입 시 oldResolverID + newResolverID + new resolver tags 출력
+//   - UpdateDecision ② 태그 재평가 시 Resolve CALL/DONE 전후 tags 변동 추적
+//   - 색상 컨벤션: 자주 (Inject), 녹색 (Resolve 정상), 빨강 (의심 = 0 tags)
 // =============================================================================
 using System.Collections.Generic;
-using Unity.Netcode;                              // [NGO-1]
+using Unity.Netcode;
 using UnityEngine;
 using TDA.PB4.AI;
 using TDA.PB4.Data;
@@ -64,7 +77,6 @@ namespace TDA.PB4.AI.Humanoid
             };
         }
 
-        // [NGO-5] NetworkVariable 전송용
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
             s.SerializeValue(ref control);
@@ -111,7 +123,6 @@ namespace TDA.PB4.AI.Humanoid
         [SerializeField] private HumanoidBTState currentState = HumanoidBTState.Idle;
         public HumanoidBTState CurrentState => currentState;
 
-        // [NGO-6] 네트워크 동기화용 (int로 캐스팅)
         private NetworkVariable<int> netCurrentState = new NetworkVariable<int>(
             value: (int)HumanoidBTState.Idle,
             readPerm: NetworkVariableReadPermission.Everyone,
@@ -149,7 +160,7 @@ namespace TDA.PB4.AI.Humanoid
         [Header("━━━ 상태 전환 파라미터 ━━━━━━━━━━━━")]
         [Range(0f, 0.5f)] public float idleThreshold = 0.1f;
         [Range(0f, 0.3f)] public float stateSwitchHysteresis = 0.08f;
-        [Range(1, 10)]    public int minStateHoldTicks = 2;
+        [Range(1, 10)] public int minStateHoldTicks = 2;
         private int currentStateHoldTicks;
 
         [Tooltip("태그 재평가 필요 플래그.")]
@@ -166,32 +177,49 @@ namespace TDA.PB4.AI.Humanoid
         private bool hasLoggedSitError = false;
 
         // ==================================================================
+        // ★ v3.1 진단 (DIAG-1, DIAG-5)
+        // ==================================================================
+        [Header("━━━ ★ v3.1 진단 ━━━━━━━━━━━━━━━━━━━")]
+        [Tooltip("ON → Personality 또는 ActiveTags 비정상 시 색상 로그 자동 출력.\n" +
+                 "상태 변화 시에만 1 회 로그 (console 폭주 방지).")]
+        [SerializeField] private bool autoDiagnostic = true;
+
+        /// <summary>★ v3.1 진단 상태 분류.</summary>
+        private enum DiagState
+        {
+            Unknown,
+            Healthy,                 // 모든 것 정상
+            EmptyTags,               // ActiveTags 가 빈 배열 ★ 가장 흔한 이슈
+            ZeroPersonality,         // Personality 5축 모두 0 (NetworkVariable 동기화 race)
+            TagResolverMissing       // tagResolver == null
+        }
+
+        private DiagState _lastDiagState = DiagState.Unknown;
+
+        // ==================================================================
         // Lifecycle
         // ==================================================================
         protected override void Awake()
         {
-            base.Awake();   // [NGO-2] BaseAIBrain.Awake가 단독 Play 시 InitializeBlackboard 수행
+            base.Awake();
             anchorPersonality = personality;
         }
 
         public override void OnNetworkSpawn()
         {
-            base.OnNetworkSpawn();   // [NGO-2] BaseAIBrain.OnNetworkSpawn이 InitializeBlackboard 수행
+            base.OnNetworkSpawn();
 
-            // 최초 스폰 시 personality 동기화 (서버)
             if (IsServer)
             {
                 netPersonality.Value = personality;
                 netCurrentState.Value = (int)currentState;
             }
 
-            // 클라는 NetworkVariable 변화를 구독
             netPersonality.OnValueChanged += OnNetPersonalityChanged;
             netCurrentState.OnValueChanged += OnNetCurrentStateChanged;
 
             if (!IsServer)
             {
-                // 클라는 초기값을 NetworkVariable에서 가져옴
                 personality = netPersonality.Value;
                 anchorPersonality = personality;
                 currentState = (HumanoidBTState)netCurrentState.Value;
@@ -207,7 +235,7 @@ namespace TDA.PB4.AI.Humanoid
 
         private void OnNetPersonalityChanged(PersonalityMatrix prev, PersonalityMatrix next)
         {
-            if (IsServer) return;   // 서버는 이미 변경됨
+            if (IsServer) return;
             personality = next;
             needsTagReEvaluation = true;
         }
@@ -222,17 +250,13 @@ namespace TDA.PB4.AI.Humanoid
 
         private void Start()
         {
-            // [NGO-3] Archetype 적용은 서버/단독 Play만
             if (!HasAuthority()) return;
-
             ApplyArchetype();
         }
 
         private void Update()
         {
             if (externallyTicked) return;
-
-            // [NGO-3] BT Tick은 서버/단독 Play만 실행
             if (!HasAuthority()) return;
 
             decisionTimer += Time.deltaTime;
@@ -254,6 +278,16 @@ namespace TDA.PB4.AI.Humanoid
             TrustMatrix trust,
             TraumaSystem trauma)
         {
+            // ★ v3.1.2 — Inject 진입 추적 (resolver ID + tags 상태)
+            int oldResolverId = this.tagResolver != null ? this.tagResolver.GetInstanceID() : -1;
+            int newResolverId = resolver != null ? resolver.GetInstanceID() : -1;
+            int newResolverTags = resolver?.ActiveTags?.Count ?? -1;
+            Debug.Log($"<color=#888888>[N:{GetInstanceID()}]</color> " +
+                      $"<color=#CCAAFF><b>[Brain/Inject ENTER]</b></color> " +
+                      $"<color=#FFCC44>{name}</color> | " +
+                      $"oldResolverID={oldResolverId} → newResolverID={newResolverId} | " +
+                      $"new resolver tags={newResolverTags}");
+
             this.utilityFormula = formula;
             this.tagResolver = resolver;
             this.sitEncoder = encoder;
@@ -262,6 +296,7 @@ namespace TDA.PB4.AI.Humanoid
 
             needsTagReEvaluation = true;
             hasLoggedSitError = false;
+            _lastDiagState = DiagState.Unknown;   // ★ v3.1 — 진단 상태 리셋
 
             if (verboseLogging)
                 Debug.Log($"[HumanoidAIBrain] {name}: Week 2 주입 완료. " +
@@ -269,7 +304,6 @@ namespace TDA.PB4.AI.Humanoid
                           $"Encoder={encoder != null}, Trust={trust != null}, Trauma={trauma != null}");
         }
 
-        /// <summary>태그 재평가 요청.</summary>
         public void MarkTagsDirty(string reason = "")
         {
             needsTagReEvaluation = true;
@@ -289,13 +323,32 @@ namespace TDA.PB4.AI.Humanoid
             // ② 태그 재평가
             if (needsTagReEvaluation && tagResolver != null)
             {
+                // ★ v3.1.2 — Resolve 호출 직전 추적
+                int beforeTags = tagResolver.ActiveTags?.Count ?? -1;
+                Debug.Log($"<color=#888888>[N:{GetInstanceID()}|R:{tagResolver.GetInstanceID()}]</color> " +
+                          $"<color=#88FF88><b>[Brain/Resolve CALL]</b></color> " +
+                          $"<color=#FFCC44>{name}</color> | beforeTags={beforeTags}");
+
                 tagResolver.ResolveTagsFromPersonality(personality);
                 needsTagReEvaluation = false;
+
+                // ★ v3.1.2 — Resolve 호출 직후 추적
+                int afterTags = tagResolver.ActiveTags?.Count ?? -1;
+                string afterColor = afterTags <= 0 ? "#FF8866" : "#88FF88";
+                string afterStr = (tagResolver.ActiveTags != null && tagResolver.ActiveTags.Count > 0)
+                    ? string.Join(",", tagResolver.ActiveTags)
+                    : "[ ]";
+                Debug.Log($"<color=#888888>[N:{GetInstanceID()}|R:{tagResolver.GetInstanceID()}]</color> " +
+                          $"<color={afterColor}><b>[Brain/Resolve DONE]</b></color> " +
+                          $"<color=#FFCC44>{name}</color> | tags={afterTags}={afterStr}");
 
                 if (verboseLogging)
                     Debug.Log($"[HumanoidAIBrain] {name}: Tag 재평가 → " +
                               $"[{string.Join(",", tagResolver.ActiveTags)}]");
             }
+
+            // ★ v3.1 — 자동 진단 (상태 변화 시만 1 회 로그)
+            if (autoDiagnostic) RunPersonalityDiagnostic();
 
             // ③ Needs 딕셔너리
             var needs = BuildNeedsDictionary();
@@ -332,6 +385,233 @@ namespace TDA.PB4.AI.Humanoid
             {
                 UpdateSituationVector(needs);
             }
+        }
+
+        // ==================================================================
+        // ★ v3.1 진단 — Personality / ActiveTags 자동 감지 (DIAG-2 ~ DIAG-6)
+        // ==================================================================
+
+        /// <summary>★ v3.1 — 5축 모두 0 (epsilon 미만) 인지 검사.</summary>
+        public bool IsPersonalityAllZero()
+        {
+            const float E = 0.001f;
+            return Mathf.Abs(personality.control) < E
+                && Mathf.Abs(personality.stability) < E
+                && Mathf.Abs(personality.openness) < E
+                && Mathf.Abs(personality.agreeable) < E
+                && Mathf.Abs(personality.directness) < E;
+        }
+
+        /// <summary>★ v3.1 — 현재 상태 분류.</summary>
+        private DiagState ClassifyDiagState()
+        {
+            if (tagResolver == null) return DiagState.TagResolverMissing;
+            if (IsPersonalityAllZero()) return DiagState.ZeroPersonality;
+            if (tagResolver.ActiveTags == null || tagResolver.ActiveTags.Count == 0)
+                return DiagState.EmptyTags;
+            return DiagState.Healthy;
+        }
+
+        /// <summary>★ v3.1 — 상태 변화 시에만 1 회 색상 로그 출력 (console 폭주 방지).</summary>
+        private void RunPersonalityDiagnostic()
+        {
+            DiagState current = ClassifyDiagState();
+            if (current == _lastDiagState) return;   // 변화 없으면 스킵
+
+            DiagState prev = _lastDiagState;
+            _lastDiagState = current;
+
+            string colorTag, statusTag, severity;
+            switch (current)
+            {
+                case DiagState.Healthy:
+                    colorTag = "#44FF66"; statusTag = "✓ HEALTHY"; severity = "Log"; break;
+                case DiagState.EmptyTags:
+                    colorTag = "#FFAA33"; statusTag = "⚠ EMPTY TAGS"; severity = "Warning"; break;
+                case DiagState.ZeroPersonality:
+                    colorTag = "#FF4444"; statusTag = "✗ ZERO PERSONALITY"; severity = "Error"; break;
+                case DiagState.TagResolverMissing:
+                    colorTag = "#FF4444"; statusTag = "✗ NO RESOLVER"; severity = "Error"; break;
+                default:
+                    colorTag = "#888888"; statusTag = "? UNKNOWN"; severity = "Log"; break;
+            }
+
+            string transition = (prev == DiagState.Unknown)
+                ? $"<color=#888888>(initial)</color>"
+                : $"<color=#888888>({prev}→{current})</color>";
+
+            string body = BuildDiagnosticBody();
+            string msg = $"<color={colorTag}><b>[HumanoidAIBrain {statusTag}]</b></color> {name} {transition}\n{body}";
+
+            switch (severity)
+            {
+                case "Error": Debug.LogError(msg); break;
+                case "Warning": Debug.LogWarning(msg); break;
+                default: Debug.Log(msg); break;
+            }
+        }
+
+        /// <summary>★ v3.1 — 진단 본문 생성 (색상 포함).</summary>
+        private string BuildDiagnosticBody()
+        {
+            // Personality 색상 — 0 이면 빨강, 정상이면 시안
+            const float E = 0.001f;
+            string ColorVal(float v) =>
+                Mathf.Abs(v) < E
+                    ? $"<color=#FF4444>{v:F3}</color>"
+                    : $"<color=#88CCFF>{v:F3}</color>";
+
+            string personalityLine =
+                $"C={ColorVal(personality.control)} " +
+                $"S={ColorVal(personality.stability)} " +
+                $"O={ColorVal(personality.openness)} " +
+                $"A={ColorVal(personality.agreeable)} " +
+                $"D={ColorVal(personality.directness)}";
+
+            // ActiveTags 색상
+            string tagsLine;
+            if (tagResolver == null)
+            {
+                tagsLine = "<color=#FF4444>tagResolver = NULL</color>";
+            }
+            else if (tagResolver.ActiveTags == null || tagResolver.ActiveTags.Count == 0)
+            {
+                tagsLine = "<color=#FF4444>[ ] (★ 빈 배열 — Resolver 매핑 또는 임계치 문제)</color>";
+            }
+            else
+            {
+                tagsLine = $"<color=#44FF66>[{string.Join(", ", tagResolver.ActiveTags)}]</color>";
+            }
+
+            // Utility Score 색상 — 0 이면 빨강 톤
+            string ColorScore(float s) =>
+                s < 0.001f
+                    ? $"<color=#FF6677>{s:F2}</color>"
+                    : $"<color=#88FFAA>{s:F2}</color>";
+
+            string scoresLine =
+                $"Atk={ColorScore(u_attack)} " +
+                $"Flee={ColorScore(u_flee)} " +
+                $"Loot={ColorScore(u_loot)} " +
+                $"Mov={ColorScore(u_move)} " +
+                $"FCmd={ColorScore(u_followcommand)}";
+
+            return
+                $"  <b>personality:</b>  {personalityLine}\n" +
+                $"  <b>ActiveTags:</b>   {tagsLine}\n" +
+                $"  <b>fear:</b> <color=#FFCC44>{fear:F2}</color>  " +
+                  $"<b>scores:</b> {scoresLine}\n" +
+                $"  <b>state:</b> <color=#CCAAFF>{currentState}</color> (held={currentStateHoldTicks})";
+        }
+
+        /// <summary>
+        /// ★ v3.1 — 강제 진단 + Tag 재평가. ContextMenu 우클릭으로 호출.
+        /// 상태 변화 무관 항상 풀 정보 출력.
+        /// </summary>
+        [ContextMenu("★ Diagnose Personality State (Force)")]
+        public void DiagnosePersonalityStateMenu()
+        {
+            DiagState s = ClassifyDiagState();
+            string colorTag, statusTag;
+            switch (s)
+            {
+                case DiagState.Healthy:
+                    colorTag = "#44FF66"; statusTag = "✓ HEALTHY"; break;
+                case DiagState.EmptyTags:
+                    colorTag = "#FFAA33"; statusTag = "⚠ EMPTY TAGS"; break;
+                case DiagState.ZeroPersonality:
+                    colorTag = "#FF4444"; statusTag = "✗ ZERO PERSONALITY"; break;
+                case DiagState.TagResolverMissing:
+                    colorTag = "#FF4444"; statusTag = "✗ NO RESOLVER"; break;
+                default:
+                    colorTag = "#888888"; statusTag = "? UNKNOWN"; break;
+            }
+
+            string body = BuildDiagnosticBody();
+
+            // anchor 정보
+            const float E = 0.001f;
+            string ColorVal(float v) =>
+                Mathf.Abs(v) < E
+                    ? $"<color=#AA8888>{v:F3}</color>"
+                    : $"<color=#AABBDD>{v:F3}</color>";
+            string anchorLine =
+                $"C={ColorVal(anchorPersonality.control)} " +
+                $"S={ColorVal(anchorPersonality.stability)} " +
+                $"O={ColorVal(anchorPersonality.openness)} " +
+                $"A={ColorVal(anchorPersonality.agreeable)} " +
+                $"D={ColorVal(anchorPersonality.directness)}";
+
+            // Network 정보
+            string netLine = "<color=#888888>(N/A — IsServer=false 또는 NetworkManager 비활성)</color>";
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            {
+                if (IsServer)
+                {
+                    var v = netPersonality.Value;
+                    netLine = $"<color=#AAFFAA>(Server) C={v.control:F3} S={v.stability:F3} " +
+                              $"O={v.openness:F3} A={v.agreeable:F3} D={v.directness:F3}</color>";
+                }
+                else
+                {
+                    var v = netPersonality.Value;
+                    netLine = $"<color=#AABBFF>(Client) C={v.control:F3} S={v.stability:F3} " +
+                              $"O={v.openness:F3} A={v.agreeable:F3} D={v.directness:F3}</color>";
+                }
+            }
+
+            string headerMsg =
+                $"<color={colorTag}><b>[HumanoidAIBrain Diag] {statusTag}</b></color> {name} " +
+                $"<color=#888888>(force)</color>\n" +
+                $"{body}\n" +
+                $"  <b>anchor:</b>       {anchorLine}\n" +
+                $"  <b>netPersonality:</b> {netLine}\n" +
+                $"  <b>utilityFormula:</b> {(utilityFormula != null ? "<color=#44FF66>✓</color>" : "<color=#FF4444>✗ NULL</color>")} " +
+                  $"  <b>traumaSystem:</b> {(traumaSystem != null ? "<color=#44FF66>✓</color>" : "<color=#888888>null</color>")} " +
+                  $"  <b>trustMatrix:</b> {(trustMatrix != null ? "<color=#44FF66>✓</color>" : "<color=#888888>null</color>")}";
+
+            Debug.Log(headerMsg);
+
+            // 강제 재평가 시도
+            if (tagResolver != null)
+            {
+                tagResolver.ResolveTagsFromPersonality(personality);
+                var tags = tagResolver.ActiveTags;
+                string afterStr;
+                if (tags == null || tags.Count == 0)
+                {
+                    afterStr = "<color=#FF4444>[ ] (★ 여전히 빈 배열 — Resolver 의 매핑 임계치 또는 SO 자체 문제)</color>";
+                }
+                else
+                {
+                    afterStr = $"<color=#44FF66>[{string.Join(", ", tags)}]</color>";
+                }
+                Debug.Log($"<color=#FFCC44>  → 강제 재평가 후 ActiveTags:</color> {afterStr}");
+            }
+            else
+            {
+                Debug.LogWarning("<color=#FF4444>  → tagResolver == null, 재평가 불가</color>");
+            }
+        }
+
+        /// <summary>★ v3.1 — 진단 상태만 한 줄로 (Auto Diagnostic 안 켰을 때 사용).</summary>
+        [ContextMenu("★ Quick Status (Single Line)")]
+        public void QuickStatusMenu()
+        {
+            DiagState s = ClassifyDiagState();
+            string color = s == DiagState.Healthy ? "#44FF66"
+                : s == DiagState.EmptyTags ? "#FFAA33"
+                : "#FF4444";
+            string tagsCount = tagResolver != null
+                ? (tagResolver.ActiveTags?.Count ?? 0).ToString()
+                : "?";
+            Debug.Log($"<color={color}><b>[Quick {s}]</b></color> {name} | " +
+                      $"P=<color=#88CCFF>(C{personality.control:F2}/S{personality.stability:F2}/" +
+                                       $"O{personality.openness:F2}/A{personality.agreeable:F2}/" +
+                                       $"D{personality.directness:F2})</color> | " +
+                      $"Tags=<color=#88CCFF>{tagsCount}</color> | " +
+                      $"fear=<color=#FFCC44>{fear:F2}</color> | " +
+                      $"State=<color=#CCAAFF>{currentState}</color>");
         }
 
         // ==================================================================
@@ -397,13 +677,6 @@ namespace TDA.PB4.AI.Humanoid
 
         private void SelectNewState(Dictionary<string, float> scores)
         {
-            // [DEBT-21 v1] holdTicks 시간 기반 누적으로 변경 — 데드락 해소.
-            // 이전 결함: holdTicks++가 ❷ (newState==currentState) 분기 안에만 있어,
-            //          winner가 다른 액션으로 바뀐 순간 영원히 0 유지 → ❸ 영원히 차단.
-            //          v5.7 ForceStateForTesting이 currentState 직접 할당으로 가렸음.
-            //          v5.14 자연 검증 박제로 입증: holdTicks=0 고정 → ❸ 우회로만 전이 성공.
-            // 의미 변화: holdTicks = "현재 상태에 머문 누적 호출 수" (매 호출 ++)
-            //          TransitionTo가 다른 상태로 전이 시 0 리셋 (line 479 그대로).
             currentStateHoldTicks++;
 
             string winnerAction = "Idle";
@@ -428,7 +701,6 @@ namespace TDA.PB4.AI.Humanoid
 
             if (newState == currentState)
             {
-                // [DEBT-21] currentStateHoldTicks++ 제거 — 위로 옮김 (매 호출 무조건 증가)
                 return;
             }
 
@@ -487,7 +759,6 @@ namespace TDA.PB4.AI.Humanoid
             currentState = newState;
             currentStateHoldTicks = 0;
 
-            // [NGO-6] 서버가 NetworkVariable 갱신 → 전 클라 자동 전파
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && IsServer)
                 netCurrentState.Value = (int)newState;
 
@@ -498,13 +769,7 @@ namespace TDA.PB4.AI.Humanoid
         }
 
         // ==================================================================
-        // [v5.7 Day 5] Test-only: 모든 hysteresis/holdTicks 우회하고 강제 전환
-        // utility 점수와 무관하게 즉시 currentState 변경 + ExecuteBTNode 트리거.
-        // 시각 검증 도구(HumanoidVisualAutoVerifier)의 fallback 옵션.
-        //
-        // [v5.9] DirectFleeFallback (transform 직접 조작) 제거 — 가짜 검증 박제.
-        //   진짜 자연 도주는 NavMeshAgent.enabled=true + NavMesh 베이크로 가능.
-        //   (CaveManager.cs:420-437 패턴, Stage Setup이 자동 처리)
+        // Test-only: 강제 전환
         // ==================================================================
         public void ForceStateForTesting(HumanoidBTState newState, string reason = "test")
         {
@@ -561,8 +826,8 @@ namespace TDA.PB4.AI.Humanoid
                 personality = archetype.personality.ToMatrix();
                 anchorPersonality = personality;
                 needsTagReEvaluation = true;
+                _lastDiagState = DiagState.Unknown;   // ★ v3.1 — Archetype 적용 시 진단 리셋
 
-                // [NGO-6] 서버가 NetworkVariable 갱신
                 if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && IsServer)
                     netPersonality.Value = personality;
 
@@ -593,13 +858,13 @@ namespace TDA.PB4.AI.Humanoid
         {
             switch (goalId)
             {
-                case "Attack":        break;
-                case "Flee":          break;
-                case "Loot":          break;
-                case "Move":          break;
+                case "Attack": break;
+                case "Flee": break;
+                case "Loot": break;
+                case "Move": break;
                 case "FollowCommand": break;
-                case "Idle":          break;
-                default:              break;
+                case "Idle": break;
+                default: break;
             }
         }
 
@@ -607,12 +872,10 @@ namespace TDA.PB4.AI.Humanoid
         // 외부 API
         // ==================================================================
 
-        /// <summary>성격 피봇팅. [NGO-4] 서버 권한. 클라 호출 시 ServerRpc 위임.</summary>
         public void PivotPersonality(float[] delta)
         {
             if (delta == null || delta.Length != 5) return;
 
-            // [NGO-4] 클라에서 호출 시 ServerRpc
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && !IsServer)
             {
                 PivotPersonalityServerRpc(delta[0], delta[1], delta[2], delta[3], delta[4]);
@@ -636,7 +899,6 @@ namespace TDA.PB4.AI.Humanoid
             personality.agreeable = Mathf.Clamp01(personality.agreeable + delta[3]);
             personality.directness = Mathf.Clamp01(personality.directness + delta[4]);
 
-            // [NGO-6] NetworkVariable 갱신
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && IsServer)
                 netPersonality.Value = personality;
 
@@ -645,11 +907,6 @@ namespace TDA.PB4.AI.Humanoid
 
         public PersonalityMatrix GetAnchor() => anchorPersonality;
 
-        /// <summary>[Day 3] Anchor를 재설정 (DilemmaPivot에서 영구 변화).</summary>
-        /// <remarks>
-        /// 서버 권한. 클라 직접 호출 시 무시 + 경고 로그. 
-        /// 정상 경로: DilemmaPivotResolver.ApplyChoice (이미 ServerRpc로 진입)
-        /// </remarks>
         public void SetAnchor(PersonalityMatrix newAnchor)
         {
             if (!HasAuthority())
@@ -666,6 +923,33 @@ namespace TDA.PB4.AI.Humanoid
                 netPersonality.Value = personality;
 
             MarkTagsDirty("SetAnchor");
+        }
+
+        // ==================================================================
+        // ★ Phase 5 v5 — SetPersonality (HumanoidBootstrapper.randomizePersonality 용)
+        // ==================================================================
+
+        /// <summary>
+        /// ★ Phase 5 v5 — Personality 5축을 통째로 교체 + Tag 재평가 트리거.
+        /// HumanoidBootstrapper.BootstrapOne 의 randomizePersonality ☑ 시 호출.
+        /// 서버 권한 시 NetworkVariable 동기화.
+        /// </summary>
+        public void SetPersonality(PersonalityMatrix newPersonality)
+        {
+            personality = newPersonality;
+            anchorPersonality = newPersonality;
+            needsTagReEvaluation = true;
+            _lastDiagState = DiagState.Unknown;   // ★ v3.1 — 진단 리셋
+
+            // 서버 권한 시 NetworkVariable 동기화
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening && IsServer)
+                netPersonality.Value = personality;
+
+            if (verboseLogging)
+                Debug.Log($"[HumanoidAIBrain] {name}: ★ SetPersonality " +
+                          $"(C={newPersonality.control:F2} S={newPersonality.stability:F2} " +
+                          $"O={newPersonality.openness:F2} A={newPersonality.agreeable:F2} " +
+                          $"D={newPersonality.directness:F2})");
         }
 
         [ContextMenu("Dump Current State")]

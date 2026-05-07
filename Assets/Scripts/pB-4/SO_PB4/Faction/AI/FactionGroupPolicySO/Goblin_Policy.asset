@@ -20,4 +20,7 @@ MonoBehaviour:
   formationTemplate: 0
   tokenOverrideEnabled: 0
   tokenOverrideThreshold: 0
-  roleTransitionRules: []
+  roleTransitionRules:
+  - fromRole: 
+    toRole: 
+    triggerThreshold: 0

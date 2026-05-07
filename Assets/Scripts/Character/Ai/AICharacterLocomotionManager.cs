@@ -61,6 +61,10 @@ namespace TDA.Character.AI
         [Tooltip("Animator moveAmount 파라미터 보간 속도 (낮을수록 부드럽습니다).")]
         [SerializeField] private float animatorSmoothTime = 0.15f;
 
+        [Header("디버깅 — 진단 로그")]
+        [Tooltip("ON → DC/MC 콜백 충돌 등 진단 LogWarning 출력.")]
+        [SerializeField] private bool _verboseDiagLogging = false;
+
         // =====================================================================
         // Unity 생명주기
         // =====================================================================
@@ -166,27 +170,29 @@ namespace TDA.Character.AI
                     string strV = hasV ? gotV.ToString("F2") : "MISSING";
                     string strMA = hasMA ? gotMA.ToString("F2") : "MISSING";
 
-                    Debug.Log($"<color=yellow>[LocoDiag] {aiCharacter.name}</color>\n" +
-                              $"  desiredVel={dv:F3} mag={dv.magnitude:F2}\n" +
-                              $"  applyRoot={aiCharacter.animator.applyRootMotion}" +
-                              $"  moveAmt={moveAmount:F3}\n" +
-                              $"  isOnNavMesh={navMeshAgent.isOnNavMesh}" +
-                              $"  hasPath={navMeshAgent.hasPath}" +
-                              $"  pathPending={navMeshAgent.pathPending}\n" +
-                              $"  pos={aiCharacter.transform.position:F3}" +
-                              $"  facing={aiCharacter.transform.forward:F2}\n" +
-                              $"  canMove={aiCharacter.canMove}" +
-                              $"  isOwner={aiCharacter.IsOwner}" +
-                              $"  isServer={aiCharacter.IsServer}\n" +
-                              // ── [DEBT-19 진단] 3 박제 라인 ────────────────
-                              $"  <color=#FF8866>★[DEBT-19]</color>" +
-                              $" updatePos={navMeshAgent.updatePosition}" +
-                              $" updateRot={navMeshAgent.updateRotation}\n" +
-                              $"  <color=#FF8866>★animParam:</color>" +
-                              $" H={strH} V={strV} mA={strMA}\n" +
-                              $"  <color=#FF8866>★animState:</color>" +
-                              $" hash={stateHash} norm={stateNorm:F2}" +
-                              $" clip='{clipName}'");
+                    if (_verboseDiagLogging) {
+                        Debug.Log($"<color=yellow>[LocoDiag] {aiCharacter.name}</color>\n" +
+                                  $"  desiredVel={dv:F3} mag={dv.magnitude:F2}\n" +
+                                  $"  applyRoot={aiCharacter.animator.applyRootMotion}" +
+                                  $"  moveAmt={moveAmount:F3}\n" +
+                                  $"  isOnNavMesh={navMeshAgent.isOnNavMesh}" +
+                                  $"  hasPath={navMeshAgent.hasPath}" +
+                                  $"  pathPending={navMeshAgent.pathPending}\n" +
+                                  $"  pos={aiCharacter.transform.position:F3}" +
+                                  $"  facing={aiCharacter.transform.forward:F2}\n" +
+                                  $"  canMove={aiCharacter.canMove}" +
+                                  $"  isOwner={aiCharacter.IsOwner}" +
+                                  $"  isServer={aiCharacter.IsServer}\n" +
+                                  // ── [DEBT-19 진단] 3 박제 라인 ────────────────
+                                  $"  <color=#FF8866>★[DEBT-19]</color>" +
+                                  $" updatePos={navMeshAgent.updatePosition}" +
+                                  $" updateRot={navMeshAgent.updateRotation}\n" +
+                                  $"  <color=#FF8866>★animParam:</color>" +
+                                  $" H={strH} V={strV} mA={strMA}\n" +
+                                  $"  <color=#FF8866>★animState:</color>" +
+                                  $" hash={stateHash} norm={stateNorm:F2}" +
+                                  $" clip='{clipName}'");
+                    }
                 }
             }
 #endif

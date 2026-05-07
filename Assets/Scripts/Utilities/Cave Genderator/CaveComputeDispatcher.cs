@@ -17,6 +17,10 @@ namespace CaveSystem
         public ComputeShader marchingCubesShader;
         public CaveBiomeSettings caveSettings;
 
+        [Header("디버깅 — 진단 로그")]
+        [Tooltip("ON → 청크 디스패치 / 캐시 HIT/MISS 진단 로그 출력.")]
+        [SerializeField] private bool _verboseDiagLogging = false;
+
         // [🔥 Race Condition 조치] GPU 버퍼 덮어쓰기 방지를 위한 락(Lock) 플래그
         public bool IsBusy { get; set; } = false;
 
@@ -1506,7 +1510,10 @@ namespace CaveSystem
                                 meshBuilder.AssignCachedMeshToScene(mesh, context, chunkSize, voxelSize,
                                     (completedCtx) =>
                                     {
-                                        Debug.Log($"[DC-Cache] HIT: {context.ChunkPos}");
+                                        if (_verboseDiagLogging)
+                                        {
+                                            Debug.Log($"[DC-Cache] HIT: {context.ChunkPos}");
+                                        }
                                         onGpuCompleted?.Invoke(completedCtx, null, null);
                                         _inFlightChunks.Remove(context.ChunkPos); // [Phase A - Dedup]
                                         IsBusy = false;

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.HumanoidArchetypeSO
   archetypeId: ranger_generic
   displayName: "\uC219\uB828\uB41C \uC815\uCC30\uBCD1"
-  personality: {fileID: 11400000, guid: f3dd2078f5459644bb7c87d10feb2e70, type: 2}
+  personality: {fileID: 11400000, guid: 252bff93f8d34c9195160cc4a5477dd6, type: 2}
   startingAlignment: 1
   startingTrust: 50
   startingKarma: 0

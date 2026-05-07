@@ -41,12 +41,25 @@
 //   UpdateBlackboard() 에서 isPerformingAction = false 강제 리셋이 제거됨.
 //   isPerformingAction 은 이 Action 과 ResetCharacterStateBehaviour 가 단독 관리.
 //
+// [v3.3.6 GroupAI 토큰 게이트 통합 — 2026-05-06]
+//   ★ 진단: Combat 256s, atkCnt=0, tSinceAtk=256s for all 3 members
+//          = NotifyMemberAttacked 호출 0회 = 토큰 시스템 사실상 무동작.
+//   ★ 통합:
+//     (1) OnStart에서 GroupAIManager.FindGroupOwning(brain) 1회 호출 후 영구 캐싱.
+//     (2) 토큰 게이트: groupAI.MemberHasAttackToken(brain) == false → Status.Failure
+//         (BT 시퀀스 재시작 → 다른 멤버에게 공격 기회 양보).
+//     (3) 공격 성공 직후: groupAI.NotifyMemberAttacked(brain)
+//         (timeSinceLastAttack=0 리셋, attackCount++ → 토큰 순환 보장).
+//   ★ 그룹 미소속 mob(_groupAI=null)은 토큰 검사 자동 스킵 → 기존 동작 유지.
+//
 // 배치: Assets/Scripts/pB-4/week1_BT_Actions/StrikeAction.cs
 // =============================================================================
 using System;
 using System.Collections.Generic;
 using TDA.Character.AI;   // AICharacterManager, AttackState, AIAttackAction
 using TDA.Core.Events;
+using TDA.PB4.AI;         // [v3.3.6] GroupAIManager
+using TDA.PB4.AI.Mob;     // [v3.3.6] MobAIBrain
 using TDA.PB4.Bridge;     // PB4DecisionAdapter
 using Unity.Behavior;
 using Unity.Properties;
@@ -103,6 +116,13 @@ public partial class StrikeAction : Action
     private NavMeshAgent _nav;
     private AICharacterManager _aiManager;
 
+    // ── [v3.3.6 토큰 게이트] GroupAI 참조 캐싱 ──
+    // OnStart 첫 호출 시 한 번만 검색 후 영구 캐싱 (FindObjectsByType 비용 회피).
+    // _groupAI == null 이면 그룹 미소속 mob → 토큰 검사 스킵, 기존 동작 유지.
+    private MobAIBrain _brain;
+    private GroupAIManager _groupAI;
+    private bool _groupAILookedUp = false;
+
     /// <summary>공격 트리거가 이번 실행에서 이미 발동되었는지.</summary>
     private bool _attackTriggered;
 
@@ -142,6 +162,28 @@ public partial class StrikeAction : Action
         _nav = Self.Value.GetComponent<NavMeshAgent>();
         _attackTriggered = false;
         _fallbackTimer = 0f;   // 타임아웃 타이머 초기화
+
+        // ── [v3.3.6 토큰 게이트] GroupAI 토큰 검사 ──
+        // 첫 진입 시 GroupAIManager 1회 검색 후 영구 캐싱.
+        if (!_groupAILookedUp)
+        {
+            _brain = Self.Value.GetComponent<MobAIBrain>();
+            _groupAI = _brain != null ? GroupAIManager.FindGroupOwning(_brain) : null;
+            _groupAILookedUp = true;
+
+            if (_groupAI != null)
+                Debug.Log($"[BT:Token] {Self.Value.name}: GroupAIManager 바인딩 완료 (\"{_groupAI.gameObject.name}\")");
+            // 미소속 mob은 로그 생략 (정상 케이스, 노이즈 방지)
+        }
+
+        // GroupAI 소속 mob은 토큰 보유 시에만 공격 진행.
+        // 토큰 없으면 즉시 Failure → BT 시퀀스 재시작 → 다른 멤버에게 공격 기회 양보.
+        // 미소속 mob(_groupAI=null)은 이 게이트를 건너뛰어 기존 동작 유지.
+        if (_groupAI != null && _brain != null && !_groupAI.MemberHasAttackToken(_brain))
+        {
+            Debug.Log($"[BT:Token] {Self.Value.name}: 토큰 없음 → 공격 포기 (다른 멤버 양보).");
+            return Status.Failure;
+        }
 
         // ── 이동 완전 정지 (설계 문서 A3: ResetPath→정지) ──
         if (_nav != null && _nav.isActiveAndEnabled && _nav.isOnNavMesh)
@@ -359,6 +401,15 @@ public partial class StrikeAction : Action
         // AICharacterManager.DrainStaminaForAttack()으로 공격당 스태미나를 차감합니다.
         // TacticalRepositionAction이 스태미나 비율을 읽어 회복 후퇴 트리거로 사용합니다.
         _aiManager.DrainStaminaForAttack();
+
+        // ── [v3.3.6] GroupAI 공격 통지 ──
+        // timeSinceLastAttack=0 리셋 + attackCount++ → 다음 토큰 재분배에서 우선순위 강등.
+        // → 이번 공격자가 토큰을 회수당하고 대기 중인 다른 멤버가 토큰을 받게 됨 (순환 보장).
+        // 미소속 mob(_groupAI=null)은 자동 스킵.
+        if (_groupAI != null && _brain != null)
+        {
+            _groupAI.NotifyMemberAttacked(_brain);
+        }
 
         return true;
     }

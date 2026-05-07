@@ -671,6 +671,10 @@ GameObject:
   - component: {fileID: 7293332218415992728}
   - component: {fileID: 1029634722701367297}
   - component: {fileID: 601547851451220501}
+  - component: {fileID: 290449813145957141}
+  - component: {fileID: 3615703070686682106}
+  - component: {fileID: -8709929844756005820}
+  - component: {fileID: 2708946847785589040}
   m_Layer: 15
   m_Name: Skeleton_Humanoid_01
   m_TagString: Untagged
@@ -730,8 +734,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2339133806
-  InScenePlacedSourceGlobalObjectIdHash: 1383825015
+  GlobalObjectIdHash: 3078429609
+  InScenePlacedSourceGlobalObjectIdHash: 2504438377
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
@@ -782,7 +786,7 @@ AudioSource:
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
-  m_Pitch: 1
+  m_Pitch: 0.92810684
   Loop: 0
   Mute: 0
   Spatialize: 0
@@ -1764,7 +1768,8 @@ MonoBehaviour:
   greed: 0.1
   fatigue: 0.1
   groupMindRef: {fileID: 0}
-  verboseLogging: 0
+  verboseLogging: 1
+  tier2FearVerbose: 1
   personality:
     control: 0.5
     stability: 0.6
@@ -1791,6 +1796,7 @@ MonoBehaviour:
   needsTagReEvaluation: 1
   decisionInterval: 0.3
   externallyTicked: 0
+  autoDiagnostic: 1
 --- !u!114 &7293332218415992728
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1851,6 +1857,82 @@ MonoBehaviour:
   verboseFilterLog: 0
   verifyCharacterId: 1
   requireServerAuthority: 1
+  debugLog: 1
+--- !u!114 &290449813145957141
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 547553a75165cd0489cd16d1c974553d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Context.BlackboardUpdater
+  _agent: {fileID: 7993517952673867679}
+  _verboseLogging: 1
+  _logIntervalSeconds: 2
+  _instantLogKey: 282
+--- !u!114 &3615703070686682106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e01856ff0851924b9aea09740ee7923, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.PersonalityTagResolver
+  ShowTopMostFoldoutHeaderGroup: 1
+  rules: []
+  activeTags: []
+  externalRuleLibrary: {fileID: 11400000, guid: 615b3260f5f66a540a81a6e0e3ce749d,
+    type: 2}
+  debugLog: 1
+  traceLogging: 1
+--- !u!114 &-8709929844756005820
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18ffabb9c4da6b444ad675d59b62d8a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.UtilityMasterFormula
+  ShowTopMostFoldoutHeaderGroup: 1
+  actionConfigs: []
+  modifierRules: []
+  trustFactor: 1
+  externalConfig: {fileID: 11400000, guid: 46289fc84ee1f584f95a28a4d14ebf71, type: 2}
+  debugLog: 1
+--- !u!114 &2708946847785589040
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4233442530097016134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8a448d2644c8e44fb821f48d14a20e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.NPCAlignmentController
+  ShowTopMostFoldoutHeaderGroup: 1
+  alignmentDefinitionSO: {fileID: 11400000, guid: 57dc63ccb503ad541841e4d1396f5abf,
+    type: 2}
+  currentAlignment: 1
+  originalAlignment: 1
+  evaluationInterval: 1
+  alignmentEnterTime: 0
+  targetPlayerId: 0
+  trustMatrix: {fileID: 0}
+  enableSpeechOnTransition: 1
   debugLog: 1
 --- !u!1 &4595707506124031444
 GameObject:

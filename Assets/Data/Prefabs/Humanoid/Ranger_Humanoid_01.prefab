@@ -1779,6 +1779,8 @@ GameObject:
   - component: {fileID: 8962563220192213420}
   - component: {fileID: 5544718263955204423}
   - component: {fileID: 7245064650928360228}
+  - component: {fileID: 7200456222732676532}
+  - component: {fileID: 262755390414217787}
   m_Layer: 15
   m_Name: Ranger_Humanoid_01
   m_TagString: Untagged
@@ -2079,7 +2081,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 777477563
+  GlobalObjectIdHash: 1062443213
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -2648,6 +2650,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
   debugForceIdleStretch: 0
+  verboseLogging: 0
   shutterAngle: 360
   targetFPS: 60
   globalIntensity: 2
@@ -2743,6 +2746,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
   skinningCacheShader: {fileID: 7200000, guid: 5180e7e0d86f1e248a4e04abe3856aa2, type: 3}
   targetSMR: {fileID: 0}
+  verboseLogging: 0
   _dbgStatus: Initializing
   _dbgVertexCount: 0
   _dbgReady: 0
@@ -2761,6 +2765,7 @@ MonoBehaviour:
   blurController: {fileID: 0}
   characterEventManager: {fileID: 0}
   characterControllerOverride: {fileID: 0}
+  verboseLogging: 0
   attackBlurMultiplier: 3
   heavyBlurMultiplier: 1.5
   blurAttackRampUp: 8
@@ -2887,6 +2892,7 @@ MonoBehaviour:
   fatigue: 0.1
   groupMindRef: {fileID: 0}
   verboseLogging: 0
+  tier2FearVerbose: 0
   personality:
     control: 0.5
     stability: 0.6
@@ -2913,6 +2919,7 @@ MonoBehaviour:
   needsTagReEvaluation: 1
   decisionInterval: 0.3
   externallyTicked: 0
+  autoDiagnostic: 1
 --- !u!114 &8962563220192213420
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2974,6 +2981,42 @@ MonoBehaviour:
   verboseFilterLog: 0
   verifyCharacterId: 1
   requireServerAuthority: 1
+  debugLog: 1
+--- !u!114 &7200456222732676532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e01856ff0851924b9aea09740ee7923, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.PersonalityTagResolver
+  ShowTopMostFoldoutHeaderGroup: 1
+  rules: []
+  activeTags: []
+  externalRuleLibrary: {fileID: 0}
+  debugLog: 1
+  traceLogging: 1
+--- !u!114 &262755390414217787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18ffabb9c4da6b444ad675d59b62d8a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.UtilityMasterFormula
+  ShowTopMostFoldoutHeaderGroup: 1
+  actionConfigs: []
+  modifierRules: []
+  trustFactor: 1
+  externalConfig: {fileID: 11400000, guid: 46289fc84ee1f584f95a28a4d14ebf71, type: 2}
   debugLog: 1
 --- !u!1 &8382764279090399444
 GameObject:

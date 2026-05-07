@@ -532,6 +532,10 @@ namespace CaveSystem
         [Header("References")]
         public CaveMeshJobManager existingMeshJobManager;
 
+        [Header("디버깅 — 진단 로그")]
+        [Tooltip("ON → DC 메시 빌드 / 리베이크 진단 로그 출력.")]
+        [SerializeField] private bool _verboseDiagLogging = false;
+
         // =====================================================================
         // [P3-1] Delayed Stitching — SeamStitcher 호출을 프레임 분산
         // =====================================================================
@@ -2036,9 +2040,15 @@ namespace CaveSystem
         {
             // ── 1. CaveManager / chunkManager / config 접근 ──
             var caveMgr = CaveManager.Instance;
-            if (caveMgr == null) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: CaveManager.Instance null"); return; }
+            if (caveMgr == null) { 
+                Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: CaveManager.Instance null"); 
+                return; 
+            }
             var chunkMgr = caveMgr.chunkManager;
-            if (chunkMgr == null) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: chunkManager null"); return; }
+            if (chunkMgr == null) { 
+                Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: chunkManager null"); 
+                return; 
+            }
             var cfg = chunkMgr.terrainConfig;
             if (cfg == null || !cfg.enableGhostDensityBaking)
             {
@@ -2085,8 +2095,11 @@ namespace CaveSystem
 
             if (!ghostMgr.TryGetDensity(chunkPos, out var snap))
             {
-                Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: density not registered " +
+                if (_verboseDiagLogging)
+                {
+                    Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: density not registered " +
                           $"(ghostMgr has {(ghostMgr != null ? "running" : "null")})");
+                }
                 return;
             }
             if (snap.densityCache == null || snap.densityCache.Length == 0) { Debug.Log($"[F-4-RB:DIAG] RequestRebake {chunkPos} abort: density cache empty"); return; }

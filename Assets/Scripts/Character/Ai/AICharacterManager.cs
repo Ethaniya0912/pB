@@ -16,10 +16,20 @@
 //     - Update()는 base.Update() + NavMesh 보호만 수행
 //     - MobAIBrain 자동 감지 코드 제거
 //     - BehaviorGraphAgent(BT)가 모든 AI 의사결정을 담당
+//   v1.1 (굳음 진단 — 2026-05-06)
+//     - StuckDetection 추가:
+//       isPerformingAction이 임계 시간 이상 true 유지 시 자동으로 진단 로그 출력.
+//       canMove/canRotate/ActionState/모든 Animator 레이어의 현재 클립과 normalized time을
+//       박제하여 어느 레이어의 어느 상태에서 stuck됐는지 즉시 식별 가능.
+//       원인: Action Override 레이어 등 상위 레이어가 Stagger/Hit 상태에서 Empty로
+//             트랜지션 못하면 ResetCharacterStateBehaviour가 차단되어 canMove=false 영구 고정.
+//       해결책: 진단 로그가 가리키는 레이어/클립의 Animator 트랜지션을 직접 수정.
 // =============================================================================
+using System.Text;
 using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.AI; // 컴파일 에러 해결을 위해 추가
+using TDA.Core.Events; // [v1.1] AnimatorParameterHash (굳음 진단용)
 
 namespace TDA.Character.AI
 {
@@ -70,6 +80,30 @@ namespace TDA.Character.AI
         // [중복 제거] isPoiseActive 는 CharacterManager(부모)에 이미 선언되어 있습니다.
         // 자식 클래스에서 재선언하면 Unity 직렬화 에러가 발생합니다.
         // AttackState / GroggyState 에서 aiCharacter.isPoiseActive 로 그대로 접근합니다.
+        // ─────────────────────────────────────────────────────────────────────
+
+
+        // ── [v1.1] 굳음 진단 (Stuck Detection) ──────────────────────────────
+        [Header("━━━ 굳음 진단 (Stuck Detection) ━━━━━")]
+        [Tooltip("isPerformingAction이 임계 시간 이상 true 유지 시 진단 로그 출력. " +
+                 "Animator Controller의 트랜지션 누락(예: Stagger → Empty)으로 인한 굳음을 식별. " +
+                 "canMove/canRotate/ActionState/모든 레이어의 현재 클립을 박제하여 출력.")]
+        public bool stuckDetectionEnabled = true;
+
+        [Tooltip("이 시간(초) 이상 isPerformingAction=true이면 굳음으로 간주. " +
+                 "정상 공격 모션은 보통 1-2초 이내. 권장 3-5초.")]
+        [Range(1f, 10f)]
+        public float stuckDetectionThreshold = 4f;
+
+        [Tooltip("굳음 상태에서 진단 로그 반복 출력 간격(초). " +
+                 "0이면 1회만 출력. 권장 2초.")]
+        [Range(0f, 10f)]
+        public float stuckRepeatInterval = 2f;
+
+        // 내부 상태 (런타임 자동 갱신)
+        private float _stuckTimer = 0f;
+        private float _stuckLastLogTime = 0f;
+        private bool _stuckReported = false;
         // ─────────────────────────────────────────────────────────────────────
 
 
@@ -157,6 +191,11 @@ namespace TDA.Character.AI
             // 네트워크 세션 유무와 무관하게 서버 또는 에디터 단독 실행 모두 지원합니다.
             RegenerateAIStamina();
 
+            // ── [v1.1] 굳음 진단 ──────────────────────────────────────────────
+            // isPerformingAction이 임계 시간 이상 true로 유지되면 진단 로그 출력.
+            // 네트워크 활성 시 서버 전용, 오프라인 시 항상 동작.
+            UpdateStuckDetection();
+
             if (!IsServer) return;
 
             // [Phase 5 FSM 탈락] currentState.Tick() 제거
@@ -208,6 +247,138 @@ namespace TDA.Character.AI
 #if UNITY_EDITOR
             Debug.Log($"<color=yellow>[AICharacterManager:{name}]</color> {msg}");
 #endif
+        }
+
+        // =====================================================================
+        // [v1.1] 굳음 진단 (Stuck Detection)
+        //
+        // 동작 매트릭스:
+        //   isPerformingAction == true → _stuckTimer 누적
+        //     → 임계치 초과 시 LogStuckDiagnostic() 출력 (옵션에 따라 반복)
+        //   isPerformingAction == false → 타이머 0 리셋
+        //     → 직전에 stuck 보고된 적 있으면 1회 회복 로그
+        //
+        // 네트워크 게이트:
+        //   온라인 모드(NetworkManager 활성) → 서버 전용
+        //   오프라인 모드 → 항상 동작
+        // =====================================================================
+        private void UpdateStuckDetection()
+        {
+            if (!stuckDetectionEnabled) return;
+
+            // 네트워크 활성 시 서버만 진단 (canMove 등이 서버 권위형 상태이므로)
+            bool netActive = Unity.Netcode.NetworkManager.Singleton != null &&
+                             Unity.Netcode.NetworkManager.Singleton.IsListening;
+            if (netActive && !IsServer) return;
+
+            if (isPerformingAction)
+            {
+                _stuckTimer += Time.deltaTime;
+
+                if (_stuckTimer >= stuckDetectionThreshold)
+                {
+                    float now = Time.time;
+                    bool shouldLog = !_stuckReported
+                        || (stuckRepeatInterval > 0f && now - _stuckLastLogTime >= stuckRepeatInterval);
+
+                    if (shouldLog)
+                    {
+                        LogStuckDiagnostic();
+                        _stuckReported = true;
+                        _stuckLastLogTime = now;
+                    }
+                }
+            }
+            else
+            {
+                if (_stuckReported)
+                {
+                    // 굳음 → 정상 복귀: 회복 로그 1회 출력 후 상태 초기화
+                    Debug.Log(
+                        $"<color=#81C784>[Stuck:{name}]</color> 회복됨 — " +
+                        $"isPerformingAction이 false로 돌아옴. 굳음 지속 시간: {_stuckTimer:F1}s",
+                        this);
+                }
+                _stuckTimer = 0f;
+                _stuckReported = false;
+            }
+        }
+
+        /// <summary>
+        /// 굳음 발생 시 진단 정보를 박제하여 콘솔에 출력.
+        /// canMove/canRotate/isPerformingAction 플래그, ActionState 파라미터,
+        /// 모든 Animator 레이어의 현재 클립과 normalized time을 포함.
+        /// 의심 가는 레이어(상위 레이어가 Empty/Stance_Hold가 아닌 경우)에는 ← 표시.
+        /// </summary>
+        private void LogStuckDiagnostic()
+        {
+            var sb = new StringBuilder(640);
+
+            sb.AppendLine(
+                $"<color=#FF8A65>[Stuck:{name}]</color> " +
+                $"<b>isPerformingAction이 {_stuckTimer:F1}s 동안 true 유지 — 굳음 감지</b>");
+
+            sb.AppendLine(
+                $"  플래그: canMove=<b>{canMove}</b>, canRotate=<b>{canRotate}</b>, " +
+                $"isPerformingAction=<b>{isPerformingAction}</b>");
+
+            if (animator != null)
+            {
+                int actionState = animator.GetInteger(AnimatorParameterHash.ActionState);
+                string actionStateNote = (actionState == 0)
+                    ? "(0=정상)"
+                    : "(0이 아님 → ResetCharacterStateBehaviour의 layer 0 게이트가 차단됨)";
+                sb.AppendLine($"  Animator: ActionState=<b>{actionState}</b> {actionStateNote}");
+
+                sb.AppendLine($"  레이어별 현재 상태:");
+                int layerCount = animator.layerCount;
+                for (int i = 0; i < layerCount; i++)
+                {
+                    string layerName = animator.GetLayerName(i);
+                    float layerWeight = animator.GetLayerWeight(i);
+                    var stateInfo = animator.GetCurrentAnimatorStateInfo(i);
+
+                    string clipName = "?";
+                    var clips = animator.GetCurrentAnimatorClipInfo(i);
+                    if (clips.Length > 0 && clips[0].clip != null)
+                        clipName = clips[0].clip.name;
+
+                    // 의심 표시: 상위 레이어(i>0)가 Empty/Stance_Hold가 아니면 잔류 의심
+                    string suspectFlag = "";
+                    if (i > 0 && layerWeight > 0.01f
+                        && clipName != "Empty"
+                        && !clipName.StartsWith("Stance_Hold"))
+                    {
+                        suspectFlag = "  <b>← 의심 (Empty/Stance_Hold가 아닌 상위 레이어 잔류)</b>";
+                    }
+
+                    sb.AppendLine(
+                        $"    [{i}] {layerName,-22} weight={layerWeight:F2} " +
+                        $"clip=\"{clipName}\" normTime={(stateInfo.normalizedTime % 1f):F2} " +
+                        $"loop={stateInfo.loop}{suspectFlag}");
+                }
+            }
+            else
+            {
+                sb.AppendLine($"  Animator: <null>");
+            }
+
+            if (navMeshAgent != null && navMeshAgent.isActiveAndEnabled)
+            {
+                Vector3 dv = navMeshAgent.desiredVelocity;
+                sb.AppendLine(
+                    $"  NavAgent: desiredVel=({dv.x:F2}, {dv.z:F2}) mag={dv.magnitude:F2} " +
+                    $"({(dv.magnitude > 0.1f ? "BT 살아있음 — 가고 싶어함" : "BT가 멈춤 신호")})");
+            }
+
+            sb.AppendLine($"  진단 가이드:");
+            sb.AppendLine($"    1) ActionState ≠ 0 이면 → ResetCharacterStateBehaviour 게이트가 차단됨");
+            sb.AppendLine($"    2) 의심 표시된 레이어가 있으면 → 그 레이어의 현재 클립이 Empty로 트랜지션 못함");
+            sb.AppendLine($"    3) Animator Controller에서 해당 레이어의 트랜지션 검증 필요:");
+            sb.AppendLine($"       (현재 상태) → Stance_Hold 또는 Empty로의 Exit 트랜지션 존재 확인");
+            sb.AppendLine($"    4) 트랜지션 추가 시 권장 설정: Has Exit Time=true, Exit Time≈0.95, Duration=0.1");
+
+            Debug.LogWarning(sb.ToString(), this);
         }
 
         // =====================================================================

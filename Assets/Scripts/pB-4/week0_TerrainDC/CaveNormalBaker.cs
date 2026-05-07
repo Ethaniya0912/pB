@@ -506,6 +506,11 @@ namespace CaveSystem
         [SerializeField] private float lastBakeTimeMs;
         [SerializeField] private int   lastTexResolution;
 
+        [Header("디버깅 — 진단 로그")]
+        [Tooltip("ON → 청크 베이킹 / 리베이크 진단 로그 출력. " +
+         "Production / 다른 트랙 테스트 시 OFF 권장.")]
+        [SerializeField] private bool _verboseDiagLogging = false;
+
         // =====================================================================
         // [P3-NB-A] Async Bake — JobHandle 체인 + Update 폴링 + 3중 Dispose 방어
         // =====================================================================
@@ -705,11 +710,13 @@ namespace CaveSystem
                 _completeChunks.Add(chunkPos);
                 becameComplete = true;
             }
-
-            Debug.Log($"[F-4-RB:DIAG] MarkChunkBaked {chunkPos}, added={added}, " +
-                      $"baked={_bakedChunks.Count}, complete={_completeChunks.Count}, " +
-                      $"neighbors={bakedNeighbors}/{activeNeighbors}active({totalBakedNeighbors}total)" +
-                      $"{(becameComplete ? " ★COMPLETE" : "")}");
+            if (_verboseDiagLogging)
+            {
+                Debug.Log($"[F-4-RB:DIAG] MarkChunkBaked {chunkPos}, added={added}, " +
+                          $"baked={_bakedChunks.Count}, complete={_completeChunks.Count}, " +
+                          $"neighbors={bakedNeighbors}/{activeNeighbors}active({totalBakedNeighbors}total)" +
+                          $"{(becameComplete ? " ★COMPLETE" : "")}");
+            }
 
             // ═══════════════════════════════════════════════════════════════════════════
             // [Gate 3 / A-α v2] Track E-II Stitch Trigger — v1 결함 수정
@@ -775,8 +782,13 @@ namespace CaveSystem
                 symQueued++;
             }
             if (symQueued > 0 || skippedComplete > 0 || skippedMaxed > 0)
-                Debug.Log($"[F-4-RB:DIAG] MarkBaked({chunkPos}) SymRB: queued={symQueued}, " +
+            {
+                if (_verboseDiagLogging)
+                {
+                    Debug.Log($"[F-4-RB:DIAG] MarkBaked({chunkPos}) SymRB: queued={symQueued}, " +
                           $"skipComp={skippedComplete}, skipMax={skippedMaxed}, totalQueue={_rebakeQueue.Count}");
+                }
+            }
         }
 
         /// <summary>

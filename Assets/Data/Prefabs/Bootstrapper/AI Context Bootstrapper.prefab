@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &766506817125188722
+--- !u!1 &6939572442875878616
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,44 +8,48 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 354361478326391590}
-  - component: {fileID: 461029932042778349}
+  - component: {fileID: 5946995640271154578}
+  - component: {fileID: 3023839536142388723}
   m_Layer: 0
-  m_Name: World AI Manager
+  m_Name: AI Context Bootstrapper
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &354361478326391590
+--- !u!4 &5946995640271154578
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 766506817125188722}
+  m_GameObject: {fileID: 6939572442875878616}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.537376, y: -2.562442, z: -4.2652526}
+  m_LocalPosition: {x: 138.92325, y: 0, z: 93.29403}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &461029932042778349
+--- !u!114 &3023839536142388723
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 766506817125188722}
+  m_GameObject: {fileID: 6939572442875878616}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f822fdae15bfc94da6e70f0dad60ee5, type: 3}
+  m_Script: {fileID: 11500000, guid: 6a50f474d6b482c44ad3c3495f8fd1c6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
-  despawnCharacters: 0
-  respawnCharacters: 0
-  aiCharacters:
-  - {fileID: 4233442530097016134, guid: 33ed2cb71e48ee54a830ff237ddf6885, type: 3}
-  spawnedInCharacters: []
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Bootstrap.Week3Bootstrapper
+  _persistAcrossScenes: 1
+  _targetScenes:
+  - Scene_World_01
+  - Wk3_NaturalEmergenceScene
+  _forceRebuildOnInject: 1
+  _tryInjectOnAwake: 0
+  _terrainAnalyzerOverride: {fileID: 0}
+  _graphBuilderOverride: {fileID: 0}
+  _verboseLogging: 1
