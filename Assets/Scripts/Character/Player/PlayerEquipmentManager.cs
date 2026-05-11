@@ -378,52 +378,55 @@ namespace TDA.Character.Player
         {
             if (!player.IsOwner) return;
 
+            // ── 의존성 사전 검사 (NRE 박멸) ──
+            if (!ValidateSwitchWeaponDependencies(isLeftHand: false)) return;
+
+            var inv = player.playerInventoryManager;
+            var netMgr = player.playerNetworkManager;
+            var unarmedID = WorldItemDatabase.Instance.unarmedWeapon.itemID;
+
             // [신규 아키텍처: Funnel 패턴] 무기 교체 애니메이션 위임
-            // 직접 "Swap_Weapon_01" 문자열을 사용하지 않고 ActionID.Weapon_Swap을 통해 Funnel을 탑니다.
             player.playerAnimationManager.PlayTargetActionFunnel((int)ActionID.Weapon_Swap, false, false, true, true);
-            player.playerInventoryManager.rightHandWeaponIndex += 1;
+            inv.rightHandWeaponIndex += 1;
 
-            if (player.playerInventoryManager.rightHandWeaponIndex < 0 || player.playerInventoryManager.rightHandWeaponIndex > 2)
+            if (inv.rightHandWeaponIndex < 0 || inv.rightHandWeaponIndex > 2)
             {
-                player.playerInventoryManager.rightHandWeaponIndex = 0;
-                float weaponCount = 0;
-                WeaponItem firstWeapon = null;
-                int firstWeaponPosition = 0;
-
-                for (int i = 0; i < player.playerInventoryManager.weaponInRightHandSlots.Length; i++)
-                {
-                    if (player.playerInventoryManager.weaponInRightHandSlots[i].itemID != WorldItemDatabase.Instance.unarmedWeapon.itemID)
-                    {
-                        weaponCount += 1;
-                        if (firstWeapon == null)
-                        {
-                            firstWeapon = player.playerInventoryManager.weaponInRightHandSlots[i];
-                            firstWeaponPosition = i;
-                        }
-                    }
-                }
+                inv.rightHandWeaponIndex = 0;
+                FindFirstNonUnarmedWeapon(
+                    inv.weaponInRightHandSlots, unarmedID,
+                    out int weaponCount, out WeaponItem firstWeapon, out int firstWeaponPosition);
 
                 if (weaponCount <= 1)
                 {
-                    player.playerInventoryManager.rightHandWeaponIndex = -1;
-                    player.playerNetworkManager.currentRightHandWeaponID.Value = WorldItemDatabase.Instance.unarmedWeapon.itemID;
+                    inv.rightHandWeaponIndex = -1;
+                    netMgr.currentRightHandWeaponID.Value = unarmedID;
                 }
                 else
                 {
-                    player.playerInventoryManager.rightHandWeaponIndex = firstWeaponPosition;
-                    player.playerNetworkManager.currentRightHandWeaponID.Value = firstWeapon.itemID;
+                    inv.rightHandWeaponIndex = firstWeaponPosition;
+                    netMgr.currentRightHandWeaponID.Value = firstWeapon.itemID;
                 }
                 return;
             }
 
-            if (player.playerInventoryManager.weaponInRightHandSlots[player.playerInventoryManager.rightHandWeaponIndex].itemID != WorldItemDatabase.Instance.unarmedWeapon.itemID)
+            // ── 현재 인덱스 슬롯 처리 (null 안전) ──
+            var slot = inv.weaponInRightHandSlots[inv.rightHandWeaponIndex];
+            if (slot == null)
             {
-                player.playerNetworkManager.currentRightHandWeaponID.Value =
-                    player.playerInventoryManager.weaponInRightHandSlots[player.playerInventoryManager.rightHandWeaponIndex].itemID;
+                Debug.LogWarning(
+                    $"[Equipment] {name}: weaponInRightHandSlots[{inv.rightHandWeaponIndex}] = null. Unarmed fallback.",
+                    this);
+                netMgr.currentRightHandWeaponID.Value = unarmedID;
+                return;
+            }
+
+            if (slot.itemID != unarmedID)
+            {
+                netMgr.currentRightHandWeaponID.Value = slot.itemID;
             }
             else
             {
-                SwitchRightWeapon();
+                TrySwitchWeaponRecursive(isLeftHand: false);
             }
         }
 
@@ -431,51 +434,191 @@ namespace TDA.Character.Player
         {
             if (!player.IsOwner) return;
 
+            // ── 의존성 사전 검사 (NRE 박멸) ──
+            if (!ValidateSwitchWeaponDependencies(isLeftHand: true)) return;
+
+            var inv = player.playerInventoryManager;
+            var netMgr = player.playerNetworkManager;
+            var unarmedID = WorldItemDatabase.Instance.unarmedWeapon.itemID;
+
             // [신규 아키텍처: Funnel 패턴] 무기 교체 애니메이션 위임
             player.playerAnimationManager.PlayTargetActionFunnel((int)ActionID.Weapon_Swap, false, false, true, true);
-            player.playerInventoryManager.leftHandWeaponIndex += 1;
+            inv.leftHandWeaponIndex += 1;
 
-            if (player.playerInventoryManager.leftHandWeaponIndex < 0 || player.playerInventoryManager.leftHandWeaponIndex > 2)
+            if (inv.leftHandWeaponIndex < 0 || inv.leftHandWeaponIndex > 2)
             {
-                player.playerInventoryManager.leftHandWeaponIndex = 0;
-                float weaponCount = 0;
-                WeaponItem firstWeapon = null;
-                int firstWeaponPosition = 0;
-
-                for (int i = 0; i < player.playerInventoryManager.weaponInLeftHandSlots.Length; i++)
-                {
-                    if (player.playerInventoryManager.weaponInLeftHandSlots[i].itemID != WorldItemDatabase.Instance.unarmedWeapon.itemID)
-                    {
-                        weaponCount += 1;
-                        if (firstWeapon == null)
-                        {
-                            firstWeapon = player.playerInventoryManager.weaponInLeftHandSlots[i];
-                            firstWeaponPosition = i;
-                        }
-                    }
-                }
+                inv.leftHandWeaponIndex = 0;
+                FindFirstNonUnarmedWeapon(
+                    inv.weaponInLeftHandSlots, unarmedID,
+                    out int weaponCount, out WeaponItem firstWeapon, out int firstWeaponPosition);
 
                 if (weaponCount <= 1)
                 {
-                    player.playerInventoryManager.leftHandWeaponIndex = -1;
-                    player.playerNetworkManager.currentLeftHandWeaponID.Value = WorldItemDatabase.Instance.unarmedWeapon.itemID;
+                    inv.leftHandWeaponIndex = -1;
+                    netMgr.currentLeftHandWeaponID.Value = unarmedID;
                 }
                 else
                 {
-                    player.playerInventoryManager.leftHandWeaponIndex = firstWeaponPosition;
-                    player.playerNetworkManager.currentLeftHandWeaponID.Value = firstWeapon.itemID;
+                    inv.leftHandWeaponIndex = firstWeaponPosition;
+                    netMgr.currentLeftHandWeaponID.Value = firstWeapon.itemID;
                 }
                 return;
             }
 
-            if (player.playerInventoryManager.weaponInLeftHandSlots[player.playerInventoryManager.leftHandWeaponIndex].itemID != WorldItemDatabase.Instance.unarmedWeapon.itemID)
+            // ── 현재 인덱스 슬롯 처리 (null 안전) ──
+            var slot = inv.weaponInLeftHandSlots[inv.leftHandWeaponIndex];
+            if (slot == null)
             {
-                player.playerNetworkManager.currentLeftHandWeaponID.Value =
-                    player.playerInventoryManager.weaponInLeftHandSlots[player.playerInventoryManager.leftHandWeaponIndex].itemID;
+                Debug.LogWarning(
+                    $"[Equipment] {name}: weaponInLeftHandSlots[{inv.leftHandWeaponIndex}] = null. Unarmed fallback.",
+                    this);
+                netMgr.currentLeftHandWeaponID.Value = unarmedID;
+                return;
+            }
+
+            if (slot.itemID != unarmedID)
+            {
+                netMgr.currentLeftHandWeaponID.Value = slot.itemID;
             }
             else
             {
-                SwitchLeftWeapon();
+                TrySwitchWeaponRecursive(isLeftHand: true);
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // SwitchWeapon Helpers — NRE 안전화 + 재귀 카운터
+        // ════════════════════════════════════════════════════════════════
+
+        // 무한 재귀 방지 — 한 호출에서 최대 3 회 (slot 수만큼)
+        [System.NonSerialized] private int _switchWeaponRecursionDepth = 0;
+        private const int MaxSwitchWeaponRecursion = 3;
+
+        /// <summary>SwitchWeapon 의존성 사전 검사 — null 가능 6 항목 모두 검증.</summary>
+        private bool ValidateSwitchWeaponDependencies(bool isLeftHand)
+        {
+            if (player == null)
+            {
+                Debug.LogError($"[Equipment] {name}: player = null", this);
+                return false;
+            }
+
+            if (player.playerInventoryManager == null)
+            {
+                Debug.LogError($"[Equipment] {name}: playerInventoryManager = null", this);
+                return false;
+            }
+
+            if (player.playerNetworkManager == null)
+            {
+                Debug.LogError($"[Equipment] {name}: playerNetworkManager = null", this);
+                return false;
+            }
+
+            if (player.playerAnimationManager == null)
+            {
+                Debug.LogError($"[Equipment] {name}: playerAnimationManager = null", this);
+                return false;
+            }
+
+            if (WorldItemDatabase.Instance == null)
+            {
+                Debug.LogError($"[Equipment] {name}: WorldItemDatabase.Instance = null", this);
+                return false;
+            }
+
+            if (WorldItemDatabase.Instance.unarmedWeapon == null)
+            {
+                Debug.LogError(
+                    $"[Equipment] {name}: WorldItemDatabase.Instance.unarmedWeapon = null. " +
+                    $"WorldItemDatabase Inspector 에서 Unarmed Weapon 필드 할당 필요.", this);
+                return false;
+            }
+
+            var slots = isLeftHand
+                ? player.playerInventoryManager.weaponInLeftHandSlots
+                : player.playerInventoryManager.weaponInRightHandSlots;
+
+            if (slots == null)
+            {
+                Debug.LogError(
+                    $"[Equipment] {name}: weaponIn{(isLeftHand ? "Left" : "Right")}HandSlots 배열 = null. " +
+                    $"PlayerInventoryManager 초기화 확인.", this);
+                return false;
+            }
+
+            if (slots.Length == 0)
+            {
+                Debug.LogError(
+                    $"[Equipment] {name}: weaponIn{(isLeftHand ? "Left" : "Right")}HandSlots 배열 길이 0.", this);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>슬롯 배열에서 첫 비-Unarmed 무기 검색 (null 안전).</summary>
+        private void FindFirstNonUnarmedWeapon(
+            WeaponItem[] slots, int unarmedID,
+            out int weaponCount, out WeaponItem firstWeapon, out int firstWeaponPosition)
+        {
+            weaponCount = 0;
+            firstWeapon = null;
+            firstWeaponPosition = 0;
+
+            if (slots == null) return;
+
+            for (int i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+
+                // ★ null 검사 추가 — 사용자 코드의 for 루프 안에서도 NRE 위험이었음
+                if (slot == null)
+                {
+                    Debug.LogWarning($"[Equipment] {name}: slots[{i}] = null. skip.", this);
+                    continue;
+                }
+
+                if (slot.itemID != unarmedID)
+                {
+                    weaponCount += 1;
+                    if (firstWeapon == null)
+                    {
+                        firstWeapon = slot;
+                        firstWeaponPosition = i;
+                    }
+                }
+            }
+        }
+
+        /// <summary>재귀 시도 — 카운터로 Stack Overflow 차단.</summary>
+        private void TrySwitchWeaponRecursive(bool isLeftHand)
+        {
+            _switchWeaponRecursionDepth++;
+
+            if (_switchWeaponRecursionDepth > MaxSwitchWeaponRecursion)
+            {
+                Debug.LogWarning(
+                    $"[Equipment] {name}: SwitchWeapon 재귀 한도 {MaxSwitchWeaponRecursion} 회 초과. " +
+                    $"모든 슬롯이 Unarmed 인 듯. Unarmed 유지.", this);
+                _switchWeaponRecursionDepth = 0;
+
+                var unarmedID = WorldItemDatabase.Instance.unarmedWeapon.itemID;
+                if (isLeftHand)
+                    player.playerNetworkManager.currentLeftHandWeaponID.Value = unarmedID;
+                else
+                    player.playerNetworkManager.currentRightHandWeaponID.Value = unarmedID;
+                return;
+            }
+
+            try
+            {
+                if (isLeftHand) SwitchLeftWeapon();
+                else SwitchRightWeapon();
+            }
+            finally
+            {
+                _switchWeaponRecursionDepth = 0;
             }
         }
 

@@ -9727,6 +9727,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
   _verboseLogging: 1
+--- !u!114 &1464201180
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1464201060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a82caf62937fbb4a91de02cf072d75c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Diagnostics.TerrainBridgeDiagnostics
+  _verboseLogging: 1
+  _targetNodeIdx: 0
+  _separatorBetweenTests: 1
+  _lastTestName: "(\uC544\uC9C1 \uC5C6\uC74C)"
+  _lastResultSummary: "(\uC544\uC9C1 \uC2E4\uD589 \uC548 \uB428)"
 --- !u!1 &1465397756
 GameObject:
   m_ObjectHideFlags: 0
@@ -11368,6 +11385,10 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1464201179}
+    - targetCorrespondingSourceObject: {fileID: 2519618729728016252, guid: f1e329cac9258814b8fd13b3c668e657,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1464201180}
   m_SourcePrefab: {fileID: 100100000, guid: f1e329cac9258814b8fd13b3c668e657, type: 3}
 --- !u!1 &1693359577
 GameObject:
@@ -15835,7 +15856,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 18054280}
+  - {fileID: 3429062015577901515}
   - {fileID: 1720440169}
   - {fileID: 1393089493}
   - {fileID: 1417297539}
-  - {fileID: 3429062015577901515}

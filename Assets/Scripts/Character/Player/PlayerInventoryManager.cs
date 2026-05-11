@@ -38,8 +38,84 @@ public class PlayerInventoryManager : CharacterInventoryManager
         base.Awake();
         player = GetComponent<PlayerManager>();
 
+        // ★ 무기 슬롯 자동 초기화 — null element 박멸 (SwitchWeapon NRE 방지)
+        EnsureWeaponSlotsInitialized();
+
         Debug.Log($"<color=white>[Inventory] PlayerInventoryManager 초기화 완료. Player: {player.gameObject.name}</color>");
     }
+
+    // ════════════════════════════════════════════════════════════════
+    // 무기 슬롯 자동 초기화 (NRE 방지)
+    // ════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// 무기 슬롯 배열의 null element 를 Unarmed WeaponItem 으로 자동 채움.
+    /// CharacterInventoryManager 의 `new WeaponItem[3]` 배열은 element 가 default null
+    /// 인데, Inspector 미할당 시 SwitchLeftWeapon / SwitchRightWeapon 에서 NRE 발생.
+    /// Inspector 에서 사용자가 무기 할당한 element 는 보존.
+    /// </summary>
+    private void EnsureWeaponSlotsInitialized()
+    {
+        if (WorldItemDatabase.Instance == null)
+        {
+            Debug.LogError(
+                $"[Inventory] {name}: WorldItemDatabase.Instance = null. " +
+                $"슬롯 자동 초기화 불가 — Inspector 에서 모든 슬롯 수동 할당 필요.", this);
+            return;
+        }
+
+        var unarmed = WorldItemDatabase.Instance.unarmedWeapon;
+        if (unarmed == null)
+        {
+            Debug.LogError(
+                $"[Inventory] {name}: WorldItemDatabase.Instance.unarmedWeapon = null. " +
+                $"WorldItemDatabase Inspector 에서 Unarmed Weapon 필드 할당 필요.", this);
+            return;
+        }
+
+        // ── Right Hand Slots ──
+        if (weaponInRightHandSlots == null)
+        {
+            Debug.LogWarning($"[Inventory] {name}: weaponInRightHandSlots = null. 길이 3 으로 신설.", this);
+            weaponInRightHandSlots = new WeaponItem[3];
+        }
+
+        int rightNullCount = 0;
+        for (int i = 0; i < weaponInRightHandSlots.Length; i++)
+        {
+            if (weaponInRightHandSlots[i] == null)
+            {
+                weaponInRightHandSlots[i] = unarmed;
+                rightNullCount++;
+            }
+        }
+
+        // ── Left Hand Slots ──
+        if (weaponInLeftHandSlots == null)
+        {
+            Debug.LogWarning($"[Inventory] {name}: weaponInLeftHandSlots = null. 길이 3 으로 신설.", this);
+            weaponInLeftHandSlots = new WeaponItem[3];
+        }
+
+        int leftNullCount = 0;
+        for (int i = 0; i < weaponInLeftHandSlots.Length; i++)
+        {
+            if (weaponInLeftHandSlots[i] == null)
+            {
+                weaponInLeftHandSlots[i] = unarmed;
+                leftNullCount++;
+            }
+        }
+
+        if (rightNullCount > 0 || leftNullCount > 0)
+        {
+            Debug.Log(
+                $"[Inventory] {name}: 슬롯 자동 초기화 완료 — " +
+                $"Right null→Unarmed: {rightNullCount}, " +
+                $"Left null→Unarmed: {leftNullCount}", this);
+        }
+    }
+
 
     public override void OnNetworkSpawn()
     {
