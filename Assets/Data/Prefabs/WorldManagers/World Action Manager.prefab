@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6444144388543160469}
   - component: {fileID: 8034868430406441134}
+  - component: {fileID: -3508303672291346516}
   m_Layer: 0
   m_Name: World Action Manager
   m_TagString: Untagged
@@ -48,3 +49,16 @@ MonoBehaviour:
   - {fileID: 11400000, guid: bd11e2d01457d4fbba2a3d0a373d91a9, type: 2}
   - {fileID: 11400000, guid: 1c4b2605ec42c5c49b01b63346d69b7f, type: 2}
   - {fileID: 11400000, guid: bb337435fc0d11445b459d7e07a866d4, type: 2}
+--- !u!114 &-3508303672291346516
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3878233319236251284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

@@ -1777,6 +1777,7 @@ GameObject:
   - component: {fileID: 6737166898913624330}
   - component: {fileID: -7559922808817225826}
   - component: {fileID: 4182453527655967228}
+  - component: {fileID: -5343132640001596559}
   m_Layer: 6
   m_Name: Player_ranger 2
   m_TagString: Player
@@ -2055,7 +2056,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 4009758601
+  GlobalObjectIdHash: 3529753785
   InScenePlacedSourceGlobalObjectIdHash: 3529753785
   DeferredDespawnTick: 0
   Ownership: 1
@@ -2303,6 +2304,8 @@ MonoBehaviour:
     m_InternalValue: 0
   canCombo:
     m_InternalValue: 0
+  logDamageColliderPipeline: 0
+  enableStaleActionFlagRecovery: 0
   currentWeaponBeingUsed: {fileID: 0}
   canComboWithMainHandWeapon: 0
   canComboWithOffHandWeapon: 0
@@ -2877,6 +2880,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
   debugForceIdleStretch: 0
+  verboseLogging: 0
   shutterAngle: 360
   targetFPS: 60
   globalIntensity: 2
@@ -2990,6 +2994,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
   skinningCacheShader: {fileID: 7200000, guid: 5180e7e0d86f1e248a4e04abe3856aa2, type: 3}
   targetSMR: {fileID: 0}
+  verboseLogging: 0
   _dbgStatus: Initializing
   _dbgVertexCount: 0
   _dbgReady: 0
@@ -3008,6 +3013,7 @@ MonoBehaviour:
   blurController: {fileID: 0}
   characterEventManager: {fileID: 0}
   characterControllerOverride: {fileID: 0}
+  verboseLogging: 0
   attackBlurMultiplier: 100
   heavyBlurMultiplier: 1.5
   blurAttackRampUp: 30
@@ -3071,6 +3077,36 @@ MonoBehaviour:
   autoEmitInterval: 0.5
   debugLog: 0
   showGizmos: 1
+--- !u!114 &-5343132640001596559
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6950fff39cf596a4c985eb8818f0276d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.Diagnostics.PlayerInputDiagnostics
+  _logOnKeyPress: 1
+  _logPlayerChanges: 1
+  _logEverySecond: 0
+  _localPlayerName: "(\uCC3E\uB294 \uC911...)"
+  _localPlayerInstanceID: 0
+  _isOwner: 0
+  _isSpawned: 0
+  _isDead: 0
+  _isPerformingAction: 0
+  _hasNetworkManager: 0
+  _hasEquipmentManager: 0
+  _hasItemDatabase: 0
+  _currentRightWeaponID: 0
+  _currentLeftWeaponID: 0
+  _zKeyPressCount: 0
+  _cKeyPressCount: 0
+  _lastInputTime: "(\uC544\uC9C1 \uC5C6\uC74C)"
+  _lastBlockReason: "(\uBD84\uC11D \uC548 \uB428)"
 --- !u!1 &8382764279090399444
 GameObject:
   m_ObjectHideFlags: 0

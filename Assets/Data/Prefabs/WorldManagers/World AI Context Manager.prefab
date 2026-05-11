@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4039210671075559558}
   - component: {fileID: 1998648218217231295}
+  - component: {fileID: -1230803245230864934}
   m_Layer: 0
   m_Name: World AI Context Manager
   m_TagString: Untagged
@@ -44,4 +45,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9b4b5ff502fb464f95ed2163174443e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Context.WorldAIContextManager
+  _persistAcrossScenes: 1
+  _resetInjectOnSceneChange: 1
+  _drawFakeRegionGizmos: 1
+  _logFakeRegionHits: 0
+  _verboseLogging: 1
+--- !u!114 &-1230803245230864934
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9137926287059563500}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
   _verboseLogging: 1

@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7272610852130983360}
   - component: {fileID: 6184226035393927752}
+  - component: {fileID: 3575554911851191381}
   m_Layer: 0
   m_Name: World SoundFX Manager
   m_TagString: Untagged
@@ -48,3 +49,16 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 7cbd6cd765888ff418d01d98bd1ce9c2, type: 3}
   - {fileID: 8300000, guid: 3df9bbbc130ccb344af5f3fc793a630f, type: 3}
   rollSFX: {fileID: 8300000, guid: d5ae3f81d1bd3a249a8f0f393306dd95, type: 3}
+--- !u!114 &3575554911851191381
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5229920300637590991}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

@@ -512,6 +512,7 @@ GameObject:
   - component: {fileID: 2811825088553169085}
   - component: {fileID: 51643890592740440}
   - component: {fileID: 2826803890445898753}
+  - component: {fileID: -3428695913518186480}
   m_Layer: 0
   m_Name: Player UI Manager
   m_TagString: Untagged
@@ -618,6 +619,19 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &-3428695913518186480
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4633037565368729590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1
 --- !u!1 &4988274751190956594
 GameObject:
   m_ObjectHideFlags: 0

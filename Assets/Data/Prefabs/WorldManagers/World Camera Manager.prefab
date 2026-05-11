@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6702377088277078069}
   - component: {fileID: 6392408737422171630}
+  - component: {fileID: -2554063838700648889}
   m_Layer: 0
   m_Name: World Camera Manager
   m_TagString: Untagged
@@ -44,18 +45,86 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4cf20f51c05ad49428f67211e227ae93, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.World.WorldCameraManager
+  localPlayerCamera: {fileID: 0}
   defaultRestStance: {fileID: 11400000, guid: ad6633a13c5a3944191d7b7a41c5f873, type: 2}
+  currentSequenceSO: {fileID: 0}
+  currentStanceSO: {fileID: 0}
   currentFOV: 60
   currentZTilt: 0
   currentBaseOffset: {x: 0.5, y: 1.5, z: -2.5}
+  currentBaseYawOffset: 0
+  dynamicFOVOffset: 0
+  dynamicZOffset: 0
+  storedPitch: 0
+  storedYaw: 0
+  shouldRestorePreviousAngle: 0
+  storedFramingOffsetX: 0
+  shouldRestorePreviousFraming: 0
+  storedFOV: 60
+  storedBaseYawOffset: 0
+  storedBaseOffset: {x: 0.5, y: 1.5, z: -2.5}
+  shouldRestorePreviousStanceValues: 0
+  currentVerticalBehavior:
+    behaviorType: 0
+    elevationSpeed: 0
+    maxElevationHeight: 0
+    minElevationHeight: 0
+    fixedPitchAngle: 0
+    pitchForMaxHeight: 0
+    maxDynamicHeight: 0
+    heightSmoothTime: 0
   currentDynamicFraming:
     leftStrafeMaxOffset: 0
     rightStrafeMaxOffset: 0
-    framingDelayTime: 0
+    holdLeftStrafe: 0
+    holdRightStrafe: 0
+    leftStrafeYaw: 0
+    rightStrafeYaw: 0
+    dynamicYawWeight: 0
+    leftFramingDelay: 0
+    rightFramingDelay: 0
+    centerReturnDelay: 0
+    forwardBackwardReturnTime: 0
   currentHandheldEffect:
     enableHandheldEffect: 0
     swayAmount: 0
     swaySpeed: 0
     bobbingAmount: 0
+  currentLockOnPenaltyData:
+    enableTargetEscapePenalty: 0
+    targetEscapeViewportThreshold: 0
+    useHardCorrection: 0
+    softCorrectionDistanceCurve:
+      serializedVersion: 2
+      m_Curve: []
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    strafeRecoveryWeight: 0
+    softRecoverySpeed: 0
+    escapePersistTime: 0
+    escapeMinDistance: 0
+    pitchReturnSpeed: 0
   currentFocusTargets: []
   currentTargetBiasWeight: 0
+  showEdgePanningGizmo: 0
+  showTargetEscapeGizmo: 0
+  showPredictiveAngleGizmo: 0
+  showSOInfoOnScreen: 0
+  overlayFOVDelta: 0
+  isInLockContext: 0
+  historyList: []
+  maxHistoryCount: 15
+--- !u!114 &-2554063838700648889
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4396530970923638454}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

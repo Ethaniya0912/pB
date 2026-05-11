@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2491643649186464617}
   - component: {fileID: 4520067226039995413}
+  - component: {fileID: -7000784383083652393}
   m_Layer: 0
   m_Name: GroupAIManager
   m_TagString: Untagged
@@ -53,6 +54,26 @@ MonoBehaviour:
   currentEscalationLevel: 0
   combatElapsedTime: 0
   encircleProgress: 0
+  _knownTargets: []
   debugLog: 1
+  verboseTokenLog: 0
+  logFrameTimers: 0
+  factionSafeZone: {x: 0, y: 0, z: 0}
+  hasFactionSafeZone: 0
+  focusMode: 0
+  lastTokenWinner: {fileID: 0}
   activeTokenCount: 0
   maxTokenCount: 0
+--- !u!114 &-7000784383083652393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6924516805971638618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

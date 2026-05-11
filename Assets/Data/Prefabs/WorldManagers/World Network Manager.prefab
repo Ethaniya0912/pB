@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 7316048620840625251}
   - component: {fileID: 2227418721313996450}
   - component: {fileID: 5385966037269314715}
+  - component: {fileID: -8496067676872851212}
   m_Layer: 0
   m_Name: World Network Manager
   m_TagString: Untagged
@@ -132,3 +133,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SteamLobbyManager
   showDebugLogs: 1
   maxPlayers: 4
+--- !u!114 &-8496067676872851212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6695169907944693246}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

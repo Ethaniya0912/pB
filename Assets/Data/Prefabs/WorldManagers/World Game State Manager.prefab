@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 91678315226017749}
   - component: {fileID: 9008461827291437196}
+  - component: {fileID: 6184105004659695241}
   m_Layer: 0
   m_Name: World Game State Manager
   m_TagString: Untagged
@@ -60,3 +61,16 @@ MonoBehaviour:
   normalCameraSequence: {fileID: 11400000, guid: b074c40b1c722a240a6eddc6ebced3a2,
     type: 2}
   showDebugLogs: 1
+--- !u!114 &6184105004659695241
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4635089267901155688}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

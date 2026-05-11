@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 354361478326391590}
   - component: {fileID: 461029932042778349}
+  - component: {fileID: 254704356253373898}
   m_Layer: 0
   m_Name: World AI Spawn Manager
   m_TagString: Untagged
@@ -52,3 +53,22 @@ MonoBehaviour:
   testSpawnNodeIndices: 
   autoEnableNavMeshAgent: 1
   spawnedInCharacters: []
+  factionPrefabMappings: []
+  autoFormGroupOnSpawn: 1
+  maxConcurrentGroupsPerFaction: 5
+  maxConcurrentGroupsTotal: 12
+  maxQueuedRequests: 8
+  groupSequenceCounter: 0
+--- !u!114 &254704356253373898
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 766506817125188722}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

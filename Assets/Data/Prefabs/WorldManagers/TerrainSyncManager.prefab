@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8116122506835656882}
   - component: {fileID: 546712778990334745}
   - component: {fileID: 6571067779473473296}
+  - component: {fileID: -7233570541110281625}
   m_Layer: 0
   m_Name: TerrainSyncManager
   m_TagString: Untagged
@@ -45,7 +46,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3491395404
+  GlobalObjectIdHash: 3529509221
   InScenePlacedSourceGlobalObjectIdHash: 3529509221
   DeferredDespawnTick: 0
   Ownership: 1
@@ -77,3 +78,16 @@ MonoBehaviour:
     m_InternalValue: {x: 0, y: 0, z: 0}
   ReadyClientCount:
     m_InternalValue: 0
+--- !u!114 &-7233570541110281625
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8392956501975083442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

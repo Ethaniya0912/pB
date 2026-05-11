@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7638848957919312036}
   - component: {fileID: 6768117083395476521}
+  - component: {fileID: -5382605882680253803}
   m_Layer: 0
   m_Name: World Save Game Manager
   m_TagString: Untagged
@@ -53,6 +54,8 @@ MonoBehaviour:
   - Scene_S13
   - Scene_S11
   - Scene_pB2
+  - Wk3_NaturalEmergenceScene
+  - Scene_AI_Test
   saveGame: 0
   loadGame: 0
   worldSceneIndex: 1
@@ -180,3 +183,16 @@ MonoBehaviour:
     currentPantsID: -1
     currentLeggingsID: -1
     currentBackpackID: -1
+--- !u!114 &-5382605882680253803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3848795387690086829}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1

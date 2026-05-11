@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 2385753442706081465}
   - component: {fileID: 4075078673168446416}
   - component: {fileID: 1669881070491802414}
+  - component: {fileID: 1311727064444697348}
   m_Layer: 0
   m_Name: World Item Spawner 1
   m_TagString: Untagged
@@ -45,7 +46,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 116178253
+  GlobalObjectIdHash: 2623712806
   InScenePlacedSourceGlobalObjectIdHash: 2623712806
   DeferredDespawnTick: 0
   Ownership: 1
@@ -73,3 +74,16 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   pickUpItemPrefab: {fileID: 0}
   dropForce: 2
+--- !u!114 &1311727064444697348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8929859029524055984}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee32c81e628ef494a93b50927fbb3a3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Helpers.DontDestroyOnLoadHelper
+  _verboseLogging: 1
