@@ -31,7 +31,9 @@
 //     - HumanoidAIBrain.GetPersonalityFearMultiplier() = Lerp(0.5, 1.5, 1-stability)
 // =============================================================================
 using Unity.Netcode;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;  // [v3.4 §5 L1] NavMesh 보정용
 using TDA.PB4.Interfaces;     // ★ v4 — ContextSnapshot (PB4_Wk3Interfaces.cs)
 using TDA.PB4.Interfaces.Core;
 using TDA.PB4.Interfaces.Intelligence;
@@ -61,6 +63,143 @@ namespace TDA.PB4.AI
         [Header("Group AI")]
         [Tooltip("소속 그룹 AI 매니저. Inspector에서 연결하거나 런타임에 할당.")]
         public MonoBehaviour groupMindRef;
+
+        // ==================================================================
+        // [v3.4 §5 L1] Safe Zone Memory — 도주/후퇴 시 활용
+        //   개인 메모리 (lastSafePositions): 다수 보유. 가까운 곳 우선 사용.
+        //   spawn 시점, 평화 상태 일정 위치, Cave 태그(Stage 2+) 등에서 자동 기록.
+        //   펙션 공유는 GroupAIManager.factionSafeZone 참조.
+        // ==================================================================
+        [Header("Safe Zone Memory (§5 L1)")]
+        [Tooltip("[표시 전용] 개인이 기억하는 안전지대 위치 목록. 가까운 곳 우선 도주. " +
+                 "spawn 시점 자동 기록 + 추후 Cave 태그 검색.")]
+        [SerializeField] private List<Vector3> lastSafePositions = new List<Vector3>();
+
+        [Tooltip("최대 기억 안전지대 수. 초과 시 가장 오래된 항목 제거.")]
+        [SerializeField] private int maxRememberedSafeZones = 5;
+
+        /// <summary>[v3.4 §5 L1] 개인 안전지대 메모리 (read-only).</summary>
+        public IReadOnlyList<Vector3> LastSafePositions => lastSafePositions;
+
+        /// <summary>
+        /// [v3.4 §5 L1] 안전지대 위치 기록. ring buffer 형태로 maxRememberedSafeZones 캡.
+        /// 중복 위치 (1m 이내)는 추가 안 함.
+        ///
+        /// [v3.4 §5 L1 보강] NavMesh 외부 위치는 가장 가까운 NavMesh 점으로 보정 후 저장.
+        ///   spawn 위치가 NavMesh 가장자리에 걸치는 케이스 대응.
+        ///   5m 내 NavMesh 없으면 기록 skip (안전지대 후보 자격 없음).
+        /// </summary>
+        public void RememberSafePosition(Vector3 pos)
+        {
+            // NavMesh 보정 — 가장 가까운 NavMesh 점으로 변환
+            if (NavMesh.SamplePosition(pos, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+            {
+                if (Vector3.Distance(pos, hit.position) > 0.1f)
+                {
+                    Debug.Log($"[{name}] RememberSafePosition: NavMesh 보정 " +
+                              $"({pos.x:F1},{pos.y:F1},{pos.z:F1}) → " +
+                              $"({hit.position.x:F1},{hit.position.y:F1},{hit.position.z:F1})");
+                }
+                pos = hit.position;
+            }
+            else
+            {
+                Debug.LogWarning($"[{name}] RememberSafePosition: NavMesh 5m 내 없음 → 기록 skip ({pos})");
+                return;
+            }
+
+            // 중복 검사 — 1m 이내 기존 항목 있으면 skip
+            for (int i = 0; i < lastSafePositions.Count; i++)
+            {
+                if (Vector3.Distance(lastSafePositions[i], pos) < 1f) return;
+            }
+            lastSafePositions.Add(pos);
+            if (lastSafePositions.Count > maxRememberedSafeZones)
+                lastSafePositions.RemoveAt(0);
+        }
+
+        /// <summary>
+        /// [v3.4 §5 L1] 자기 위치 기준 가장 가까운 안전지대 반환.
+        /// 메모리 비어있으면 currentPos 그대로 반환 (도주 안 함과 같음).
+        /// </summary>
+        public Vector3 GetClosestSafePosition()
+        {
+            if (lastSafePositions.Count == 0) return transform.position;
+
+            Vector3 my = transform.position;
+            Vector3 best = lastSafePositions[0];
+            float bestDist = Vector3.Distance(my, best);
+            for (int i = 1; i < lastSafePositions.Count; i++)
+            {
+                float d = Vector3.Distance(my, lastSafePositions[i]);
+                if (d < bestDist) { best = lastSafePositions[i]; bestDist = d; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// [v3.4 §5 L1] 개인 메모리 + 펙션 공유 SafeZone 통합 후 가까운 곳 반환.
+        /// 펙션 공유는 GroupAIManager.factionSafeZone (있으면).
+        ///
+        /// [v3.4 §5 L1 보강] 펙션 SafeZone도 NavMesh 보정 후 후보 등록.
+        /// </summary>
+        public Vector3 GetClosestSafePositionWithFaction()
+        {
+            Vector3 my = transform.position;
+            Vector3 best = my;
+            float bestDist = float.MaxValue;
+            bool found = false;
+
+            // 개인 메모리는 RememberSafePosition에서 이미 NavMesh 보정됨
+            foreach (var pos in lastSafePositions)
+            {
+                float d = Vector3.Distance(my, pos);
+                if (d < bestDist) { best = pos; bestDist = d; found = true; }
+            }
+
+            // 펙션 공유 SafeZone — NavMesh 보정 후 후보 등록
+            var grp = groupMindRef as GroupAIManager;
+            if (grp != null && grp.HasFactionSafeZone)
+            {
+                Vector3 facPos = grp.FactionSafeZone;
+                if (NavMesh.SamplePosition(facPos, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+                {
+                    facPos = hit.position;
+                    float d = Vector3.Distance(my, facPos);
+                    if (d < bestDist) { best = facPos; bestDist = d; found = true; }
+                }
+                // NavMesh 5m 내 없으면 펙션 SafeZone 후보 skip
+            }
+
+            return found ? best : my;
+        }
+
+        /// <summary>[v3.4 §5 L1] 안전지대 메모리 초기화 (디버그/테스트용).</summary>
+        [ContextMenu("★ Wk3 Test/Clear Safe Zone Memory")]
+        public void ClearSafeZoneMemory()
+        {
+            lastSafePositions.Clear();
+            Debug.Log($"[{name}] 안전지대 메모리 초기화됨.");
+        }
+
+        // ==================================================================
+        // [v3.4 §5 L1 Stage 2.1] Tactical Retreat — 전략적 후퇴 명령
+        //   fear (본능적 공포)와 별개의 합리적 후퇴 신호.
+        //   GroupAIManager.ReevaluateTacticalRetreat()에서 그룹 차원 결정.
+        //   조건 충족 (HP < threshold 등) → orderedRetreat = true.
+        //   PB4DecisionAdapter가 BB[UtilityWinner]="Flee" 강제 push.
+        //   BT는 fear와 무관하게 FleeDuel 분기 진입 → InitiateRetreat.
+        // ==================================================================
+        [Header("Tactical Retreat (§5 L1 Stage 2.1)")]
+        [Tooltip("[표시 전용] 그룹 차원 전략적 후퇴 명령. fear (본능)와 독립.")]
+        [SerializeField] private bool orderedRetreat = false;
+
+        /// <summary>[v3.4 §5 Stage 2.1] 그룹 차원 전략적 후퇴 명령 플래그.</summary>
+        public bool OrderedRetreat
+        {
+            get => orderedRetreat;
+            set => orderedRetreat = value;
+        }
 
         // ==================================================================
         // Debug

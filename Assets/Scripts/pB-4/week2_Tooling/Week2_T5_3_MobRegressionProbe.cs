@@ -101,14 +101,14 @@ namespace TDA.PB4.Tooling.MobRegression
         public bool stubMode = false;
 
         [Tooltip("[v4] 검증할 매니저 싱글톤 타입 이름 목록. Runner가 채움.\n" +
-                 "Session→State 정정 + WorldAIManager 추가.")]
+                 "Session→State 정정 + WorldAISpawnManager 추가.")]
         public List<string> dependencyTypeNames = new List<string>
         {
             "WorldItemDatabase",
             "WorldUtilityManager",
             "WorldGameStateManager",   // v4: Session → State
             "WorldSaveGameManager",
-            "WorldAIManager",          // v4: 신규
+            "WorldAISpawnManager",          // v4: 신규
         };
 
         // 내부 상태

@@ -24,3 +24,11 @@ MonoBehaviour:
   - fromRole: 
     toRole: 
     triggerThreshold: 0
+  sharedTargetCloseRadius: 15
+  sharedTargetChainMaxRadius: 50
+  sharedTargetSightObstacleLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  sharedTargetTimeout: 8
+  orderedRetreatEnabled: 1
+  orderedRetreatHpThreshold: 0.3

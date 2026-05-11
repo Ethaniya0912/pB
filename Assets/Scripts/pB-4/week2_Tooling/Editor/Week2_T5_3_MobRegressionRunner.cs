@@ -4,7 +4,7 @@
 //       Window > pB-4 > Day 5 > T5.3 Mob Regression
 //
 // [v4 신규 — 자동 탐색 강화 (HumanoidVisualStageSetup과 동일 패턴)]
-//   - 의존성 목록 정정: Session → State, WorldAIManager 추가 (5종)
+//   - 의존성 목록 정정: Session → State, WorldAISpawnManager 추가 (5종)
 //   - 폴더 힌트 (Assets/Prefabs/WorldManagers/)
 //   - [폴더 일괄 Inject] 버튼 — 의존성 추측 없이 폴더 전체 인스턴스화
 //   - 4-path 자동 탐색 (폴더 → 클래스명 → 공백변형 → 전체순회)
@@ -73,7 +73,7 @@ namespace TDA.PB4.Tooling.MobRegression.Editor
             "WorldUtilityManager",
             "WorldGameStateManager",   // v4: Session → State
             "WorldSaveGameManager",
-            "WorldAIManager",          // v4: 신규
+            "WorldAISpawnManager",          // v4: 신규
         };
 
         [MenuItem("Window/pB-4/Day 5/T5.3 Mob Regression", priority = 50)]
@@ -176,7 +176,7 @@ namespace TDA.PB4.Tooling.MobRegression.Editor
 
             EditorGUILayout.HelpBox(
                 "Mob_01은 외부 매니저 싱글톤에 의존.\n" +
-                "v4 변경: Session → State + WorldAIManager 추가, 폴더 힌트 + 공백 변형 매칭.",
+                "v4 변경: Session → State + WorldAISpawnManager 추가, 폴더 힌트 + 공백 변형 매칭.",
                 MessageType.None);
 
             // [v4] 폴더 힌트
@@ -199,7 +199,7 @@ namespace TDA.PB4.Tooling.MobRegression.Editor
             worldUtilityManagerPrefab   = (GameObject)EditorGUILayout.ObjectField("WorldUtilityManager",      worldUtilityManagerPrefab,   typeof(GameObject), false);
             worldGameStateManagerPrefab = (GameObject)EditorGUILayout.ObjectField("WorldGameStateManager",    worldGameStateManagerPrefab, typeof(GameObject), false);
             worldSaveGameManagerPrefab  = (GameObject)EditorGUILayout.ObjectField("WorldSaveGameManager",     worldSaveGameManagerPrefab,  typeof(GameObject), false);
-            worldAIManagerPrefab        = (GameObject)EditorGUILayout.ObjectField("WorldAIManager",           worldAIManagerPrefab,        typeof(GameObject), false);
+            worldAIManagerPrefab        = (GameObject)EditorGUILayout.ObjectField("WorldAISpawnManager",           worldAIManagerPrefab,        typeof(GameObject), false);
 
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("[자동 탐색] (4-path)"))
@@ -518,7 +518,7 @@ namespace TDA.PB4.Tooling.MobRegression.Editor
             worldUtilityManagerPrefab   = FindPrefabWithComponent("WorldUtilityManager");
             worldGameStateManagerPrefab = FindPrefabWithComponent("WorldGameStateManager");
             worldSaveGameManagerPrefab  = FindPrefabWithComponent("WorldSaveGameManager");
-            worldAIManagerPrefab        = FindPrefabWithComponent("WorldAIManager");
+            worldAIManagerPrefab        = FindPrefabWithComponent("WorldAISpawnManager");
 
             int found = CountFoundManagerPrefabs();
             Debug.Log($"[T5.3] 매니저 자동 탐색: {found}/5");
@@ -641,7 +641,7 @@ namespace TDA.PB4.Tooling.MobRegression.Editor
             injected += InjectOneManager(worldUtilityManagerPrefab,   "WorldUtilityManager",   parent);
             injected += InjectOneManager(worldGameStateManagerPrefab, "WorldGameStateManager", parent);
             injected += InjectOneManager(worldSaveGameManagerPrefab,  "WorldSaveGameManager",  parent);
-            injected += InjectOneManager(worldAIManagerPrefab,        "WorldAIManager",        parent);
+            injected += InjectOneManager(worldAIManagerPrefab,        "WorldAISpawnManager",        parent);
 
             EditorSceneManager.MarkSceneDirty(parent.scene);
             Debug.Log($"[T5.3] 개별 매니저 inject: {injected}개.");

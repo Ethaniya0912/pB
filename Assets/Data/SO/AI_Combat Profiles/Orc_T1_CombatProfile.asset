@@ -19,8 +19,9 @@ MonoBehaviour:
   strafeAngularSpeed: 20
   strikeTriggerTime: 2
   fleeSprintSpeed: 0
-  panicChainRadius: 5
-  panicChainMultiplier: 2
+  panicChainRadius: 3
+  panicChainMultiplier: 0.5
+  retreatHpThreshold: 0.3
   fearBonusNarrowPath: 0.15
   fearBonusDeathTrap: 0.25
   fearBonusSpookyCave: 0.1
@@ -30,6 +31,7 @@ MonoBehaviour:
   guardBreakReactionDelay: 0.25
   poiseAttackIntervalMin: 2.5
   poiseAttackIntervalMax: 5.5
+  forceAttackFear: 0.15
   stuckCheckInterval: 0.5
   stuckMoveThreshold: 0.3
   stuckGiveUpCount: 1
@@ -49,3 +51,12 @@ MonoBehaviour:
   tacticalFeintChance: 0.15
   tacticalFeintDist: 1.5
   tacticalFeintDuration: 0.4
+  perceptionHearingRange: 30
+  perceptionHearingSensitivity: 0.5
+  perceptionThreshold: 0.2
+  perceptionSuspicionDecayTime: 8
+  perceptionAlertDecayTime: 5
+  perceptionVisionRange: 20
+  perceptionVisionAngle: 120
+  perceptionTraceDetectionRange: 10
+  perceptionSoundSearchGiveUpDist: 1.5

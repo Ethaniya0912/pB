@@ -11,7 +11,7 @@
 //
 // [v4 유지]
 //   - 폴더 힌트 + 4-path 자동 탐색 + 폴더 일괄 Inject
-//   - 의존성 5종 (Session→State + WorldAIManager 추가)
+//   - 의존성 5종 (Session→State + WorldAISpawnManager 추가)
 // =============================================================================
 #if UNITY_EDITOR
 using System;
@@ -67,7 +67,7 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
             "WorldUtilityManager",
             "WorldGameStateManager",
             "WorldSaveGameManager",
-            "WorldAIManager",
+            "WorldAISpawnManager",
         };
 
         // [v5] Self-Check 검증 매트릭스
@@ -640,7 +640,7 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
             worldUtilityManagerPrefab   = (GameObject)EditorGUILayout.ObjectField("WorldUtilityManager",      worldUtilityManagerPrefab,   typeof(GameObject), false);
             worldGameStateManagerPrefab = (GameObject)EditorGUILayout.ObjectField("WorldGameStateManager",    worldGameStateManagerPrefab, typeof(GameObject), false);
             worldSaveGameManagerPrefab  = (GameObject)EditorGUILayout.ObjectField("WorldSaveGameManager",     worldSaveGameManagerPrefab,  typeof(GameObject), false);
-            worldAIManagerPrefab        = (GameObject)EditorGUILayout.ObjectField("WorldAIManager",           worldAIManagerPrefab,        typeof(GameObject), false);
+            worldAIManagerPrefab        = (GameObject)EditorGUILayout.ObjectField("WorldAISpawnManager",           worldAIManagerPrefab,        typeof(GameObject), false);
 
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("[자동 탐색]")) AutoFindAll();
@@ -747,7 +747,7 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
             worldUtilityManagerPrefab   = FindPrefabWithComponent("WorldUtilityManager");
             worldGameStateManagerPrefab = FindPrefabWithComponent("WorldGameStateManager");
             worldSaveGameManagerPrefab  = FindPrefabWithComponent("WorldSaveGameManager");
-            worldAIManagerPrefab        = FindPrefabWithComponent("WorldAIManager");
+            worldAIManagerPrefab        = FindPrefabWithComponent("WorldAISpawnManager");
         }
 
         private GameObject LoadHumanoidPrefab()

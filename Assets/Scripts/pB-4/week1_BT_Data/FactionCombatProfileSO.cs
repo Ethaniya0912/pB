@@ -88,6 +88,17 @@ namespace TDA.PB4.Data
         [Tooltip("고블린=2.0(강한 전파), 오크=0.5(약한), 스켈레톤=0")]
         public float panicChainMultiplier = 2f;
 
+        /// <summary>
+        /// [v3.4 §5 L1 Stage 2] 후퇴 트리거 HP 임계치 (0.0 ~ 1.0).
+        /// 현재 HP / max HP 비율이 이 값 미만이면 안전지대로 후퇴.
+        /// 0이면 후퇴 없음 (예: 스켈레톤 - 죽을 때까지 싸움).
+        /// FleeDuelAction(오크): HP 정상이면 반격, HP &lt; threshold면 후퇴 분기.
+        /// FleeSwarmAction(고블린): HP 무관 (Stage 3에서 검토).
+        /// </summary>
+        [Range(0f, 1f)]
+        [Tooltip("후퇴 트리거 HP 임계치 (0~1). 오크=0.3, 고블린=0.5, 스켈레톤=0(후퇴X)")]
+        public float retreatHpThreshold = 0.3f;
+
         // =====================================================================
         // 지형 보정 (fear 가산)
         // =====================================================================

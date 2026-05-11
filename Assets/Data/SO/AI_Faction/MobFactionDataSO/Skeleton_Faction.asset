@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5ef57cbbc0477f84f86ac076d3f3eadb, type: 3}
   m_Name: Skeleton_Faction
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.MobFactionDataSO
-  factionId: 
-  factionName: 
+  factionId: 100
+  factionName: Skeleton_Faction_100
   intelligence: 1
   honor: 0
   organization: 10

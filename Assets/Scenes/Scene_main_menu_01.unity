@@ -4658,7 +4658,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -361.38318}
+  m_AnchoredPosition: {x: 0, y: -361.3828}
   m_SizeDelta: {x: -0, y: -722.766}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &751730820
@@ -6621,7 +6621,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.0009765625, y: -12.731079}
+  m_AnchoredPosition: {x: 0.0009765625, y: -12.730469}
   m_SizeDelta: {x: -190.503, y: -171.617}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1027095442
@@ -7230,7 +7230,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 960, y: -140.17041}
+  m_AnchoredPosition: {x: 960, y: -140.16992}
   m_SizeDelta: {x: 200, y: 38.2}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1148078517
@@ -9319,7 +9319,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -361.38318}
+  m_AnchoredPosition: {x: 0, y: -361.3828}
   m_SizeDelta: {x: -0, y: -722.766}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1508545083
@@ -11270,7 +11270,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 960, y: -140.17041}
+  m_AnchoredPosition: {x: 960, y: -140.16992}
   m_SizeDelta: {x: 200, y: 38.2}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1851466506
@@ -11420,15 +11420,21 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
+      propertyPath: 'aiCharacters.Array.data[0]'
+      value: 
+      objectReference: {fileID: 4233442530097016134, guid: 6b4a4e7c768b0944e83788a372794c17,
+        type: 3}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
       propertyPath: 'aiCharacters.Array.data[1]'
       value: 
-      objectReference: {fileID: 4233442530097016134, guid: 33ed2cb71e48ee54a830ff237ddf6885,
+      objectReference: {fileID: 4233442530097016134, guid: 6b4a4e7c768b0944e83788a372794c17,
         type: 3}
     - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
       propertyPath: 'aiCharacters.Array.data[2]'
       value: 
-      objectReference: {fileID: 4233442530097016134, guid: 33ed2cb71e48ee54a830ff237ddf6885,
+      objectReference: {fileID: 4233442530097016134, guid: 6b4a4e7c768b0944e83788a372794c17,
         type: 3}
     - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
@@ -11442,10 +11448,69 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 4233442530097016134, guid: 33ed2cb71e48ee54a830ff237ddf6885,
         type: 3}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[0].prefab
+      value: 
+      objectReference: {fileID: 4233442530097016134, guid: 6b4a4e7c768b0944e83788a372794c17,
+        type: 3}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[1].prefab
+      value: 
+      objectReference: {fileID: 8286174861153668228, guid: 9ae8640fce611cf4794c4f07f7b1bb37,
+        type: 3}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[0].policySO
+      value: 
+      objectReference: {fileID: 11400000, guid: acf6c3108570e6a458c344dcd8927731,
+        type: 2}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[1].policySO
+      value: 
+      objectReference: {fileID: 11400000, guid: acf6c3108570e6a458c344dcd8927731,
+        type: 2}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[0].factionId
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[1].factionId
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[0].defaultMemberCount
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[1].defaultMemberCount
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[0].policyImplementorTypeName
+      value: DuelGroupPolicy
+      objectReference: {fileID: 0}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[1].policyImplementorTypeName
+      value: DuelGroupPolicy
+      objectReference: {fileID: 0}
     - target: {fileID: 766506817125188722, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
       propertyPath: m_Name
-      value: World AI Manager
+      value: World AI Spawn Manager
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -13847,6 +13912,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3629411687971791414, guid: 5f9bc9923322be744ad89a1a998d31e9,
+        type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 211.72461
       objectReference: {fileID: 0}
     - target: {fileID: 3657849890390131968, guid: 5f9bc9923322be744ad89a1a998d31e9,
         type: 3}

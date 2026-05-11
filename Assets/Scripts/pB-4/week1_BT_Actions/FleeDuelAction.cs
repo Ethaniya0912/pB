@@ -140,6 +140,16 @@ public partial class FleeDuelAction : Action
              "PB4DecisionAdapter → BB EngageRange → 이 변수로 연결하세요.")]
     [SerializeReference] public BlackboardVariable<float> EngageRange = new(10f);
 
+    /// <summary>
+    /// [v3.4 §5 Stage 2] HP 비율 임계치. (현재 HP / max HP) &lt; 이 값이면 안전지대로 후퇴.
+    /// PB4DecisionAdapter가 combatProfile.retreatHpThreshold를 BB에 push.
+    /// 0이면 항상 반격 (후퇴 없음). 1.0이면 항상 후퇴.
+    /// 권장: 오크=0.3, 고블린=0.5, 스켈레톤=0.
+    /// </summary>
+    [Tooltip("HP 비율이 이 값 미만이면 안전지대로 후퇴 (0=항상 반격).\n" +
+             "BB[\"RetreatHpThreshold\"]에 Adapter가 SO 값 push.")]
+    [SerializeReference] public BlackboardVariable<float> RetreatHpThreshold = new(0.3f);
+
     // [버그 수정] Fear, UtilityWinner BB 변수 필드 제거.
     // 이 Action에서 직접 BB에 역기록하지 않습니다.
     // brain.fear → PB4DecisionAdapter → BB Fear / UtilityWinner 단방향 흐름을 유지합니다.
@@ -191,15 +201,103 @@ public partial class FleeDuelAction : Action
                 aiMgr.navMeshAgent.nextPosition = aiMgr.transform.position;
         }
 
-        // [Bug 2 수정] EngageRange 거리 무관 즉시 반격.
-        // 기존 OnUpdate 접근 로직 제거 — StalkAction(Attack 분기)과 동일한 동작 중복이었음.
-        // fear 리셋 → UpdateDecision → Attack → BT Attack 분기 → StalkAction 접근.
         var brain = Self.Value.GetComponent<BaseAIBrain>();
 
+        // [v3.4 §5 Stage 2] HP 분기 — 체력 낮으면 안전지대로 후퇴, 정상이면 반격
+        //   사용자 디자인: "체력 낮은 얘는 후퇴 → 나머지가 적군 대적"
+        //   threshold=0이면 항상 반격 (스켈레톤 등 후퇴 안 하는 펙션).
+        float healthRatio = GetHealthRatio(aiMgr);
+
+        // [v3.4 §5 Stage 2.1] 전략적 후퇴 명령 검사 (그룹 차원)
+        bool orderedRetreat = brain != null && brain.OrderedRetreat;
+
+        // [v3.4 §5 Stage 2.1] 진입 항상 박제 (디버깅 강화)
         Debug.Log(
-            $"[FleeDuel][ONSTART] {Self.Value.name}: fear={brain?.fear:F3} → CounterAttack 즉시 실행");
+            $"<color=#88CCFF>[FleeDuel][ONSTART]</color> {Self.Value.name}: " +
+            $"HP={healthRatio:P0}, threshold={RetreatHpThreshold.Value:P0}, " +
+            $"fear={brain?.fear:F3}, OrderedRetreat={orderedRetreat}");
+
+        // 후퇴 분기 — HP 낮음 OR 그룹 명령
+        bool shouldRetreat = orderedRetreat ||
+                             (RetreatHpThreshold.Value > 0f && healthRatio < RetreatHpThreshold.Value);
+
+        if (shouldRetreat && brain != null)
+        {
+            return InitiateRetreat(brain, aiMgr, healthRatio, orderedRetreat);
+        }
+
+        Debug.Log(
+            $"<color=#88CCFF>[FleeDuel][ONSTART]</color> {Self.Value.name}: " +
+            $"→ CounterAttack (HP/명령 모두 후퇴 조건 미달)");
 
         return CounterAttack(brain);
+    }
+
+    /// <summary>
+    /// [v3.4 §5 Stage 2] 현재 HP 비율 (0~1) 반환. AICharacterManager.characterNetworkManager에서 조회.
+    /// 컴포넌트/네트워크 매니저 없으면 1.0 반환 (후퇴 안 함).
+    /// </summary>
+    private float GetHealthRatio(AICharacterManager aiMgr)
+    {
+        if (aiMgr == null) return 1f;
+        var nm = aiMgr.characterNetworkManager;
+        if (nm == null) return 1f;
+        float maxHp = nm.maxHealth.Value;
+        if (maxHp <= 0f) return 1f;
+        return Mathf.Clamp01(nm.currentHealth.Value / maxHp);
+    }
+
+    /// <summary>
+    /// [v3.4 §5 Stage 2 / 2.1] 후퇴 시퀀스 — 가장 가까운 안전지대로 NavMesh 이동.
+    /// brain.fear는 그대로 유지 (도주 의도 지속) — HP 회복 후 자연스럽게 다시 평가.
+    ///
+    /// [v3.4 §5 보강] NavMesh 경계 진동 방지:
+    ///   - safeZone NavMesh 재검증 (3m 범위)
+    ///   - 자기 위치 NavMesh 외부면 후퇴 불가 (Failure 반환)
+    ///   - stoppingDistance = 0.5f (도착 진동 방지)
+    /// </summary>
+    private Status InitiateRetreat(BaseAIBrain brain, AICharacterManager aiMgr,
+                                    float healthRatio, bool orderedRetreat)
+    {
+        Vector3 safeZone = brain.GetClosestSafePositionWithFaction();
+        Vector3 myPos = brain.transform.position;
+
+        // [보강] 자기 위치가 NavMesh 위인지 확인
+        if (aiMgr?.navMeshAgent == null || !aiMgr.navMeshAgent.isOnNavMesh)
+        {
+            Debug.LogWarning(
+                $"[FleeDuel][RETREAT] {Self.Value.name}: 자기가 NavMesh 외부 또는 NavMeshAgent 없음 → 후퇴 불가");
+            return Status.Failure;
+        }
+
+        // [보강] safeZone NavMesh 재검증 — 도착 직전 보정
+        if (NavMesh.SamplePosition(safeZone, out NavMeshHit hit, 3f, NavMesh.AllAreas))
+        {
+            safeZone = hit.position;
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"[FleeDuel][RETREAT] {Self.Value.name}: safeZone NavMesh 3m 내 없음 → 후퇴 중단 ({safeZone})");
+            return Status.Failure;
+        }
+
+        float distToSafe = Vector3.Distance(myPos, safeZone);
+
+        string trigger = orderedRetreat
+            ? "OrderedRetreat=true (전략 명령)"
+            : $"HP={healthRatio:P0} < threshold={RetreatHpThreshold.Value:P0} (개별 분기)";
+
+        Debug.Log(
+            $"<color=#FFAA66>[FleeDuel][RETREAT]</color> {Self.Value.name}: {trigger} → " +
+            $"안전지대로 후퇴 (safeZone={safeZone}, dist={distToSafe:F1}m, fear={brain.fear:F3} 유지)");
+
+        // [보강] stoppingDistance 0.5f — NavMesh 도착 임계치 확대로 진동 방지
+        aiMgr.navMeshAgent.stoppingDistance = 0.5f;
+        aiMgr.navMeshAgent.SetDestination(safeZone);
+        aiMgr.navMeshAgent.isStopped = false;
+
+        return Status.Success;
     }
 
     protected override Status OnUpdate()

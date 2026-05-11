@@ -1057,6 +1057,9 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  stuckDetectionEnabled: 1
+  stuckDetectionThreshold: 4
+  stuckRepeatInterval: 2
   aiStaminaRegenDelay: 2
   aiStaminaRegenAmount: 2
   aiStaminaDrainPerAttack: 15
@@ -1704,7 +1707,7 @@ MonoBehaviour:
   humanoidBrain: {fileID: 0}
   aiManager: {fileID: -6378788767511415067}
   btAgent: {fileID: 0}
-  combatProfile: {fileID: 11400000, guid: e07c14989b4b7754d8b0841022ed38de, type: 2}
+  combatProfile: {fileID: 11400000, guid: 68e404453f9cd944c9e82a22c427711e, type: 2}
   policyTypeOverride: 
   pursueState: {fileID: 11400000, guid: 3f70b7edde10d0644bf942de81b7c65f, type: 2}
   updateInterval: 0.5
@@ -1715,6 +1718,7 @@ MonoBehaviour:
   debugLog: 1
   debugSoundSearch: 1
   debugPerceptionInject: 1
+  verboseTacticalRetreat: 1
   showGizmo: 1
 --- !u!114 &3842090482814950413
 MonoBehaviour:
@@ -1750,6 +1754,7 @@ MonoBehaviour:
   alertDecayTime: 5
   debugLog: 0
   showGizmos: 1
+  currentTargetMemoryDuration: 3
 --- !u!114 &4379265611364403505
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1768,10 +1773,13 @@ MonoBehaviour:
   greed: 0.1
   fatigue: 0.1
   groupMindRef: {fileID: 0}
-  verboseLogging: 0
+  lastSafePositions: []
+  maxRememberedSafeZones: 5
+  orderedRetreat: 0
+  verboseLogging: 1
   tier2FearVerbose: 0
-  factionData: {fileID: 11400000, guid: a2b12a7b3baee874791211578e181fec, type: 2}
-  tierData: {fileID: 11400000, guid: 2685c646f04ac3645bc41e6cd2f595bf, type: 2}
+  factionData: {fileID: 11400000, guid: e7df10e58d8dd864795e2a47fded20b3, type: 2}
+  tierData: {fileID: 11400000, guid: 14c0e14256e19b646be7a51ef07c481e, type: 2}
   aggressionThreshold: 0.5
   fleeThreshold: 0.8
   u_attack: 0
@@ -1831,7 +1839,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.NPCAlignmentController
   ShowTopMostFoldoutHeaderGroup: 1
-  alignmentDefinitionSO: {fileID: 0}
+  alignmentDefinitionSO: {fileID: 11400000, guid: 57dc63ccb503ad541841e4d1396f5abf,
+    type: 2}
   currentAlignment: 1
   originalAlignment: 1
   evaluationInterval: 1
@@ -1847,7 +1856,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4233442530097016134}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 548e97d0a80f0f94c992c99bd31331de, type: 3}
   m_Name: 

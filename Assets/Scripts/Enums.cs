@@ -561,3 +561,81 @@ public static class AnimationEventTypeExtensions
         };
     }
 }
+// =============================================================================
+// [pB-4 v2.5 §11.5] AI 스폰 시스템 — SpawnRequest 부속 enum 3종
+// 추가: 2026-05-07 — WorldAISpawnManager.cs와 함께 사용
+// =============================================================================
+
+/// <summary>
+/// AI 스폰 위치 결정 전략. SpawnRequest.locationStrategy.
+/// </summary>
+public enum SpawnLocationStrategy
+{
+    /// <summary>[✓ Wk3] explicitPosition 좌표 그대로 사용.</summary>
+    Explicit,
+
+    /// <summary>[✓ Wk3] CaveNodeGraphBuilder.nodesData에서 가장 가까운 노드 사용.</summary>
+    NearestSpawnNode,
+
+    /// <summary>[△ Wk5+] IBiomeSpawnResolver. 현재는 NearestSpawnNode로 fallback.</summary>
+    BiomeAffinityResolver,
+
+    /// <summary>[✓ Wk3] 시나리오 직접 결정 (= Explicit과 동치).</summary>
+    ScenarioDirected,
+
+    /// <summary>[△ Wk5+] 펙션 영토 내 임의. 영토 시스템 도입 후.</summary>
+    FactionTerritory,
+}
+
+/// <summary>
+/// AI 스폰 결과. SpawnRequestResponse.result.
+/// </summary>
+public enum SpawnResult
+{
+    Success,
+    Queued,
+    FailedNavMesh,
+    FailedConcurrentLimit,
+    FailedFactionLimit,
+    FailedResolverNoCandidate,
+    FailedTimeout,
+    FailedInvalidPolicy,
+    FailedInvalidPrefab,
+}
+
+/// <summary>
+/// AI 스폰 사유. SpawnRequest.reason.
+/// 시나리오 분석/추적용. 매직 문자열 회피 (coding_standards §8.2).
+/// </summary>
+public enum SpawnReason
+{
+    /// <summary>수동 트리거 (디자이너 명시).</summary>
+    Manual,
+
+    /// <summary>Editor 씬 클릭 도구 (SpawnRequestSceneTool).</summary>
+    EditorClick,
+
+    /// <summary>Editor ContextMenu 직접 호출.</summary>
+    EditorContextMenu,
+
+    /// <summary>[Wk5+] 인구 과잉 → 분파/이주 시나리오.</summary>
+    PopulationOverflow,
+
+    /// <summary>[Wk5+] 인구 위급 → 보충 부대 소환.</summary>
+    PopulationCritical,
+
+    /// <summary>[Wk5+] 보스 페이즈 — 추가 분대 소환.</summary>
+    BossSummon,
+
+    /// <summary>[Wk5+] 펙션 이주 — 다른 영토로 이동.</summary>
+    Migration,
+
+    /// <summary>[Wk5+] 시나리오 정책 — 디자이너가 명시한 시점에 발동.</summary>
+    ScenarioScripted,
+
+    /// <summary>[Wk7+] 부활 — persistentGroupId로 기존 그룹 복원.</summary>
+    Resurrection,
+
+    /// <summary>회귀 테스트 (Week2_T5_3 등).</summary>
+    RegressionTest,
+}

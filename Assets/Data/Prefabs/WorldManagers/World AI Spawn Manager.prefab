@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 354361478326391590}
   - component: {fileID: 461029932042778349}
   m_Layer: 0
-  m_Name: World AI Manager
+  m_Name: World AI Spawn Manager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -48,4 +48,7 @@ MonoBehaviour:
   respawnCharacters: 0
   aiCharacters:
   - {fileID: 4233442530097016134, guid: 33ed2cb71e48ee54a830ff237ddf6885, type: 3}
+  useGraphNodeSpawnPoints: 1
+  testSpawnNodeIndices: 
+  autoEnableNavMeshAgent: 1
   spawnedInCharacters: []

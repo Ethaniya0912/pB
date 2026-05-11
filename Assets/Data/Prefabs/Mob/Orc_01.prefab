@@ -1132,7 +1132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 4213619079
+  GlobalObjectIdHash: 466911681
   InScenePlacedSourceGlobalObjectIdHash: 1383825015
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1341,6 +1341,9 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  stuckDetectionEnabled: 1
+  stuckDetectionThreshold: 4
+  stuckRepeatInterval: 2
   aiStaminaRegenDelay: 2
   aiStaminaRegenAmount: 2
   aiStaminaDrainPerAttack: 15
@@ -1418,6 +1421,8 @@ MonoBehaviour:
     m_InternalValue: 0
   spawnChunkCenter:
     m_InternalValue: {x: 0, y: 0, z: 0}
+  autoSpawnIfPlacedInScene: 1
+  autoSpawnDebugLog: 0
 --- !u!114 &5828594295003584252
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1577,6 +1582,8 @@ MonoBehaviour:
     m_InternalValue: 0
   canCombo:
     m_InternalValue: 0
+  logDamageColliderPipeline: 0
+  enableStaleActionFlagRecovery: 0
   showDebugLogs: 0
   showFOVScanLogs: 0
   aiIntelligenceLevel: 5
@@ -1778,6 +1785,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
   debugForceIdleStretch: 0
+  verboseLogging: 0
   shutterAngle: 360
   targetFPS: 60
   globalIntensity: 2
@@ -1957,6 +1965,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
   skinningCacheShader: {fileID: 7200000, guid: 5180e7e0d86f1e248a4e04abe3856aa2, type: 3}
   targetSMR: {fileID: 0}
+  verboseLogging: 0
   _dbgStatus: Initializing
   _dbgVertexCount: 0
   _dbgReady: 0
@@ -1975,6 +1984,7 @@ MonoBehaviour:
   blurController: {fileID: 0}
   characterEventManager: {fileID: 0}
   characterControllerOverride: {fileID: 0}
+  verboseLogging: 0
   attackBlurMultiplier: 3
   heavyBlurMultiplier: 1.5
   blurAttackRampUp: 8
@@ -2045,6 +2055,8 @@ MonoBehaviour:
   maxSpeed: 6
   lastPB4State: None
   debugLog: 1
+  debugSoundSearch: 1
+  debugPerceptionInject: 1
   showGizmo: 1
 --- !u!114 &5048347256024575350
 MonoBehaviour:
@@ -2066,8 +2078,10 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 64
+  alertDurationForCombat: 0.5
   hearingRange: 30
   hearingSensitivity: 0.5
+  perceptionThreshold: 0.2
   traceDetectionRange: 10
   awarenessLevel: 0
   lastKnownPosition: {x: 0, y: 0, z: 0}
@@ -2078,6 +2092,7 @@ MonoBehaviour:
   alertDecayTime: 5
   debugLog: 1
   showGizmos: 1
+  currentTargetMemoryDuration: 3
 --- !u!114 &3640425599390567851
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2090,11 +2105,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e069edcb4efbc4a49b46f0a28f83447d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Mob.MobAIBrain
+  ShowTopMostFoldoutHeaderGroup: 1
   fear: 0.8
   hunger: 0.2
   greed: 0.1
   fatigue: 0.1
   groupMindRef: {fileID: 0}
+  verboseLogging: 0
+  tier2FearVerbose: 0
   factionData: {fileID: 11400000, guid: e7df10e58d8dd864795e2a47fded20b3, type: 2}
   tierData: {fileID: 11400000, guid: 14c0e14256e19b646be7a51ef07c481e, type: 2}
   aggressionThreshold: 0.5
@@ -2204,6 +2222,7 @@ MonoBehaviour:
   isRotationLockedByEvent: 0
   idleVelocityThreshold: 0.1
   animatorSmoothTime: 0.15
+  _verboseDiagLogging: 0
 --- !u!1 &6189257114547218967
 GameObject:
   m_ObjectHideFlags: 0

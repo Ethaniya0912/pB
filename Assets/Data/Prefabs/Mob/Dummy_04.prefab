@@ -724,7 +724,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1711824738
+  GlobalObjectIdHash: 1383825015
   InScenePlacedSourceGlobalObjectIdHash: 1383825015
   DeferredDespawnTick: 0
   Ownership: 1
@@ -931,10 +931,16 @@ MonoBehaviour:
   aiCharacterIKController: {fileID: 0}
   navMeshAgent: {fileID: 5062653150551271864}
   aiCharacterExecutionManager: {fileID: 0}
-  currentState: {fileID: 11400000, guid: 7caaae16eea16ca4eaf9fa0ee52c4b81, type: 2}
-  defaultState: {fileID: 0}
-  groggyTimer: 0
   hasEnteredGroggy: 0
+  groggyTimer: 0
+  stuckDetectionEnabled: 1
+  stuckDetectionThreshold: 4
+  stuckRepeatInterval: 2
+  aiStaminaRegenDelay: 2
+  aiStaminaRegenAmount: 2
+  aiStaminaDrainPerAttack: 15
+  debugStamina: 0
+  debugStaminaInterval: 1
 --- !u!114 &4105687166604391429
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1007,6 +1013,8 @@ MonoBehaviour:
     m_InternalValue: 0
   spawnChunkCenter:
     m_InternalValue: {x: 0, y: 0, z: 0}
+  autoSpawnIfPlacedInScene: 1
+  autoSpawnDebugLog: 0
 --- !u!114 &8434182046016921837
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1166,6 +1174,8 @@ MonoBehaviour:
     m_InternalValue: 0
   canCombo:
     m_InternalValue: 0
+  logDamageColliderPipeline: 0
+  enableStaleActionFlagRecovery: 0
   showDebugLogs: 0
   showFOVScanLogs: 0
   aiIntelligenceLevel: 5
@@ -1268,6 +1278,9 @@ MonoBehaviour:
     type: 2}
   leftHandTestWeapon: {fileID: 11400000, guid: e43da9c27983eb04cbb14465059c8633, type: 2}
   leftHandTestShield: {fileID: 11400000, guid: f6ef535891cce2d43ae15f55266aaa80, type: 2}
+  autoEquipRightHand: 0
+  autoEquipLeftHandWeapon: 0
+  autoEquipLeftHandShield: 0
 --- !u!114 &6857648610438603969
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1310,7 +1323,6 @@ MonoBehaviour:
   showSectionAIExec: 1
   pauseOnGroggy: 0
   pauseOnExecutionStart: 0
-  pauseOnStateEnter: {fileID: 0}
 --- !u!114 &4970938131516336963
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1365,6 +1377,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectMotionBlurController
   targetRenderer: {fileID: 0}
   debugForceIdleStretch: 0
+  verboseLogging: 0
   shutterAngle: 360
   targetFPS: 60
   globalIntensity: 2
@@ -1544,6 +1557,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OMBSkinningCacheManager
   skinningCacheShader: {fileID: 7200000, guid: 5180e7e0d86f1e248a4e04abe3856aa2, type: 3}
   targetSMR: {fileID: 0}
+  verboseLogging: 0
   _dbgStatus: Initializing
   _dbgVertexCount: 0
   _dbgReady: 0
@@ -1562,6 +1576,7 @@ MonoBehaviour:
   blurController: {fileID: 0}
   characterEventManager: {fileID: 0}
   characterControllerOverride: {fileID: 0}
+  verboseLogging: 0
   attackBlurMultiplier: 3
   heavyBlurMultiplier: 1.5
   blurAttackRampUp: 8
@@ -1622,19 +1637,18 @@ MonoBehaviour:
   mobBrain: {fileID: 0}
   humanoidBrain: {fileID: 0}
   aiManager: {fileID: 0}
+  btAgent: {fileID: 0}
+  combatProfile: {fileID: 0}
+  policyTypeOverride: 
   pursueState: {fileID: 0}
-  fleeState: {fileID: 0}
-  patrolState: {fileID: 0}
-  idleState: {fileID: 0}
   updateInterval: 0.5
-  syncTarget: 1
   syncSpeedWithFear: 1
   baseSpeed: 3.5
   maxSpeed: 6
   lastPB4State: None
-  lastAIState: None
-  lastUpdateTime: 0
   debugLog: 1
+  debugSoundSearch: 1
+  debugPerceptionInject: 1
   showGizmo: 1
 --- !u!114 &3842090482814950413
 MonoBehaviour:
@@ -1656,8 +1670,10 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 0
+  alertDurationForCombat: 0.5
   hearingRange: 30
   hearingSensitivity: 0.5
+  perceptionThreshold: 0.2
   traceDetectionRange: 10
   awarenessLevel: 0
   lastKnownPosition: {x: 0, y: 0, z: 0}
@@ -1668,6 +1684,7 @@ MonoBehaviour:
   alertDecayTime: 5
   debugLog: 1
   showGizmos: 1
+  currentTargetMemoryDuration: 3
 --- !u!1 &4595707506124031444
 GameObject:
   m_ObjectHideFlags: 0

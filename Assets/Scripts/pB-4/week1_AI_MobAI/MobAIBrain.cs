@@ -153,6 +153,18 @@ namespace TDA.PB4.AI.Mob
         // ==================================================================
         public override void UpdateDecision()
         {
+            // [v3.3.8 §4 L1] 본인 시야 없으면 그룹 sharedTarget으로 fallback.
+            //   AIPerceptionSystem이 다음 인지 사이클에 currentTarget을 자체 갱신하면
+            //   그 값이 우선 (덮어쓰기). sharedTarget 만료되면 fallback도 안 됨.
+            //   효과: u_attack 계산이 정상화 → BT가 Attack 노드 진입 → 추격 시작.
+            //   하이브리드 정책: GroupAIManager가 close/chain 거리 기반으로 멤버별 cache 결정.
+            if (currentTarget == null)
+            {
+                var grp = TDA.PB4.AI.GroupAIManager.FindGroupOwning(this);
+                var shared = grp?.GetSharedTarget(this);
+                if (shared != null) currentTarget = shared;
+            }
+
             float factionAggNorm = factionData != null ? factionData.aggression / 10f : 0.5f;
 
             // 유틸리티 점수 산출

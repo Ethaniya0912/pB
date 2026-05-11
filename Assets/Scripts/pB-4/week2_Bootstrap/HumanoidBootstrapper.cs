@@ -2,7 +2,7 @@
 // HumanoidBootstrapper.cs  |  pB-4 Week 2 — Day 1 T1.4
 //                          |  v2 개정: NGO 2.0 + 4계층 L2 Router 대응
 //                          |  v3 개정: [DEBT-13] AlignmentSO 컴포넌트 전파 누락 패치
-//                          |  ★ v4 개정 (Wk3 Phase 5): WorldAIManager 이벤트 구독 추가
+//                          |  ★ v4 개정 (Wk3 Phase 5): WorldAISpawnManager 이벤트 구독 추가
 // -----------------------------------------------------------------------------
 // 역할: 씬 내 모든 HumanoidAIBrain의 초기화를 담당하는 DI 컨테이너.
 //       1) 필요 컴포넌트 자동 부착 (5종)
@@ -33,8 +33,8 @@
 //
 // ★ v3 → v4 변경 (Wk3 Phase 5 — 2026-05-04):
 //   [WK3-LATESPAWN] 기존 OnClientLateConnect (새 클라이언트 접속 시) 만으로는
-//                   WorldAIManager 가 호스트에서 NPC 스폰하는 케이스 미처리.
-//                   해결: WorldAIManager.OnAllCharactersSpawned 이벤트 구독 →
+//                   WorldAISpawnManager 가 호스트에서 NPC 스폰하는 케이스 미처리.
+//                   해결: WorldAISpawnManager.OnAllCharactersSpawned 이벤트 구독 →
 //                         스폰 완료 시 RescanAndBootstrapNew 자동 호출.
 //                   증상: Skeleton 스폰됐으나 utilityFormula/tagResolver=null
 //                         → HumanoidAIBrain 의 Week 1 fallback 매 틱 트리거
@@ -145,11 +145,11 @@ namespace TDA.PB4.Bootstrap
                 NetworkManager.Singleton.OnClientConnectedCallback += OnClientLateConnect;
             }
 
-            // ★ v4 (Wk3 Phase 5) — WorldAIManager 의 NPC 스폰 사이클 종료 이벤트 구독.
+            // ★ v4 (Wk3 Phase 5) — WorldAISpawnManager 의 NPC 스폰 사이클 종료 이벤트 구독.
             //   목적: OnClientLateConnect 와 별개 트리거 — "호스트의 NPC 스폰" 케이스 처리.
-            //   v3 까지: WorldAIManager 가 NPC 스폰해도 부트스트랩 안 됨 (Late-Spawn 누락 버그).
+            //   v3 까지: WorldAISpawnManager 가 NPC 스폰해도 부트스트랩 안 됨 (Late-Spawn 누락 버그).
             //   v4 부터: OnAllCharactersSpawned → RescanAndBootstrapNew 자동 호출.
-            WorldAIManager.OnAllCharactersSpawned += OnNPCsSpawnedByWorldAIManager;
+            WorldAISpawnManager.OnAllCharactersSpawned += OnNPCsSpawnedByWorldAISpawnManager;
 
             RunBootstrap();
         }
@@ -162,8 +162,8 @@ namespace TDA.PB4.Bootstrap
                 NetworkManager.Singleton.OnClientConnectedCallback -= OnClientLateConnect;
             }
 
-            // ★ v4 (Wk3 Phase 5) — WorldAIManager 이벤트 구독 해제 (씬 전환 유령 방지)
-            WorldAIManager.OnAllCharactersSpawned -= OnNPCsSpawnedByWorldAIManager;
+            // ★ v4 (Wk3 Phase 5) — WorldAISpawnManager 이벤트 구독 해제 (씬 전환 유령 방지)
+            WorldAISpawnManager.OnAllCharactersSpawned -= OnNPCsSpawnedByWorldAISpawnManager;
 
             base.OnNetworkDespawn();
         }
@@ -177,34 +177,34 @@ namespace TDA.PB4.Bootstrap
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // ★ v4 (Wk3 Phase 5) — WorldAIManager 이벤트 핸들러
+        // ★ v4 (Wk3 Phase 5) — WorldAISpawnManager 이벤트 핸들러
         // ═════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// ★ v4 — WorldAIManager 가 NPC 스폰 사이클 완료 시 트리거.
+        /// ★ v4 — WorldAISpawnManager 가 NPC 스폰 사이클 완료 시 트리거.
         /// 새로 스폰된 NPC 들에 11 개 컴포넌트 자동 부착 + SO 데이터 주입.
         ///
         /// ★ 호출 흐름:
-        ///   WorldAIManager.SpawnAllCharactersRoutine 끝부분
+        ///   WorldAISpawnManager.SpawnAllCharactersRoutine 끝부분
         ///   → OnAllCharactersSpawned?.Invoke(newlySpawned)
         ///   → 본 메서드 호출
         ///   → BootstrapNewlySpawnedAfterDelay 코루틴 시작 (1 프레임 대기)
         ///   → RescanAndBootstrapNew() — 미부트스트랩 Brain 만 처리 (중복 방지)
         ///
         /// ★ 보장: bootstrappedBrainIds HashSet 이 중복 처리 방지.
-        ///        WorldAIManager 가 같은 NPC 를 두 번 이벤트 발행해도 안전.
+        ///        WorldAISpawnManager 가 같은 NPC 를 두 번 이벤트 발행해도 안전.
         /// </summary>
-        private void OnNPCsSpawnedByWorldAIManager(List<GameObject> newlySpawned)
+        private void OnNPCsSpawnedByWorldAISpawnManager(List<GameObject> newlySpawned)
         {
             if (!IsServer) return;
 
-            LogInfo($"WorldAIManager 스폰 이벤트 수신 — {newlySpawned?.Count ?? 0}개 NPC 부트스트랩 시작");
+            LogInfo($"WorldAISpawnManager 스폰 이벤트 수신 — {newlySpawned?.Count ?? 0}개 NPC 부트스트랩 시작");
             StartCoroutine(BootstrapNewlySpawnedAfterDelay());
         }
 
         /// <summary>★ v4 — 1 프레임 대기 후 RescanAndBootstrapNew 호출.</summary>
         /// <remarks>
-        /// WorldAIManager 가 이미 POST_SPAWN_DELAY_SEC (0.1초) 대기 후 이벤트 발행하므로
+        /// WorldAISpawnManager 가 이미 POST_SPAWN_DELAY_SEC (0.1초) 대기 후 이벤트 발행하므로
         /// 보통 즉시 OK. 안전 마진으로 한 번 더 대기.
         /// </remarks>
         private System.Collections.IEnumerator BootstrapNewlySpawnedAfterDelay()

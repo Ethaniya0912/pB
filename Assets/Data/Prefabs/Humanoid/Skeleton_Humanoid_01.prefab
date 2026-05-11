@@ -734,7 +734,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3078429609
+  GlobalObjectIdHash: 2504438377
   InScenePlacedSourceGlobalObjectIdHash: 2504438377
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1060,6 +1060,9 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  stuckDetectionEnabled: 1
+  stuckDetectionThreshold: 4
+  stuckRepeatInterval: 2
   aiStaminaRegenDelay: 2
   aiStaminaRegenAmount: 2
   aiStaminaDrainPerAttack: 15
@@ -1137,6 +1140,8 @@ MonoBehaviour:
     m_InternalValue: 0
   spawnChunkCenter:
     m_InternalValue: {x: 0, y: 0, z: 0}
+  autoSpawnIfPlacedInScene: 1
+  autoSpawnDebugLog: 0
 --- !u!114 &8434182046016921837
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1473,6 +1478,7 @@ MonoBehaviour:
   isRotationLockedByEvent: 0
   idleVelocityThreshold: 0.1
   animatorSmoothTime: 0.15
+  _verboseDiagLogging: 0
 --- !u!114 &4970938131516336963
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1750,6 +1756,7 @@ MonoBehaviour:
   alertDecayTime: 5
   debugLog: 1
   showGizmos: 1
+  currentTargetMemoryDuration: 3
 --- !u!114 &-3755434321990244949
 MonoBehaviour:
   m_ObjectHideFlags: 0

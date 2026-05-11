@@ -203,6 +203,9 @@ namespace TDA.PB4.Bridge
         [Tooltip("마지막으로 BB에 기록한 UtilityWinner 상태.")]
         [SerializeField] private string lastPB4State = "None";
 
+        /// <summary>[v3.4] 마지막으로 BB에 기록한 UtilityWinner 상태 (read-only). 모니터링용.</summary>
+        public string LastPB4State => lastPB4State;
+
         // =====================================================================
         // Inspector — 디버그
         // =====================================================================
@@ -217,6 +220,10 @@ namespace TDA.PB4.Bridge
 
         [Tooltip("SO→AIPerceptionSystem 인지 파라미터 주입 로그. true = [PerceptionInject] 로그 활성 — SO값이 올바르게 주입됐는지 콘솔로 확인 가능. 검증 완료 후 false로 끄세요.")]
         [SerializeField] private bool debugPerceptionInject = true;
+
+        /// <summary>[v3.4 §5 Stage 2.1] 전략적 후퇴 명령 박제 verbose 로그.</summary>
+        [Tooltip("ON → OrderedRetreat 트리거 시 [Adapter▶TacticalRetreat] 박제 박제.")]
+        [SerializeField] private bool verboseTacticalRetreat = true;
 
         [Tooltip("SceneView에 현재 상태를 텍스트로 표시합니다.")]
         [SerializeField] private bool showGizmo = true;
@@ -478,6 +485,7 @@ namespace TDA.PB4.Bridge
                 SetBB("StrafeAngularSpeed", combatProfile.strafeAngularSpeed);
                 SetBB("StrikeTriggerTime", combatProfile.strikeTriggerTime);
                 SetBB("FleeSprintSpeed", combatProfile.fleeSprintSpeed);
+                SetBB("RetreatHpThreshold", combatProfile.retreatHpThreshold);  // [v3.4 §5 Stage 2]
 
                 // ── [Bug 1 수정] AttackRange BB push 추가 ────────────────────────
                 // CircleStrafeAction 이 StrikeTriggerTime 만료 후 dist <= AttackRange 조건을
@@ -837,6 +845,23 @@ namespace TDA.PB4.Bridge
                 target = humanoidBrain.currentTarget;
             }
 
+            // ── [v3.3.8 §4 L1] Shared Target Fallback ──────────────────────────
+            // 본인 currentTarget이 null이어도 같은 그룹의 다른 멤버가 발견한 적이
+            // 있으면 sharedTarget으로 fallback. 이 BB["Target"] 값을 모든 BT 노드
+            // (StalkAction, CircleStrafe 등)가 자연스럽게 활용 → 시야 밖 멤버도
+            // 그룹 정보로 추격 시작 → 가까이 가면 본인 시야로 자체 currentTarget 획득.
+            //
+            // [v3.3.8 하이브리드 갱신] caller 전달 — 멤버별 캐시 (close/chain 정책 기반).
+            if (target == null && mobBrain != null)
+            {
+                var grp = TDA.PB4.AI.GroupAIManager.FindGroupOwning(mobBrain);
+                var shared = grp?.GetSharedTarget(mobBrain);
+                if (shared != null)
+                {
+                    target = shared;
+                }
+            }
+
             // ── Stalk 실패 쿨다운 처리 ──────────────────────────────────────────────
             // BB["StalkBlocked"]=true 신호가 오면 쿨다운 타이머 시작.
             // 타이머 동안 winner를 "Patrol"로 강제 유지 → Attack 재진입 차단.
@@ -943,9 +968,26 @@ namespace TDA.PB4.Bridge
             }
 
             // ── BB 기록 ────────────────────────────────────────────────────────
+            // [v3.4 §5 Stage 2.1] 전략적 후퇴 명령 — fear와 독립 BB push
+            //   GroupAIManager.ReevaluateTacticalRetreat이 brain.OrderedRetreat=true 설정.
+            //   여기서 BB[UtilityWinner]="Flee" 강제 → BT FleeDuel 분기 진입.
+            //   Brain의 fear/CurrentState는 그대로 (의미 분리).
+            bool orderedRetreat = (mobBrain != null && mobBrain.OrderedRetreat) ||
+                                  (humanoidBrain != null && humanoidBrain.OrderedRetreat);
+            if (orderedRetreat && winner != "Flee")
+            {
+                if (debugLog || verboseTacticalRetreat)
+                    Debug.Log(
+                        $"<color=#FFAA66>[Adapter▶TacticalRetreat]</color> {name}: " +
+                        $"OrderedRetreat=true → BB[UtilityWinner] '{winner}' → 'Flee' 강제 push " +
+                        $"(fear={fear:F2} 무관)");
+                winner = "Flee";
+            }
+
             SetBB("UtilityWinner", winner);
             SetBB("Fear", fear);
             SetBB("HasTarget", target != null);
+            SetBB("OrderedRetreat", orderedRetreat);  // 디버깅/BT 검사용
 
             // [Fix-B] target이 null이어도 항상 기록 — Stale Transform 참조 방지
             // target이 파괴/이탈되어 null이 되어도 이전 프레임의 참조가 BB에 남으면

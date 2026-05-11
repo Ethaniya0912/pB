@@ -261,6 +261,12 @@ namespace TDA.PB4.AI.Perception
         // ==================================================================
         public void TickVision()
         {
+            // [v3.4 §4 L2] 매 사이클 시작 — currentTarget 시야 검증
+            //   기존: Combat 진입 시점에만 brain.currentTarget 설정, 이후 시야 잃어도 stale 유지.
+            //   수정: 시야 검증 후 잃으면 sharedTarget fallback 시도 → 실패면 null.
+            //   효과: Multi-target 시나리오에서 적 전환 자동 작동.
+            ValidateCurrentTarget();
+
             Collider[] hits = Physics.OverlapSphere(transform.position, visionRange, targetLayer);
 
             // ── 진단 로그: OverlapSphere 결과 ──────────────────────────────────
@@ -270,6 +276,13 @@ namespace TDA.PB4.AI.Perception
                     $"[Perception] {name}: TickVision OverlapSphere 히트 0." +
                     $" visionRange={visionRange}m targetLayer={targetLayer.value}" +
                     $" → targetLayer가 Inspector에서 설정됐는지 확인!");
+
+            // [v3.4 §4 L2] 시야 통과 hit들 중 closest 추적 + 첫 통과 hit만 Alert/Combat 처리
+            //   기존: 첫 통과 hit에서 return → 다른 hit 검사 안 함 → multi-target 시 적 우선순위 무시
+            //   수정: closest 추적 후 루프 끝에서 Combat swap 검사 (hysteresis 적용)
+            bool firstHandled = false;
+            Transform closestVisible = null;
+            float closestVisibleDist = float.MaxValue;
 
             foreach (var hit in hits)
             {
@@ -298,6 +311,18 @@ namespace TDA.PB4.AI.Perception
 
                 // 시야 확인 성공
                 float distance = dirToTarget.magnitude;
+
+                // [v3.4 §4 L2] closest 추적 — 다른 시야 통과 hit과 비교
+                if (distance < closestVisibleDist)
+                {
+                    closestVisible = hit.transform;
+                    closestVisibleDist = distance;
+                }
+
+                // 첫 통과 hit만 Alert/Combat 처리 (중복 호출 방지)
+                if (firstHandled) continue;
+                firstHandled = true;
+
                 currentPerceptionTarget = hit.transform;
                 lastKnownPosition = hit.transform.position;
 
@@ -305,9 +330,6 @@ namespace TDA.PB4.AI.Perception
                     SetAwareness(AwarenessState.Alert, $"시야 확인 ({hit.name}, {distance:F1}m)");
 
                 // [개선] Alert → Combat 전환: alertDurationForCombat 경과 후 전환
-                // 기존: distance < visionRange*0.5f 또는 Alert 상태 자체로 즉시 Combat 전환 가능
-                //       → 시야에 잠깐 들어오기만 해도 바로 Combat으로 튀어오르는 문제
-                // 수정: Alert 유지 시간(alertElapsed) >= alertDurationForCombat 이후에만 Combat 전환
                 if (awarenessLevel == AwarenessState.Alert)
                 {
                     alertElapsed += Time.deltaTime;
@@ -328,11 +350,14 @@ namespace TDA.PB4.AI.Perception
                             if (mob != null) mob.currentTarget = hit.transform;
                             if (hum != null) hum.currentTarget = hit.transform;
 
+                            // ── [v3.3.8 §4 L1] 그룹에 타겟 발견 통보 ────────────────
+                            if (mob != null)
+                            {
+                                var grp = TDA.PB4.AI.GroupAIManager.FindGroupOwning(mob);
+                                grp?.NotifyTargetSpotted(mob, hit.transform);
+                            }
+
                             // ── Adapter 즉시 동기화 ────────────────────────────────
-                            // 문제: brain.currentTarget이 설정됐어도 Adapter의 0.5s 틱을
-                            //       기다리면 그 동안 BB["Target"]=null 상태 유지.
-                            //       StalkAction이 계속 "Player 없음" 상태로 동작.
-                            // 수정: Combat 진입 시 ForceSyncBB()로 즉시 BB 동기화.
                             var adapter = GetComponent<TDA.PB4.Bridge.PB4DecisionAdapter>();
                             if (adapter != null)
                             {
@@ -347,7 +372,46 @@ namespace TDA.PB4.AI.Perception
                         RaiseFactionDetectionEvent(distance);
                     }
                 }
+            }
 
+            // [v3.4 §4 L2] 루프 끝 — 시야 통과 hit이 있었음 → Combat swap 검사
+            if (firstHandled)
+            {
+                if (awarenessLevel == AwarenessState.Combat && closestVisible != null && brain != null)
+                {
+                    var mob = brain as TDA.PB4.AI.Mob.MobAIBrain;
+                    var hum = brain as TDA.PB4.AI.Humanoid.HumanoidAIBrain;
+                    Transform current = mob != null ? mob.currentTarget : hum?.currentTarget;
+
+                    if (current != closestVisible)
+                    {
+                        float currentDist = current != null
+                            ? Vector3.Distance(transform.position, current.position)
+                            : float.MaxValue;
+
+                        // Hysteresis — closest가 30% 이상 가까울 때만 swap (떨림 방지)
+                        // 예: current=10m, closest=6.9m 이하여야 swap (≥31% 더 가까움)
+                        if (closestVisibleDist < currentDist * 0.7f)
+                        {
+                            if (debugLog)
+                                Debug.Log($"[Perception] {name}: 더 가까운 적 발견 → currentTarget swap " +
+                                          $"({current?.name ?? "null"} {currentDist:F1}m → " +
+                                          $"{closestVisible.name} {closestVisibleDist:F1}m)");
+
+                            if (mob != null) mob.currentTarget = closestVisible;
+                            if (hum != null) hum.currentTarget = closestVisible;
+
+                            if (mob != null)
+                            {
+                                var grp = TDA.PB4.AI.GroupAIManager.FindGroupOwning(mob);
+                                grp?.NotifyTargetSpotted(mob, closestVisible);
+                            }
+
+                            var adapter = GetComponent<TDA.PB4.Bridge.PB4DecisionAdapter>();
+                            if (adapter != null) adapter.ForceSyncBB();
+                        }
+                    }
+                }
                 return;
             }
 
@@ -424,6 +488,91 @@ namespace TDA.PB4.AI.Perception
 
         // ==================================================================
         // 자취 인지: FootprintTrailSystem에서 주변 마커 검색
+        // ==================================================================
+        // ==================================================================
+        // [v3.4 §4 L2 + Memory Stub] currentTarget 시야 유효성 검증
+        // 매 TickVision 사이클 시작 시 호출. 시야 잃은 stale target을 정리하고
+        // sharedTarget fallback 시도 → multi-target 환경에서 적 자동 전환.
+        //
+        // [v3.4.1 메모리 stub] 시야 잃은 직후 즉시 null 처리하면 BT가 Attack 진입 못 함.
+        //   해결: currentTargetMemoryDuration 초간 stale 유지 → fallback 또는 시야 복구 대기.
+        //   (전투 메모리 시스템 일부이지만 핵심 동작 위해 stub만 적용. 본격 시스템은 후순위.)
+        // ==================================================================
+        [Header("━ Target Memory (v3.4.1 stub) ━━━━━━━━━━")]
+        [Tooltip("자체 시야 잃은 후 currentTarget을 유지하는 시간 (초). " +
+                 "이 동안 sharedTarget fallback 시도 + 자체 시야 복구 대기. " +
+                 "0 = 즉시 null 정리 (이전 동작). 권장 2~3초.")]
+        [SerializeField] private float currentTargetMemoryDuration = 3.0f;
+
+        private float _lastTimeTargetInSight = 0f;
+
+        private void ValidateCurrentTarget()
+        {
+            if (brain == null) return;
+            var mob = brain as TDA.PB4.AI.Mob.MobAIBrain;
+            var hum = brain as TDA.PB4.AI.Humanoid.HumanoidAIBrain;
+            Transform current = mob != null ? mob.currentTarget : hum?.currentTarget;
+            if (current == null) return;
+
+            // 시야 검증 — 거리 + 시야각 + 벽 차단
+            Vector3 dir = current.position - transform.position;
+            dir.y = 0;
+            float dist = dir.magnitude;
+            float angle = Vector3.Angle(transform.forward, dir.normalized);
+
+            bool inRange = dist <= visionRange;
+            bool inSight = angle <= visionAngle * 0.5f;
+            bool blocked = false;
+            if (inRange && inSight)
+            {
+                Vector3 eyePos = transform.position + Vector3.up * 1.5f;
+                Vector3 targetPos = current.position + Vector3.up * 1.0f;
+                blocked = Physics.Linecast(eyePos, targetPos, visionBlockLayer);
+            }
+
+            if (inRange && inSight && !blocked)
+            {
+                _lastTimeTargetInSight = Time.time;  // 시야 안 — 메모리 갱신
+                return;
+            }
+
+            // 자체 시야 잃음 → sharedTarget fallback 시도 (mob 전용)
+            if (mob != null)
+            {
+                var grp = TDA.PB4.AI.GroupAIManager.FindGroupOwning(mob);
+                var shared = grp?.GetSharedTarget(mob);
+                if (shared != null && shared != current)
+                {
+                    if (debugLog)
+                        Debug.Log($"[Perception] {name}: '{current.name}' 시야 잃음 " +
+                                  $"(inRange={inRange} inSight={inSight} blocked={blocked} dist={dist:F1}m angle={angle:F0}°) " +
+                                  $"→ sharedTarget으로 fallback: {shared.name}");
+                    mob.currentTarget = shared;
+                    _lastTimeTargetInSight = Time.time;  // shared로 갱신됐으니 메모리 reset
+                    return;
+                }
+            }
+
+            // [v3.4.1] 시야 잃음 + fallback 실패 → 메모리 유지 검사
+            float memoryElapsed = Time.time - _lastTimeTargetInSight;
+            if (memoryElapsed < currentTargetMemoryDuration)
+            {
+                // 일정 시간 stale 유지 — BT가 Attack 진입 + 위치 추적 가능
+                if (debugLog)
+                    Debug.Log($"[Perception] {name}: '{current.name}' 시야 잃음, " +
+                              $"메모리 유지 ({memoryElapsed:F1}s / {currentTargetMemoryDuration:F1}s)");
+                return;
+            }
+
+            // 메모리 timeout — null 정리
+            if (debugLog)
+                Debug.Log($"[Perception] {name}: '{current.name}' 메모리 timeout ({memoryElapsed:F1}s) → currentTarget=null");
+            if (mob != null) mob.currentTarget = null;
+            if (hum != null) hum.currentTarget = null;
+        }
+
+        // ==================================================================
+        // 자취/소리 기반 인지 (Combat 외에서만)
         // ==================================================================
         private void TickTraceDetection()
         {
