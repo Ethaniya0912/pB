@@ -47,7 +47,7 @@ namespace TDA.PB4.AI.Mob
 {
     public enum MobBTState { Idle, Patrol, Attack, Flee }
 
-    public class MobAIBrain : BaseAIBrain
+    public partial class MobAIBrain : BaseAIBrain
     {
         // ==================================================================
         // 팩션 데이터 참조 (Inspector에서 할당)

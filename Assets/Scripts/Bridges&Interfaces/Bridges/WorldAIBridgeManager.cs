@@ -198,7 +198,7 @@ namespace TDA.PB4.Bridge
         // ─── IGroupDashboard 라우팅 (Wk5+) ───────────────────────────
         // ════════════════════════════════════════════════════════════════
         
-        /// <summary>Dashboard 직접 노출 (외부가 인터페이스 그대로 사용).</summary>
+        /// <summary>Dashboard 직접 노출 (외부가 인터페이스 그대로 사용 — 특수 용도. 일반 호출자는 아래 라우팅 메서드 사용).</summary>
         public IGroupDashboard GetDashboard()
         {
             if (GroupDashboard == null)
@@ -209,6 +209,155 @@ namespace TDA.PB4.Bridge
             
             DebugLog("→ IGroupDashboard", "GetDashboard");
             return GroupDashboard;
+        }
+        
+        // ════════════════════════════════════════════════════════════════
+        // ★ A7 — IGroupDashboard 라우팅 (메서드 라우팅 통일 v2)
+        // 위임 대상: GroupDashboard (구현체 — GroupAIManager)
+        // 호출자: 시나리오 / UI / 펙션 / 기타 외부
+        // ════════════════════════════════════════════════════════════════
+        
+        // ── 식별 (3) ─────────────────────────────────────────────────
+        
+        public string GetGroupId()
+        {
+            DebugLog("→ Dashboard", "GetGroupId");
+            return GroupDashboard?.GetGroupId() ?? "";
+        }
+        
+        public string GetFactionId()
+        {
+            DebugLog("→ Dashboard", "GetFactionId");
+            return GroupDashboard?.GetFactionId() ?? "";
+        }
+        
+        public int GetSequenceNum()
+        {
+            DebugLog("→ Dashboard", "GetSequenceNum");
+            return GroupDashboard?.GetSequenceNum() ?? 0;
+        }
+        
+        // ── 인구 (4) ─────────────────────────────────────────────────
+        
+        public int GetPopulation()
+        {
+            DebugLog("→ Dashboard", "GetPopulation");
+            return GroupDashboard?.GetPopulation() ?? 0;
+        }
+        
+        public int GetMaxPopulation()
+        {
+            DebugLog("→ Dashboard", "GetMaxPopulation");
+            return GroupDashboard?.GetMaxPopulation() ?? 0;
+        }
+        
+        public int GetReinforcementCount()
+        {
+            DebugLog("→ Dashboard", "GetReinforcementCount");
+            return GroupDashboard?.GetReinforcementCount() ?? 0;
+        }
+        
+        public int GetCasualtyCount()
+        {
+            DebugLog("→ Dashboard", "GetCasualtyCount");
+            return GroupDashboard?.GetCasualtyCount() ?? 0;
+        }
+        
+        // ── 상태 (2 — GetMorale 은 IGroupAIInfo 에서 이미 라우팅) ──
+        
+        public int GetEscalationLevel()
+        {
+            DebugLog("→ Dashboard", "GetEscalationLevel");
+            return GroupDashboard?.GetEscalationLevel() ?? 0;
+        }
+        
+        public float GetCombatElapsedTime()
+        {
+            DebugLog("→ Dashboard", "GetCombatElapsedTime");
+            return GroupDashboard?.GetCombatElapsedTime() ?? 0f;
+        }
+        
+        // ── 위치 / 영토 (4) ──────────────────────────────────────────
+        
+        public Vector3 GetCenterPosition()
+        {
+            DebugLog("→ Dashboard", "GetCenterPosition");
+            return GroupDashboard?.GetCenterPosition() ?? Vector3.zero;
+        }
+        
+        public int GetCurrentCaveNodeIdx()
+        {
+            DebugLog("→ Dashboard", "GetCurrentCaveNodeIdx");
+            return GroupDashboard?.GetCurrentCaveNodeIdx() ?? -1;
+        }
+        
+        public float GetTerritoryRadius()
+        {
+            DebugLog("→ Dashboard", "GetTerritoryRadius");
+            return GroupDashboard?.GetTerritoryRadius() ?? 0f;
+        }
+        
+        public string GetCurrentSceneId()
+        {
+            DebugLog("→ Dashboard", "GetCurrentSceneId");
+            return GroupDashboard?.GetCurrentSceneId() ?? "";
+        }
+        
+        // ── 욕구 (Wk5+ stub, 3) ──────────────────────────────────────
+        
+        public float GetHungerLevel()
+        {
+            DebugLog("→ Dashboard", "GetHungerLevel");
+            return GroupDashboard?.GetHungerLevel() ?? 0f;
+        }
+        
+        public float GetReproductionUrge()
+        {
+            DebugLog("→ Dashboard", "GetReproductionUrge");
+            return GroupDashboard?.GetReproductionUrge() ?? 0f;
+        }
+        
+        public float GetTerritoryPressure()
+        {
+            DebugLog("→ Dashboard", "GetTerritoryPressure");
+            return GroupDashboard?.GetTerritoryPressure() ?? 0f;
+        }
+        
+        // ── 학습 / 이력 (2) ──────────────────────────────────────────
+        
+        public int GetDefeatsAtCurrentLocation()
+        {
+            DebugLog("→ Dashboard", "GetDefeatsAtCurrentLocation");
+            return GroupDashboard?.GetDefeatsAtCurrentLocation() ?? 0;
+        }
+        
+        public Vector3? GetLastSafePosition()
+        {
+            DebugLog("→ Dashboard", "GetLastSafePosition");
+            return GroupDashboard?.GetLastSafePosition();
+        }
+        
+        // ── 임계 이벤트 (1 + event) ──────────────────────────────────
+        
+        public GroupThresholdState[] GetActiveThresholds()
+        {
+            DebugLog("→ Dashboard", "GetActiveThresholds");
+            return GroupDashboard?.GetActiveThresholds() ?? new GroupThresholdState[0];
+        }
+        
+        /// <summary>임계 이벤트 구독. Bridge 가 add/remove 를 GroupDashboard 에 위임.</summary>
+        public event Action<GroupThresholdEvent> OnThresholdCrossed
+        {
+            add
+            {
+                DebugLog("→ Dashboard", "OnThresholdCrossed += subscriber");
+                if (GroupDashboard != null) GroupDashboard.OnThresholdCrossed += value;
+            }
+            remove
+            {
+                DebugLog("→ Dashboard", "OnThresholdCrossed -= subscriber");
+                if (GroupDashboard != null) GroupDashboard.OnThresholdCrossed -= value;
+            }
         }
         
         // ════════════════════════════════════════════════════════════════

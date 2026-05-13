@@ -93,7 +93,7 @@ namespace TDA.PB4.AI.Humanoid
 
     public enum HumanoidBTState { Idle, Move, Loot, Attack, Flee, FollowCommand }
 
-    public class HumanoidAIBrain : BaseAIBrain
+    public partial class HumanoidAIBrain : BaseAIBrain
     {
         // ==================================================================
         // 성격 데이터

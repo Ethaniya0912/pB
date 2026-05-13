@@ -26,6 +26,14 @@
 //   - [NGO-5] 단독 Play에서는 기존 currentTrust float 유지 (Dashboard 드래그 호환)
 //             playerId=0을 "기본 로컬 플레이어"로 간주
 //   - [NGO-6] ITrustProvider 기존 4 메서드는 기본 playerId 사용. 신규 4 메서드는 ulong 매개변수
+//
+// [★ Wk4 추가 — 2026-05-12]
+//   - ComputeAcceptanceBase(commandSeverity, fearValue) — AcceptanceScore 입력
+//   - GetObedienceWeight() — DilemmaPivot 분기 가중치
+//   - GetSelfPreservationWeight() — 반대 가중치
+//   - 위치: "트라우마 연동" 영역 뒤
+//   - 호출자: HumanoidAIBrain.Acceptance.cs (Wk4-2) / HumanoidAIBrain.Dilemma.cs (Wk4-6)
+//   - 기존 API (CurrentTrust / CurrentTier / ChangeTrust) 모두 그대로 유지
 // =============================================================================
 using System;
 using System.Collections.Generic;
@@ -74,8 +82,8 @@ namespace TDA.PB4.AI
 
         [Header("━━━ 4단계 임계값 ━━━━━━━━━━━━━━━━━━━")]
         [Range(70f, 100f)] public float blindTrustThreshold = 90f;
-        [Range(30f, 89f)]  public float cooperationThreshold = 50f;
-        [Range(5f, 49f)]   public float doubtThreshold = 20f;
+        [Range(30f, 89f)] public float cooperationThreshold = 50f;
+        [Range(5f, 49f)] public float doubtThreshold = 20f;
 
         [Header("━━━ 명령 복종 수식 가중치 ━━━━━━━━━━━━")]
         [Range(0f, 1f)] public float trustWeight = 0.6f;
@@ -395,6 +403,63 @@ namespace TDA.PB4.AI
         }
 
         // ==================================================================
+        // ★ Wk4 추가 (2026-05-12) — DilemmaPivot / AcceptanceScore 지원
+        //
+        // 추가 메서드 3 종:
+        //   - ComputeAcceptanceBase  : AcceptanceScore 의 Trust 기반 입력 계산
+        //   - GetObedienceWeight     : DilemmaPivot 분기 시 명령 복종 가중치
+        //   - GetSelfPreservationWeight : 반대 가중치 (자기 보존)
+        //
+        // 호출자:
+        //   - HumanoidAIBrain.Acceptance.cs (Wk4-2 EvaluateAcceptance)
+        //   - HumanoidAIBrain.Dilemma.cs (Wk4-6 EvaluateDilemma)
+        //
+        // 기존 EvaluateCommand 와의 차이:
+        //   - EvaluateCommand → bool (수락/거부 단순 판정)
+        //   - ComputeAcceptanceBase → float (continuous score, Wk4 5축 가중 합과 결합)
+        //   - 즉 ComputeAcceptanceBase = AcceptanceScore 의 부분 입력 (전체 점수 X)
+        // ==================================================================
+
+        /// <summary>
+        /// Wk4-2 AcceptanceScore 의 Trust 기반 입력 계산.
+        /// 공식: (CurrentTrust / 100) × 0.6 + CommandSeverity × 0.4 - FearValue
+        /// 
+        /// 기본 플레이어(playerId=0) 기준. 멀티플레이 분기는 향후 확장.
+        /// </summary>
+        /// <param name="commandSeverity">명령 심각도 0~1 (ScenarioCommandRequest.severity).</param>
+        /// <param name="fearValue">현재 fear 값 0~1.</param>
+        /// <returns>AcceptanceScore 의 Trust 기반 입력 (음수 가능).</returns>
+        public float ComputeAcceptanceBase(float commandSeverity, float fearValue)
+        {
+            float trustNormalized = (trustByPlayer.ContainsKey(0) ? trustByPlayer[0] : currentTrust) / 100f;
+            return trustNormalized * 0.6f + commandSeverity * 0.4f - fearValue;
+        }
+
+        /// <summary>
+        /// 현재 단계의 명령 복종 가중치 (0~1).
+        /// Hostility = 0 (명령 무시 / 배신) / BlindTrust = 1 (무조건 따름).
+        /// Wk4-6 DilemmaPivot 분기 가중치에 사용.
+        /// </summary>
+        public float GetObedienceWeight()
+        {
+            TrustTier tier = tierByPlayer.ContainsKey(0) ? tierByPlayer[0] : currentTier;
+            return tier switch
+            {
+                TrustTier.BlindTrust => 1.0f,    // 무조건 따름 (자기 희생도 감수)
+                TrustTier.Cooperation => 0.7f,    // 합리적 명령 복종
+                TrustTier.Doubt => 0.3f,    // 위험 명령 거부
+                TrustTier.Hostility => 0.0f,    // 명령 무시 / 배신
+                _ => 0.5f
+            };
+        }
+
+        /// <summary>
+        /// 자기 보존 가중치 (0~1). 반대로 Hostility = 1 / BlindTrust = 0.
+        /// Wk4-4 AbandonRescue / Wk4-6 DilemmaPivot 분기에 사용.
+        /// </summary>
+        public float GetSelfPreservationWeight() => 1f - GetObedienceWeight();
+
+        // ==================================================================
         // 유틸리티
         // ==================================================================
 
@@ -436,6 +501,26 @@ namespace TDA.PB4.AI
 
         [ContextMenu("Set to Hostility (10)")]
         private void DebugSetHostility() => ChangeTrust(0, 10f - CurrentTrust, TrustChangeReason.Manual);
+
+        // ★ Wk4 추가 ContextMenu (디버그)
+        [ContextMenu("[Wk4] Print Wk4 Methods Test")]
+        private void DebugWk4Methods()
+        {
+            float testSeverity = 0.5f;
+            float testFear = 0.3f;
+            float acceptanceBase = ComputeAcceptanceBase(testSeverity, testFear);
+            float obedience = GetObedienceWeight();
+            float selfPreserv = GetSelfPreservationWeight();
+
+            Debug.Log($"═══ Wk4 TrustMatrix Methods Test ═══\n" +
+                      $"  NPC                = {name}\n" +
+                      $"  CurrentTrust       = {CurrentTrust:F1}\n" +
+                      $"  CurrentTier        = {CurrentTier}\n" +
+                      $"  Test: severity=0.5 fear=0.3\n" +
+                      $"  ComputeAcceptanceBase  = {acceptanceBase:F2}\n" +
+                      $"  GetObedienceWeight     = {obedience:F2}\n" +
+                      $"  GetSelfPreservation    = {selfPreserv:F2}", this);
+        }
 
         /// <summary>OnValidate에서 currentTier 자동 계산.</summary>
         /// <remarks>

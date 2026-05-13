@@ -1781,6 +1781,9 @@ GameObject:
   - component: {fileID: 7245064650928360228}
   - component: {fileID: 7200456222732676532}
   - component: {fileID: 262755390414217787}
+  - component: {fileID: 8211441351348814713}
+  - component: {fileID: 7730253562219266951}
+  - component: {fileID: 6065227753628640775}
   m_Layer: 15
   m_Name: Ranger_Humanoid_01
   m_TagString: Untagged
@@ -2176,6 +2179,9 @@ MonoBehaviour:
   aiCharacterExecutionManager: {fileID: 0}
   hasEnteredGroggy: 0
   groggyTimer: 0
+  stuckDetectionEnabled: 1
+  stuckDetectionThreshold: 4
+  stuckRepeatInterval: 2
   aiStaminaRegenDelay: 2
   aiStaminaRegenAmount: 2
   aiStaminaDrainPerAttack: 15
@@ -2253,6 +2259,8 @@ MonoBehaviour:
     m_InternalValue: 0
   spawnChunkCenter:
     m_InternalValue: {x: 0, y: 0, z: 0}
+  autoSpawnIfPlacedInScene: 1
+  autoSpawnDebugLog: 0
 --- !u!114 &3394734136290001271
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2595,6 +2603,7 @@ MonoBehaviour:
   isRotationLockedByEvent: 0
   idleVelocityThreshold: 0.1
   animatorSmoothTime: 0.15
+  _verboseDiagLogging: 0
 --- !u!114 &89140066979535604
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2838,6 +2847,7 @@ MonoBehaviour:
   debugLog: 1
   debugSoundSearch: 1
   debugPerceptionInject: 1
+  verboseTacticalRetreat: 1
   showGizmo: 1
 --- !u!114 &8176610011066680794
 MonoBehaviour:
@@ -2873,6 +2883,7 @@ MonoBehaviour:
   alertDecayTime: 5
   debugLog: 1
   showGizmos: 1
+  currentTargetMemoryDuration: 3
 --- !u!114 &2049576988043367185
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2891,6 +2902,9 @@ MonoBehaviour:
   greed: 0.1
   fatigue: 0.1
   groupMindRef: {fileID: 0}
+  lastSafePositions: []
+  maxRememberedSafeZones: 5
+  orderedRetreat: 0
   verboseLogging: 0
   tier2FearVerbose: 0
   personality:
@@ -2920,6 +2934,43 @@ MonoBehaviour:
   decisionInterval: 0.3
   externallyTicked: 0
   autoDiagnostic: 1
+  _complexityThreshold: 0.5
+  _personalityComplexityCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  _wBrutality: 0.15
+  _wLoyalty: 0.3
+  _wGreed: 0.1
+  _wEmpathy: 0.25
+  _wCunning: 0.2
+  _acceptanceDebugLog: 0
+  _complyThreshold: 0.6
+  _strongRefuseThreshold: 0.3
+  _karmaDeltaOnRefuse: -30
+  _trustDeltaOnComply: -5
+  _trustDeltaOnRefuse: 10
+  _dilemmaDebugLog: 0
 --- !u!114 &8962563220192213420
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2999,7 +3050,7 @@ MonoBehaviour:
   activeTags: []
   externalRuleLibrary: {fileID: 0}
   debugLog: 1
-  traceLogging: 1
+  traceLogging: 0
 --- !u!114 &262755390414217787
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3017,7 +3068,85 @@ MonoBehaviour:
   modifierRules: []
   trustFactor: 1
   externalConfig: {fileID: 11400000, guid: 46289fc84ee1f584f95a28a4d14ebf71, type: 2}
+  debugLog: 0
+--- !u!114 &8211441351348814713
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9121ee404918d77459183bf818a44b3b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.TrustMatrix
+  ShowTopMostFoldoutHeaderGroup: 1
+  currentTrust: 60
+  currentTier: 2
+  blindTrustThreshold: 90
+  cooperationThreshold: 50
+  doubtThreshold: 20
+  trustWeight: 0.6
+  severityWeight: 0.4
+  commandAcceptanceThreshold: 0
+  traumaCancellationRate: 0.7
   debugLog: 1
+  lastAcceptanceScore: 0
+  lastCommandAccepted: 0
+--- !u!114 &7730253562219266951
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 670a82b99b7927d419609d2bdecc1014, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Social.TraumaSystem
+  ShowTopMostFoldoutHeaderGroup: 1
+  currentStage: 0
+  explorationCount: 0
+  alliesDiedCount: 0
+  lastCrossroadsOutcome: 0
+  acuteShockThreshold: 1
+  crossroadsThreshold: 3
+  acuteShockMultiplier: 1.3
+  crossroadsMultiplier: 1.5
+  permanentMultiplier: 1.8
+  overcomeTrustThreshold: 50
+  overcomeKarmaThreshold: 0
+  permanentStabilityDelta: 0.5
+  permanentAgreeableDelta: 0.2
+  debugLog: 1
+--- !u!114 &6065227753628640775
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8286174861153668228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1eddfbc0be00e4947b618f340205186e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Social.AbandonRescueResolver
+  _selfTrust: {fileID: 0}
+  _stability: 0.5
+  _agreeable: 0.5
+  _empathyThresholdHigh: 0.65
+  _empathyThresholdLow: 0.35
+  _fearThresholdHigh: 0.6
+  _allyTrustThresholdHigh: 50
+  _rescueSelfDelta: 50
+  _rescuePartyDelta: 40
+  _briefSupportAllyDelta: -40
+  _briefSupportPartyDelta: -10
+  _abandonAllyDelta: -100
+  _abandonPartyDelta: -30
+  _debugLog: 1
 --- !u!1 &8382764279090399444
 GameObject:
   m_ObjectHideFlags: 0

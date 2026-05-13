@@ -119,6 +119,7 @@ using TDA.PB4.Data;
 using TDA.PB4.AI.Mob;
 using TDA.PB4.Interfaces;       // IGroupAIInfo
 using TDA.Character.AI;          // [v3.3.7] AICharacterManager — 굳음 진단용
+using UnityEngine.SceneManagement;  // ★ A7 — GetCurrentSceneId
 
 namespace TDA.PB4.AI
 {
@@ -166,8 +167,38 @@ namespace TDA.PB4.AI
     ///   - GetMorale()           : ContextManager가 그룹 사기 조회
     ///   - HasAvailableToken()   : ContextManager가 공격 토큰 가용성 조회
     /// </summary>
-    public class GroupAIManager : MonoBehaviour, IGroupAIInfo
+    public partial class GroupAIManager : MonoBehaviour, IGroupAIInfo, IGroupDashboard
     {
+        // ═══════════════════════════════════════════════════════════════════
+        // ★ A7 IGroupDashboard — 필드
+        // ═══════════════════════════════════════════════════════════════════
+        
+        [Header("━━━ Dashboard (A7) ━━━━━━━━━━━━━━━━━")]
+        
+        [Tooltip("그룹 생성 순서 번호. SpawnManager 가 RegisterGroup 시 할당. 디버그 / 진단 용.")]
+        [SerializeField] private int sequenceNum = 0;
+        
+        [Tooltip("최대 수용 인구 (fallback). Wk5+ P-12 본격 구현 시 SO 로 이전.")]
+        [SerializeField] private int maxPopulationFallback = 10;
+        
+        // 런타임 카운트 (Inspector 노출 X)
+        private int reinforcementCount = 0;
+        private int casualtyCount = 0;
+        
+        // 학습 / 이력 (Wk5+ Phase 2 본격)
+        private int defeatsAtCurrentLocation = 0;
+        private Vector3? lastSafePosition = null;
+        
+        // 임계 상태 추적
+        private readonly Dictionary<GroupThresholdType, GroupThresholdState> _activeThresholds 
+            = new Dictionary<GroupThresholdType, GroupThresholdState>();
+        
+        // 임계 검사 주기 (매 프레임 부담 회피)
+        private float _lastThresholdCheckTime = 0f;
+        private const float THRESHOLD_CHECK_INTERVAL = 0.5f;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        
         [Header("━━━ 팩션 정책 ━━━━━━━━━━━━━━━━━━━━━━")]
         [Tooltip("이 그룹이 사용하는 팩션 정책 SO. " +
                  "panicChainMultiplier, escalationMode, formationTemplate 등을 정의. " +
@@ -364,6 +395,261 @@ namespace TDA.PB4.AI
         /// 빈 그룹은 activeTokenCount=0 → false.
         /// </summary>
         public bool HasAvailableToken() => activeTokenCount > 0;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ★ A7 IGroupDashboard — Step 1+2 (12 메서드)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        #region IGroupDashboard — Identity / Population / State / Location
+        
+        /// <summary>그룹 고유 ID. GameObject 이름.</summary>
+        public string GetGroupId() => gameObject.name;
+        
+        /// <summary>소속 펙션 ID. policySO 가 null 이면 빈 문자열.</summary>
+        public string GetFactionId() => policySO != null ? policySO.factionId : "";
+        
+        /// <summary>그룹 생성 순서 번호.</summary>
+        public int GetSequenceNum() => sequenceNum;
+        
+        /// <summary>현재 생존 멤버 수. brain != null 인 멤버만.</summary>
+        public int GetPopulation()
+        {
+            int alive = 0;
+            for (int i = 0; i < members.Count; i++)
+            {
+                if (members[i] != null && members[i].brain != null) alive++;
+            }
+            return alive;
+        }
+        
+        /// <summary>최대 수용 인구 (Wk5+ P-12 SO 이전 예정).</summary>
+        public int GetMaxPopulation() => maxPopulationFallback;
+        
+        /// <summary>증원 누적 수. RegisterMember 호출 횟수.</summary>
+        public int GetReinforcementCount() => reinforcementCount;
+        
+        /// <summary>사망 누적 수. UnregisterMember 호출 횟수.</summary>
+        public int GetCasualtyCount() => casualtyCount;
+        
+        /// <summary>교전 강도 단계 (본체의 currentEscalationLevel 위임).</summary>
+        public int GetEscalationLevel() => currentEscalationLevel;
+        
+        /// <summary>교전 지속 시간.</summary>
+        public float GetCombatElapsedTime() => combatElapsedTime;
+        
+        /// <summary>멤버 위치 평균. 없으면 본 GameObject 위치.</summary>
+        public Vector3 GetCenterPosition()
+        {
+            int alive = 0;
+            Vector3 sum = Vector3.zero;
+            for (int i = 0; i < members.Count; i++)
+            {
+                var m = members[i];
+                if (m != null && m.brain != null)
+                {
+                    sum += m.brain.transform.position;
+                    alive++;
+                }
+            }
+            return alive > 0 ? sum / alive : transform.position;
+        }
+        
+        /// <summary>현재 씬 이름.</summary>
+        public string GetCurrentSceneId() => SceneManager.GetActiveScene().name;
+        
+        /// <summary>현재 CaveNode idx (Wk5+ Bridge 연계 stub).</summary>
+        public int GetCurrentCaveNodeIdx()
+        {
+            // TODO Wk5+ — WorldTerrainBridgeManager.Instance.GetCaveNodeAt(GetCenterPosition())
+            return -1;
+        }
+        
+        /// <summary>영토 반경 — 멤버 분산 계산 fallback (Wk5+ P-07 연계 예정).</summary>
+        public float GetTerritoryRadius()
+        {
+            int alive = GetPopulation();
+            if (alive <= 1) return 0f;
+            
+            Vector3 center = GetCenterPosition();
+            float maxSqDist = 0f;
+            for (int i = 0; i < members.Count; i++)
+            {
+                var m = members[i];
+                if (m != null && m.brain != null)
+                {
+                    float sq = (m.brain.transform.position - center).sqrMagnitude;
+                    if (sq > maxSqDist) maxSqDist = sq;
+                }
+            }
+            return Mathf.Sqrt(maxSqDist);
+        }
+        
+        #endregion
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ★ A7 IGroupDashboard — Step 3 (욕구 stub + 학습 + 임계 + event)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        #region IGroupDashboard — Needs / Learning / Thresholds
+        
+        // ── 욕구 (Wk5+ Phase 2 본격 stub) ──
+        public float GetHungerLevel() => 0f;
+        public float GetReproductionUrge() => 0f;
+        public float GetTerritoryPressure() => 0f;
+        
+        // ── 학습 / 이력 ──
+        public int GetDefeatsAtCurrentLocation() => defeatsAtCurrentLocation;
+        public Vector3? GetLastSafePosition() => lastSafePosition;
+        
+        // ── 임계 event ──
+        public event Action<GroupThresholdEvent> OnThresholdCrossed;
+        
+        public GroupThresholdState[] GetActiveThresholds()
+        {
+            var result = new GroupThresholdState[_activeThresholds.Count];
+            int i = 0;
+            foreach (var kv in _activeThresholds) result[i++] = kv.Value;
+            return result;
+        }
+        
+        // ── 임계 검사 로직 ──
+        
+        private void CheckAllThresholds()
+        {
+            CheckMoraleThreshold();
+            CheckPopulationThresholds();
+            // TODO Wk5+ — 나머지 7 종 (Territory / Leader / Split / Merge / Reproduction / Starvation / PopulationOverflow)
+        }
+        
+        private void CheckMoraleThreshold()
+        {
+            const float MORALE_COLLAPSE = 0.30f;
+            const float MORALE_RECOVERED = 0.60f;   // 히스테리시스
+            
+            bool isLow = currentMorale < MORALE_COLLAPSE;
+            bool wasActive = _activeThresholds.ContainsKey(GroupThresholdType.MoraleCollapse);
+            
+            if (isLow && !wasActive)
+            {
+                _activeThresholds[GroupThresholdType.MoraleCollapse] = new GroupThresholdState
+                {
+                    type = GroupThresholdType.MoraleCollapse,
+                    isActive = true,
+                    enteredAt = Time.time,
+                    currentValue = currentMorale
+                };
+                FireThresholdEvent(GroupThresholdType.MoraleCollapse, currentMorale, MORALE_COLLAPSE);
+            }
+            else if (currentMorale >= MORALE_RECOVERED && wasActive)
+            {
+                _activeThresholds.Remove(GroupThresholdType.MoraleCollapse);
+                FireThresholdEvent(GroupThresholdType.MoraleRecovered, currentMorale, MORALE_RECOVERED);
+            }
+        }
+        
+        private void CheckPopulationThresholds()
+        {
+            int pop = GetPopulation();
+            int max = GetMaxPopulation();
+            
+            // GroupWiped — pop == 0 (한 번이라도 멤버 있었어야)
+            bool isWiped = pop == 0;
+            bool wasWiped = _activeThresholds.ContainsKey(GroupThresholdType.GroupWiped);
+            if (isWiped && !wasWiped && reinforcementCount > 0)
+            {
+                _activeThresholds[GroupThresholdType.GroupWiped] = new GroupThresholdState
+                {
+                    type = GroupThresholdType.GroupWiped,
+                    isActive = true,
+                    enteredAt = Time.time,
+                    currentValue = 0f
+                };
+                FireThresholdEvent(GroupThresholdType.GroupWiped, 0f, 0f);
+                return;
+            }
+            
+            // PopulationCritical — pop / max < 0.2 (전멸 아닐 때)
+            bool isCritical = pop > 0 && (float)pop / max < 0.2f;
+            bool wasCritical = _activeThresholds.ContainsKey(GroupThresholdType.PopulationCritical);
+            
+            if (isCritical && !wasCritical)
+            {
+                _activeThresholds[GroupThresholdType.PopulationCritical] = new GroupThresholdState
+                {
+                    type = GroupThresholdType.PopulationCritical,
+                    isActive = true,
+                    enteredAt = Time.time,
+                    currentValue = pop
+                };
+                FireThresholdEvent(GroupThresholdType.PopulationCritical, pop, max * 0.2f);
+            }
+            else if (!isCritical && wasCritical)
+            {
+                _activeThresholds.Remove(GroupThresholdType.PopulationCritical);
+            }
+        }
+        
+        private void FireThresholdEvent(GroupThresholdType type, float value, float threshold)
+        {
+            var evt = new GroupThresholdEvent
+            {
+                groupId = GetGroupId(),
+                type = type,
+                gameTime = Time.time,
+                value = value,
+                threshold = threshold,
+                position = GetCenterPosition(),
+                caveNodeIdx = GetCurrentCaveNodeIdx(),
+            };
+            
+            OnThresholdCrossed?.Invoke(evt);
+            Log(COL_MORALE, "A7-Threshold", $"{type} — value={value:F2} threshold={threshold:F2}");
+        }
+        
+        #endregion
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ★ A7 IGroupDashboard — ContextMenu 진단
+        // ═══════════════════════════════════════════════════════════════════
+        
+        #region IGroupDashboard — Debug ContextMenu
+        
+        [ContextMenu("[A7] Print Dashboard Snapshot")]
+        private void PrintDashboardSnapshot()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("═══ Dashboard Snapshot ═══");
+            sb.AppendLine($"  GroupId            = {GetGroupId()}");
+            sb.AppendLine($"  FactionId          = {GetFactionId()}");
+            sb.AppendLine($"  SequenceNum        = {GetSequenceNum()}");
+            sb.AppendLine($"  Population         = {GetPopulation()} / {GetMaxPopulation()}");
+            sb.AppendLine($"  Reinforcement      = {GetReinforcementCount()}");
+            sb.AppendLine($"  Casualty           = {GetCasualtyCount()}");
+            sb.AppendLine($"  Morale             = {GetMorale():F2}");
+            sb.AppendLine($"  EscalationLevel    = {GetEscalationLevel()}");
+            sb.AppendLine($"  CombatElapsedTime  = {GetCombatElapsedTime():F1}s");
+            sb.AppendLine($"  CenterPosition     = {GetCenterPosition()}");
+            sb.AppendLine($"  CaveNodeIdx        = {GetCurrentCaveNodeIdx()}");
+            sb.AppendLine($"  TerritoryRadius    = {GetTerritoryRadius():F1}");
+            sb.AppendLine($"  SceneId            = {GetCurrentSceneId()}");
+            sb.AppendLine($"  Defeats@Location   = {GetDefeatsAtCurrentLocation()}");
+            sb.AppendLine($"  LastSafePosition   = {(GetLastSafePosition().HasValue ? GetLastSafePosition().Value.ToString() : "<null>")}");
+            sb.AppendLine($"  Active Thresholds  = {_activeThresholds.Count}");
+            foreach (var kv in _activeThresholds)
+            {
+                sb.AppendLine($"    - {kv.Key}: value={kv.Value.currentValue:F2} enteredAt={kv.Value.enteredAt:F1}s");
+            }
+            Debug.Log(sb.ToString(), this);
+        }
+        
+        [ContextMenu("[A7] Trigger Morale Collapse (Test)")]
+        private void TriggerMoraleCollapseForTest()
+        {
+            currentMorale = 0.15f;
+            Log(COL_MORALE, "A7-Test", "currentMorale = 0.15 — 다음 임계 검사 시 MoraleCollapse 발행 예정");
+        }
+        
+        #endregion
 
         // ==================================================================
         // Lifecycle
@@ -413,6 +699,13 @@ namespace TDA.PB4.AI
             if (members.Count == 0) return;
 
             combatElapsedTime += Time.deltaTime;
+            
+            // ★ A7 — 임계 검사 (0.5초마다)
+            if (Time.time - _lastThresholdCheckTime >= THRESHOLD_CHECK_INTERVAL)
+            {
+                _lastThresholdCheckTime = Time.time;
+                CheckAllThresholds();
+            }
 
             // 사기 평가 (1초마다)
             moraleTimer += Time.deltaTime;
@@ -1407,6 +1700,7 @@ namespace TDA.PB4.AI
             }
 
             members.Add(new GroupMemberState { brain = brain, currentRole = GroupRole.Stalker });
+            reinforcementCount++;   // ★ A7 — 증원 카운트
 
             // [v3.3.8] 양방향 연결 — BaseAIBrain.groupMindRef에 본 매니저 자동 할당.
             brain.groupMindRef = this;
@@ -1475,6 +1769,7 @@ namespace TDA.PB4.AI
                 if (members[i].brain == brain)
                 {
                     members.RemoveAt(i);
+                    casualtyCount++;   // ★ A7 — 사상 카운트
                     // [v3.3.8] 양방향 해제 — brain.groupMindRef도 정리
                     if (brain.groupMindRef == this)
                         brain.groupMindRef = null;
