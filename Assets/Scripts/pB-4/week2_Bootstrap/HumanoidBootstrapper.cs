@@ -355,13 +355,13 @@ namespace TDA.PB4.Bootstrap
             // [v3 Day 3] NGO 2.0 신규 컴포넌트 자동 부착
             //   NPCAlignmentController: 4 진영 동적 전이 (매 1초 + 이벤트)
             //   DilemmaPivotResolver: Anchor 재설정 + Alignment 강제
-            //   CommandAcceptanceFilter: 플레이어 명령 수락 판정
+            //   CommandAcceptanceResolver: 플레이어 명령 수락 판정 + 다중 분기 후속 (N-23 격상)
             var alignment = go.GetComponent<NPCAlignmentController>()
                          ?? go.AddComponent<NPCAlignmentController>();
             var pivotResolver = go.GetComponent<DilemmaPivotResolver>()
                              ?? go.AddComponent<DilemmaPivotResolver>();
-            var cmdFilter = go.GetComponent<CommandAcceptanceFilter>()
-                         ?? go.AddComponent<CommandAcceptanceFilter>();
+            var cmdResolver = go.GetComponent<CommandAcceptanceResolver>()
+                           ?? go.AddComponent<CommandAcceptanceResolver>();
 
             // ═══ Day 4 T4.1: Speech 파이프라인 (3 컴포넌트) ═══
             //   SpeechAssembler (L3): Template 매칭 + 플레이스홀더 치환

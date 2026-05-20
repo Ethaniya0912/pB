@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d636c440434ff5446b1a0c50ed7dd710, type: 3}
+  m_Name: FactionDefinition_Ranger
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.FactionDefinitionSO
+  _factionId: 101
+  _groupPolicy: {fileID: 11400000, guid: 6d2785f752a058c4495d297d1bab5f46, type: 2}
+  _tier: {fileID: 11400000, guid: 2685c646f04ac3645bc41e6cd2f595bf, type: 2}
+  _mobData: {fileID: 11400000, guid: a2b12a7b3baee874791211578e181fec, type: 2}
+  _combatProfile: {fileID: 11400000, guid: e07c14989b4b7754d8b0841022ed38de, type: 2}
+  _biomeAffinity: {fileID: 0}
+  _defaultMask: {fileID: 11400000, guid: 570dd6366e01a184cb06d2eb5327238b, type: 2}
+  _culture: {fileID: 11400000, guid: fd56cb2c3d883d548a6a1562dd674a8b, type: 2}
+  _threshold: {fileID: 11400000, guid: 1f01a9866fb59c04082ef9903bb4c220, type: 2}

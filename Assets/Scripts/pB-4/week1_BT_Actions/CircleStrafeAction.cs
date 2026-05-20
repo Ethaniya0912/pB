@@ -1,11 +1,24 @@
 // =============================================================================
-// CircleStrafeAction.cs  |  pB-4 커스텀 BT Action — 타겟 주위 배회
+// CircleStrafeAction.cs  |  pB-4 커스텀 BT Action — 타겟 주위 배회 (5 패턴 시스템)
 // 패키지  : Unity Behavior 1.0.15 (com.unity.behavior)
 //
-// 역할:
-//   타겟을 중심으로 원형 궤도를 배회합니다.
-//   periAngle이 매 프레임 증가하며 궤도 위치가 회전합니다.
-//   strafeTimer가 StrikeTriggerTime에 도달하면 Success(→Strike 전환).
+// 역할 (★ N-23 옵션 C 단계 2 갱신):
+//   타겟 주위에서 5 패턴 (CircleLeft / CircleRight / Backstep / Hold / Approach)
+//   중 하나를 dwellTime (3~6초) 동안 유지한 후 weighted random 으로 재선출.
+//   사용자 요구 ("좌측 / 우측 / 뒤쪽 신중하게") 정합.
+//
+//   strafeTimer가 StrikeTriggerTime에 도달 + dist ≤ AttackRange 시 Success(→Strike 전환).
+//
+// 5 패턴 정의:
+//   CircleLeft   — 반시계 접선 이동 (_orbitDir = +1)
+//   CircleRight  — 시계 접선 이동 (_orbitDir = -1)
+//   Backstep     — target 반대 방향 후퇴 (BackstepDistance, 기본 4m)
+//   Hold         — 정지 신중 대기 (NavMesh.isStopped=true, 적 응시 회전 유지)
+//   Approach     — target 방향 단일 step 접근 (ApproachStep, 기본 2m)
+//
+// 확률 분포 (default):
+//   CircleLeft 25% / CircleRight 25% / Backstep 20% / Hold 20% / Approach 10%
+//   FactionCombatProfile SO 측 종족 / 성격 차별화는 G-1 후속 의제.
 //
 // 지형 변조:
 //   NarrowPath → orbitRadius × 0.4, strikeTriggerTime × 0.5
@@ -15,23 +28,25 @@
 //   NavMesh.SamplePosition 실패 → 즉시 Success (Strike 강제 전환)
 //   → 벽 끼임 방지 [위험 R1 대응]
 //
-// [버그 수정 — Bug 1: 9.5m에서 허공에 칼질]
-//   기존 문제:
-//     _strafeTimer >= StrikeTriggerTime 조건만 만족하면 실제 거리에 관계없이
-//     즉시 Strike로 전환했음. Stalk이 EngageRange(10m) 경계(예: dist=9.5m)에서
-//     Success를 반환하면 CircleStrafe가 진입 즉시 타이머를 시작하고,
-//     2초 후 dist=9.5m 상태에서 Strike를 실행 → 허공 칼질 발생.
-//     또한 AttackRange가 BB에 push되지 않아 ActionID 별
-//     minimumAttackDistance/maximumAttackDistance 검증도 무의미했음.
-//
-//   수정:
-//     AttackRange BlackboardVariable 추가.
-//     타이머 만료 시 dist <= AttackRange 조건을 동시에 검사.
-//     거리가 아직 멀면 배회를 유지하면서 orbitRadius를 점진적으로 축소해
-//     타겟에게 접근. CloseInMaxTime.Value 초 이내에도 AttackRange에 도달 못하면
-//     Strike 강제 전환(기존 NavMesh 밖 처리와 동일 안전장치).
-//     → PB4DecisionAdapter.InitializeBlackboard()에서
-//        SetBB("AttackRange", combatProfile.attackRange) 추가 필요.
+// 이력:
+//   [Bug 1 수정] StrikeTriggerTime 만료 → AttackRange 검사 추가
+//   [Bug 2 수정] StrikeTriggerTime 측 랜덤 지터 (반복성 제거)
+//   [N-23 / Hotfix3 / 옵션 C 단계 1] 진동 해소 ("앞뒤 까딱까딱"):
+//     (1) target 측 근거리 fallback — world-X 축 → target 기준 접선 정정
+//     (2) destPos hysteresis (0.5m 미만 변동은 SetDestination 호출 안 함)
+//     (3) NavMeshAgent stoppingDistance 보장 (0.3m)
+//   [N-23 / 옵션 C 단계 2] 5 패턴 시스템 본격 (좌 / 우 / 뒤 / 정지 / 접근):
+//     - StrafePattern enum 5 종 신규
+//     - 5 확률 BlackboardVariable (Inspector 노출 — SO 통합은 G-1 후속)
+//     - 패턴 dwellTime (3~6초) — 신중 거동 본격
+//     - 기존 _feintTimer / FeintInterval → dwellTimer 측 통합 (페인트 = 재선출 영역)
+//   [N-23 / Hotfix4] 패턴 dwellTimer 측 BT 사이클 가로지름 정합:
+//     - 문제: CircleStrafe 1 사이클 (1.6~3.2초) < dwellTime (3~6초) →
+//             매 OnStart 측 신규 SelectPattern 호출 → 사이클마다 패턴 변경 →
+//             "신중함" 영역 약화 + [CS] 패턴 전환 OnUpdate 로그 0 줄.
+//     - 정정: OnEnd 측 _dwellTimer / _currentPattern 보존 (0 리셋 제거).
+//             OnStart 측 _dwellTimer ≤ 0 일 때만 신규 패턴 선출.
+//             진입 시점 로그 추가 (신규 / 지속 구분).
 // =============================================================================
 using System;
 using Unity.Behavior;
@@ -39,6 +54,22 @@ using Unity.Properties;
 using UnityEngine;
 using UnityEngine.AI;
 using Action = Unity.Behavior.Action;
+
+// =============================================================================
+// [N-23 / 옵션 C 단계 2] StrafePattern — 5 패턴 시스템
+// =============================================================================
+/// <summary>
+/// 배회 패턴 5 종 — 사용자 요구 ("좌측 / 우측 / 뒤쪽 신중하게") 정합.
+/// 매 dwellTime (3~6초) 만료 시 weighted random 측 신규 패턴 선출.
+/// </summary>
+public enum StrafePattern
+{
+    CircleLeft = 0,   // 반시계 접선 이동 (_orbitDir = +1)
+    CircleRight = 1,   // 시계 접선 이동 (_orbitDir = -1)
+    Backstep = 2,   // 후퇴 — target 반대 방향
+    Hold = 3,   // 정지 — 신중 대기 (적 응시)
+    Approach = 4,   // 접근 — target 직진 step
+}
 
 [Serializable, GeneratePropertyBag]
 [NodeDescription(
@@ -106,20 +137,74 @@ public partial class CircleStrafeAction : Action
     /// <summary>orbitRadius 축소 접근의 최대 허용 시간 (초).</summary>
     [SerializeReference] public BlackboardVariable<float> CloseInMaxTime = new(3f);
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // [Hotfix3 / N-23 후속] 진동 해소 — destPos hysteresis
+    //
+    // 문제 영역:
+    //   매 프레임 destPos 가 살짝 변동 (~10cm) → SetDestination 매 프레임 호출 →
+    //   NavMeshAgent 가 path 계산을 매 프레임 재시작 → 도착 전 새 destPos 측 회전 →
+    //   미세 진동 ("까딱까딱") 발생.
+    //
+    // 정합:
+    //   직전 SetDestination 위치 캐시. 신규 destPos 가 직전 위치와 ≥ HYST 거리일 때만
+    //   SetDestination 호출. 그 외는 NavMeshAgent 가 직전 destPos 측 자연 진행.
+    //   결과: 매 프레임 미세 변동 흡수 + 본격 방향 변경만 반영.
+    private Vector3 _lastSetDestPos;
+    private bool _hasSetDestPos;
+    private const float DEST_POS_HYSTERESIS = 0.5f;     // 0.5m 미만 변동은 무시
+    private const float NAV_STOPPING_DISTANCE = 0.3f;   // 도착 직전 미세 진동 방지
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // [N-23 / 옵션 C 단계 2] StrafePattern 내부 상태
+    //
+    // 거동:
+    //   OnStart 측 _currentPattern 선출 + _dwellTimer 시작.
+    //   매 OnUpdate 측 _dwellTimer 감소. 만료 시 신규 패턴 재선출.
+    //   _currentPattern 따라 destPos 계산 (5 분기).
+    private StrafePattern _currentPattern;
+    private float _dwellTimer;
+    private Vector3 _patternStartPos;   // BACKSTEP 시작 시 self 위치 캐시 (도착 영역 정합)
+
     /// <summary>
-    /// 궤도 회전 방향. +1=반시계, -1=시계.
-    /// OnStart에서 랜덤 결정. 페인트 시 반전.
+    /// 궤도 회전 방향. +1=반시계 (CircleLeft), -1=시계 (CircleRight).
+    /// 패턴 진입 시 자동 설정 — CircleLeft → +1 / CircleRight → -1.
     /// </summary>
     private float _orbitDir = 1f;
 
-    /// <summary>페인트(방향 전환)까지 남은 시간. 만료 시 _orbitDir 반전.</summary>
-    private float _feintTimer;
+    // ─────────────────────────────────────────────────────────────────────────
+    // [N-23 / 옵션 C 단계 2] StrafePattern 5 패턴 시스템
+    //
+    // 사용자 요구 ("좌측 / 우측 / 뒤쪽 신중하게") 정합:
+    //   매 dwellTime (3~6초) 만료 시 weighted random 으로 신규 패턴 선출.
+    //   기존 _feintTimer (단순 좌↔우 반전) → 5 패턴 + dwellTime 시스템으로 교체.
+    // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>페인트 최소 간격 (초).</summary>
-    [SerializeReference] public BlackboardVariable<float> FeintIntervalMin = new(2f);
+    [Tooltip("CircleLeft (반시계 접선) 패턴 선택 가중치. 기본 0.25.")]
+    [SerializeReference] public BlackboardVariable<float> ProbCircleLeft = new(0.25f);
 
-    /// <summary>페인트 최대 간격 (초).</summary>
-    [SerializeReference] public BlackboardVariable<float> FeintIntervalMax = new(5f);
+    [Tooltip("CircleRight (시계 접선) 패턴 선택 가중치. 기본 0.25.")]
+    [SerializeReference] public BlackboardVariable<float> ProbCircleRight = new(0.25f);
+
+    [Tooltip("Backstep (후퇴) 패턴 선택 가중치. 기본 0.20. ↑ 신중 / 방어형 캐릭터.")]
+    [SerializeReference] public BlackboardVariable<float> ProbBackstep = new(0.20f);
+
+    [Tooltip("Hold (정지 신중 대기) 패턴 선택 가중치. 기본 0.20. ↑ 신중 / 침착 캐릭터.")]
+    [SerializeReference] public BlackboardVariable<float> ProbHold = new(0.20f);
+
+    [Tooltip("Approach (접근 step) 패턴 선택 가중치. 기본 0.10. ↑ 공격적 캐릭터.")]
+    [SerializeReference] public BlackboardVariable<float> ProbApproach = new(0.10f);
+
+    [Tooltip("패턴 유지 최소 시간 (초). 기본 3.0 — 신중한 거동 영역.")]
+    [SerializeReference] public BlackboardVariable<float> DwellTimeMin = new(3f);
+
+    [Tooltip("패턴 유지 최대 시간 (초). 기본 6.0.")]
+    [SerializeReference] public BlackboardVariable<float> DwellTimeMax = new(6f);
+
+    [Tooltip("Backstep 패턴 측 후퇴 거리 (m). 기본 4.0.")]
+    [SerializeReference] public BlackboardVariable<float> BackstepDistance = new(4f);
+
+    [Tooltip("Approach 패턴 측 접근 step 거리 (m). 기본 2.0.")]
+    [SerializeReference] public BlackboardVariable<float> ApproachStep = new(2f);
 
     /// <summary>
     /// [Bug 2 수정] OnStart에서 계산된 실제 Strike 전환 대기 시간.
@@ -196,9 +281,43 @@ public partial class CircleStrafeAction : Action
         float jitter = UnityEngine.Random.Range(-0.4f, 1.2f);
         _actualTriggerTime = Mathf.Max(0.5f, StrikeTriggerTime.Value + jitter);
 
-        // 궤도 방향 랜덤 결정 + 페인트 타이머 초기화
-        _orbitDir = UnityEngine.Random.value > 0.5f ? 1f : -1f;
-        _feintTimer = UnityEngine.Random.Range(FeintIntervalMin.Value, FeintIntervalMax.Value);
+        // [N-23 / 옵션 C 단계 2 / Hotfix4] 패턴 진입 — dwellTimer 보존 정합
+        //
+        // 영역 정합:
+        //   CircleStrafe 1 사이클 (≈ 1.6~3.2초) < dwellTime (3~6초) →
+        //   매 OnStart 측 SelectPattern() 호출 시 패턴 잦은 변경 → "신중함" 약화.
+        //
+        // 해결:
+        //   _dwellTimer 측 BT 사이클 가로질러 보존. 만료 (≤ 0) 일 때만 신규 패턴 선출.
+        //   _dwellTimer > 0 = 직전 사이클 측 패턴 / 자료 지속 진입.
+        bool isNewPattern = _dwellTimer <= 0f;
+        if (isNewPattern)
+        {
+            _currentPattern = SelectPattern();
+            _dwellTimer = UnityEngine.Random.Range(DwellTimeMin.Value, DwellTimeMax.Value);
+        }
+        ApplyPatternEntry(_currentPattern);
+
+#if UNITY_EDITOR
+        if (isNewPattern)
+        {
+            Debug.Log($"[CS] {Self.Value.name}: 패턴 진입 (신규) → {_currentPattern}, " +
+                      $"dwellTimer={_dwellTimer:F2}s");
+        }
+        else
+        {
+            Debug.Log($"[CS] {Self.Value.name}: 패턴 진입 (지속) → {_currentPattern}, " +
+                      $"dwellTimer={_dwellTimer:F2}s 남음");
+        }
+#endif
+
+        // [Hotfix3 / N-23 후속] 진동 해소 — destPos hysteresis + stopping distance
+        _lastSetDestPos = _selfTransform.position;
+        _hasSetDestPos = false;
+        // stoppingDistance 보장 — 0 (default) 일 때 도착 직전 미세 진동 발생
+        // OrbitRadius / AttackRange 와 무관 — 도착 위치 자체의 진동 차단 자료
+        if (_nav.stoppingDistance < NAV_STOPPING_DISTANCE)
+            _nav.stoppingDistance = NAV_STOPPING_DISTANCE;
 
         return Status.Running;
     }
@@ -285,84 +404,75 @@ public partial class CircleStrafeAction : Action
             radius *= Mathf.Clamp01(1f - _closeInTimer / CloseInMaxTime.Value);
         }
 
-        // ── 페인트 (궤도 방향 전환) ────────────────────────────────────────────
-        _feintTimer -= Time.deltaTime;
-        if (_feintTimer <= 0f && !inCloseIn)
+        // ── [N-23 / 옵션 C 단계 2] 패턴 dwellTimer + 재선출 ───────────────────
+        // 매 dwellTime (3~6초) 만료 시 weighted random 측 신규 패턴 선출.
+        // closeIn 모드 진입 시는 패턴 재선출 안 함 (직진 Strike 진입 영역 우선).
+        if (!inCloseIn)
         {
-            _orbitDir *= -1f;
-            _feintTimer = UnityEngine.Random.Range(FeintIntervalMin.Value, FeintIntervalMax.Value);
+            _dwellTimer -= Time.deltaTime;
+            if (_dwellTimer <= 0f)
+            {
+                StrafePattern previousPattern = _currentPattern;
+                _currentPattern = SelectPattern();
+                _dwellTimer = UnityEngine.Random.Range(DwellTimeMin.Value, DwellTimeMax.Value);
+                ApplyPatternEntry(_currentPattern);
 #if UNITY_EDITOR
-            Debug.Log($"[CS] {Self.Value.name}: 페인트 전환 dir={_orbitDir:+0;-0} nextTimer={_feintTimer:F2}s (min={FeintIntervalMin.Value} max={FeintIntervalMax.Value})");
+                Debug.Log($"[CS] {Self.Value.name}: 패턴 전환 {previousPattern} → {_currentPattern}, " +
+                          $"dwellTimer={_dwellTimer:F2}s");
 #endif
+            }
         }
 
-        // ── 이동 방향 계산 (접선+방사 블렌드) ───────────────────────────────────
-        // 핵심 아이디어: 목적지를 '궤도 원 위의 점'이 아니라
-        // '접선(측면) + 방사(타겟 방향)의 블렌드' 방향으로 설정합니다.
-        //
-        // 결과:
-        //   dist >> orbitRadius : 방사 성분 ↑ → 타겟 방향 접근 (비스듬히)
-        //   dist ≈ orbitRadius  : 접선 성분 ↑ → 측면 이동 (선회)
-        //   dist < orbitRadius  : 순수 접선  → 완전 측면 (이탈 방지)
-        //
-        // 이를 통해 오크는 멀리서 비스듬히 접근하다가
-        // 궤도 반경에 도달하면 자연스럽게 측면으로 전환됩니다.
-
+        // ── [N-23 / 옵션 C 단계 2] 패턴별 destPos 계산 ───────────────────────
+        // 5 패턴 분기 — CircleLeft / CircleRight / Backstep / Hold / Approach.
+        // closeIn 진입 시는 CircleLeft / CircleRight 측 본격 접근 영역으로 강제 fallback.
         Vector3 selfPos = _selfTransform.position;
         Vector3 toTarget = (targetPos - selfPos);
         toTarget.y = 0f;
         float distFlat = toTarget.magnitude;
 
-        Vector3 destPos;
-        if (distFlat > 0.1f)
+        StrafePattern activePattern = inCloseIn
+            ? (_orbitDir > 0f ? StrafePattern.CircleLeft : StrafePattern.CircleRight)  // closeIn → 접근 본격
+            : _currentPattern;
+
+        Vector3 destPos = ComputeDestPosForPattern(
+            activePattern, selfPos, toTarget, distFlat, radius, inCloseIn);
+
+        // periAngle 측 시각적 연속성 — Circle 패턴 진행 시만 갱신
+        if (activePattern == StrafePattern.CircleLeft || activePattern == StrafePattern.CircleRight)
         {
-            Vector3 toTargetNorm = toTarget / distFlat;
+            _periAngle += StrafeAngularSpeed.Value * _orbitDir * Time.deltaTime;
+        }
 
-            // 방사 성분: 타겟 방향 (dist > orbitRadius일 때 사용)
-            Vector3 radial = toTargetNorm;
+        // Hold 패턴 측 — SetDestination 호출 자체 안 함 (isStopped=true 측 정합)
+        if (activePattern == StrafePattern.Hold)
+        {
+            // 적 응시 회전만 유지 (line 측 본격 회전 영역 측에서 처리)
+            // destPos 미적용 — return 안 함, 회전 영역 계속 진행
+        }
+        else if (NavMesh.SamplePosition(destPos, out NavMeshHit hit, 3f, NavMesh.AllAreas))
+        {
+            // [Hotfix3 / N-23 후속] 진동 해소 — destPos hysteresis
+            //   신규 destPos 가 직전 SetDestination 위치 측 0.5m 이상 차이일 때만 갱신.
+            //   매 프레임 미세 변동은 NavMeshAgent 가 직전 destPos 측 자연 도착 진행.
+            float destDelta = _hasSetDestPos
+                ? Vector3.Distance(hit.position, _lastSetDestPos)
+                : float.MaxValue;
 
-            // 접선 성분: 타겟→자신 방향의 90° 회전 (_orbitDir=+1 반시계, -1 시계)
-            Vector3 tangent = new Vector3(
-                -toTargetNorm.z * _orbitDir,
-                0f,
-                 toTargetNorm.x * _orbitDir);
-
-            // 블렌드 비율: orbit_r/dist를 접선 비율로
-            // dist=3m(orbit), orbitRatio=1 → 완전 접선
-            // dist=8m,        orbitRatio=0.375 → 접선 37% + 방사 63%
-            float orbitRatio = Mathf.Clamp01(radius / distFlat);
-            Vector3 blendDir = (tangent * orbitRatio + radial * (1f - orbitRatio)).normalized;
-
-            // inCloseIn 시에는 방사 성분을 더 강화 (직진 접근)
-            if (inCloseIn)
+            if (destDelta >= DEST_POS_HYSTERESIS)
             {
-                float closeT = Mathf.Clamp01(_closeInTimer / CloseInMaxTime.Value);
-                blendDir = Vector3.Lerp(blendDir, toTargetNorm, closeT * 0.6f).normalized;
+                _nav.SetDestination(hit.position);
+                _lastSetDestPos = hit.position;
+                _hasSetDestPos = true;
             }
-
-            // NavMesh 위에서 이동 가능한 목적지 계산
-            // LOOK_AHEAD: 오크 이동 속도 × 0.5초 앞의 목적지
-            float lookAhead = Mathf.Max(radius, distFlat - radius + 1f);
-            destPos = selfPos + blendDir * lookAhead;
-        }
-        else
-        {
-            // 타겟에 너무 가까움 → 접선 방향으로만 이동
-            Vector3 tangent90 = new Vector3(-_orbitDir, 0f, 0f);
-            destPos = selfPos + tangent90 * radius;
-        }
-
-        // periAngle은 시각적 연속성을 위해 계속 갱신 (이제 실제 이동에는 미사용)
-        _periAngle += StrafeAngularSpeed.Value * _orbitDir * Time.deltaTime;
-
-        if (NavMesh.SamplePosition(destPos, out NavMeshHit hit, 3f, NavMesh.AllAreas))
-        {
-            _nav.SetDestination(hit.position);
+            // else: 직전 destPos 유지 — NavMeshAgent 자연 진행
         }
         else
         {
             // NavMesh 밖이면 타겟 방향 직접 접근
             _nav.SetDestination(targetPos);
+            _lastSetDestPos = targetPos;
+            _hasSetDestPos = true;
         }
 
         // ── 타겟 방향 회전 ──────────────────────────────────────────────────────
@@ -386,7 +496,172 @@ public partial class CircleStrafeAction : Action
         _wasTargetGuarding = false;
         _targetCharMgr = null;
         _guardAttackTimer = 0f;
-        _feintTimer = 0f;
-        // periAngle은 유지 (다음 CircleStrafe에서 궤도 연속)
+        _hasSetDestPos = false;   // [Hotfix3] hysteresis 상태 정리
+
+        // [Hotfix4] _dwellTimer / _currentPattern 측 보존 — CircleStrafe 사이클 가로질러
+        //   BT 사이클 (Strike 진입 → Stalk → CircleStrafe 재진입) 사이 dwellTime 지속.
+        //   다음 OnStart 측 _dwellTimer > 0 이면 패턴 지속 진입, ≤ 0 이면 신규 선출.
+        //   결과: "신중함" 영역 본격 (3~6초 동안 한 패턴 유지, BT 사이클 가로질러).
+        // _dwellTimer 측 보존 (0 으로 리셋 안 함)
+        // _currentPattern 측 보존
+
+        // periAngle 측 시각 연속성 유지 (다음 CircleStrafe 진입 시 궤도 자연 정합)
+
+        // Hold 패턴 진입 시 isStopped=true 였을 수 있음 → 정상 영역 복귀
+        if (_nav != null && _nav.isOnNavMesh)
+            _nav.isStopped = false;
+    }
+
+    // =========================================================================
+    // [N-23 / 옵션 C 단계 2] StrafePattern 시스템 — 신규 메서드 4 종
+    // =========================================================================
+
+    /// <summary>
+    /// 5 패턴 측 weighted random 선출.
+    /// 가중치 모두 0 일 경우 CircleLeft fallback.
+    /// </summary>
+    private StrafePattern SelectPattern()
+    {
+        float wL = Mathf.Max(0f, ProbCircleLeft.Value);
+        float wR = Mathf.Max(0f, ProbCircleRight.Value);
+        float wB = Mathf.Max(0f, ProbBackstep.Value);
+        float wH = Mathf.Max(0f, ProbHold.Value);
+        float wA = Mathf.Max(0f, ProbApproach.Value);
+        float total = wL + wR + wB + wH + wA;
+
+        if (total <= 0f) return StrafePattern.CircleLeft;  // fallback
+
+        float roll = UnityEngine.Random.value * total;
+        if (roll < wL) return StrafePattern.CircleLeft;
+        roll -= wL;
+        if (roll < wR) return StrafePattern.CircleRight;
+        roll -= wR;
+        if (roll < wB) return StrafePattern.Backstep;
+        roll -= wB;
+        if (roll < wH) return StrafePattern.Hold;
+        return StrafePattern.Approach;
+    }
+
+    /// <summary>
+    /// 패턴 진입 시점 본격 처리 — _orbitDir 설정 + NavMesh 측 정지 / 정합 자료.
+    /// </summary>
+    private void ApplyPatternEntry(StrafePattern pattern)
+    {
+        switch (pattern)
+        {
+            case StrafePattern.CircleLeft:
+                _orbitDir = +1f;
+                if (_nav != null && _nav.isOnNavMesh) _nav.isStopped = false;
+                break;
+
+            case StrafePattern.CircleRight:
+                _orbitDir = -1f;
+                if (_nav != null && _nav.isOnNavMesh) _nav.isStopped = false;
+                break;
+
+            case StrafePattern.Backstep:
+            case StrafePattern.Approach:
+                if (_nav != null && _nav.isOnNavMesh) _nav.isStopped = false;
+                _patternStartPos = _selfTransform != null ? _selfTransform.position : Vector3.zero;
+                _hasSetDestPos = false;   // 신규 destPos 즉시 적용
+                break;
+
+            case StrafePattern.Hold:
+                // 정지 — 신중 대기 영역
+                if (_nav != null && _nav.isOnNavMesh)
+                {
+                    _nav.isStopped = true;
+                    _nav.ResetPath();
+                }
+                _hasSetDestPos = false;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 5 패턴 측 destPos 계산 본문. 패턴별 단일 분기.
+    /// </summary>
+    private Vector3 ComputeDestPosForPattern(
+        StrafePattern pattern, Vector3 selfPos, Vector3 toTarget,
+        float distFlat, float radius, bool inCloseIn)
+    {
+        switch (pattern)
+        {
+            case StrafePattern.CircleLeft:
+            case StrafePattern.CircleRight:
+                return ComputeCircleDestPos(selfPos, toTarget, distFlat, radius, inCloseIn);
+
+            case StrafePattern.Backstep:
+                return ComputeBackstepDestPos(selfPos, toTarget, distFlat);
+
+            case StrafePattern.Hold:
+                return selfPos;  // 현재 위치 — Hold 측 SetDestination 호출 안 함 (OnUpdate 측 분기)
+
+            case StrafePattern.Approach:
+                return ComputeApproachDestPos(selfPos, toTarget, distFlat);
+
+            default:
+                return selfPos;
+        }
+    }
+
+    /// <summary>Circle 패턴 측 접선+방사 블렌드 계산 (기존 Hotfix3 정합).</summary>
+    private Vector3 ComputeCircleDestPos(
+        Vector3 selfPos, Vector3 toTarget, float distFlat, float radius, bool inCloseIn)
+    {
+        if (distFlat > 0.1f)
+        {
+            Vector3 toTargetNorm = toTarget / distFlat;
+
+            // 방사 성분: 타겟 방향
+            Vector3 radial = toTargetNorm;
+
+            // 접선 성분: 타겟→자신 방향의 90° 회전 (_orbitDir=+1 반시계, -1 시계)
+            Vector3 tangent = new Vector3(
+                -toTargetNorm.z * _orbitDir,
+                0f,
+                 toTargetNorm.x * _orbitDir);
+
+            // 블렌드 비율: orbit_r/dist
+            float orbitRatio = Mathf.Clamp01(radius / distFlat);
+            Vector3 blendDir = (tangent * orbitRatio + radial * (1f - orbitRatio)).normalized;
+
+            if (inCloseIn)
+            {
+                float closeT = Mathf.Clamp01(_closeInTimer / CloseInMaxTime.Value);
+                blendDir = Vector3.Lerp(blendDir, toTargetNorm, closeT * 0.6f).normalized;
+            }
+
+            float lookAhead = Mathf.Max(radius, distFlat - radius + 1f);
+            return selfPos + blendDir * lookAhead;
+        }
+
+        // 타겟에 너무 가까움 — fallback (Hotfix3 정합)
+        Vector3 toTargetNormClose = (-_selfTransform.forward);  // self 정면 반대 (안전 fallback)
+        Vector3 tangent90 = new Vector3(
+            -toTargetNormClose.z * _orbitDir,
+            0f,
+             toTargetNormClose.x * _orbitDir);
+        return selfPos + tangent90 * radius;
+    }
+
+    /// <summary>Backstep 패턴 — target 반대 방향 후퇴.</summary>
+    private Vector3 ComputeBackstepDestPos(Vector3 selfPos, Vector3 toTarget, float distFlat)
+    {
+        if (distFlat <= 0.1f)
+        {
+            // 타겟이 자신과 같은 위치 — self.forward 반대 방향
+            return selfPos - _selfTransform.forward * BackstepDistance.Value;
+        }
+        Vector3 awayFromTarget = -(toTarget / distFlat);
+        return selfPos + awayFromTarget * BackstepDistance.Value;
+    }
+
+    /// <summary>Approach 패턴 — target 방향 단일 step 접근.</summary>
+    private Vector3 ComputeApproachDestPos(Vector3 selfPos, Vector3 toTarget, float distFlat)
+    {
+        if (distFlat <= 0.1f) return selfPos;
+        Vector3 towardsTarget = (toTarget / distFlat);
+        return selfPos + towardsTarget * ApproachStep.Value;
     }
 }

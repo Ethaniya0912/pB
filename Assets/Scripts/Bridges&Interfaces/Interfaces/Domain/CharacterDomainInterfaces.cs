@@ -10,12 +10,14 @@
 // 수록:
 //   [v3 NGO-A] ITrustProvider (N:M 관계, ulong playerId 오버로드)
 //   [Wk0] ITraumaProvider, IAlignmentProvider
-//   [Day 3 T3.5] ICommandFilter + CommandSeverity / CommandRequest / FixedCommandId
+//   [Day 3 T3.5] ICommandResolver + CommandSeverity / CommandRequest / FixedCommandId / CommandDirective
 //
 // 이력:
 //   2026-04-23 v3 — PB4Interfaces.cs Intelligence namespace 의 Character 관련
 //   2026-05-11 정리 — CharacterDomainInterfaces.cs 로 분리 (Interfaces/Domain/)
 //                    파일명에서 PB4 접두사 제거
+//   2026-05-14 N-23 — ICommandFilter → ICommandResolver 격상.
+//                    수락 판정 + 다중 분기 후속 통합. CommandDirective 자료 신규.
 // =============================================================================
 using System;
 using Unity.Netcode;
@@ -68,7 +70,7 @@ namespace TDA.PB4.Interfaces.Intelligence
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // [Day 3 T3.5 신규] ICommandFilter — 명령 수락/거부 판정
+    // [Day 3 T3.5 / N-23 격상] ICommandResolver — 명령 수락/거부 판정 + 다중 분기
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// <summary>명령 위험도 5단계.</summary>
@@ -119,17 +121,64 @@ namespace TDA.PB4.Interfaces.Intelligence
             => s.SerializeValue(ref value);
     }
 
-    /// <summary>명령 수락 판정 계약.</summary>
+    /// <summary>
+    /// [N-23 신규] 명령 수락 후 활성 directive — Adapter 측 BT winner override 입력.
+    /// </summary>
     /// <remarks>
-    /// 구현체: CommandAcceptanceFilter (Day 3 T3.5).
-    /// 수식: acceptance = Trust × (1 - Severity/4) × (1/FearMult) × Loyalty
+    /// btWinner = null 이면 미정의 commandId (수락은 됐으나 BT 분기 매핑 없음).
+    /// expiresAt = Time.time 기준 만료 시각. 만료 후 자동 정리.
     /// </remarks>
-    public interface ICommandFilter
+    [Serializable]
+    public struct CommandDirective
+    {
+        public FixedCommandId commandId;       // 발현 명령 ID
+        public string btWinner;                // "Attack" / "Idle" / "Flee" / "Patrol" / "FollowCommand" — Adapter 측 BB[UtilityWinner] 직접 입력
+        public ulong targetEntityId;           // 타겟 NetworkObjectId (BT 측 SyncTarget 영역)
+        public Vector3 targetPosition;         // 좌표 (LastHeardPosition 처럼 BT 측 자료)
+        public float expiresAt;                // Time.time 기준 만료
+    }
+
+    /// <summary>표준 명령 어휘 — Wk5 정적 매핑. Wk6+ enum 격상 후보.</summary>
+    /// <remarks>
+    /// 본 어휘 외 commandId 는 Resolver 측 매핑 미정의 → BTWinner = null.
+    /// 시나리오팀 합의 후 PlayerCommandType enum 으로 격상.
+    /// </remarks>
+    public static class StandardPlayerCommandIds
+    {
+        public const string Attack  = "attack";    // → BT "Attack"
+        public const string Wait    = "wait";      // → BT "Idle"
+        public const string Hold    = "hold";      // → BT "Idle"
+        public const string Track   = "track";     // → BT "FollowCommand" (stalks only, Strike 부재 — 추격 의미)
+        public const string Retreat = "retreat";   // → BT "Flee"
+        public const string Patrol  = "patrol";    // → BT "Patrol"
+        // 후속: "disrupt" / "harass" — BT 신규 분기 합의 후 추가
+    }
+
+    /// <summary>명령 수락 판정 + 다중 분기 후속 처리 계약.</summary>
+    /// <remarks>
+    /// 구현체: CommandAcceptanceResolver (Day 3 T3.5 / N-23 격상).
+    /// 수식: acceptance = Trust × (1 - Severity/4) × (1/FearMult) × Loyalty
+    /// 수락 시 ActiveDirective 자동 갱신 → PB4DecisionAdapter 측 BT winner override.
+    /// </remarks>
+    public interface ICommandResolver
     {
         /// <summary>명령 수락 여부 결정. 서버 권한 검증.</summary>
+        /// <remarks>수락 시 ActiveDirective 자동 갱신 (Apply 측 후속 처리).</remarks>
         bool TryAccept(CommandRequest request, out float acceptance, out string reason);
 
         /// <summary>명령 수락 임계값. 기본 0.3.</summary>
         float AcceptanceThreshold { get; set; }
+
+        /// <summary>[N-23 신규] 현재 활성 directive 보유 여부 (expiresAt 자동 체크).</summary>
+        bool HasActiveDirective { get; }
+
+        /// <summary>[N-23 신규] 현재 활성 directive. HasActiveDirective=false 면 default.</summary>
+        CommandDirective ActiveDirective { get; }
+
+        /// <summary>[N-23 신규] 활성 directive 강제 해제 (Cancel 명령 / 외부 정리).</summary>
+        void ClearActiveDirective();
+
+        /// <summary>[N-23 신규] 명령 수락 시 발행. 시나리오 / UI 측 추적.</summary>
+        event Action<CommandRequest, CommandDirective> OnCommandAccepted;
     }
 }

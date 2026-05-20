@@ -9,6 +9,35 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4ce9dd69f9d905a4997ffaec714aaa61, type: 3}
+  m_Script: {fileID: 11500000, guid: 9d77c1a06c5af0646a22a8b2c72e8616, type: 3}
   m_Name: FactionThresholdConfig_Goblin
-  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Data.FactionThresholdConfigSO
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.FactionThresholdConfigSO
+  factionID: Goblin
+  factionName: "\uACE0\uBE14\uB9B0 \uBD80\uC871"
+  minPopulation: 30
+  maxCasualties: 20
+  maxConsecutiveDeaths: 3
+  minAverageMorale: 0.3
+  minAverageTrust: 30
+  maxDoubtCount: 5
+  minTerritoryControl: 0.4
+  maxEnemyAdvantage: 2.5
+  maxRetreatCount: 5
+  maxTraumatizedRatio: 0.4
+  maxAbandonCount: 3
+  quickRetreatWeight: 0.8
+  strategicWithdrawWeight: 0.1
+  phalanxFormationWeight: 0
+  ambushResetWeight: 0.2
+  panicChainMultiplier: 1.5
+  useMinPopulation: 1
+  useMaxCasualties: 1
+  useMaxConsecutiveDeaths: 1
+  useMinAverageMorale: 1
+  useMinAverageTrust: 1
+  useMaxDoubtCount: 1
+  useMinTerritoryControl: 1
+  useMaxEnemyAdvantage: 1
+  useMaxRetreatCount: 1
+  useMaxTraumatizedRatio: 1
+  useMaxAbandonCount: 1

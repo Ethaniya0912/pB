@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8aafac90c5ccde44589bd7b88182dc61, type: 3}
+  m_Name: SpeechTemplate_GroupArchetype_ColdLogic
+  m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.AI.Speech.SpeechTemplateSO
+  triggerId: group_archetype_cold_logic_collapse
+  profileHint: GroupArchetype
+  variants:
+  - alignment: 0
+    text: "...너희들의 동작이 다 보이는군."
+    localizedTexts: []
+    tone: 1
+    durationOverride: 0
+  - alignment: 1
+    text: "...신중하게 가는 게 좋겠어."
+    localizedTexts: []
+    tone: 1
+    durationOverride: 0
+  - alignment: 2
+    text: "...상황을 정확히 파악해야 해."
+    localizedTexts: []
+    tone: 1
+    durationOverride: 0
+  - alignment: 3
+    text: "...내 판단을 따라줘. 살아남자."
+    localizedTexts: []
+    tone: 1
+    durationOverride: 0

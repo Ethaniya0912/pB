@@ -254,6 +254,13 @@ namespace TDA.PB4.Bridge
         /// </summary>
         private AIPerceptionSystem _perceptionSystem;
 
+        /// <summary>
+        /// [Gate G-4 / N-23] CommandAcceptanceResolver 캐시.
+        /// Start()에서 1회 GetComponent — UpdateBlackboard() 매 틱 호출 비용 절감.
+        /// Resolver 가 없거나 ActiveDirective 가 없으면 null/false → Override 미진입.
+        /// </summary>
+        private TDA.PB4.Interfaces.Intelligence.ICommandResolver _cmdResolver;
+
         /// <summary>FleeSwarmAction 등 외부에서 BB 초기화 완료 여부를 확인할 때 사용.</summary>
         public bool IsBBInitialized => _bbInitialized;
 
@@ -469,6 +476,19 @@ namespace TDA.PB4.Bridge
                         $"<color=orange>[SoundSearch▶INIT]</color> {name}: " +
                         $"AIPerceptionSystem 없음. 청각 수색 모드 비활성. " +
                         $"AI 프리팹에 컴포넌트를 추가해야 소리에 반응합니다.");
+            }
+
+            // ── [Gate G-4 / N-23] CommandAcceptanceResolver 캐싱 ──────────────────
+            // 매 틱 GetComponent 비용을 피하기 위해 Start()에서 1회만 캐싱.
+            // Resolver 가 없는 AI(명령 비대상)는 null → Override 미진입 (평시 동작).
+            _cmdResolver = GetComponent<TDA.PB4.Interfaces.Intelligence.ICommandResolver>();
+            if (debugLog)
+            {
+                if (_cmdResolver != null)
+                    Debug.Log(
+                        $"<color=#FFD744>[CmdGate▶INIT]</color> {name}: " +
+                        $"CommandAcceptanceResolver 캐싱 완료. Player 명령 Override 활성화 대기 중.");
+                // null 은 정상 — 모든 NPC 가 명령 대상은 아님 (warning 안 함)
             }
 
             SetBB("UtilityWinner", "Idle");
@@ -982,6 +1002,38 @@ namespace TDA.PB4.Bridge
                         $"OrderedRetreat=true → BB[UtilityWinner] '{winner}' → 'Flee' 강제 push " +
                         $"(fear={fear:F2} 무관)");
                 winner = "Flee";
+            }
+
+            // ── [Gate G-4 / N-23] Player 명령 수락 시 winner override ────────────
+            // 설계 의도 (N-23):
+            //   CommandAcceptanceResolver 가 명령 수락 → ActiveDirective 갱신.
+            //   Adapter 가 directive.btWinner 를 winner 자리에 강제 진입.
+            //
+            // 사유:
+            //   "비비기" 동작 해소 — HumanoidAIBrain.SelectNewState 측에서 FollowCommand
+            //   를 자동 winner 후보에서 제외했으므로, 명령 발현 시점에는 Resolver 측
+            //   ActiveDirective 가 유일한 진입 경로.
+            //
+            // 우선순위:
+            //   OrderedRetreat (Stage 2.1) 후 / SetBB 직전 — TacticalRetreat 가 명령보다
+            //   우선 (생존 영역). 명령은 OrderedRetreat 가 없을 때만 발현.
+            //
+            // 만료:
+            //   directive.expiresAt 측 자동 만료 — Resolver Update 측에서 자동 정리.
+            //   여기서는 HasActiveDirective 측면만 검사.
+            if (_cmdResolver != null && _cmdResolver.HasActiveDirective && !orderedRetreat)
+            {
+                var directive = _cmdResolver.ActiveDirective;
+                if (!string.IsNullOrEmpty(directive.btWinner))
+                {
+                    if (debugLog)
+                        Debug.Log(
+                            $"<color=#FFD744>[Adapter▶CmdAccepted]</color> {name}: " +
+                            $"ActiveDirective='{directive.commandId}' → BB[UtilityWinner] " +
+                            $"'{winner}' → '{directive.btWinner}' 강제 push " +
+                            $"(남은 {directive.expiresAt - Time.time:F1}s)");
+                    winner = directive.btWinner;
+                }
             }
 
             SetBB("UtilityWinner", winner);

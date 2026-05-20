@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d1f7ab89034a2143a996fd24164953b, type: 3}
+  m_Name: GroupArchetype_Frenzy
+  m_EditorClassIdentifier: 
+  archetypeId: frenzy
+  archetypeName: 광란
+  onCollapseSpeechId: group_archetype_frenzy_collapse
+  control: 0.1
+  stability: 0.1
+  openness: 0.7
+  agreeable: 0.2
+  directness: 0.9
+  escalationModifier: 1.5

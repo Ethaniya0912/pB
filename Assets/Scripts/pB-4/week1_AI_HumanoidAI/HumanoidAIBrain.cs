@@ -659,6 +659,28 @@ namespace TDA.PB4.AI.Humanoid
             float greedMod = 1.0f - personality.control;
             float currentFear = needs["fear"];
 
+            // ★ W5-B7 Hybrid Acceptance — FollowCommand 결함 정정
+            //   기존: obedience × 0.7 (단순 곱 / Master Formula 우회 / α/fearPenalty 부재)
+            //   정정: AcceptanceBase × Utility — TrustMatrix.ComputeAcceptanceBase 자료 정합
+            //   AcceptanceBase = (Trust/100)×0.6 + severity×0.4 − fear  (음수 가능 → Clamp01)
+            //   Utility        = needs["obedience"] (Week 1 fallback 단순 영역)
+            //   ComputeAcceptanceBase 영역 — ITrustProvider 인터페이스 측 부재 영역.
+            //   TrustMatrix 클래스 직접 영역 정의 영역 (TrustMatrix.cs line 432).
+            //   본 필드 영역 TrustMatrix 타입 영역 직접 호출 영역.
+            //   trustMatrix 미연결 시 정정 전 동작 보존 (회귀 영역).
+            float followCommandScore;
+            if (trustMatrix != null)
+            {
+                const float severity = 0.5f;            // commandUrgency 자료 부재 영역 기본
+                float acceptanceBase = trustMatrix.ComputeAcceptanceBase(severity, currentFear);
+                float utility = needs["obedience"];
+                followCommandScore = Mathf.Clamp01(acceptanceBase * utility);
+            }
+            else
+            {
+                followCommandScore = needs["obedience"] * 0.7f;  // fallback 회귀 영역
+            }
+
             return new Dictionary<string, float>
             {
                 ["Attack"] = currentTarget != null
@@ -667,7 +689,7 @@ namespace TDA.PB4.AI.Humanoid
                 ["Flee"] = currentFear * fearMod * 0.9f,
                 ["Loot"] = needs["greed"] * greedMod * (currentTarget != null ? 0.0f : 0.7f),
                 ["Move"] = (1.0f - needs["fatigue"]) * personality.openness * 0.3f,
-                ["FollowCommand"] = needs["obedience"] * 0.7f,
+                ["FollowCommand"] = followCommandScore,
             };
         }
 

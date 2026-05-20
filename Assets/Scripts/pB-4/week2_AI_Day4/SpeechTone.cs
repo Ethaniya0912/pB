@@ -38,6 +38,14 @@ namespace TDA.PB4.AI.Speech
         public const string FRIENDLY_DEFAULT   = "friendly_default";
         public const string COMPANION_DEFAULT  = "companion_default";
 
+        // ★ D-06 신규 + 명명 갱신 (Wk5 D1) — GroupArchetype Collapse 발화 트리거 4종.
+        // GroupArchetypeSO.onCollapseSpeechId 값과 매칭.
+        // GroupAIManager.Escalation 측 OnEscalationTierChanged 시점 측 Collapse 진입 시 발화 (D-08).
+        public const string GROUP_ARCHETYPE_FRENZY_COLLAPSE     = "group_archetype_frenzy_collapse";
+        public const string GROUP_ARCHETYPE_COLD_LOGIC_COLLAPSE = "group_archetype_cold_logic_collapse";
+        public const string GROUP_ARCHETYPE_DESPAIR_COLLAPSE    = "group_archetype_despair_collapse";
+        public const string GROUP_ARCHETYPE_PARALYSIS_COLLAPSE  = "group_archetype_paralysis_collapse";
+
         // Week 7 확장 예약 (현재는 미사용):
         // public const string TRAUMA_SHOCK  = "trauma_acute_shock";
         // public const string PIVOT_MERCY   = "pivot_mercy";

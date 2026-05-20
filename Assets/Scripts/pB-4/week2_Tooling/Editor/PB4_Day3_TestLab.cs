@@ -53,7 +53,7 @@ namespace TDA.PB4.Tooling.Editor
         private NPCAlignmentController alignment;
         private DilemmaPivotResolver pivotResolver;
         private PersonalityTagResolver tagResolver;
-        private CommandAcceptanceFilter cmdFilter;
+        private CommandAcceptanceResolver cmdResolver;
 
         private Vector2 scrollLog;
         private readonly List<LogEntry> logs = new List<LogEntry>(128);
@@ -733,7 +733,7 @@ namespace TDA.PB4.Tooling.Editor
             alignment = go.GetComponent<NPCAlignmentController>();
             pivotResolver = go.GetComponent<DilemmaPivotResolver>();
             tagResolver = go.GetComponent<PersonalityTagResolver>();
-            cmdFilter = go.GetComponent<CommandAcceptanceFilter>();
+            cmdResolver = go.GetComponent<CommandAcceptanceResolver>();
 
             AddLog($"Target auto-selected: {targetBrain.name}", C_NEON_CYAN);
         }
@@ -921,7 +921,7 @@ namespace TDA.PB4.Tooling.Editor
 
         private void DoTestCommand(CommandSeverity severity)
         {
-            if (cmdFilter == null) { AddLog("⚠ CommandAcceptanceFilter null", C_NEON_RED); return; }
+            if (cmdResolver == null) { AddLog("⚠ CommandAcceptanceResolver null", C_NEON_RED); return; }
 
             var req = new CommandRequest
             {
@@ -932,7 +932,7 @@ namespace TDA.PB4.Tooling.Editor
                 targetEntityId = 0UL
             };
 
-            bool accepted = cmdFilter.TryAccept(req, out float acceptance, out string reason);
+            bool accepted = cmdResolver.TryAccept(req, out float acceptance, out string reason);
             string result = accepted ? "✓ 수락" : "✗ 거부";
             AddLog($"Command [{severity}]: {result} (acceptance={acceptance:F2}, {reason})",
                    accepted ? C_NEON_GREEN : C_NEON_RED);

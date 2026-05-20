@@ -786,7 +786,7 @@ AudioSource:
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
-  m_Pitch: 0.92810684
+  m_Pitch: 1.0210716
   Loop: 0
   Mute: 0
   Spatialize: 0
@@ -1721,6 +1721,7 @@ MonoBehaviour:
   debugLog: 1
   debugSoundSearch: 1
   debugPerceptionInject: 1
+  verboseTacticalRetreat: 1
   showGizmo: 1
 --- !u!114 &3842090482814950413
 MonoBehaviour:
@@ -1775,6 +1776,9 @@ MonoBehaviour:
   greed: 0.1
   fatigue: 0.1
   groupMindRef: {fileID: 0}
+  lastSafePositions: []
+  maxRememberedSafeZones: 5
+  orderedRetreat: 0
   verboseLogging: 1
   tier2FearVerbose: 1
   personality:
@@ -1804,6 +1808,43 @@ MonoBehaviour:
   decisionInterval: 0.3
   externallyTicked: 0
   autoDiagnostic: 1
+  _complexityThreshold: 0.5
+  _personalityComplexityCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  _wBrutality: 0.15
+  _wLoyalty: 0.3
+  _wGreed: 0.1
+  _wEmpathy: 0.25
+  _wCunning: 0.2
+  _acceptanceDebugLog: 0
+  _complyThreshold: 0.6
+  _strongRefuseThreshold: 0.3
+  _karmaDeltaOnRefuse: -30
+  _trustDeltaOnComply: -5
+  _trustDeltaOnRefuse: 10
+  _dilemmaDebugLog: 0
 --- !u!114 &7293332218415992728
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -2881,7 +2881,7 @@ MonoBehaviour:
   spiralSearchRadius: 20
   suspicionDecayTime: 8
   alertDecayTime: 5
-  debugLog: 1
+  debugLog: 0
   showGizmos: 1
   currentTargetMemoryDuration: 3
 --- !u!114 &2049576988043367185
@@ -2988,6 +2988,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 1ed32d99ad3fdec4384a55e8e7c8089b, type: 2}
   - {fileID: 11400000, guid: 6feae03d2773cc446803b50721178542, type: 2}
   - {fileID: 11400000, guid: 4c52fb68be9937645ade19035e14c4b6, type: 2}
+  - {fileID: 11400000, guid: ed53dc1d8e7c4ca8ae129c13254d385c, type: 2}
+  - {fileID: 11400000, guid: 7a99b1fd566446f580f8edab25cb2c96, type: 2}
+  - {fileID: 11400000, guid: 8c1ae2d20fc643e1a476822aa297a2e4, type: 2}
+  - {fileID: 11400000, guid: 028ccc2905594b37a2f56b6d9bcd7db5, type: 2}
   forceLanguage: 43
   debugLog: 1
 --- !u!114 &5544718263955204423
@@ -3029,7 +3033,7 @@ MonoBehaviour:
   cooldownSec: 3
   maxDistanceToPlayer: 20
   requirePlayerPresence: 1
-  verboseFilterLog: 0
+  verboseFilterLog: 1
   verifyCharacterId: 1
   requireServerAuthority: 1
   debugLog: 1
