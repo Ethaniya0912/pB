@@ -75,30 +75,30 @@ namespace TDA.PB4.AI
         [Tooltip("가변 멤버 최소값.")] public int minMemberCount = 0;
         [Tooltip("가변 멤버 최대값.")] public int maxMemberCount = 0;
         [Tooltip("Wk7+ 부활 시스템용.")] public string persistentGroupId = "";
-        [Range(0f, 1f)] [Tooltip("시나리오 우선순위.")] public float priority = 0.5f;
+        [Range(0f, 1f)][Tooltip("시나리오 우선순위.")] public float priority = 0.5f;
         [NonSerialized] public Dictionary<string, float> modifiers = new();
         [Tooltip("이 시점까지 처리 못 하면 폐기.")]
         [NonSerialized] public float? executeBeforeTime = null;
-        
+
         // ★ D-08+ (Wk5 D1) — 시나리오 명시 archetype 지정 (자동 매핑 우회)
         // null이면 자동 5축 매핑이 작동. 값이 있으면 그것을 우선 적용.
         // 사용 예: 보스 spawn 시 명시 archetype, 카르마 분기 시 그룹별 다른 archetype 등.
         // 우선순위: Inspector 직접 할당 > overrideArchetype > 자동 매핑 > fallback
         [Tooltip("시나리오 명시 archetype. null이면 자동 매핑이 작동.")]
         public GroupArchetypeSO overrideArchetype = null;
-        
+
         public int ResolveMemberCount()
         {
             if (minMemberCount > 0 && maxMemberCount > 0 && maxMemberCount >= minMemberCount)
                 return UnityEngine.Random.Range(minMemberCount, maxMemberCount + 1);
             return Mathf.Clamp(memberCount, 1, 12);
         }
-        
+
         public float GetModifier(string key, float defaultValue = 0f)
         {
             return modifiers != null && modifiers.TryGetValue(key, out var v) ? v : defaultValue;
         }
-        
+
         public override string ToString()
         {
             int count = ResolveMemberCount();
@@ -108,7 +108,7 @@ namespace TDA.PB4.AI
                    $"prio={priority:F2} reason={reason}]";
         }
     }
-    
+
     public class SpawnRequestResponse
     {
         public Guid requestId;
@@ -118,7 +118,7 @@ namespace TDA.PB4.AI
         public List<string> spawnedMemberIds = new();
         public Vector3 actualSpawnPosition;
         public bool isCompleted = false;
-        
+
         public override string ToString()
         {
             return $"SpawnResponse[{result} groupId={groupId} members={spawnedMemberIds.Count}" +
@@ -132,13 +132,13 @@ namespace TDA.PB4.AI
 public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
 {
     public static WorldAISpawnManager Instance { get; private set; }
-    
+
     // ═════════════════════════════════════════════════════════════
     // 이벤트
     // ═════════════════════════════════════════════════════════════
     public static event Action<GameObject> OnCharacterSpawned;
     public static event Action<List<GameObject>> OnAllCharactersSpawned;
-    
+
     // ═════════════════════════════════════════════════════════════
     // 매직 넘버 const
     // ═════════════════════════════════════════════════════════════
@@ -149,24 +149,24 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
     private const float FALLBACK_SCATTER_RADIUS = 5.0f;
     private const float USED_POSITION_AVOID_RADIUS = 0.5f;
     private const int SCATTER_MAX_ATTEMPTS = 8;
-    
+
     [Header("Debug")]
     [SerializeField] bool despawnCharacters = false;
     [SerializeField] bool respawnCharacters = false;
-    
+
     [Header("Characters")]
     [Tooltip("스폰할 AI 캐릭터 프리팹 배열")]
     [SerializeField] GameObject[] aiCharacters;
-    
+
     [Header("Spawn Points (Tier 2 Graph)")]
     [SerializeField] bool useGraphNodeSpawnPoints = true;
     [SerializeField] int[] testSpawnNodeIndices;
     [SerializeField] bool autoEnableNavMeshAgent = true;
     [SerializeField] List<GameObject> spawnedInCharacters = new List<GameObject>();
-    
+
     private bool _hasSpawnedOnce = false;
     private List<Vector3> _usedScatterPositions = new List<Vector3>();
-    
+
     // ═════════════════════════════════════════════════════════════
     // Unity 라이프사이클
     // ═════════════════════════════════════════════════════════════
@@ -176,9 +176,9 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         else { Destroy(gameObject); return; }
         DontDestroyOnLoad(gameObject);
     }
-    
+
     private void Start() { StartCoroutine(WaitForServerAndSceneRoutine()); }
-    
+
     private void Update()
     {
         if (respawnCharacters)
@@ -192,7 +192,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             DespawnAllCharacters();
         }
     }
-    
+
     // ═════════════════════════════════════════════════════════════
     // 호스트 + 본 씬 진입 + NavMesh 대기 코루틴 (v2.3 보존)
     // ═════════════════════════════════════════════════════════════
@@ -209,7 +209,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             yield return SpawnAllCharactersRoutine();
         }
     }
-    
+
     private IEnumerator WaitForNavMeshReady(float timeout)
     {
         float startTime = Time.time;
@@ -245,7 +245,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         Debug.LogWarning($"[WorldAISpawnManager] NavMesh 폴링 타임아웃 ({timeout}초) — 강제 진행");
     }
-    
+
     // ═════════════════════════════════════════════════════════════
     // 스폰 코루틴 (v2.4 분산 보존)
     // ═════════════════════════════════════════════════════════════
@@ -279,7 +279,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             catch (Exception ex) { Debug.LogError($"[WorldAISpawnManager] OnAllCharactersSpawned 에러: {ex}"); }
         }
     }
-    
+
     private IEnumerator SpawnOneCharacterRoutine(GameObject prefab, Vector3? requestedPos,
                                                   List<GameObject> newlySpawnedAccumulator)
     {
@@ -301,7 +301,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             isOnNavMesh = false;
             Debug.LogError($"[WorldAISpawnManager] {prefab.name} — NavMesh 검증 실패. Agent 스킵.");
         }
-        
+
         GameObject instance = Instantiate(prefab, spawnPos, Quaternion.identity);
         var netObj = instance.GetComponent<NetworkObject>();
         if (netObj != null) netObj.Spawn();
@@ -309,7 +309,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         spawnedInCharacters.Add(instance);
         newlySpawnedAccumulator.Add(instance);
         yield return new WaitForSeconds(POST_SPAWN_DELAY_SEC);
-        
+
         if (autoEnableNavMeshAgent && isOnNavMesh)
         {
             var agent = instance.GetComponent<NavMeshAgent>();
@@ -324,11 +324,11 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         else if (autoEnableNavMeshAgent && !isOnNavMesh)
             Debug.LogWarning($"[WorldAISpawnManager] {instance.name} NavMesh 외부 → Agent 스킵");
-        
+
         try { OnCharacterSpawned?.Invoke(instance); }
         catch (Exception ex) { Debug.LogError($"[WorldAISpawnManager] OnCharacterSpawned 에러: {ex}"); }
     }
-    
+
     // ═════════════════════════════════════════════════════════════
     // NavMesh 검증 헬퍼 (v2.4 보존)
     // ═════════════════════════════════════════════════════════════
@@ -339,7 +339,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         result = Vector3.zero;
         return false;
     }
-    
+
     private bool TryFindScatteredNavMeshPosition(Vector3 baseCandidate, out Vector3 result)
     {
         if (!NavMesh.SamplePosition(baseCandidate, out NavMeshHit baseHit, NAVMESH_SAMPLE_RADIUS, NavMesh.AllAreas))
@@ -366,14 +366,14 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         result = baseHit.position;
         return true;
     }
-    
+
     private bool IsTooCloseToUsedPosition(Vector3 candidate)
     {
         foreach (var used in _usedScatterPositions)
             if (Vector3.Distance(candidate, used) < USED_POSITION_AVOID_RADIUS) return true;
         return false;
     }
-    
+
     private List<Vector3> ResolveSpawnPoints()
     {
         var result = new List<Vector3>();
@@ -401,7 +401,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return result;
     }
-    
+
     private void DespawnAllCharacters()
     {
         foreach (var character in spawnedInCharacters)
@@ -412,28 +412,28 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         spawnedInCharacters.Clear();
     }
-    
+
     // ═════════════════════════════════════════════════════════════════════
     // ISpawnRequestReceiver — 정식 구현 (v2.5 보존 + v2.6 FactionDefinitionSO)
     // ═════════════════════════════════════════════════════════════════════
-    
+
     [Serializable]
     public class FactionPrefabMapping
     {
         [Tooltip("매칭할 펙션 ID (예: Skeleton, Goblin)")]
         public string factionId;
-        
+
         [Tooltip("이 펙션에서 스폰할 prefab")]
         public GameObject prefab;
-        
+
         [Tooltip("기본 멤버 수 (SpawnRequest.memberCount 미지정 시)")]
         [Range(1, 12)] public int defaultMemberCount = 3;
-        
+
         [Tooltip("[v2.7] true → 그룹 결성 안 함. 떠돌이 (Wandering) 개체 — Mob / Humanoid 모두 가능. " +
                  "GroupAIManager 미부착 = 그룹 사기 / A12 임계 / 토큰 시스템 비활성. " +
                  "Humanoid 떠돌이 / 야생 Mob 시나리오에 유용.")]
         public bool isWandering = false;
-        
+
         // ═══════════════════════════════════════════════════════════════════
         // ★ v2.6 — FactionDefinitionSO 단일 진입점 (Wk5 본격)
         // ═══════════════════════════════════════════════════════════════════
@@ -441,14 +441,14 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                  "이 필드 사용 시 아래 policySO 자동 무시 (FactionDefinitionSO 의 GroupPolicy 우선). " +
                  "권장 사용 — 펙션 SO 단일 편집 = 모든 정보 한 곳.")]
         public FactionDefinitionSO factionDefinition;
-        
+
         // ═══════════════════════════════════════════════════════════════════
         // v2.5 fallback 필드 (factionDefinition 미사용 시)
         // ═══════════════════════════════════════════════════════════════════
         [Tooltip("[v2.5] 자동 생성된 그룹에 할당할 FactionGroupPolicySO. " +
                  "★ factionDefinition 설정 시 자동 무시. fallback 으로만 사용.")]
         public FactionGroupPolicySO policySO;
-        
+
         [Tooltip("[v2.5] 자동 생성된 그룹 GameObject에 AddComponent할 정책 구현체. " +
                  "인스펙터 드롭다운으로 IFactionGroupPolicy 모든 구현체 자동 검색. " +
                  "비워두면 (None) 사기 시스템 비활성. " +
@@ -456,26 +456,26 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         [PolicyImplementorPicker]
         public string policyImplementorTypeName = "";
     }
-    
+
     [Header("━━━ ★ Wk3 SpawnRequest 매핑 ━━━━━━━━━━━━")]
     [Tooltip("[v2.6] SpawnRequest.factionId → 실제 prefab + FactionDefinitionSO 매핑.")]
     public List<FactionPrefabMapping> factionPrefabMappings = new();
-    
+
     [Tooltip("[v2.5] 스폰 후 그룹 자동 결성 ON.")]
     public bool autoFormGroupOnSpawn = true;
-    
+
     [Tooltip("[v2.5] 펙션별 동시 활성 그룹 수 상한. 0=무제한.")]
     [Range(0, 20)] public int maxConcurrentGroupsPerFaction = 5;
-    
+
     [Tooltip("[v2.5] 씬 전체 동시 활성 그룹 수 상한. 0=무제한.")]
     [Range(0, 50)] public int maxConcurrentGroupsTotal = 12;
-    
+
     [Tooltip("[v2.5] 큐의 최대 적재량.")]
     [Range(1, 32)] public int maxQueuedRequests = 8;
-    
+
     [Tooltip("[v2.5] 그룹 식별자 자동 증가 카운터.")]
     [SerializeField] private int groupSequenceCounter = 0;
-    
+
     // ═════════════════════════════════════════════════════════════
     // ★ D-08+ (Wk5 D1) — Group Archetype 자동 매핑
     // ═════════════════════════════════════════════════════════════
@@ -484,23 +484,23 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
              "본 pool 의 자산 중 leader NPC 의 5축 좌표와 유클리드 거리가\n" +
              "가장 가까운 1 종을 자동 할당. Inspector 직접 할당 시 본 매핑 측 무력.")]
     [SerializeField] private GroupArchetypeSO[] groupArchetypePool;
-    
+
     [Tooltip("Pool 비어있거나 Leader 의 5축 측정 실패 시 사용할 fallback 자산.")]
     [SerializeField] private GroupArchetypeSO fallbackGroupArchetype;
-    
+
     [Tooltip("Tie-break 거리. 최소 거리 + 본 값 이내의 후보들을 묶어 random pick → 다양성 보장.\n" +
              "0 = 절대 결정론 / 0.15 = 가벼운 다양성 / 0.30 = 느슨한 random.")]
     [Range(0f, 0.5f)]
     [SerializeField] private float archetypeTieBreakDistance = 0.15f;
-    
+
     [Tooltip("자동 매핑 결과를 Console 에 출력. 운영 시 false 권장.")]
     [SerializeField] private bool autoAssignArchetypeDebugLog = true;
-    
+
     private readonly List<SpawnRequest> _queue = new();
     private bool _processingQueue = false;
-    
+
     public event Action<SpawnRequestResponse> OnSpawnRequestCompleted;
-    
+
     // ─────────────────────────────────────────────────────────
     // ISpawnRequestReceiver 구현
     // ─────────────────────────────────────────────────────────
@@ -534,7 +534,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return true;
     }
-    
+
     public SpawnRequestResponse ExecuteSpawnRequest(SpawnRequest req)
     {
         var response = new SpawnRequestResponse { requestId = req?.requestId ?? Guid.Empty };
@@ -550,7 +550,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         Vector3? requestedPos = ResolveSpawnPosition(req);
         int count = req.ResolveMemberCount();
         var mapping = factionPrefabMappings.Find(m => m.factionId == req.factionId);
-        
+
         // ★ v2.7 — isWandering 분기: 떠돌이 / 야생 개체는 그룹 결성 X
         GroupAIManager grp = null;
         if (autoFormGroupOnSpawn && (mapping == null || !mapping.isWandering))
@@ -561,14 +561,14 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         {
             Debug.Log($"<color=#88FF88>[WorldAISpawnManager]</color> Wandering 모드 — {req.factionId} 그룹 결성 스킵");
         }
-        
+
         response.groupId = grp != null ? grp.gameObject.name : "(wandering)";
         if (requestedPos.HasValue) response.actualSpawnPosition = requestedPos.Value;
         StartCoroutine(ExecuteSpawnRequestRoutine(mapping.prefab, requestedPos, count, grp, response, req));
         Debug.Log($"<color=#88FF88>[WorldAISpawnManager]</color> ExecuteSpawnRequest 시작: {req}");
         return response;
     }
-    
+
     public void QueueRequest(SpawnRequest req)
     {
         if (req == null) return;
@@ -590,7 +590,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         Debug.Log($"[WorldAISpawnManager] QueueRequest 적재: {req} (큐={_queue.Count}/{maxQueuedRequests})");
         if (!_processingQueue) StartCoroutine(ProcessQueueRoutine());
     }
-    
+
     public bool CancelRequest(Guid requestId)
     {
         for (int i = 0; i < _queue.Count; i++)
@@ -605,9 +605,9 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return false;
     }
-    
+
     public int GetQueuedCount() => _queue.Count;
-    
+
     // ─────────────────────────────────────────────────────────
     // 내부 헬퍼
     // ─────────────────────────────────────────────────────────
@@ -636,7 +636,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         _processingQueue = false;
     }
-    
+
     private Vector3? ResolveSpawnPosition(SpawnRequest req)
     {
         switch (req.locationStrategy)
@@ -656,7 +656,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                 return null;
         }
     }
-    
+
     private Vector3? ResolveNearestSpawnNode(SpawnRequest req)
     {
         var graph = CaveNodeGraphBuilder.Instance;
@@ -677,7 +677,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return bestIdx >= 0 ? (Vector3?)graph.nodesData[bestIdx].position : null;
     }
-    
+
     private SpawnResult ResolveFailReason(string failReason)
     {
         if (failReason.Contains("매핑 없음")) return SpawnResult.FailedInvalidPrefab;
@@ -688,7 +688,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         if (failReason.Contains("queue full")) return SpawnResult.FailedConcurrentLimit;
         return SpawnResult.FailedInvalidPolicy;
     }
-    
+
     private int CountGroupsByFaction(string factionId)
     {
         var all = UnityEngine.Object.FindObjectsByType<GroupAIManager>(
@@ -699,7 +699,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                 count++;
         return count;
     }
-    
+
     private IEnumerator ExecuteSpawnRequestRoutine(
         GameObject prefab, Vector3? requestedPos, int count,
         GroupAIManager grp, SpawnRequestResponse response, SpawnRequest req)
@@ -737,6 +737,31 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                     grp.RegisterMember(brain);
                     response.spawnedMemberIds.Add(go.name);
                     registered++;
+
+                    // ★ E-07 (S2) — AIPerceptionSystem._factionId 자동 주입.
+                    // 본 spawn 시점 측 group 측 FactionId 측 본격 알 수 있는 시점.
+                    // 디자이너 측 Inspector 측 수동 입력 회피 + 즉시 Mood 동기화.
+                    var perception = go.GetComponent<TDA.PB4.AI.Perception.AIPerceptionSystem>();
+                    if (perception != null)
+                    {
+                        // Priority — req.factionId (★ SpawnRequest 측 본격 보장) > grp.GetFactionId() (★ policySO.factionId 측 정합 의존)
+                        string fid = !string.IsNullOrEmpty(req?.factionId)
+                            ? req.factionId
+                            : grp.GetFactionId();
+
+                        if (!string.IsNullOrEmpty(fid))
+                        {
+                            perception.SetFactionId(fid);
+                        }
+                        else
+                        {
+                            Debug.LogWarning(
+                                $"<color=#FFAA66>[WorldAISpawnManager / E-07]</color> " +
+                                $"{go.name} — AIPerceptionSystem._factionId 자동 주입 실패. " +
+                                $"req.factionId='{req?.factionId ?? "null"}' / " +
+                                $"grp.GetFactionId()='{grp.GetFactionId()}' (policySO.factionId 정합 점검 필요).");
+                        }
+                    }
                 }
                 else
                 {
@@ -746,7 +771,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             }
             Debug.Log($"<color=#88FF88>[WorldAISpawnManager:GroupForm]</color> " +
                       $"{grp.gameObject.name}에 {registered}명 등록 (스킵 {skipped}) → 총 {grp.MemberCount}명");
-            
+
             // ★ D-08+ — Group Archetype 자동 매핑 (Inspector 직접 할당 없을 시)
             TryAutoAssignGroupArchetype(grp, req);
         }
@@ -763,7 +788,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         OnSpawnRequestCompleted?.Invoke(response);
         Debug.Log($"<color=#88FF88>[WorldAISpawnManager]</color> ExecuteSpawnRequest 완료: {response.spawnedMemberIds.Count}명");
     }
-    
+
     // ═════════════════════════════════════════════════════════════
     // ★ D-08+ (Wk5 D1) — Group Archetype 자동 매핑
     //
@@ -792,7 +817,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
     private void TryAutoAssignGroupArchetype(GroupAIManager groupAI, SpawnRequest req)
     {
         if (groupAI == null) return;
-        
+
         // ─── 1. Inspector 직접 할당 보존 (최우선) ───
         if (groupAI.GroupArchetype != null)
         {
@@ -800,7 +825,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                 Debug.Log($"[SpawnMgr] {groupAI.name}: GroupArchetype 이미 할당됨 → skip");
             return;
         }
-        
+
         // ─── 2. SpawnRequest.overrideArchetype (시나리오 명시 지정) ───
         if (req != null && req.overrideArchetype != null)
         {
@@ -810,7 +835,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                           $"'{req.overrideArchetype.archetypeName}'");
             return;
         }
-        
+
         // ─── 3. 자동 5축 매핑 — Pool 비어있음 → fallback ───
         if (groupArchetypePool == null || groupArchetypePool.Length == 0)
         {
@@ -826,7 +851,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             }
             return;
         }
-        
+
         // ─── 3. Leader 5축 좌표 측정 ───
         if (!TryGetLeaderPersonality(groupAI, out float c, out float s, out float o, out float a, out float d))
         {
@@ -838,7 +863,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                 Debug.Log($"[SpawnMgr] {groupAI.name}: Leader 5축 측정 실패 → random fallback '{chosen?.archetypeName ?? "null"}'");
             return;
         }
-        
+
         // ─── 4. 4 자산 측 거리 측정 ───
         float bestDist = float.MaxValue;
         GroupArchetypeSO best = null;
@@ -852,7 +877,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                 best = arch;
             }
         }
-        
+
         // ─── 5. Tie-break — bestDist + tieBreak 이내 후보들 random pick ───
         var candidates = new List<GroupArchetypeSO>(groupArchetypePool.Length);
         foreach (var arch in groupArchetypePool)
@@ -861,11 +886,11 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             float dist = arch.ComputeDistanceTo(c, s, o, a, d);
             if (dist <= bestDist + archetypeTieBreakDistance) candidates.Add(arch);
         }
-        
+
         var finalChoice = candidates.Count > 1
             ? candidates[UnityEngine.Random.Range(0, candidates.Count)]
             : best;
-        
+
         if (finalChoice == null)
         {
             if (autoAssignArchetypeDebugLog)
@@ -873,7 +898,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
             if (fallbackGroupArchetype != null) groupAI.SetGroupArchetype(fallbackGroupArchetype);
             return;
         }
-        
+
         groupAI.SetGroupArchetype(finalChoice);
         if (autoAssignArchetypeDebugLog)
         {
@@ -883,25 +908,25 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                 $"→ dist={bestDist:F3} / 후보 {candidates.Count}종)");
         }
     }
-    
+
     private bool TryGetLeaderPersonality(GroupAIManager groupAI,
         out float c, out float s, out float o, out float a, out float d)
     {
         c = s = o = a = d = 0.5f;
         if (groupAI == null) return false;
-        
+
         var members = groupAI.Members;
         if (members == null || members.Count == 0) return false;
-        
+
         // 첫 살아있는 HumanoidAIBrain 멤버 1명 → leader
         for (int i = 0; i < members.Count; i++)
         {
             var m = members[i];
             if (m?.brain == null) continue;
-            
+
             var humanoid = m.brain as HumanoidAIBrain;
             if (humanoid == null) continue;  // Skeleton 등 5축 없는 NPC skip
-            
+
             var p = humanoid.Personality;
             c = p.control;
             s = p.stability;
@@ -912,12 +937,12 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return false;  // 모든 멤버가 5축 없음
     }
-    
+
     // ═════════════════════════════════════════════════════════════
     // [Spawned Groups] 컨테이너
     // ═════════════════════════════════════════════════════════════
     private GameObject _spawnedGroupsContainer;
-    
+
     private Transform GetOrCreateGroupsContainer()
     {
         if (_spawnedGroupsContainer != null) return _spawnedGroupsContainer.transform;
@@ -926,7 +951,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         Debug.Log($"<color=#88FF88>[WorldAISpawnManager]</color> [Spawned Groups] 컨테이너 생성 → DontDestroyOnLoad");
         return _spawnedGroupsContainer.transform;
     }
-    
+
     // ═════════════════════════════════════════════════════════════
     // ★ v2.6 — FindOrCreateGroupForFaction (FactionDefinitionSO 우선)
     // ═════════════════════════════════════════════════════════════
@@ -943,23 +968,33 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
                 return g;
             }
         }
-        
+
         // 신규 그룹 결성
         groupSequenceCounter++;
         var go = new GameObject($"Group_{factionId}_{groupSequenceCounter:D3}");
         go.transform.SetParent(GetOrCreateGroupsContainer(), worldPositionStays: true);
         var grp = go.AddComponent<GroupAIManager>();
-        
+
         var mapping = factionPrefabMappings.Find(m => m.factionId == factionId);
         if (mapping != null)
         {
             // 정책 구현체 (Reflection)
             MonoBehaviour implementor = CreatePolicyImplementor(go, mapping.policyImplementorTypeName);
-            
+
             // ★ v2.6 — FactionDefinitionSO 우선 적용
             if (mapping.factionDefinition != null)
             {
                 grp.SetFactionDefinition(mapping.factionDefinition, implementor);
+
+                // ★ E-07 (S2) — WorldFactionStateManager 측 자동 등록
+                // 본 호출은 idempotent (E-05) — 같은 Faction 측 중복 spawn 시 1 회만 등록.
+                // 초기 상태 = LIFECYCLE_ACTIVE (E-05 정합).
+                if (TDA.PB4.Faction.WorldFactionStateManager.Instance != null)
+                {
+                    TDA.PB4.Faction.WorldFactionStateManager.Instance
+                        .RegisterFaction(mapping.factionDefinition);
+                }
+
                 Debug.Log($"<color=#88FF88>[WorldAISpawnManager]</color> 신규 그룹 생성 (v2.6 FactionDef): {go.name} " +
                           $"(factionDef={mapping.factionDefinition.name}, " +
                           $"policy={mapping.factionDefinition.GroupPolicy?.name ?? "null"}, " +
@@ -984,12 +1019,12 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return grp;
     }
-    
+
     /// <summary>
     /// [v2.5] Reflection 으로 IFactionGroupPolicy + MonoBehaviour 구현체 자동 검색.
     /// </summary>
     private static List<Type> _cachedPolicyImplementorTypes;
-    
+
     private static List<Type> GetAllPolicyImplementorTypes()
     {
         if (_cachedPolicyImplementorTypes != null) return _cachedPolicyImplementorTypes;
@@ -1012,7 +1047,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return _cachedPolicyImplementorTypes;
     }
-    
+
     private MonoBehaviour CreatePolicyImplementor(GameObject host, string typeName)
     {
         if (string.IsNullOrWhiteSpace(typeName)) return null;
@@ -1026,7 +1061,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         }
         return host.AddComponent(match) as MonoBehaviour;
     }
-    
+
     [ContextMenu("★ Wk3 Test/List Available Policy Implementor Types")]
     private void DebugListPolicyImplementorTypes()
     {
@@ -1034,7 +1069,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         var list = string.Join("\n  - ", types.Select(t => $"{t.Name}  ({t.FullName})"));
         Debug.Log($"<color=#88FF88>[WorldAISpawnManager]</color> Available IFactionGroupPolicy implementors ({types.Count}):\n  - {list}");
     }
-    
+
     // ═════════════════════════════════════════════════════════════
     // Editor ContextMenu (v2.5 보존)
     // ═════════════════════════════════════════════════════════════
@@ -1047,7 +1082,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         Debug.LogWarning("Click-Spawn은 Editor 전용입니다.");
 #endif
     }
-    
+
     [ContextMenu("★ Wk3 Test/Cancel Click-Spawn")]
     private void DebugCancelClickSpawn()
     {
@@ -1055,7 +1090,7 @@ public class WorldAISpawnManager : MonoBehaviour, ISpawnRequestReceiver
         SpawnRequestSceneTool.CancelPlacement();
 #endif
     }
-    
+
     [ContextMenu("★ Wk3 Test/Print Queue Status")]
     private void DebugPrintQueueStatus()
     {

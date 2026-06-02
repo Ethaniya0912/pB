@@ -18,6 +18,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using TDA.PB4.Core;
 using TDA.PB4.Data;
+using TDA.PB4.Faction;            // ★ E-07 (S2) — WorldFactionBridgeManager
+using TDA.PB4.Faction.Tags;       // ★ E-07 (S2) — FactionLifecycleTag
 
 namespace TDA.PB4.Scenario
 {
@@ -183,5 +185,119 @@ namespace TDA.PB4.Scenario
         public float GetElapsedTime() => arcActive ? Time.time - arcStartTime : 0f;
         public bool IsArcActive => arcActive;
         public ScenarioArcSO GetCurrentArcSO() => currentArcSO;
+        
+        // ==================================================================
+        // ★ E-07 (S2) — Faction Lifecycle 분기 연계
+        // ==================================================================
+        // 본 영역:
+        //   WorldFactionBridgeManager.OnFactionStateChanged 구독 + Lifecycle 분기
+        //   - Emerging (LIFECYCLE_EMERGING) → FactionDefinition.SpeechTriggerIdOnEnter 호출
+        //   - Decline (LIFECYCLE_THREATENED / DEFEATED / EXTINCT) → 우울 시나리오 분기
+        //     + FactionDefinition.SpeechTriggerIdOnDecline 호출
+        //   본 구독은 Bridge 패턴 정합 — StateManager 직접 의존 0.
+        
+        private void OnEnable()
+        {
+            var bridge = WorldFactionBridgeManager.Instance;
+            if (bridge != null)
+            {
+                bridge.OnFactionStateChanged += HandleFactionStateChanged;
+            }
+        }
+        
+        private void OnDisable()
+        {
+            var bridge = WorldFactionBridgeManager.Instance;
+            if (bridge != null)
+            {
+                bridge.OnFactionStateChanged -= HandleFactionStateChanged;
+            }
+        }
+        
+        /// <summary>
+        /// OnFactionStateChanged 진입 핸들러 — Lifecycle 측 본격 분기.
+        /// 본 핸들러는 Lifecycle 비트 변화 (이전 → 신규) 만 점검.
+        /// </summary>
+        private void HandleFactionStateChanged(FactionStateChangeEventArgs args)
+        {
+            string factionId = args.factionId;
+            
+            // 본 핸들러는 Lifecycle 변화만 점검 — 다른 3 카테고리는 무시
+            if (!args.LifecycleChanged) return;
+            
+            // 새로 ON 비트 = 신규 진입 (Helper 사용)
+            uint addedBits = args.LifecycleBitsTurnedOn;
+            if (addedBits == 0u) return;  // 제거만 발생 — 진입 분기 없음
+            
+            // FactionDefinition 측 발화 트리거 조회
+            var def = LookupFactionDefinition(factionId);
+            
+            // ── Emerging 진입 분기
+            if ((addedBits & (uint)FactionLifecycleTag.LIFECYCLE_EMERGING) != 0u)
+            {
+                HandleLifecycleEmerging(factionId, def);
+            }
+            
+            // ── Decline 진입 분기 (THREATENED / DEFEATED / EXTINCT)
+            uint declineBits =
+                (uint)FactionLifecycleTag.LIFECYCLE_THREATENED |
+                (uint)FactionLifecycleTag.LIFECYCLE_DEFEATED |
+                (uint)FactionLifecycleTag.LIFECYCLE_EXTINCT;
+            
+            if ((addedBits & declineBits) != 0u)
+            {
+                HandleLifecycleDecline(factionId, def, addedBits & declineBits);
+            }
+        }
+        
+        /// <summary>
+        /// Lifecycle Emerging 진입 — 신규 펙션 등장 시나리오.
+        /// SpeechTriggerIdOnEnter 측 호출 + 등장 시나리오 분기 자료 박제.
+        /// </summary>
+        private void HandleLifecycleEmerging(string factionId, FactionDefinitionSO def)
+        {
+            string trigger = def?.SpeechTriggerIdOnEnter;
+            Debug.Log(
+                $"<color=#88FF88>[ScenarioArc / E-07]</color> Lifecycle Emerging — " +
+                $"factionId={factionId} / speechTrigger={trigger ?? "(없음)"}");
+            
+            // TODO (E-07 진입 자료) — SpeechAssembler 측 trigger 호출
+            // SpeechAssembler.Instance?.Dispatch(trigger);
+            //
+            // TODO (E-07 진입 자료) — 등장 시나리오 분기
+            // 본 시점 측 PlotTile / Arc 측 본격 분기 자료 박제 (사용자 측 시나리오팀 협의 필요)
+        }
+        
+        /// <summary>
+        /// Lifecycle Decline 진입 — 쇠퇴 / 패배 / 멸종 시나리오.
+        /// SpeechTriggerIdOnDecline 측 호출 + 우울 시나리오 분기 자료 박제.
+        /// </summary>
+        private void HandleLifecycleDecline(string factionId, FactionDefinitionSO def, uint declineFlag)
+        {
+            string trigger = def?.SpeechTriggerIdOnDecline;
+            string declineName =
+                ((declineFlag & (uint)FactionLifecycleTag.LIFECYCLE_EXTINCT) != 0u)   ? "EXTINCT" :
+                ((declineFlag & (uint)FactionLifecycleTag.LIFECYCLE_DEFEATED) != 0u)  ? "DEFEATED" :
+                                                                                       "THREATENED";
+            
+            Debug.Log(
+                $"<color=#FFAA66>[ScenarioArc / E-07]</color> Lifecycle Decline ({declineName}) — " +
+                $"factionId={factionId} / speechTrigger={trigger ?? "(없음)"}");
+            
+            // TODO (E-07 진입 자료) — SpeechAssembler 측 trigger 호출
+            // SpeechAssembler.Instance?.Dispatch(trigger);
+            //
+            // TODO (E-07 진입 자료) — 우울 시나리오 분기
+            // 본 시점 측 PlotTile / Arc 측 본격 분기 자료 박제 (사용자 측 시나리오팀 협의 필요)
+        }
+        
+        /// <summary>
+        /// FactionDefinitionSO 조회 — WorldFactionStateManager 의 public API 사용.
+        /// SpeechTriggerIdOnEnter / OnDecline 조회용. 미등록 시 null.
+        /// </summary>
+        private static FactionDefinitionSO LookupFactionDefinition(string factionId)
+        {
+            return WorldFactionStateManager.Instance?.GetDefinition(factionId);
+        }
     }
 }

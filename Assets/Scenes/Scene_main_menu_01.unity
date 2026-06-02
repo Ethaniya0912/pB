@@ -1279,6 +1279,80 @@ Transform:
   - {fileID: 589614264}
   m_Father: {fileID: 1720440169}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &221700681
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1465397757}
+    m_Modifications:
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 6.69886
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -5.34039
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -66.17232
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090064945487301745, guid: f927f67b572a5894091a546d312f0499,
+        type: 3}
+      propertyPath: m_Name
+      value: World Faction Bridge Manager (1)
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: f927f67b572a5894091a546d312f0499, type: 3}
+--- !u!4 &221700682 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1247352135566673943, guid: f927f67b572a5894091a546d312f0499,
+    type: 3}
+  m_PrefabInstance: {fileID: 221700681}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &268566306 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6702377088277078069, guid: 76e8df984ce3cb64694ab0b7e219c0bf,
@@ -5862,6 +5936,7 @@ Transform:
   - {fileID: 430757340}
   - {fileID: 1074942624}
   - {fileID: 1256649219}
+  - {fileID: 1427125231}
   m_Father: {fileID: 18054280}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &889958470
@@ -9174,6 +9249,97 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1426609699}
   m_CullTransparentMesh: 1
+--- !u!1001 &1427125230
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 870940813}
+    m_Modifications:
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 6.69886
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -5.34039
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -66.17232
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4228039320064948621, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: m_Name
+      value: World Faction State Manager (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 8843986275090673379, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: _factionDefinitions.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8843986275090673379, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: '_factionDefinitions.Array.data[0]'
+      value: 
+      objectReference: {fileID: 11400000, guid: 66ae5c0d9ee412943a4a8bf32bf4a094,
+        type: 2}
+    - target: {fileID: 8843986275090673379, guid: d738f5a757d6bf04bb346551c3600ecc,
+        type: 3}
+      propertyPath: '_factionDefinitions.Array.data[1]'
+      value: 
+      objectReference: {fileID: 11400000, guid: 65ce06c44aca57f4ba644fd1ecfbd2d8,
+        type: 2}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: d738f5a757d6bf04bb346551c3600ecc, type: 3}
+--- !u!4 &1427125231 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1722598161330562828, guid: d738f5a757d6bf04bb346551c3600ecc,
+    type: 3}
+  m_PrefabInstance: {fileID: 1427125230}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1448064398
 GameObject:
   m_ObjectHideFlags: 0
@@ -9741,7 +9907,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TDA.PB4.Diagnostics.TerrainBridgeDiagnostics
   _verboseLogging: 1
   _targetNodeIdx: 0
-  _separatorBetweenTests: 1
+  _maxEdgeIdxToProbe: 100
   _lastTestName: "(\uC544\uC9C1 \uC5C6\uC74C)"
   _lastResultSummary: "(\uC544\uC9C1 \uC2E4\uD589 \uC548 \uB428)"
 --- !u!1 &1465397756
@@ -9777,6 +9943,7 @@ Transform:
   - {fileID: 903302931}
   - {fileID: 123321635}
   - {fileID: 2129269781}
+  - {fileID: 221700682}
   m_Father: {fileID: 18054280}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!224 &1466137898 stripped
@@ -12388,7 +12555,7 @@ PrefabInstance:
         type: 3}
       propertyPath: factionPrefabMappings.Array.data[0].prefab
       value: 
-      objectReference: {fileID: 4233442530097016134, guid: 6b4a4e7c768b0944e83788a372794c17,
+      objectReference: {fileID: 8286174861153668228, guid: 9ae8640fce611cf4794c4f07f7b1bb37,
         type: 3}
     - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
@@ -12411,13 +12578,19 @@ PrefabInstance:
     - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
       propertyPath: factionPrefabMappings.Array.data[0].factionId
-      value: 100
+      value: 101
       objectReference: {fileID: 0}
     - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
       propertyPath: factionPrefabMappings.Array.data[1].factionId
       value: 100
       objectReference: {fileID: 0}
+    - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
+        type: 3}
+      propertyPath: factionPrefabMappings.Array.data[0].factionDefinition
+      value: 
+      objectReference: {fileID: 11400000, guid: 66ae5c0d9ee412943a4a8bf32bf4a094,
+        type: 2}
     - target: {fileID: 461029932042778349, guid: 6ca46d7b16d66cf4eb84ebcdd4b873b1,
         type: 3}
       propertyPath: factionPrefabMappings.Array.data[0].defaultMemberCount

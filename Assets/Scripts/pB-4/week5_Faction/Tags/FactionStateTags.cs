@@ -149,4 +149,25 @@ namespace TDA.PB4.Faction.Tags
         
         // 13~31 비트 — 예비
     }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // ⑤ FactionStateTagCategory — 4 카테고리 측 인덱스 enum (★ E-06 신규)
+    // ═══════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// Faction 측 4 카테고리 측 인덱스 enum.
+    /// FactionStateBits 측 4 필드 (moodBits / tacticalBits / lifecycleBits / relationBits)
+    /// 측 정확한 순서 정합 — `int` 측 cast 측 본격 인덱스 측 정합 (0 ~ 3).
+    /// 
+    /// 사용처:
+    ///   - WorldFactionStateManager 측 통계 카운터 측 카테고리 키
+    ///   - FactionBridgeDiagnostics 측 본격 분류 키
+    ///   - PB4DebugDashboard_v06 측 Faction 패널 측 4 시각 영역 키
+    /// </summary>
+    public enum FactionStateTagCategory : byte
+    {
+        Mood      = 0,
+        Tactical  = 1,
+        Lifecycle = 2,
+        Relation  = 3,
+    }
 }

@@ -67,6 +67,39 @@ namespace TDA.PB4.Faction
         
         public bool IsConnected => _provider != null && _receiver != null;
         
+        // ════════════════════════════════════════════════════════
+        // ★ v1.2 — Bridge 자체 통계 + DebugLog 양방향 패턴 (E-04 / S2 신규)
+        // ════════════════════════════════════════════════════════
+        // Bridge TeamGuide v1.2 §5.3 측 정합 — 호출 흐름 측 양방향 (→ in / ← out) 측 추적
+        // 본 통계는 Bridge 측 자체 호출 누적 (StateManager 측 통계 = E-03 측 별도)
+        // ════════════════════════════════════════════════════════
+        
+        private int _bridgeCallCount;
+        
+        public int BridgeCallCount => _bridgeCallCount;
+        
+        /// <summary>
+        /// 양방향 Bridge 호출 로그 헬퍼.
+        /// _verboseLog = true 시 콘솔 출력. 항상 _bridgeCallCount 증가.
+        /// </summary>
+        /// <param name="direction">"→" (외부 → Bridge 진입) 또는 "←" (Bridge → 외부 응답)</param>
+        /// <param name="interfaceName">"IFactionStateProvider" 또는 "IFactionStateCommandReceiver"</param>
+        /// <param name="method">메서드 명</param>
+        /// <param name="args">진입 측 인자 (옵션)</param>
+        /// <param name="result">응답 측 결과 (옵션)</param>
+        private void DebugLog(string direction, string interfaceName, string method,
+                              string args = null, object result = null)
+        {
+            if (direction == "→") _bridgeCallCount++;
+            
+            if (!_verboseLog) return;
+            
+            if (direction == "→")
+                Debug.Log($"[FactionBridge → {interfaceName}] {method}({args})");
+            else
+                Debug.Log($"[FactionBridge ← {interfaceName}] {method} → {result}");
+        }
+        
         // ────────────────────────────────────────
         // ★ v1.1 — Event 위임 (add/remove 패턴)
         //
@@ -163,49 +196,99 @@ namespace TDA.PB4.Faction
         
         public FactionStateSnapshot GetSnapshot(string factionId)
         {
+            DebugLog("→", "IFactionStateProvider", nameof(GetSnapshot), $"factionId={factionId}");
+            
             if (_provider == null)
             {
                 WarnNoProvider(nameof(GetSnapshot));
                 return default;
             }
-            return _provider.GetSnapshot(factionId);
+            var result = _provider.GetSnapshot(factionId);
+            DebugLog("←", "IFactionStateProvider", nameof(GetSnapshot), null,
+                     $"IsValid={result.IsValid}");
+            return result;
         }
         
         public bool HasFaction(string factionId)
         {
+            DebugLog("→", "IFactionStateProvider", nameof(HasFaction), $"factionId={factionId}");
+            
             if (_provider == null)
             {
                 WarnNoProvider(nameof(HasFaction));
                 return false;
             }
-            return _provider.HasFaction(factionId);
+            var result = _provider.HasFaction(factionId);
+            DebugLog("←", "IFactionStateProvider", nameof(HasFaction), null, result);
+            return result;
         }
         
         public IReadOnlyList<string> GetAllFactionIds()
         {
+            DebugLog("→", "IFactionStateProvider", nameof(GetAllFactionIds), "");
+            
             if (_provider == null)
             {
                 WarnNoProvider(nameof(GetAllFactionIds));
                 return System.Array.Empty<string>();
             }
-            return _provider.GetAllFactionIds();
+            var result = _provider.GetAllFactionIds();
+            DebugLog("←", "IFactionStateProvider", nameof(GetAllFactionIds), null,
+                     $"count={result?.Count ?? 0}");
+            return result;
         }
         
         // ════════════════════════════════════════════════════════
         // IFactionStateCommandReceiver — SetXxx 위임
         // ════════════════════════════════════════════════════════
         
-        public bool SetMood(string factionId, FactionMoodTag tag, bool on) =>
-            _receiver?.SetMood(factionId, tag, on) ?? FailNoReceiver(nameof(SetMood));
+        public bool SetMood(string factionId, FactionMoodTag tag, bool on)
+        {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(SetMood),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
+            if (_receiver == null) return FailNoReceiver(nameof(SetMood));
+            
+            var result = _receiver.SetMood(factionId, tag, on);
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(SetMood), null, result);
+            return result;
+        }
         
-        public bool SetTactical(string factionId, FactionTacticalTag tag, bool on) =>
-            _receiver?.SetTactical(factionId, tag, on) ?? FailNoReceiver(nameof(SetTactical));
+        public bool SetTactical(string factionId, FactionTacticalTag tag, bool on)
+        {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(SetTactical),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
+            if (_receiver == null) return FailNoReceiver(nameof(SetTactical));
+            
+            var result = _receiver.SetTactical(factionId, tag, on);
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(SetTactical), null, result);
+            return result;
+        }
         
-        public bool SetLifecycle(string factionId, FactionLifecycleTag tag, bool on) =>
-            _receiver?.SetLifecycle(factionId, tag, on) ?? FailNoReceiver(nameof(SetLifecycle));
+        public bool SetLifecycle(string factionId, FactionLifecycleTag tag, bool on)
+        {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(SetLifecycle),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
+            if (_receiver == null) return FailNoReceiver(nameof(SetLifecycle));
+            
+            var result = _receiver.SetLifecycle(factionId, tag, on);
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(SetLifecycle), null, result);
+            return result;
+        }
         
-        public bool SetRelation(string factionId, FactionRelationTag tag, bool on) =>
-            _receiver?.SetRelation(factionId, tag, on) ?? FailNoReceiver(nameof(SetRelation));
+        public bool SetRelation(string factionId, FactionRelationTag tag, bool on)
+        {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(SetRelation),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
+            if (_receiver == null) return FailNoReceiver(nameof(SetRelation));
+            
+            var result = _receiver.SetRelation(factionId, tag, on);
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(SetRelation), null, result);
+            return result;
+        }
         
         // ════════════════════════════════════════════════════════
         // IFactionStateCommandReceiver — ForceXxx 위임
@@ -213,26 +296,46 @@ namespace TDA.PB4.Faction
         
         public void ForceMood(string factionId, FactionMoodTag tag, bool on)
         {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(ForceMood),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
             if (_receiver == null) { WarnNoReceiver(nameof(ForceMood)); return; }
             _receiver.ForceMood(factionId, tag, on);
+            
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(ForceMood), null, "void");
         }
         
         public void ForceTactical(string factionId, FactionTacticalTag tag, bool on)
         {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(ForceTactical),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
             if (_receiver == null) { WarnNoReceiver(nameof(ForceTactical)); return; }
             _receiver.ForceTactical(factionId, tag, on);
+            
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(ForceTactical), null, "void");
         }
         
         public void ForceLifecycle(string factionId, FactionLifecycleTag tag, bool on)
         {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(ForceLifecycle),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
             if (_receiver == null) { WarnNoReceiver(nameof(ForceLifecycle)); return; }
             _receiver.ForceLifecycle(factionId, tag, on);
+            
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(ForceLifecycle), null, "void");
         }
         
         public void ForceRelation(string factionId, FactionRelationTag tag, bool on)
         {
+            DebugLog("→", "IFactionStateCommandReceiver", nameof(ForceRelation),
+                     $"factionId={factionId}, tag={tag}, on={on}");
+            
             if (_receiver == null) { WarnNoReceiver(nameof(ForceRelation)); return; }
             _receiver.ForceRelation(factionId, tag, on);
+            
+            DebugLog("←", "IFactionStateCommandReceiver", nameof(ForceRelation), null, "void");
         }
         
         // ────────────────────────────────────────
@@ -262,5 +365,51 @@ namespace TDA.PB4.Faction
         
         [ContextMenu("Re-resolve Implementation")]
         private void RerResolveImplementation() => ResolveImplementation();
+        
+        // ════════════════════════════════════════════════════════
+        // ★ v1.2 — Bridge 통계 + Provider 통계 ContextMenu (E-04 / S2 신규)
+        // ════════════════════════════════════════════════════════
+        
+        /// <summary>
+        /// Bridge 측 자체 호출 누적 출력. StateManager 측 통계와 별도 — Bridge 측만 측정.
+        /// </summary>
+        [ContextMenu("Print Bridge Stats")]
+        public void PrintBridgeStats()
+        {
+            Debug.Log(
+                $"[WorldFactionBridgeManager] === Bridge Stats ===\n" +
+                $"  Connected      : {IsConnected}\n" +
+                $"  BridgeCallCount: {_bridgeCallCount}\n" +
+                $"  VerboseLog     : {_verboseLog}");
+        }
+        
+        /// <summary>
+        /// 측 underlying StateManager 측 Validation Stats 측 위임 호출.
+        /// E-03 측 통계 카운터 (Set / Force / MaskViolation / MapperApply + 카테고리별) 출력.
+        /// </summary>
+        [ContextMenu("Print Provider Stats")]
+        public void PrintProviderStats()
+        {
+            if (_provider is WorldFactionStateManager mgr)
+            {
+                mgr.PrintValidationStats();
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "[WorldFactionBridgeManager] PrintProviderStats — " +
+                    "_provider 가 WorldFactionStateManager 아님 (or null). Bridge 연결 미정합.");
+            }
+        }
+        
+        /// <summary>
+        /// Bridge 측 자체 카운터 0 초기화. StateManager 측 통계는 보존.
+        /// </summary>
+        [ContextMenu("Reset Bridge Stats")]
+        public void ResetBridgeStats()
+        {
+            _bridgeCallCount = 0;
+            Debug.Log("[WorldFactionBridgeManager] Bridge stats reset.");
+        }
     }
 }

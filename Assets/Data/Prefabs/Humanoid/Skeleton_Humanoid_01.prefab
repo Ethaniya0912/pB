@@ -786,7 +786,7 @@ AudioSource:
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 1
-  m_Pitch: 1.0210716
+  m_Pitch: 0.9987414
   Loop: 0
   Mute: 0
   Spatialize: 0
@@ -1744,6 +1744,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   alertDurationForCombat: 0.5
+  _factionId: 
+  _aggressiveVisionMultiplier: 1.2
   hearingRange: 30
   hearingSensitivity: 0.5
   perceptionThreshold: 0.2

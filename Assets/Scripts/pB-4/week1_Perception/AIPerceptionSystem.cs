@@ -71,6 +71,8 @@ using TDA.PB4.AI.Mob;        // MobAIBrain → factionData
 using TDA.PB4.AI.Perception;  // SoundEventEmitter
 using TDA.PB4.Core;           // EventBus
 using TDA.PB4.AI;
+using TDA.PB4.Faction;        // ★ E-07 (S2) — WorldFactionBridgeManager
+using TDA.PB4.Faction.Tags;   // ★ E-07 (S2) — FactionMoodTag
 
 namespace TDA.PB4.AI.Perception
 {
@@ -115,6 +117,59 @@ namespace TDA.PB4.AI.Perception
                  "[개선] 기존: Alert 상태 자체로 즉시 Combat 가능 → 이제 유지 시간 필요.")]
         [Range(0f, 5f)]
         public float alertDurationForCombat = 0.5f;
+        
+        // ==================================================================
+        // ★ E-07 (S2) — Faction Mood 연동 (visionRange 동적 배율)
+        // ==================================================================
+        [Header("━━━ ★ E-07 — Faction Mood 연동 ━━━━━━━━━━━━━━━")]
+        
+        [Tooltip("본 AI가 속한 Faction ID. 본 ID의 Mood 변화에 따라 visionRange 자동 조정. " +
+                 "비어있으면 Faction 연동 비활성 (정상 visionRange 사용).")]
+        [SerializeField] private string _factionId = "";
+        
+        [Tooltip("MOOD_AGGRESSIVE 활성 시 visionRange 배율. " +
+                 "기본 1.2 = 시야 거리 +20%. 매뉴얼 v2 §2.4 E-07 정합.")]
+        [Range(1.0f, 3.0f)]
+        [SerializeField] private float _aggressiveVisionMultiplier = 1.2f;
+        
+        // visionRange 의 기본값 캐시 (Awake 에서 저장). Mood 변화 시 배율 적용 기준.
+        private float _baseVisionRange;
+        
+        /// <summary>
+        /// ★ E-07 — Faction ID 외부 주입 (WorldAISpawnManager spawn 시점 호출).
+        /// Inspector _factionId override + 즉시 현재 Mood 상태 반영.
+        /// </summary>
+        public void SetFactionId(string factionId)
+        {
+            _factionId = factionId;
+            
+            // 본 호출 시점 측 본격 Faction 상태 측 즉시 반영 (구독 후 초기 동기화)
+            ApplyCurrentMoodFromState();
+            
+            Debug.Log(
+                $"<color=#8CD9D9>[AIPerceptionSystem / E-07]</color> " +
+                $"Faction ID 주입 = '{factionId}' / visionRange={visionRange:F1}m");
+        }
+        
+        /// <summary>
+        /// 현재 Faction 상태 측 Snapshot 측 본격 조회 → MOOD_AGGRESSIVE 측 시 visionRange × multiplier.
+        /// 본 메서드 측 SetFactionId 직후 + Awake 후 본격 호출 권장.
+        /// </summary>
+        private void ApplyCurrentMoodFromState()
+        {
+            if (string.IsNullOrEmpty(_factionId)) return;
+            
+            var bridge = WorldFactionBridgeManager.Instance;
+            if (bridge == null) return;
+            
+            var snap = bridge.GetSnapshot(_factionId);
+            if (!snap.IsValid) return;
+            
+            bool isAggressive = snap.HasMood(FactionMoodTag.MOOD_AGGRESSIVE);
+            visionRange = isAggressive
+                ? (_baseVisionRange * _aggressiveVisionMultiplier)
+                : _baseVisionRange;
+        }
 
         // ==================================================================
         // 청각 인지 설정
@@ -224,6 +279,7 @@ namespace TDA.PB4.AI.Perception
         private void Awake()
         {
             brain = GetComponent<BaseAIBrain>();
+            _baseVisionRange = visionRange;  // ★ E-07 — Faction Mood 배율 기준값 캐시
         }
 
         private void OnEnable()
@@ -233,12 +289,20 @@ namespace TDA.PB4.AI.Perception
             //       SoundEventEmitter.EmitSound() 호출 시 AIPerceptionSystem이 전혀 반응하지 않았음.
             // 수정: HandleSoundEvent() 어댑터로 3인자 이벤트 → 기존 OnSoundHeard(2인자) 연결.
             SoundEventEmitter.OnSoundEmitted += HandleSoundEvent;
+            
+            // ★ E-07 (S2) — Faction Mood 변화 구독
+            var bridge = WorldFactionBridgeManager.Instance;
+            if (bridge != null) bridge.OnFactionStateChanged += HandleFactionStateChanged;
         }
 
         private void OnDisable()
         {
             // 구독 해제 — 오브젝트 비활성화 또는 씬 전환 시 이벤트 누수 방지
             SoundEventEmitter.OnSoundEmitted -= HandleSoundEvent;
+            
+            // ★ E-07 (S2) — Faction 구독 해제
+            var bridge = WorldFactionBridgeManager.Instance;
+            if (bridge != null) bridge.OnFactionStateChanged -= HandleFactionStateChanged;
         }
 
         private void Update()
@@ -254,6 +318,42 @@ namespace TDA.PB4.AI.Perception
                 TickTraceDetection();
                 DecayAwareness();
             }
+        }
+        
+        // ==================================================================
+        // ★ E-07 (S2) — Faction Mood 핸들러
+        // ==================================================================
+        
+        /// <summary>
+        /// OnFactionStateChanged 핸들러 — MOOD_AGGRESSIVE 활성 시 visionRange × multiplier.
+        /// 본 AI의 _factionId 와 일치하는 이벤트만 처리.
+        /// </summary>
+        private void HandleFactionStateChanged(FactionStateChangeEventArgs args)
+        {
+            string factionId = args.factionId;
+            
+            // 본 AI의 Faction과 일치하지 않으면 무시 (다른 Faction 이벤트 필터링)
+            if (string.IsNullOrEmpty(_factionId) || factionId != _factionId) return;
+            
+            // Mood 변화 점검 (Helper 사용)
+            if (!args.MoodChanged) return;
+            
+            // MOOD_AGGRESSIVE 활성 여부 (신구 상태 비교)
+            uint aggressiveBit = (uint)FactionMoodTag.MOOD_AGGRESSIVE;
+            bool wasAggressive = (args.bitsBefore.moodBits & aggressiveBit) != 0u;
+            bool isAggressive  = (args.bitsAfter.moodBits  & aggressiveBit) != 0u;
+            
+            if (wasAggressive == isAggressive) return;  // AGGRESSIVE 토글 없음 — 다른 Mood 변화
+            
+            // visionRange 동적 조정
+            visionRange = isAggressive
+                ? (_baseVisionRange * _aggressiveVisionMultiplier)
+                : _baseVisionRange;
+            
+            Debug.Log(
+                $"<color=#FFAA66>[AIPerceptionSystem / E-07]</color> {factionId} " +
+                $"MOOD_AGGRESSIVE {(isAggressive ? "ON" : "OFF")} — " +
+                $"visionRange={visionRange:F1}m (base={_baseVisionRange:F1})");
         }
 
         // ==================================================================
