@@ -5,6 +5,7 @@
 > `<...>` 는 치환 자리. 읽기 전용 질의는 `--json exec` 로, 응답은 `--json` 으로 안정 파싱.
 
 ## 목차
+0. 설치 (1회 셋업)
 1. 상태·게이팅
 2. 존재 확인 (타입/에셋/오브젝트)
 3. 에셋 트리 덤프
@@ -12,6 +13,29 @@
 5. 구현 루프 (컴파일·플레이·콘솔)
 6. 커스텀 툴
 7. 스냅샷 덤프 (as-is)
+
+---
+
+## 0. 설치 (1회 셋업) — 공식: github.com/youngwoocho02/unity-cli
+```powershell
+# CLI 바이너리 — Windows (PowerShell)
+irm https://raw.githubusercontent.com/youngwoocho02/unity-cli/master/install.ps1 | iex
+```
+```bash
+# CLI 바이너리 — Linux/macOS
+curl -fsSL https://raw.githubusercontent.com/youngwoocho02/unity-cli/master/install.sh | sh
+# 업데이트
+unity-cli update          # (--check 로 확인만)
+```
+**Unity Connector 패키지** — Package Manager → `+` → *Add package from git URL*:
+```
+https://github.com/youngwoocho02/unity-cli.git?path=unity-connector
+```
+또는 `Packages/manifest.json` 직접 편집(버전 고정은 `#v0.2.21` 식 태그 추가):
+```json
+"com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector"
+```
+Connector 는 Unity 기동 시 자동 활성화된다(별도 설정 불필요, 기본 포트 8090).
 
 ---
 

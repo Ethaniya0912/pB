@@ -8,7 +8,7 @@
 #     없으면 스크립트 위치에서 프로젝트 루트를 역산한다.
 #
 # 제공: HARNESS_PROJECT_DIR / HARNESS_DIR / HOOK_LOG
-#       log()  json_field()  json_engine()  cycle_dir()
+#       log()  json_field()  json_engine()  json_escape()  cycle_dir()  ucli()
 
 # ── 경로 해석 ────────────────────────────────────────────────────────────────
 HARNESS_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
@@ -78,6 +78,12 @@ print(cur if isinstance(cur, str) else json.dumps(cur, ensure_ascii=False))
   esac
 }
 
+# json_escape <string> : JSON 문자열 리터럴 내부에 안전하게 들어가도록 이스케이프.
+# 제어문자(개행 포함)는 공백화·제거 — 엔진 불요, 결정적 동작.
+json_escape() {
+  printf '%s' "$1" | tr '\n\r\t' '   ' | tr -d '\000-\037' | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 # cycle_dir : 가장 최신 사이클 폴더의 절대경로를 출력. 없으면 비제로 종료.
 # 정렬 규칙: YYYY-MM-DD_<slug> 는 사전식 정렬이 곧 시간순이다.
 cycle_dir() {
@@ -86,4 +92,27 @@ cycle_dir() {
   latest="$(ls -1 "$cycles" 2>/dev/null | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}_' | sort | tail -1)"
   [ -n "$latest" ] || return 1
   printf '%s' "$cycles/$latest"
+}
+
+# ── unity-cli 타임아웃 래퍼 ──────────────────────────────────────────────────
+# ucli <args...> : GNU timeout 이 있으면 제한 시간(기본 50s) 내로 unity-cli 실행.
+# Editor 행(컴파일 교착·무응답) 시 훅 전체가 Claude 훅 타임아웃에 걸려 죽는 것을 방지.
+# 주의: Windows system32 의 timeout.exe 는 GNU 와 다르므로 --version 으로 판별한다.
+_UCLI_TIMEOUT_BIN=""
+_detect_timeout() {
+  [ -n "$_UCLI_TIMEOUT_BIN" ] && return 0
+  if command -v timeout >/dev/null 2>&1 && timeout --version >/dev/null 2>&1; then
+    _UCLI_TIMEOUT_BIN="timeout"
+  else
+    _UCLI_TIMEOUT_BIN="none"
+  fi
+}
+ucli() {
+  local t="${HARNESS_UCLI_TIMEOUT:-50}"
+  _detect_timeout
+  if [ "$_UCLI_TIMEOUT_BIN" = "timeout" ]; then
+    timeout "${t}s" unity-cli "$@"
+  else
+    unity-cli "$@"
+  fi
 }

@@ -4,7 +4,7 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "bash .harness/hooks/load-context.sh" }
+          { "type": "command", "command": "bash .harness/hooks/load-context.sh", "timeout": 30 }
         ]
       }
     ],
@@ -12,7 +12,7 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash .harness/hooks/guard-unity-cli.sh" }
+          { "type": "command", "command": "bash .harness/hooks/guard-unity-cli.sh", "timeout": 15 }
         ]
       }
     ],
@@ -20,14 +20,14 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "bash .harness/hooks/post-asset-edit.sh" }
+          { "type": "command", "command": "bash .harness/hooks/post-asset-edit.sh", "timeout": 180 }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "bash .harness/hooks/require-checklist.sh" }
+          { "type": "command", "command": "bash .harness/hooks/require-checklist.sh", "timeout": 30 }
         ]
       }
     ]

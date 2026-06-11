@@ -53,8 +53,8 @@ fi
 
 if [ -n "$reasons" ]; then
   log "BLOCK: $reasons"
-  esc="$(printf '%s' "$reasons" | sed 's/\\/\\\\/g; s/"/\\"/g')"
-  printf '{"decision":"block","reason":"사이클 [%s] 마감 전 정리 필요 — %s게이트 문서화·색인(_index.md/meta.json) 갱신 후 종료하세요."}\n' "$base" "$esc"
+  printf '{"decision":"block","reason":"사이클 [%s] 마감 전 정리 필요 — %s게이트 문서화·색인(_index.md/meta.json) 갱신 후 종료하세요."}\n' \
+    "$(json_escape "$base")" "$(json_escape "$reasons")"
   exit 0
 fi
 

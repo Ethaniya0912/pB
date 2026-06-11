@@ -64,10 +64,12 @@ elif [ -n "$INPUT" ]; then
   echo "[scaffold] 경고: 입력 문서를 찾을 수 없음: $INPUT" >&2
 fi
 
-# as-is 스냅샷
+# as-is 스냅샷 (_lib.sh 의 ucli 타임아웃 래퍼 재사용 — Editor 행 시 스캐폴딩 정지 방지)
+[ -f "$HARNESS/hooks/_lib.sh" ] && . "$HARNESS/hooks/_lib.sh"
+command -v ucli >/dev/null 2>&1 || ucli() { unity-cli "$@"; }
 SNAP="$HARNESS/snapshots/${DATE}_${SLUG}_before.json"
 if command -v unity-cli >/dev/null 2>&1; then
-  if unity-cli --json exec "return UnityEditor.AssetDatabase.GetAllAssetPaths().Where(p=>p.StartsWith(\"Assets/\")).ToArray()" --usings System.Linq > "$SNAP" 2>/dev/null && [ -s "$SNAP" ]; then
+  if ucli --json exec "return UnityEditor.AssetDatabase.GetAllAssetPaths().Where(p=>p.StartsWith(\"Assets/\")).ToArray()" --usings System.Linq > "$SNAP" 2>/dev/null && [ -s "$SNAP" ]; then
     echo "[scaffold] 스냅샷: ${SNAP#$ROOT/}" >&2
   else
     echo "[scaffold] 스냅샷 실패(Editor offline?) — 건너뜀" >&2

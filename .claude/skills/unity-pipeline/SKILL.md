@@ -104,8 +104,9 @@ description: >
 ## 7. 구현 루프 (⑦ 이후, task 단위 반복)
 각 task 에 대해:
 1. **편집** — Edit/Write 로 스크립트·에셋 텍스트 수정.
-2. **정합화·컴파일** — `.prefab/.unity/.asset/.mat` 는 **PostToolUse 훅이 자동으로**
-   `reserialize → editor refresh --compile → console --filter error` 수행. `.cs` 는 compile 만.
+2. **정합화·컴파일** — Unity YAML 에셋(`.prefab/.unity/.asset/.mat/.anim/.controller` 등)은
+   **PostToolUse 훅이 자동으로** `reserialize → editor refresh --compile → console --filter error`
+   수행. 코드 계열(`.cs/.asmdef/.shader` 등)은 compile 만.
    → **너는 reserialize 를 수동 호출하지 않는다**(훅 책임). 훅이 stderr 로 에러를 돌려주면 수정한다.
 3. **콘솔 확인** — 컴파일 에러 없으면 다음으로. 있으면 수정 후 재편집(루프 재진입).
 4. **플레이 테스트** — `unity-cli editor play --wait` 로 진입 → 동작 확인 → `console` 재확인 → 판정.
