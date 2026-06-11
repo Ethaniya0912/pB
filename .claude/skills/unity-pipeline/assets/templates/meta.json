@@ -1,0 +1,12 @@
+{
+  "id": "<YYYY-MM-DD_slug>",
+  "title": "<사이클 제목>",
+  "created": "<YYYY-MM-DD HH:MM>",
+  "updated": "<YYYY-MM-DD HH:MM>",
+  "status": "started",
+  "awaiting_gate": null,
+  "stage": "01_target",
+  "input": ["00_input/<원본>"],
+  "snapshots": { "before": "snapshots/<ts>.json", "after": null },
+  "links": { "index": "../../_index.md", "decisions": "decisions.md" }
+}
