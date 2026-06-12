@@ -1,0 +1,3 @@
+# 하네스 셸 스크립트는 항상 LF 로 유지(Windows 체크아웃 시 CRLF 변환 방지 → bash 훅 보호)
+*.sh text eol=lf
+.harness/hooks/** text eol=lf

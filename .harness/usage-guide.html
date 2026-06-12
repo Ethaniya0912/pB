@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unity 개발 하네스 — 사용 가이드</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1e2230; --border: #2a2f3f;
+    --text: #d7dce6; --muted: #8b93a7; --accent: #4ea1ff; --accent2: #7ee2a8;
+    --warn: #ffce6b; --danger: #ff7d7d; --code-bg: #11141c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.65; font-size: 15px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 28px 80px; }
+  header.hero {
+    background: linear-gradient(135deg, #15305c 0%, #0f1117 70%);
+    border: 1px solid var(--border); border-radius: 14px; padding: 34px 36px; margin-bottom: 28px;
+  }
+  header.hero h1 { margin: 0 0 8px; font-size: 28px; color: #fff; }
+  header.hero p { margin: 4px 0; color: var(--muted); }
+  .badges span {
+    display: inline-block; background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 12px; margin: 8px 6px 0 0; font-size: 12.5px; color: var(--accent);
+  }
+  h2 {
+    font-size: 21px; color: #fff; margin: 44px 0 14px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h2 .num { color: var(--accent); margin-right: 8px; }
+  h3 { font-size: 16.5px; color: var(--accent2); margin: 26px 0 10px; }
+  p { margin: 8px 0; }
+  .muted { color: var(--muted); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 22px; margin: 14px 0;
+  }
+  .callout { border-left: 4px solid var(--accent); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.danger { border-left-color: var(--danger); }
+  .callout.ok { border-left-color: var(--accent2); }
+  code {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 1.5px 6px; font-family: Consolas, "D2Coding", monospace; font-size: 13px; color: #a8d8ff;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 18px; overflow-x: auto; margin: 10px 0;
+  }
+  pre code { background: none; border: none; padding: 0; color: #c9e3ff; }
+  pre .cmt { color: #6b7385; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; }
+  th {
+    background: var(--panel2); color: #fff; text-align: left; padding: 9px 12px;
+    border: 1px solid var(--border); font-weight: 600;
+  }
+  td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.018); }
+  .tag {
+    display: inline-block; border-radius: 4px; padding: 1px 8px; font-size: 12px; font-weight: 600;
+  }
+  .tag.allow { background: #15351f; color: var(--accent2); }
+  .tag.ask   { background: #3a3115; color: var(--warn); }
+  .tag.deny  { background: #3a1818; color: var(--danger); }
+  .tag.gate  { background: #16294a; color: var(--accent); }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+  .flow .step {
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; text-align: center;
+  }
+  .flow .step b { display: block; color: #fff; font-size: 13.5px; }
+  .flow .step small { color: var(--muted); }
+  .flow .step.gated { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .flow .arrow { color: var(--muted); font-size: 15px; }
+  .tree {
+    font-family: Consolas, "D2Coding", monospace; font-size: 13px; line-height: 1.7;
+    color: #b9c2d4; white-space: pre; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; overflow-x: auto;
+  }
+  .tree .d { color: var(--accent); } .tree .c { color: #6b7385; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+  .checklist li { margin: 6px 0; }
+  nav.toc { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 24px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  nav.toc ol { margin: 6px 0; padding-left: 22px; columns: 2; }
+  @media (max-width: 700px) { nav.toc ol { columns: 1; } }
+  footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12.5px; }
+  @media print {
+    :root { --bg:#fff; --panel:#f7f8fa; --panel2:#eef0f4; --border:#ccd1dc; --text:#222; --muted:#666; --code-bg:#f2f4f8; }
+    body { font-size: 12px; } header.hero { background: #eef2f8; } header.hero h1, h2 { color: #111; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Unity 개발 하네스 — 사용 가이드</h1>
+  <p>Claude Code 훅 + <code>unity-pipeline</code> 스킬로 구성된 사이클 기반 개발 자동화 하네스의 설치·운용 매뉴얼</p>
+  <div class="badges">
+    <span>훅 4종 (SessionStart · PreToolUse · PostToolUse · Stop)</span>
+    <span>8단계 파이프라인 ①~⑧</span>
+    <span>게이트 G1~G7</span>
+    <span>테스트 22/22 PASS</span>
+    <span>2026-06-12 · 기준 커밋 05c2df5</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <b>목차</b>
+  <ol>
+    <li><a href="#arch">아키텍처 — 결정과 강제의 분리</a></li>
+    <li><a href="#tree">디렉토리 구조</a></li>
+    <li><a href="#setup">1회 셋업 (설치·환경)</a></li>
+    <li><a href="#workflow">일상 워크플로 — /cycle-start → ①~⑧</a></li>
+    <li><a href="#gates">게이트 G1~G7 — 응답 방법</a></li>
+    <li><a href="#hooks">훅 레퍼런스 (4종)</a></li>
+    <li><a href="#loop">구현 루프</a></li>
+    <li><a href="#agents">서브에이전트</a></li>
+    <li><a href="#failsafe">Fail-safe 동작 (미설치 환경)</a></li>
+    <li><a href="#test">하네스 자체 테스트</a></li>
+    <li><a href="#trouble">트러블슈팅</a></li>
+    <li><a href="#notes">주의사항·FAQ</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="arch"><span class="num">1.</span>아키텍처 — 결정(Skill)과 강제(Hook)의 분리</h2>
+
+<p>하네스의 핵심 설계 원칙은 <b>LLM이 따를 절차(결정)와 LLM 판단과 무관하게 항상 일어나야 하는 일(강제)을 분리</b>하는 것이다.</p>
+
+<div class="grid2">
+  <div class="panel callout">
+    <h3 style="margin-top:0">📘 Skill — 무엇을·어떻게 (결정)</h3>
+    <p><code>unity-pipeline</code> 스킬이 8단계 절차·매트릭스 양식·CLI 템플릿을 안내한다.
+    Claude는 이 절차를 따라 분석·명세·셋업을 수행하고, 게이트에서 <b>멈추고 질문</b>한다.</p>
+    <p class="muted">스킬은 어겨질 수 있다 — 그래서 강제가 따로 있다.</p>
+  </div>
+  <div class="panel callout ok">
+    <h3 style="margin-top:0">🔒 Hook — 항상 일어나는 일 (강제)</h3>
+    <p>훅은 Claude Code 런타임이 실행한다. 에셋 편집 후 정합화, 파괴적 명령 차단,
+    체크리스트 미완료 시 종료 차단은 <b>LLM이 잊어도 자동으로</b> 일어난다.</p>
+    <p class="muted">훅은 셸 스크립트라 모델·프롬프트와 무관하게 결정적으로 동작한다.</p>
+  </div>
+</div>
+
+<div class="flow">
+  <div class="step"><b>SessionStart</b><small>컨텍스트 주입</small></div>
+  <div class="arrow">→</div>
+  <div class="step"><b>PreToolUse</b><small>파괴 명령 가드 (G4)</small></div>
+  <div class="arrow">→</div>
+  <div class="step"><b>PostToolUse</b><small>정합화·컴파일·콘솔</small></div>
+  <div class="arrow">→</div>
+  <div class="step"><b>Stop</b><small>마감 체크 (G1·2·3·5·7)</small></div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="tree"><span class="num">2.</span>디렉토리 구조</h2>
+
+<div class="tree"><span class="d">프로젝트 루트/</span>
+├─ <span class="d">.harness/</span>                      <span class="c"># 하네스 산출물 (Assets/ 밖 → .meta 오염 방지)</span>
+│  ├─ _index.md                    <span class="c"># 사이클 레지스트리 (append-only, 단일 진실원)</span>
+│  ├─ _conventions.md              <span class="c"># 네이밍·에셋 범주·CLI 규칙</span>
+│  ├─ usage-guide.html             <span class="c"># 이 문서</span>
+│  ├─ <span class="d">hooks/</span>                      <span class="c"># 훅 4종 + 공통 라이브러리 + 테스트</span>
+│  │  ├─ _lib.sh                   <span class="c"># json_field/json_escape/ucli/cycle_dir/log</span>
+│  │  ├─ load-context.sh           <span class="c"># SessionStart</span>
+│  │  ├─ guard-unity-cli.sh        <span class="c"># PreToolUse(Bash) — G4</span>
+│  │  ├─ post-asset-edit.sh        <span class="c"># PostToolUse(Edit|Write)</span>
+│  │  ├─ require-checklist.sh      <span class="c"># Stop</span>
+│  │  └─ <span class="d">tests/</span> run.sh + 픽스처 15종
+│  ├─ <span class="d">cycles/</span>                     <span class="c"># 사이클별 산출물 (YYYY-MM-DD_slug/)</span>
+│  ├─ <span class="d">snapshots/</span>                  <span class="c"># as-is/after 에셋 스냅샷(JSON)</span>
+│  └─ <span class="d">archive/</span>                    <span class="c"># 완료 사이클 보관</span>
+├─ <span class="d">.claude/</span>
+│  ├─ settings.json                <span class="c"># 훅 와이어링 (+훅별 timeout)</span>
+│  ├─ <span class="d">agents/</span> asset-auditor.md · test-runner.md
+│  └─ <span class="d">skills/</span>
+│     ├─ <span class="d">cycle-start/</span> SKILL.md     <span class="c"># /cycle-start 진입점 (수동 호출 전용)</span>
+│     └─ <span class="d">unity-pipeline/</span>
+│        ├─ SKILL.md               <span class="c"># 8단계 절차 본문 (자동 트리거)</span>
+│        ├─ <span class="d">references/</span> cli-cookbook · matrix-schemas · gates · stage-01~08
+│        ├─ <span class="d">assets/templates/</span> 01~08 · meta.json · decisions.md
+│        └─ <span class="d">scripts/</span> scaffold_cycle.sh
+└─ .gitattributes                  <span class="c"># *.sh eol=lf (Windows CRLF 방지)</span></div>
+
+<div class="tree" style="margin-top:10px"><span class="d">.harness/cycles/2026-06-12_inventory/</span>   <span class="c"># 사이클 1개의 내부 (예)</span>
+├─ <span class="d">00_input/</span>          <span class="c"># 원본 기획 문서 사본</span>
+├─ 01_target.md        <span class="c"># ① 기획 내용 정리        ▸ G1</span>
+├─ 02_goal.md          <span class="c"># ② 개발 요구사항</span>
+├─ 03_scope.md         <span class="c"># ③ 변경 범위·영향도      ▸ G2</span>
+├─ 04_assets.md        <span class="c"># ④ 에셋 작업 목록        ▸ G3</span>
+├─ <span class="d">05_spec/</span>           <span class="c"># ⑤ 에셋 단위 기술명세</span>
+├─ 06_test_env.md      <span class="c"># ⑥ 테스트 환경 as-is/to-be ▸ G5</span>
+├─ 07_plan.md          <span class="c"># ⑦ task 체크리스트 (Stop 훅이 감시)</span>
+├─ 08_result.md        <span class="c"># ⑧ 결과 보고 + 스냅샷 diff ▸ G7</span>
+├─ decisions.md        <span class="c"># 게이트 결정 기록 (Stop 훅이 검사)</span>
+└─ meta.json           <span class="c"># status / awaiting_gate</span></div>
+
+<!-- ============================================================ -->
+<h2 id="setup"><span class="num">3.</span>1회 셋업 (설치·환경)</h2>
+
+<h3>3-1. jq (권장 — JSON 파싱 정확도)</h3>
+<pre><code><span class="cmt"># Windows — 셋 중 하나</span>
+winget install jqlang.jq
+choco install jq
+scoop install jq
+
+<span class="cmt"># 확인 (새 터미널)</span>
+jq --version</code></pre>
+<p class="muted">없어도 동작한다(python → sed 폴백). 단, 안전 게이트(guard)의 명령 추출 정확도를 위해 설치 권장.</p>
+
+<h3>3-2. unity-cli — CLI 바이너리</h3>
+<pre><code><span class="cmt"># Windows (PowerShell) — 공식 인스톨러</span>
+irm https://raw.githubusercontent.com/youngwoocho02/unity-cli/master/install.ps1 | iex
+
+<span class="cmt"># 확인 / 업데이트</span>
+unity-cli --version
+unity-cli update</code></pre>
+
+<h3>3-3. unity-cli — Unity Connector 패키지</h3>
+<p>Unity Editor → <b>Window → Package Manager</b> → <code>+</code> → <b>Add package from git URL</b>:</p>
+<pre><code>https://github.com/youngwoocho02/unity-cli.git?path=unity-connector</code></pre>
+<p>또는 <code>Packages/manifest.json</code> 직접 편집(버전 고정은 <code>#v0.2.21</code> 식 태그):</p>
+<pre><code>"com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector"</code></pre>
+<div class="panel callout ok">Connector는 Unity 기동 시 <b>자동 활성화</b>된다(기본 포트 8090, 별도 설정 불필요).
+확인: Editor 켠 상태에서 <code>unity-cli --json status</code> → <code>"ready"</code>.</div>
+
+<h3>3-4. Unity Preferences</h3>
+<ul>
+  <li><b>Edit → Preferences → General → Interaction Mode = <code>No Throttling</code></b>
+      — 백그라운드에서도 unity-cli 요청에 즉시 응답하게 한다(컴파일 대기 단축).</li>
+</ul>
+
+<h3>3-5. CLAUDE.md (프로젝트 메모리)</h3>
+<p>Claude Code에서 <code>/init</code> 실행 후, 생성된 CLAUDE.md에 다음을 보정한다:</p>
+<pre><code>## 중요 규칙
+- 사이클 단위 개발은 반드시 /cycle-start &lt;문서&gt; 로 시작한다.
+- 게이트(G1·G2·G3·G5·G7)에서 멈추는 것은 정상 동작 — 확인 후 승인/수정을 응답.
+- .harness/cycles/ 산출물은 삭제하지 않는다(append-only).
+
+## 환경
+- Unity 버전 / 주요 네임스페이스 / unity-cli 포트(기본 8090)</code></pre>
+
+<h3>3-6. 셋업 완료 체크리스트</h3>
+<div class="panel">
+<ul class="checklist">
+  <li>☐ <code>jq --version</code> 동작</li>
+  <li>☐ <code>unity-cli --version</code> 동작</li>
+  <li>☐ Editor 켠 상태에서 <code>unity-cli --json status</code> → <code>ready</code></li>
+  <li>☐ Preferences → Interaction Mode = No Throttling</li>
+  <li>☐ CLAUDE.md 작성</li>
+  <li>☐ <code>bash .harness/hooks/tests/run.sh</code> → <code>PASS=22 FAIL=0</code></li>
+  <li>☐ Claude Code 새 세션 시작 시 <code>=== Unity 하네스 컨텍스트 ===</code> 헤더 표시</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="workflow"><span class="num">4.</span>일상 워크플로 — /cycle-start → ①~⑧</h2>
+
+<h3>4-1. 시작 — 권장 기동 순서</h3>
+<div class="flow">
+  <div class="step"><b>1. Unity Editor 열기</b><small>Console 창 표시</small></div>
+  <div class="arrow">→</div>
+  <div class="step"><b>2. status 확인</b><small>unity-cli --json status</small></div>
+  <div class="arrow">→</div>
+  <div class="step"><b>3. Claude Code 시작</b><small>SessionStart 훅이 컨텍스트 주입</small></div>
+  <div class="arrow">→</div>
+  <div class="step"><b>4. /cycle-start</b><small>기획 문서 전달</small></div>
+</div>
+
+<pre><code>/cycle-start docs/기획_인벤토리.md inventory</code></pre>
+<p>스캐폴딩 스크립트가 <code>.harness/cycles/2026-06-12_inventory/</code>를 만들고 원본 보관·as-is 스냅샷·색인 등록까지 자동 수행한 뒤, 곧바로 ① target 분석을 시작한다.</p>
+<div class="panel callout warn"><b>왜 /cycle-start 인가?</b> 폴더 생성이라는 부작용이 있어 모델 자동 호출이 금지돼 있다
+(<code>disable-model-invocation: true</code>). 반대로 분석·계획 요청("이 기획서로 개발 계획 세워줘")은
+<code>unity-pipeline</code> 스킬이 <b>자동으로</b> 트리거된다 — 단, 사이클 폴더가 없으면 /cycle-start 실행을 먼저 안내한다.</div>
+
+<h3>4-2. 8단계 파이프라인</h3>
+<div class="flow">
+  <div class="step gated"><b>① target</b><small>기획 리스트화 · G1</small></div><div class="arrow">→</div>
+  <div class="step"><b>② goal</b><small>요구사항 도출</small></div><div class="arrow">→</div>
+  <div class="step gated"><b>③ scope</b><small>기구현/신규 판정 · G2</small></div><div class="arrow">→</div>
+  <div class="step gated"><b>④ assets</b><small>경로·파일명 확정 · G3</small></div><div class="arrow">→</div>
+  <div class="step"><b>⑤ spec</b><small>기술명세</small></div><div class="arrow">→</div>
+  <div class="step gated"><b>⑥ test_env</b><small>as-is/to-be · G5</small></div><div class="arrow">→</div>
+  <div class="step"><b>⑦ plan</b><small>체크리스트</small></div><div class="arrow">→</div>
+  <div class="step gated"><b>⑧ result</b><small>보고+diff · G7</small></div>
+</div>
+
+<table>
+  <tr><th style="width:90px">단계</th><th>산출물</th><th>핵심 활동</th><th style="width:70px">게이트</th></tr>
+  <tr><td>① target</td><td><code>01_target.md</code></td><td>기획 원문을 빠짐없이 리스트화·분류. 원문 근거와 SE 해석을 구분, 모호도 표기</td><td><span class="tag gate">G1</span></td></tr>
+  <tr><td>② goal</td><td><code>02_goal.md</code></td><td>target → 개발 요구사항 변환·매핑. 필요 시스템·에셋 범주·우선순위</td><td>—</td></tr>
+  <tr><td>③ scope</td><td><code>03_scope.md</code></td><td><code>unity-cli exec</code>로 타입·에셋 존재 확인, 이전 사이클 04_assets와 대조해 기구현/신규/변경 판정</td><td><span class="tag gate">G2</span></td></tr>
+  <tr><td>④ assets</td><td><code>04_assets.md</code></td><td>실제 파일·경로명 확정(이후 계약이 됨), goal과 매핑, 의존 정리</td><td><span class="tag gate">G3</span></td></tr>
+  <tr><td>⑤ spec</td><td><code>05_spec/*.md</code></td><td>에셋별 기술명세 — 스크립트: 클래스·책임·API / 기타: 사양·포맷·참조</td><td>—</td></tr>
+  <tr><td>⑥ test_env</td><td><code>06_test_env.md</code></td><td>씬·프리팹·오브젝트를 as-is/to-be로 기술, unity-cli 실행 가능 수준으로</td><td><span class="tag gate">G5</span></td></tr>
+  <tr><td>⑦ plan</td><td><code>07_plan.md</code></td><td>task 체크리스트(<code>- [ ]</code>) 작성 → 구현 루프의 작업 큐</td><td>—</td></tr>
+  <tr><td>⑧ result</td><td><code>08_result.md</code></td><td>결과 종합 + as-is→to-be 스냅샷 diff 첨부, 사인오프</td><td><span class="tag gate">G7</span></td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="gates"><span class="num">5.</span>게이트 G1~G7 — 응답 방법</h2>
+
+<p>게이트에 도달하면 Claude가 <b>자동 진행을 멈추고</b> 결정 요약과 선택지를 제시한다.
+사용자는 검토 후 승인·수정·반려를 응답하면 되고, 결정은 <code>decisions.md</code>에 기록된다.</p>
+
+<table>
+  <tr><th style="width:60px">게이트</th><th>시점</th><th>무엇을 확인하나</th><th>강제 주체</th></tr>
+  <tr><td><b>G1</b></td><td>① 직후</td><td>기획 해석·모호 항목이 의도와 맞는가</td><td>Stop 훅</td></tr>
+  <tr><td><b>G2</b></td><td>③ 직후</td><td>기존 에셋 수정·영향도 높은 항목 승인</td><td>Stop 훅</td></tr>
+  <tr><td><b>G3</b></td><td>④ 직후</td><td>생성될 파일·경로명 확정(이후 변경 비용 큼)</td><td>Stop 훅</td></tr>
+  <tr><td><b>G4</b></td><td>파괴 명령 직전</td><td>reserialize 대량/Delete/Destroy/rm -rf Assets 등 → 권한 프롬프트(ask/deny)</td><td><b>PreToolUse 훅 (자동)</b></td></tr>
+  <tr><td><b>G5</b></td><td>⑥ 직후</td><td>테스트 환경 as-is→to-be 실제 적용 승인</td><td>Stop 훅</td></tr>
+  <tr><td><b>G6</b></td><td>테스트 실패 시</td><td>기계적 수정이 아닌 설계 분기 — 선택지 중 결정</td><td>수동(스킬 안내)</td></tr>
+  <tr><td><b>G7</b></td><td>⑧ 직전</td><td>결과 보고서·diff 검토 후 사이클 사인오프</td><td>Stop 훅</td></tr>
+</table>
+
+<div class="panel callout">
+<b>Stop 훅의 강제 방식:</b> 게이트 대기(<code>awaiting_gate</code>)가 걸린 채, 또는 미체크 task가 남은 채
+세션을 끝내려 하면 훅이 종료를 차단하고 사유를 돌려준다 — "사이클 [...] 마감 전 정리 필요 — 미체크 task 3건; 게이트 G2 결정 미기록...".
+<code>decisions.md</code> 기록·체크리스트 갱신 후에만 정상 종료된다.
+</div>
+<div class="panel callout warn">
+<b>G4 권한 프롬프트가 떴을 때:</b> <span class="tag ask">ask</span>는 명령 내용을 읽고 의도한 작업이면 승인.
+<span class="tag deny">deny</span>(프로젝트 전체 reserialize, Assets 루트 삭제 등)는 자동 차단되며,
+범위를 단일 에셋으로 좁히거나 사람이 직접 수행해야 한다.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="hooks"><span class="num">6.</span>훅 레퍼런스 (4종)</h2>
+
+<h3>6-1. load-context.sh — SessionStart</h3>
+<table>
+  <tr><th style="width:110px">트리거</th><td>세션 시작·재개·컴팩트 직후</td></tr>
+  <tr><th>동작</th><td>Unity 상태(10s 타임아웃) · 최신 사이클 meta/plan 카운트 · <b>대기 게이트 경고</b> · _index.md 꼬리 5줄을 컨텍스트로 주입</td></tr>
+  <tr><th>실패 시</th><td>항상 통과(비차단). unity-cli 없으면 설치 안내만 출력</td></tr>
+</table>
+
+<h3>6-2. guard-unity-cli.sh — PreToolUse(Bash) · G4</h3>
+<table>
+  <tr><th style="width:110px">판정</th><th>패턴</th><th style="width:280px">예</th></tr>
+  <tr><td><span class="tag deny">deny</span></td><td>프로젝트 전체 비복구 연산</td><td><code>reserialize --all</code>, <code>reserialize Assets/</code>, <code>DeleteAsset("Assets")</code></td></tr>
+  <tr><td><span class="tag ask">ask</span></td><td>기존 에셋·씬 변경/삭제 가능</td><td><code>reserialize</code>(단일), <code>DeleteAsset</code>, <code>DestroyImmediate</code>, <code>File.Delete</code>, <code>EditorSceneManager.Save</code></td></tr>
+  <tr><td><span class="tag ask">ask</span></td><td>셸 파괴 명령(비-unity-cli)</td><td><code>rm -rf Assets|ProjectSettings|Packages|.harness</code>, <code>git clean -f</code>, <code>git reset --hard</code></td></tr>
+  <tr><td><span class="tag allow">allow</span></td><td>그 외 전부(무출력)</td><td><code>status</code>, <code>console</code>, 읽기 전용 <code>exec</code>, <code>git status</code></td></tr>
+</table>
+<p class="muted">명령 추출이 실패하면 통과시키지 않고 raw 입력으로 패턴을 재검사한다(보수적 안전 게이트).</p>
+
+<h3>6-3. post-asset-edit.sh — PostToolUse(Edit|Write)</h3>
+<table>
+  <tr><th style="width:170px">편집된 파일</th><th>자동 수행</th></tr>
+  <tr><td>Unity YAML 에셋<br><code>.prefab .unity .asset .mat .anim .controller .physicMaterial .spriteatlas</code> 등</td>
+      <td><code>reserialize</code> → <code>editor refresh --compile</code> → <code>console --filter error</code>. 에러 발견 시 stderr로 Claude에 피드백(즉시 수정 루프)</td></tr>
+  <tr><td>코드 계열<br><code>.cs .asmdef .shader .hlsl .uss .uxml</code> 등</td>
+      <td>compile + console 검증만 (reserialize 생략)</td></tr>
+  <tr><td>Assets/Packages 외부</td><td>완전 무시(불필요한 컴파일 방지)</td></tr>
+</table>
+<p class="muted">절대경로(<code>D:\...\Assets\X.prefab</code>)도 자동으로 <code>Assets/...</code> 상대경로로 정규화된다.
+모든 unity-cli 호출에 타임아웃 적용(compile 120s) — Editor가 행 걸려도 훅이 멈추지 않는다.</p>
+
+<h3>6-4. require-checklist.sh — Stop</h3>
+<table>
+  <tr><th style="width:200px">검사</th><th>차단 사유 예</th></tr>
+  <tr><td>07_plan.md 미체크 task</td><td>"미체크 task 3건"</td></tr>
+  <tr><td>_index.md 사이클 등록</td><td>"_index.md에 '...' 미등록"</td></tr>
+  <tr><td>meta.json 존재</td><td>"meta.json 부재"</td></tr>
+  <tr><td>awaiting_gate ↔ decisions.md</td><td>"게이트 G2 결정 미기록(decisions.md)"</td></tr>
+</table>
+<p class="muted">사이클이 없거나(일반 대화) status가 <code>signed_off/archived</code> 등 완료 상태면 무조건 통과.
+<code>stop_hook_active</code> 가드로 무한루프를 방지한다.</p>
+
+<!-- ============================================================ -->
+<h2 id="loop"><span class="num">7.</span>구현 루프 (⑦ plan 이후, task 단위 반복)</h2>
+
+<div class="flow">
+  <div class="step"><b>1. 편집</b><small>Edit/Write</small></div><div class="arrow">→</div>
+  <div class="step"><b>2. 자동 정합화</b><small>PostToolUse 훅</small></div><div class="arrow">→</div>
+  <div class="step"><b>3. 콘솔 확인</b><small>에러 시 1로 복귀</small></div><div class="arrow">→</div>
+  <div class="step"><b>4. 플레이 테스트</b><small>editor play --wait</small></div><div class="arrow">→</div>
+  <div class="step"><b>5. 판정</b><small>- [x] 체크 or 재루프</small></div>
+</div>
+
+<pre><code><span class="cmt"># Claude가 task별로 수행하는 검증 명령 (쿡북 §5)</span>
+unity-cli editor refresh --compile          <span class="cmt"># (편집 시 훅이 이미 수행)</span>
+unity-cli --json console --filter error
+unity-cli editor play --wait
+unity-cli --json console --filter error
+unity-cli editor stop</code></pre>
+
+<ul>
+  <li><b>reserialize는 수동 호출하지 않는다</b> — 훅 책임. 훅이 stderr로 에러를 돌려주면 Claude가 수정한다.</li>
+  <li>통과한 task는 <code>07_plan.md</code>에서 <code>- [x]</code>로 체크 → Stop 훅의 감시 대상에서 빠진다.</li>
+  <li>실패가 기계적 수정이 아니라 설계 결정이 필요하면 <b>G6</b>으로 선택지를 제시한다.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="agents"><span class="num">8.</span>서브에이전트</h2>
+
+<table>
+  <tr><th style="width:130px">에이전트</th><th>역할</th><th>사용 시점</th><th style="width:80px">모델</th></tr>
+  <tr><td><code>asset-auditor</code></td><td>타입·에셋 존재를 read-only 스캔, 이전 사이클과 대조해 기구현/신규/변경 scope 초안 반환. 수정 금지</td><td>③ scope에서 존재성 스캔이 많을 때</td><td>sonnet</td></tr>
+  <tr><td><code>test-runner</code></td><td>compile→play→console 판정을 격리 컨텍스트에서 수행, PASS/FAIL + 에러 요약 반환</td><td>구현 루프에서 반복 플레이 판정이 길 때</td><td>sonnet</td></tr>
+</table>
+<p class="muted">컨텍스트 격리가 이득일 때만 위임된다. 기계적 작업이라 sonnet으로 고정(비용·속도) —
+메인 세션이 판단·설계를 맡는다. <code>.claude/agents/*.md</code>의 <code>model:</code>을 바꾸면 조정 가능.</p>
+
+<!-- ============================================================ -->
+<h2 id="failsafe"><span class="num">9.</span>Fail-safe 동작 (미설치 환경)</h2>
+
+<p>인프라 부재가 개발 흐름을 죽이지 않도록 모든 훅이 fail-safe로 설계됐다. <b>안전 게이트(guard)만 예외적으로 보수적</b>이다.</p>
+
+<table>
+  <tr><th style="width:170px">상황</th><th>동작</th></tr>
+  <tr><td>unity-cli 미설치</td><td>load-context: 설치 안내 출력 / post-asset-edit: stderr 경고 후 통과(편집 차단 안 함) / guard: <b>bash grep 패턴 검사는 계속 수행</b></td></tr>
+  <tr><td>Editor offline</td><td>분석 단계(①~⑤)는 계속, 실행 단계(⑥~)는 Editor 기동 요청. 스냅샷은 생략(경고만)</td></tr>
+  <tr><td>jq 미설치</td><td>python3 → python → py → sed 순 폴백. guard는 추출 실패 시 raw 입력 검사</td></tr>
+  <tr><td>unity-cli 무응답(행)</td><td><code>ucli</code> 타임아웃 래퍼(기본 50s, compile 120s)가 끊고 비차단 진행</td></tr>
+  <tr><td>unity-cli 설치 후</td><td><b>추가 변경 없이 전 기능 자동 활성화</b> — 훅이 매 실행마다 <code>command -v unity-cli</code>로 감지</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="test"><span class="num">10.</span>하네스 자체 테스트</h2>
+
+<pre><code>bash .harness/hooks/tests/run.sh
+<span class="cmt"># RESULT: PASS=22 FAIL=0</span></code></pre>
+
+<table>
+  <tr><th style="width:160px">그룹</th><th>케이스</th></tr>
+  <tr><td>guard (8)</td><td>안전 명령 allow ×2 · DeleteAsset→ask · 전체 reserialize→deny · 비unity allow · rm -rf Assets→ask · git reset --hard→ask · rm -rf node_modules→allow</td></tr>
+  <tr><td>post-asset-edit (4)</td><td>비에셋 무시 · 에셋 stdout 무출력 · 절대경로 .anim 정규화 · 프로젝트 외부 완전 무시</td></tr>
+  <tr><td>require-checklist (7)</td><td>루프가드 · 사이클 없음 통과 · 미체크 task block · 전체 체크 통과 · G2 미기록 block · 기록 후 통과</td></tr>
+  <tr><td>_lib / load-context (3)</td><td>json_escape 단위 ×2 · 컨텍스트 헤더</td></tr>
+</table>
+<p class="muted">훅 스크립트를 수정했다면 반드시 이 러너를 재실행한다. 새 동작은 픽스처(JSON)+케이스를 함께 추가.</p>
+
+<!-- ============================================================ -->
+<h2 id="trouble"><span class="num">11.</span>트러블슈팅</h2>
+
+<table>
+  <tr><th style="width:280px">증상</th><th style="width:200px">원인</th><th>해결</th></tr>
+  <tr><td>세션 시작 시 <code>[unity] unity-cli 미설치</code></td><td>PATH에 unity-cli 없음</td><td>§3-2 설치 후 새 터미널에서 Claude Code 재시작</td></tr>
+  <tr><td><code>unity-cli status</code> 무응답</td><td>Editor 꺼짐 / Connector 미설치 / 포트 충돌</td><td>Editor 기동 → Package Manager에서 Connector 확인 → 포트 8090 점유 확인</td></tr>
+  <tr><td>에셋 편집 후 정합화가 안 됨</td><td>unity-cli 미설치(경고만 출력 중)</td><td>§3-2~3-3 설치 — 이후 자동 활성화</td></tr>
+  <tr><td>종료가 계속 차단됨</td><td>미체크 task / 게이트 미기록</td><td>차단 사유대로 <code>07_plan.md</code> 체크, <code>decisions.md</code> 기록, <code>meta.json</code> status 갱신. 사이클 포기 시 status를 <code>archived</code>로</td></tr>
+  <tr><td>훅에서 <code>bad interpreter</code> (Windows)</td><td>CRLF 오염</td><td><code>git checkout -- .harness/hooks/</code> (.gitattributes가 LF 강제하므로 복원으로 해결)</td></tr>
+  <tr><td>스킬이 트리거되지 않음</td><td>단발성 질의(의도된 비사용)</td><td>"기획서로 개발 계획" 류 다단계 요청 또는 <code>/cycle-start</code> 명시 호출</td></tr>
+  <tr><td>훅 동작 이력 확인</td><td>—</td><td><code>.harness/hooks/hook.log</code> (gitignore 대상, 타임스탬프 기록)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="notes"><span class="num">12.</span>주의사항·FAQ</h2>
+
+<div class="panel callout warn"><b>워크트리에서 작업 중인가?</b> 하네스는 브랜치(<code>claude/laughing-gates-da429a</code> →
+<code>origin/feature/pC/namkyu/harness</code>)에 커밋돼 있다. 메인 프로젝트 폴더(master)에 <code>.harness</code>가
+안 보이는 것은 정상 — PR/merge 후 반영된다.</div>
+
+<div class="panel">
+<b>Q. 일반 대화(사이클 무관)도 Stop 훅에 막히나?</b><br>
+A. 아니다. 진행 중 사이클이 없거나 최신 사이클이 완료 상태면 무조건 통과한다.
+</div>
+<div class="panel">
+<b>Q. 사이클을 중도 포기하려면?</b><br>
+A. <code>meta.json</code>의 <code>status</code>를 <code>archived</code>로 바꾸고 <code>_index.md</code>에 한 줄 추가하면 Stop 훅이 통과시킨다. 폴더는 <code>archive/</code>로 이동(포인터 유지).
+</div>
+<div class="panel">
+<b>Q. 이전 사이클 산출물은 어떻게 재사용되나?</b><br>
+A. ③ scope에서 이전 사이클들의 <code>04_assets.md</code>와 최신 <code>snapshots/</code>를 조회해
+"이미 구현됨"을 판정한다 — 사이클이 쌓일수록 중복 분석이 줄고 영향도 정확도가 올라간다(누적 설계).
+</div>
+<div class="panel">
+<b>Q. 훅을 일시적으로 끄려면?</b><br>
+A. <code>.claude/settings.json</code>에서 해당 훅 항목을 제거(또는 주석 백업 후 삭제)하고 세션을 재시작한다. 영구 변경은 권장하지 않음 — 강제 계층이 사라진다.
+</div>
+<div class="panel">
+<b>Q. 자주 쓰는 씬 셋업이 반복된다.</b><br>
+A. 프로젝트 C#에 <code>[UnityCliTool]</code>로 승격해 <code>unity-cli tool call &lt;이름&gt;</code>으로 재사용한다(쿡북 §6).
+</div>
+
+<footer>
+  Unity 개발 하네스 사용 가이드 · 2026-06-12 · 기준 커밋 <code>05c2df5</code> ·
+  소스: <code>.harness/</code> + <code>.claude/skills/unity-pipeline/</code> ·
+  설계 원칙: 결정(Skill)과 강제(Hook)의 분리
+</footer>
+
+</div>
+</body>
+</html>
