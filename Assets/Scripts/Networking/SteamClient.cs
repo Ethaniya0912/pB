@@ -17,6 +17,11 @@ public class SteamClient : MonoBehaviour
     // 싱글톤 패턴을 적용하여 중복 초기화를 방지할 수도 있습니다.
     private static bool isInitialized = false;
 
+    // [Step 1 / P1-1] Steam API 수명의 단독 소유 인스턴스 표시.
+    // 기존에는 중복 인스턴스가 Destroy될 때도 OnDestroy → ShutdownSteam()이 호출되어
+    // 살아있는 원본의 Steam API까지 통째로 꺼지는 결함이 있었다.
+    private bool isOwner = false;
+
     void Awake()
     {
         // 씬 전환 시 파괴되지 않도록 설정 (이미 존재한다면 파괴)
@@ -30,6 +35,8 @@ public class SteamClient : MonoBehaviour
         {
             Steamworks.SteamClient.Init(steamAppId);
             isInitialized = true;
+            isOwner = true;                  // [Step 1 / P1-1] 이 인스턴스만 종료 권한 보유
+            DontDestroyOnLoad(gameObject);   // [Step 1 / P1-1] 주석의 의도를 실제 코드로 — 씬 전환 시 Steam API 유지
             Debug.Log($"[Steam] Steam 초기화 성공 (AppID: {steamAppId})");
         }
         catch (System.Exception e)
@@ -40,7 +47,8 @@ public class SteamClient : MonoBehaviour
 
     void Update()
     {
-        // 스팀 콜백은 매 프레임 호출되어야 이벤트를 수신할 수 있습니다.
+        // [Step 1 / P1-1] 콜백 펌핑의 유일한 지점 — RunCallbacks는 여기서만 호출한다.
+        // (기존에는 SteamLobbyManager.Update와 이중 펌핑되어 프레임당 2회 실행되었음)
         if (isInitialized)
         {
             Steamworks.SteamClient.RunCallbacks();
@@ -56,8 +64,9 @@ public class SteamClient : MonoBehaviour
     // 오브젝트가 파괴될 때(씬 전환 등) 호출됩니다.
     private void OnDestroy()
     {
-        // 싱글톤인 경우 OnApplicationQuit에서 처리하는 것이 안전하지만, 
-        // 확실한 종료를 위해 체크합니다.
+        // [Step 1 / P1-1] 소유 인스턴스만 종료 가능 — 중복 인스턴스의 파괴가
+        // 살아있는 Steam API를 끌 수 없게 차단한다.
+        if (!isOwner) return;
         ShutdownSteam();
     }
 

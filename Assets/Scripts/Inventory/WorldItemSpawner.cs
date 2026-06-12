@@ -16,9 +16,15 @@ public class WorldItemSpawner : NetworkBehaviour
 
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
-
+        // [Step 1 / P2-8 최소 가드] 중복 인스턴스는 즉시 파괴 후 종료 —
+        // 기존에는 return 누락으로 파괴 예정인 중복 인스턴스에도 DontDestroyOnLoad가
+        // 적용되었다. 재호스팅/씬 전환 반복(SCN-02) 측정 오염 방지 (전면 정리는 Step 5).
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
         DontDestroyOnLoad(gameObject);
     }
 

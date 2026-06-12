@@ -26,8 +26,8 @@ public class SteamP2PRelayTransport : NetworkTransport
     {
         SteamP2PRelayTransport transport;
 
-        // TODO: Increase buffer size.
-        byte[] buffer = new byte[1024];
+        // [Step 1 / P0-1] 1KB 고정 버퍼 제거 — 메시지 실제 크기만큼 정확 할당 방식으로 전환.
+        // 고정 버퍼 재사용 시 NGO 내부에서 비동기 소비될 경우의 데이터 경합도 함께 제거된다.
         ArraySegment<byte> emptyPayload = new ArraySegment<byte>();
 
         public ClientCallbacks(SteamP2PRelayTransport transport)
@@ -67,19 +67,19 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public unsafe void OnMessage(IntPtr data, int size, long messageNum, long recvTime, int channel)
         {
-            // [Step 0 / P2-4 채널화] 패킷당 로그를 조건부 컴파일 + 카운터로 전환 (M9 계측기).
-            // 동작 불변 — 버퍼/Assert/Copy 로직은 Step 1(P0-1)에서 수정한다.
+            // [Step 0 / P2-4 채널화] 패킷당 로그는 NETCODE_DEBUG 전용 + 카운터 집계 (M9).
 #if NETCODE_DEBUG
             Debug.Log("ClientCallbacks: OnMessage");
 #endif
             NetDiag.NetDiagnostics.IncrementCounter("transport.recv.client");
             NetDiag.NetDiagnostics.AddCounter("transport.recv.client.bytes", size);
-            if (size > buffer.Length) NetDiag.NetDiagnostics.IncrementCounter("transport.recv.client.oversize"); // M2 증거
-            Debug.Assert(size <= buffer.Length, "Message size exceeds the max buffer length");
 
-            Marshal.Copy(data, buffer, 0, size);
+            // [Step 1 / P0-1] 메시지 크기만큼 정확 할당 — 대형 메시지(씬 이벤트·NetworkList
+            // 초기 스냅샷) 잘림/Assert 제거. 크기 상한은 Steam 송신 한계(512KB)가 자연 상한.
+            byte[] payload = new byte[size];
+            Marshal.Copy(data, payload, 0, size);
 
-            transport.InvokeOnTransportEvent(NetworkEvent.Data, transport.ServerClientId, new ArraySegment<byte>(buffer, 0, size), Time.realtimeSinceStartup);
+            transport.InvokeOnTransportEvent(NetworkEvent.Data, transport.ServerClientId, new ArraySegment<byte>(payload, 0, size), Time.realtimeSinceStartup);
         }
     }
 
@@ -87,8 +87,7 @@ public class SteamP2PRelayTransport : NetworkTransport
     {
         SteamP2PRelayTransport transport;
 
-        // TODO: Increase buffer size.
-        byte[] buffer = new byte[1024];
+        // [Step 1 / P0-1] 1KB 고정 버퍼 제거 — 클라이언트 경로와 동일하게 정확 할당으로 통일.
         ArraySegment<byte> emptyPayload = new ArraySegment<byte>();
 
         public ServerCallbacks(SteamP2PRelayTransport transport)
@@ -121,12 +120,12 @@ public class SteamP2PRelayTransport : NetworkTransport
         public void OnDisconnected(Connection connection, ConnectionInfo info)
         {
             Debug.Log("ServerCallbacks: OnDisconnected");
-            // [Step 0 계측] 이 직후 발화되는 NetworkEvent가 'Connect'인 것이 P0-2 결함 —
-            // events.csv 에서 본 행(TRANSPORT-RAW Disconnected)과 다음 행(TRANSPORT-EVT Connect)의
-            // 짝이 베이스라인 증거가 된다. 수정은 Step 1에서 수행 (여기서는 기록만).
             NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", $"Server.OnDisconnected conn={connection.Id} endReason={info.EndReason}");
             connection.Close();
-            transport.InvokeOnTransportEvent(NetworkEvent.Connect, connection.Id, emptyPayload, Time.realtimeSinceStartup);
+            // [Step 1 / P0-2] Connect → Disconnect 수정. 기존에는 클라이언트 이탈이 NGO에
+            // '신규 접속'으로 보고되어 유령 클라이언트·ready맵 미정리·복귀 로직 미동작을 유발했다.
+            // events.csv 에서 본 행 직후 TRANSPORT-EVT Disconnect 가 짝으로 기록되어야 정상 (M3).
+            transport.InvokeOnTransportEvent(NetworkEvent.Disconnect, connection.Id, emptyPayload, Time.realtimeSinceStartup);
         }
 
         /// <summary>
@@ -134,19 +133,19 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnMessage(Connection connection, NetIdentity identity, IntPtr data, int size, long messageNum, long recvTime, int channel)
         {
-            // [Step 0 / P2-4 채널화] 패킷당 로그를 조건부 컴파일 + 카운터로 전환 (M9 계측기).
-            // 동작 불변 — 크기 검사 부재(TODO)는 Step 1(P0-1)에서 수정한다.
+            // [Step 0 / P2-4 채널화] 패킷당 로그는 NETCODE_DEBUG 전용 + 카운터 집계 (M9).
 #if NETCODE_DEBUG
             Debug.Log("ServerCallbacks: OnMessage");
 #endif
             NetDiag.NetDiagnostics.IncrementCounter("transport.recv.server");
             NetDiag.NetDiagnostics.AddCounter("transport.recv.server.bytes", size);
-            if (size > buffer.Length) NetDiag.NetDiagnostics.IncrementCounter("transport.recv.server.oversize"); // M2 증거
 
-            // TODO: Assert that size <= buffer size
-            Marshal.Copy(data, buffer, 0, size);
+            // [Step 1 / P0-1] 정확 할당 — 기존에는 크기 검사조차 없이(TODO 방치) 1KB 버퍼에
+            // Marshal.Copy 하여 대형 메시지가 즉시 손상되었다. 클라 경로와 동일 로직으로 통일.
+            byte[] payload = new byte[size];
+            Marshal.Copy(data, payload, 0, size);
 
-            transport.InvokeOnTransportEvent(NetworkEvent.Data, connection.Id, new ArraySegment<byte>(buffer, 0, size), Time.realtimeSinceStartup);
+            transport.InvokeOnTransportEvent(NetworkEvent.Data, connection.Id, new ArraySegment<byte>(payload, 0, size), Time.realtimeSinceStartup);
         }
     }
 
@@ -279,7 +278,33 @@ public class SteamP2PRelayTransport : NetworkTransport
     /// </summary>
     /// <param name="clientId">The clientId to get the RTT from</param>
     /// <returns>Returns the round trip time in milliseconds </returns>
-    override public ulong GetCurrentRtt(ulong clientId) { return 0; }
+    override public ulong GetCurrentRtt(ulong clientId)
+    {
+        // [Step 1 / P0-4] 항상 0 반환 → Steam 연결 상태의 실측 Ping(ms) 반환으로 교체.
+        // NGO 시간 동기화·버퍼링 품질과 RNSM HUD의 RTT 칸(M1)이 이 값을 사용한다.
+        try
+        {
+            if (isClient)
+            {
+                // 클라이언트는 서버와의 단일 연결만 보유 (clientId == ServerClientId)
+                if (clientConnection != null)
+                    return (ulong)Mathf.Max(0, clientConnection.Connection.QuickStatus().Ping);
+            }
+            else if (socketManager != null)
+            {
+                foreach (var connection in socketManager.Connected)
+                {
+                    if (connection.Id != clientId) continue;
+                    return (ulong)Mathf.Max(0, connection.QuickStatus().Ping);
+                }
+            }
+        }
+        catch
+        {
+            // 연결 해제 직후 등 상태 조회 실패 시 0 (NGO 규약상 안전값)
+        }
+        return 0;
+    }
 
     /// <summary>
     /// Shuts down the transport
@@ -287,10 +312,17 @@ public class SteamP2PRelayTransport : NetworkTransport
     override public void Shutdown()
     {
         Debug.Log("Shutdown.");
-        // [Step 0 계측] P1-1 베이스라인: Transport.Shutdown이 Steam API 전체를 종료하는 현행 동작 기록.
-        // 수정(소켓만 정리)은 Step 1에서 수행.
-        NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", "Transport.Shutdown → SteamClient.Shutdown() 호출 (P1-1 현행)");
-        Steamworks.SteamClient.Shutdown();
+        // [Step 1 / P1-1] Steam API 전체 종료(SteamClient.Shutdown) 금지 — 소켓/연결만 정리.
+        // Steam API의 초기화·종료 수명은 SteamClient 컴포넌트가 단독 소유한다.
+        // 기존에는 방 퇴장(NetworkManager.Shutdown → Transport.Shutdown)마다 Steam API 전체가
+        // 꺼져 재호스팅이 불안정했다 (M8).
+        NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", "Transport.Shutdown — 소켓/연결만 정리 (P1-1 수정)");
+
+        try { clientConnection?.Close(); } catch { }
+        try { socketManager?.Close(); } catch { }
+        clientConnection = null;
+        socketManager = null;
+        isClient = false;
     }
 
 
@@ -312,46 +344,40 @@ public class SteamP2PRelayTransport : NetworkTransport
         }
     }
 
+    // =========================================================================
+    // [Step 1 / P1-2] NGO NetworkDelivery ↔ Steam SendType 매핑표 (교정판)
+    // ─────────────────────────────────────────────────────────────────────────
+    // SteamNetworkingSockets에는 '순서 보장 + 비신뢰(UnreliableSequenced)' 옵션이 없다.
+    // (Unreliable 메시지는 드롭 가능 + 순서 역전 수신 가능)
+    // 기존 매핑은 UnreliableSequenced → Unreliable 로 두어 순서 의존 메시지의
+    // 역전 수신을 허용했다. 교정: 순서 보장이 의미의 핵심이므로 Reliable 로 승격한다.
+    //
+    //  NGO NetworkDelivery            →  Steam SendType   근거
+    //  Unreliable                     →  Unreliable       의미 일치
+    //  UnreliableSequenced            →  Reliable         ★승격 (Steam에 sequenced-unreliable 부재)
+    //  Reliable                       →  Reliable         Steam reliable은 순서도 보장
+    //  ReliableSequenced              →  Reliable         〃
+    //  ReliableFragmentedSequenced    →  Reliable         Steam은 메시지당 512KB까지 네이티브 지원
+    // =========================================================================
     static SendType CastToSendType(NetworkDelivery networkDelivery)
     {
-        // TODO: This mapping might need to be revised.
-        SendType sendType = SendType.Unreliable;
-
         switch (networkDelivery)
         {
-            /// <summary>
-            /// Unreliable message
-            /// </summary>
             case NetworkDelivery.Unreliable:
-                break;
-            /// <summary>
-            /// Unreliable with sequencing
-            /// </summary>
-            case NetworkDelivery.UnreliableSequenced:
-                break;
-            /// <summary>
-            /// Reliable message
-            /// </summary>
-            case NetworkDelivery.Reliable:
-                sendType |= SendType.Reliable;
-                break;
-            /// <summary>
-            /// Reliable message where messages are guaranteed to be in the right order
-            /// </summary>
-            case NetworkDelivery.ReliableSequenced:
-                sendType |= SendType.Reliable;
-                break;
-            /// <summary>
-            /// A reliable message with guaranteed order with fragmentation support
-            /// </summary>
-            case NetworkDelivery.ReliableFragmentedSequenced:
-                sendType |= SendType.Reliable;
-                break;
-            default:
-                break;
-        }
+                return SendType.Unreliable;
 
-        return sendType;
+            case NetworkDelivery.UnreliableSequenced:
+                // [P1-2 교정] 순서 비보장 매핑 → Reliable 승격
+                return SendType.Reliable;
+
+            case NetworkDelivery.Reliable:
+            case NetworkDelivery.ReliableSequenced:
+            case NetworkDelivery.ReliableFragmentedSequenced:
+                return SendType.Reliable;
+
+            default:
+                return SendType.Reliable; // 알 수 없는 신규 값은 안전 측(신뢰)으로
+        }
     }
 
     void DebugOutput(NetDebugOutput type, string text)

@@ -94,14 +94,8 @@ public class SteamLobbyManager : MonoBehaviour
         }
     }
 
-    private void Update()
-    {
-        // 스팀 API의 콜백을 매 프레임 실행하여 이벤트를 수신합니다.
-        if (Steamworks.SteamClient.IsValid)
-        {
-            Steamworks.SteamClient.RunCallbacks();
-        }
-    }
+    // [Step 1 / P1-1] RunCallbacks 이중 펌핑 제거 — 콜백 펌핑은 SteamClient.Update가
+    // 단독 수행한다 (프레임당 정확히 1회). 본 클래스는 이벤트 구독만 유지.
 
     private void OnEnable()
     {
