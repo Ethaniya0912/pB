@@ -74,6 +74,13 @@ d'")"
 assert_contains "lib-json_escape(따옴표)" "$esc" 'a\\"b'
 out="$(bash -c ". '$HOOKS/_lib.sh'; json_escape 'x' | head -c 9999" )"
 assert_contains "lib-json_escape(통상 문자열)" "$out" 'x'
+# json_field 실동작 — 감지된 엔진이 무엇이든 실제 값을 돌려줘야 한다
+# (jq 가 PATH 에 있지만 실행이 깨진 환경에서 G2 게이트 테스트가 침묵 실패하던 회귀 방지)
+eng="$(bash -c ". '$HOOKS/_lib.sh'; json_engine")"
+jf="$(bash -c ". '$HOOKS/_lib.sh'; json_field '{\"a\":{\"b\":\"val_xyz\"}}' 'a.b'")"
+assert_contains "lib-json_field(중첩 a.b, engine=$eng)" "$jf" 'val_xyz'
+jf2="$(bash -c ". '$HOOKS/_lib.sh'; json_field '{\"status\":\"implementing\",\"awaiting_gate\":\"G2\"}' 'awaiting_gate'")"
+assert_contains "lib-json_field(평면 awaiting_gate)" "$jf2" 'G2'
 
 echo "== load-context =="
 out="$(run_hook load-context.sh session-startup.json)";    assert_contains "session-컨텍스트 헤더" "$out" 'Unity 하네스 컨텍스트'

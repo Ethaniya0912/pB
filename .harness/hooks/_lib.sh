@@ -29,14 +29,24 @@ log() {
 }
 
 # ── JSON 엔진 감지 (jq → python → sed 폴백) ──────────────────────────────────
+# 존재 확인이 아니라 **실제 파싱 셀프테스트**로 검증한다 — PATH 에 있어도 깨진
+# 셔틀일 수 있다(winget Links 심링크가 Git Bash 에서 실행 실패, 스토어 파이썬 스텁,
+# 정책 차단 exe 등). 동작이 확인된 엔진만 채택한다.
 _JSON_ENGINE=""
 _detect_json_engine() {
   [ -n "$_JSON_ENGINE" ] && return 0
-  if command -v jq >/dev/null 2>&1; then _JSON_ENGINE="jq"
-  elif command -v python3 >/dev/null 2>&1; then _JSON_ENGINE="python3"
-  elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then _JSON_ENGINE="python"
-  elif command -v py >/dev/null 2>&1 && py -c "import sys" >/dev/null 2>&1; then _JSON_ENGINE="py"
-  else _JSON_ENGINE="sed"; fi
+  if command -v jq >/dev/null 2>&1 \
+     && [ "$(printf '{"k":"v"}' | jq -r '.k' 2>/dev/null)" = "v" ]; then
+    _JSON_ENGINE="jq"; return 0
+  fi
+  local _py
+  for _py in python3 python py; do
+    if command -v "$_py" >/dev/null 2>&1 \
+       && [ "$(printf '{"k":"v"}' | "$_py" -c 'import sys,json;print(json.load(sys.stdin)["k"])' 2>/dev/null)" = "v" ]; then
+      _JSON_ENGINE="$_py"; return 0
+    fi
+  done
+  _JSON_ENGINE="sed"
 }
 json_engine() { _detect_json_engine; printf '%s' "$_JSON_ENGINE"; }
 
