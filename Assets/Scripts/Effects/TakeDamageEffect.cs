@@ -150,6 +150,10 @@ public class TakeDamageEffect : InstantCharacterEffect
 
         Debug.Log("Final Damage Given: " + finalDamageDealt);
         character.characterNetworkManager.currentHealth.Value -= finalDamageDealt;
+
+        // [Step 0 계측 / VerdictLogger ④] Owner-Write HP 차감 적용 지점 (M5 diff + Step 2 R6 카운터).
+        NetDiag.VerdictLogger.LogHpApply(character, characterCausingDamage,
+            finalDamageDealt, character.characterNetworkManager.currentHealth.Value);
     }
 
     // =========================================================================

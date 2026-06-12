@@ -290,6 +290,13 @@ public class MeleeWeaponDamageCollider : DamageCollider
             defenseResult = damageTarget.characterDefenseManager.EvaluateDefense(hitData);
         }
 
+        // [Step 0 계측 / VerdictLogger ①] 피격자 방어 심사가 "공격자 머신"에서 수행되는
+        // 현행 구조(P0-3)의 기록 지점. M5 diff의 공격자 측 행. 동작 불변 — 기록만.
+        NetDiag.VerdictLogger.LogDefenseEval(
+            characterCausingDamage, damageTarget,
+            damageEffect.physicalDamage + damageEffect.elementDamage,
+            damageEffect.poiseDamage, defenseResult.ToString());
+
         // =========================================================================================
         // 판정 결과에 따른 데미지 및 네트워크 전송 분기
         // =========================================================================================
@@ -417,6 +424,11 @@ public class MeleeWeaponDamageCollider : DamageCollider
             damageEffect.contactPoint.y,
             damageEffect.contactPoint.z);
         Debug.Log("NotifyTheServerOfCharacterDamageServerRpc has been sent");
+
+        // [Step 0 계측 / VerdictLogger ②] 공격자 머신의 데미지 RPC 송신 기록 (M5 diff용).
+        NetDiag.VerdictLogger.LogSend(
+            characterCausingDamage.NetworkObjectId, damageTarget.NetworkObjectId,
+            damageEffect.physicalDamage + damageEffect.elementDamage, damageEffect.poiseDamage);
         //}
     }
 

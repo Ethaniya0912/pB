@@ -363,6 +363,10 @@ namespace TDA.Character
             float contactPointY,
             float contactPointZ)
         {
+            // [Step 0 계측 / VerdictLogger ③] 전 머신 공통 수신 지점 — 머신 간 diff의 기준 행 (M5).
+            NetDiag.VerdictLogger.LogRecv(characterCausingDamageID, damageCharacterID,
+                physicalDamage + elementalDamage, poiseDamage);
+
             ProcessCharacterDamageFromServer(
                 damageCharacterID, characterCausingDamageID,
                 physicalDamage, elementalDamage, poiseDamage,

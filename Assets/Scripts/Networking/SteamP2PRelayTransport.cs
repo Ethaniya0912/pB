@@ -58,6 +58,7 @@ public class SteamP2PRelayTransport : NetworkTransport
         public void OnDisconnected(ConnectionInfo info)
         {
             Debug.Log("ClientCallbacks: OnDisconnected");
+            NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", $"Client.OnDisconnected endReason={info.EndReason}"); // [Step 0 계측]
             transport.InvokeOnTransportEvent(NetworkEvent.Disconnect, transport.ServerClientId, emptyPayload, Time.realtimeSinceStartup);
         }
 
@@ -66,9 +67,16 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public unsafe void OnMessage(IntPtr data, int size, long messageNum, long recvTime, int channel)
         {
+            // [Step 0 / P2-4 채널화] 패킷당 로그를 조건부 컴파일 + 카운터로 전환 (M9 계측기).
+            // 동작 불변 — 버퍼/Assert/Copy 로직은 Step 1(P0-1)에서 수정한다.
+#if NETCODE_DEBUG
             Debug.Log("ClientCallbacks: OnMessage");
+#endif
+            NetDiag.NetDiagnostics.IncrementCounter("transport.recv.client");
+            NetDiag.NetDiagnostics.AddCounter("transport.recv.client.bytes", size);
+            if (size > buffer.Length) NetDiag.NetDiagnostics.IncrementCounter("transport.recv.client.oversize"); // M2 증거
             Debug.Assert(size <= buffer.Length, "Message size exceeds the max buffer length");
-            
+
             Marshal.Copy(data, buffer, 0, size);
 
             transport.InvokeOnTransportEvent(NetworkEvent.Data, transport.ServerClientId, new ArraySegment<byte>(buffer, 0, size), Time.realtimeSinceStartup);
@@ -113,6 +121,10 @@ public class SteamP2PRelayTransport : NetworkTransport
         public void OnDisconnected(Connection connection, ConnectionInfo info)
         {
             Debug.Log("ServerCallbacks: OnDisconnected");
+            // [Step 0 계측] 이 직후 발화되는 NetworkEvent가 'Connect'인 것이 P0-2 결함 —
+            // events.csv 에서 본 행(TRANSPORT-RAW Disconnected)과 다음 행(TRANSPORT-EVT Connect)의
+            // 짝이 베이스라인 증거가 된다. 수정은 Step 1에서 수행 (여기서는 기록만).
+            NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", $"Server.OnDisconnected conn={connection.Id} endReason={info.EndReason}");
             connection.Close();
             transport.InvokeOnTransportEvent(NetworkEvent.Connect, connection.Id, emptyPayload, Time.realtimeSinceStartup);
         }
@@ -122,7 +134,14 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnMessage(Connection connection, NetIdentity identity, IntPtr data, int size, long messageNum, long recvTime, int channel)
         {
+            // [Step 0 / P2-4 채널화] 패킷당 로그를 조건부 컴파일 + 카운터로 전환 (M9 계측기).
+            // 동작 불변 — 크기 검사 부재(TODO)는 Step 1(P0-1)에서 수정한다.
+#if NETCODE_DEBUG
             Debug.Log("ServerCallbacks: OnMessage");
+#endif
+            NetDiag.NetDiagnostics.IncrementCounter("transport.recv.server");
+            NetDiag.NetDiagnostics.AddCounter("transport.recv.server.bytes", size);
+            if (size > buffer.Length) NetDiag.NetDiagnostics.IncrementCounter("transport.recv.server.oversize"); // M2 증거
 
             // TODO: Assert that size <= buffer size
             Marshal.Copy(data, buffer, 0, size);
@@ -150,6 +169,10 @@ public class SteamP2PRelayTransport : NetworkTransport
     /// <param name="networkDelivery">The delivery type (QoS) to send data with</param>
     public override void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery networkDelivery)
     {
+        // [Step 0 계측] 송신량 집계 (M6 보조 지표)
+        NetDiag.NetDiagnostics.IncrementCounter("transport.send");
+        NetDiag.NetDiagnostics.AddCounter("transport.send.bytes", payload.Count);
+
         SendType sendType = CastToSendType(networkDelivery);
 
         if (isClient)
@@ -264,6 +287,9 @@ public class SteamP2PRelayTransport : NetworkTransport
     override public void Shutdown()
     {
         Debug.Log("Shutdown.");
+        // [Step 0 계측] P1-1 베이스라인: Transport.Shutdown이 Steam API 전체를 종료하는 현행 동작 기록.
+        // 수정(소켓만 정리)은 Step 1에서 수행.
+        NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", "Transport.Shutdown → SteamClient.Shutdown() 호출 (P1-1 현행)");
         Steamworks.SteamClient.Shutdown();
     }
 
