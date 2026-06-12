@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>워크트리 × Unity × SourceTree — pB 프로젝트 실전 가이드</title>
+<style>
+:root{
+  --ink:#10233B; --paper:#F7F8F6; --card:#FFFFFF; --line:#D8DEE6;
+  --blue:#2D5DA8; --red:#C81E2E; --orange:#D97A12; --green:#2E7D4F; --purple:#7A3FA0;
+  --mono:Consolas,'IBM Plex Mono',monospace; --sans:'Noto Sans KR','Malgun Gothic',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.8;font-size:15px}
+.wrap{max-width:980px;margin:0 auto;padding:0 24px 80px}
+header{background:var(--ink);color:#EAF0F8;padding:44px 0 36px;border-bottom:6px solid var(--blue)}
+header .wrap{padding-bottom:0}
+h1{font-size:28px;font-weight:900;line-height:1.35}
+.sub{margin-top:8px;color:#AFC2DB;font-size:14px}
+h2{font-size:22px;font-weight:900;margin:60px 0 10px;padding-top:22px;border-top:2px solid var(--ink);display:flex;gap:10px;align-items:baseline}
+h2 .no{font-family:var(--mono);font-size:13px;color:var(--blue)}
+h3{font-size:16.5px;font-weight:700;margin:30px 0 8px;color:#1C3A63}
+p{margin:0 0 12px}
+code{font-family:var(--mono);font-size:.88em;background:#EDF1F6;border:1px solid var(--line);padding:1px 6px;border-radius:4px;color:#8E2030}
+pre{font-family:var(--mono);font-size:13px;line-height:1.7;background:#0F1E33;color:#D8E4F4;border-radius:8px;padding:16px 18px;margin:12px 0;overflow-x:auto}
+pre .c{color:#6E859F}
+pre .y{color:#FFD479}
+table{width:100%;border-collapse:collapse;margin:14px 0;background:var(--card);font-size:13.5px}
+th{background:var(--ink);color:#EAF0F8;text-align:left;padding:8px 12px;font-size:12.5px}
+td{border:1px solid var(--line);padding:8px 12px;vertical-align:top}
+tr:nth-child(even) td{background:#FAFBFC}
+.box{border-left:4px solid var(--blue);background:#EEF3FA;padding:12px 16px;border-radius:0 6px 6px 0;margin:14px 0;font-size:14px}
+.box.red{border-color:var(--red);background:#FBEEEF}
+.box.green{border-color:var(--green);background:#EEF7F1}
+.box.purple{border-color:var(--purple);background:#F4EEF9}
+.box b:first-child{display:block;margin-bottom:4px}
+.prompt{font-family:var(--mono);font-size:13px;background:#1A2C20;color:#9FE0B5;border-radius:8px;padding:12px 16px;margin:10px 0;border:1px solid #2E7D4F}
+.prompt::before{content:"💬 Claude 채팅에 입력 → ";color:#6FA877;font-family:var(--sans);font-size:12px;display:block;margin-bottom:4px}
+.step{display:flex;gap:12px;margin:12px 0;align-items:flex-start}
+.step .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-family:var(--mono);font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:3px}
+.fig{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px;margin:20px 0}
+.fig figcaption{font-size:12.5px;color:#5C6B7E;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+svg{width:100%;height:auto;display:block}
+.tag{display:inline-block;font-family:var(--mono);font-weight:600;font-size:11px;padding:1px 7px;border-radius:4px;color:#fff;white-space:nowrap}
+.tNET{background:var(--blue)}.tHAR{background:var(--purple)}.tWARN{background:var(--red)}.tMAIN{background:#5C6B7E}
+footer{margin-top:70px;padding-top:16px;border-top:2px solid var(--ink);font-size:12.5px;color:#5C6B7E}
+.kbd{font-family:var(--mono);font-size:.85em;background:#fff;border:1px solid #B8C2CE;border-bottom-width:2px;padding:0 6px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<header>
+<div class="wrap">
+  <h1>워크트리 × Unity × SourceTree<br>pB 프로젝트 실전 가이드 (초보자용)</h1>
+  <div class="sub">넷코드·하네스 두 Claude Code 채팅을 동시에 굴리면서 — 따로 테스트 / 합쳐서 테스트 / GitHub 업로드까지 · 2026-06-12 기준 실제 저장소 상태 반영</div>
+</div>
+</header>
+
+<div class="wrap">
+
+<!-- ============ 1 ============ -->
+<h2><span class="no">§1</span>워크트리가 뭔지 1분 만에</h2>
+<p>보통 git은 <b>저장소 1개 = 폴더 1개 = 한 번에 브랜치 1개</b>만 체크아웃할 수 있다. 그래서 브랜치를 오가면 파일이 통째로 바뀌고, Unity는 그때마다 리임포트를 한다.</p>
+<p><b>워크트리(worktree)</b>는 "같은 저장소를 바라보는 <b>추가 폴더</b>"다. 커밋 역사(.git 데이터)는 하나를 공유하지만, 폴더마다 <b>서로 다른 브랜치</b>를 동시에 펼쳐둘 수 있다. 그래서 Claude Code 채팅 2개가 서로 파일을 덮어쓰지 않고 동시에 작업할 수 있는 것이다.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 940 360" xmlns="http://www.w3.org/2000/svg">
+<style>
+.bx{fill:#FFFFFF;stroke:#2D5DA8;stroke-width:1.5;rx:8}
+.bxP{fill:#F4EEF9;stroke:#7A3FA0;stroke-width:1.5;rx:8}
+.bxM{fill:#F1F3F5;stroke:#5C6B7E;stroke-width:1.5;rx:8}
+.t1{font-size:13px;font-weight:700;fill:#10233B}
+.t2{font-size:11px;fill:#5C6B7E}
+.m{font-family:Consolas,monospace}
+.ln{stroke:#AEB9C6;stroke-width:1.4;fill:none;stroke-dasharray:5 3}
+</style>
+<rect x="330" y="20" width="280" height="64" rx="8" fill="#10233B"/>
+<text x="350" y="48" font-size="13" font-weight="900" fill="#EAF0F8">하나의 저장소 (.git — 커밋 역사 공유)</text>
+<text x="350" y="68" font-size="11" fill="#9FB4CE" class="m">github.com/Ethaniya0912/pB</text>
+<path class="ln" d="M400,84 L150,140"/><path class="ln" d="M470,84 L470,140"/><path class="ln" d="M540,84 L790,140"/>
+<rect x="20" y="142" width="280" height="120" class="bxM"/>
+<text x="36" y="168" class="t1">📁 메인 폴더 <tspan font-size="10" fill="#5C6B7E">(Unity로 여는 곳)</tspan></text>
+<text x="36" y="190" class="t2 m">D:\남규\프로젝트\Unity\pB</text>
+<text x="36" y="212" class="t2">Library 보유 → Unity 테스트는 여기서</text>
+<text x="36" y="234" class="t2">지금: detached HEAD (a0f53fd) ⚠ §3에서 정리</text>
+<rect x="330" y="142" width="280" height="120" class="bx"/>
+<text x="346" y="168" class="t1">📁 워크트리 1 — 넷코드 채팅</text>
+<text x="346" y="190" class="t2 m">pB\.claude\worktrees\sharp-boyd-9b7050</text>
+<text x="346" y="212" class="t2 m">브랜치: claude/sharp-boyd-9b7050</text>
+<text x="346" y="234" class="t2">Step 0(e3a808c)·Step 1(004fe51) 커밋됨</text>
+<rect x="640" y="142" width="280" height="120" class="bxP"/>
+<text x="656" y="168" class="t1">📁 워크트리 2 — 하네스 채팅</text>
+<text x="656" y="190" class="t2 m">pB\.claude\worktrees\laughing-gates-da429a</text>
+<text x="656" y="212" class="t2 m">브랜치: claude/laughing-gates-da429a</text>
+<text x="656" y="234" class="t2">하네스 훅·스킬·가이드 커밋됨</text>
+<text x="20" y="300" class="t1">규칙 한 줄:</text>
+<text x="110" y="300" class="t2">코드 수정은 각 Claude 채팅(워크트리)에서, Unity 테스트는 메인 폴더에서, 합치기는 브랜치 머지로.</text>
+<text x="20" y="330" class="t1" fill="#C81E2E">금지 한 줄:</text>
+<text x="110" y="330" class="t2">같은 브랜치를 두 폴더에서 동시에 체크아웃하는 것 — git이 막아주며, 에러가 나는 게 정상이다(§7 FAQ).</text>
+</svg>
+<figcaption><b>그림 1.</b> 현재 구조. 세 폴더가 하나의 .git을 공유한다. 어느 폴더에서 커밋해도 SourceTree(메인 저장소 탭) 그래프에 즉시 보인다.</figcaption>
+</figure>
+
+<!-- ============ 2 ============ -->
+<h2><span class="no">§2</span>지금 브랜치 상태 (2026-06-12 실측)</h2>
+<figure class="fig">
+<svg viewBox="0 0 940 240" xmlns="http://www.w3.org/2000/svg">
+<style>
+.nd{fill:#FFFFFF;stroke:#10233B;stroke-width:1.4}
+.lb{font-size:11.5px;fill:#10233B}
+.lbm{font-family:Consolas,monospace;font-size:10.5px;fill:#5C6B7E}
+.edge{stroke:#5C6B7E;stroke-width:1.6;fill:none}
+</style>
+<circle cx="80" cy="120" r="9" class="nd"/>
+<text x="40" y="95" class="lb" font-weight="900">2f1e732</text>
+<text x="20" y="155" class="lbm">master =</text><text x="20" y="170" class="lbm">feature/pC/namkyu/netcode</text>
+<path class="edge" d="M89,114 C150,60 200,60 260,60"/>
+<circle cx="270" cy="60" r="8" class="nd" stroke="#2D5DA8" stroke-width="2.2"/>
+<path class="edge" d="M278,60 L380,60" stroke="#2D5DA8"/>
+<circle cx="390" cy="60" r="8" class="nd" stroke="#2D5DA8" stroke-width="2.2"/>
+<text x="240" y="35" class="lbm">e3a808c (Step 0)</text>
+<text x="370" y="35" class="lbm">004fe51 (Step 1)</text>
+<text x="410" y="64" class="lb" font-weight="700" fill="#2D5DA8">← claude/sharp-boyd-9b7050 (넷코드)</text>
+<path class="edge" d="M89,126 C150,180 200,180 260,180"/>
+<circle cx="270" cy="180" r="8" class="nd" stroke="#7A3FA0" stroke-width="2.2"/>
+<path class="edge" d="M278,180 L380,180" stroke="#7A3FA0"/>
+<circle cx="390" cy="180" r="8" class="nd" stroke="#7A3FA0" stroke-width="2.2"/>
+<text x="225" y="210" class="lbm">cc31c8d (하네스 구축)</text>
+<text x="362" y="210" class="lbm">05c2df5 (업그레이드)</text>
+<path class="edge" d="M398,176 C450,150 480,150 530,150" stroke="#7A3FA0"/>
+<circle cx="540" cy="150" r="8" class="nd" stroke="#7A3FA0" stroke-width="2.2"/>
+<text x="505" y="128" class="lbm">be2e455 (가이드 docs)</text>
+<text x="560" y="154" class="lb" font-weight="700" fill="#7A3FA0">← claude/laughing-gates-da429a (하네스)</text>
+<path class="edge" d="M398,184 C450,212 480,212 530,212" stroke="#C81E2E"/>
+<circle cx="540" cy="212" r="8" class="nd" stroke="#C81E2E" stroke-width="2.2"/>
+<text x="505" y="238" class="lbm">a0f53fd "Unity Setting"</text>
+<text x="560" y="216" class="lb" font-weight="700" fill="#C81E2E">← 메인 폴더 HEAD (브랜치 없음 ⚠)</text>
+</svg>
+<figcaption><b>그림 2.</b> 실제 커밋 그래프. 넷코드와 하네스는 겹치는 파일이 거의 없어(넷코드=Assets/Scripts·Tools·Reports, 하네스=.claude·.harness) 머지 충돌 가능성이 낮다. 유일한 겹침은 <code>Packages/manifest.json</code>(§3).</figcaption>
+</figure>
+
+<div class="box red">
+<b>⚠ 지금 바로 알아야 할 2가지 (실측에서 발견)</b>
+① <b>메인 폴더가 detached HEAD</b> — "Unity Setting"(a0f53fd, Multiplayer Tools 패키지 설치 기록) 커밋이 어느 브랜치에도 속하지 않은 채 떠 있다. 이대로 다른 곳으로 체크아웃하면 이 커밋을 찾기 어려워진다. → §3에서 1분 정리.<br>
+② <b>두 claude 브랜치의 추적(upstream)이 둘 다 <code>origin/feature/pC/namkyu/harness</code>로 잘못 묶여 있다</b> — SourceTree에서 그냥 <b>Push 버튼을 누르면 넷코드 커밋이 하네스 원격 브랜치로 올라가는 사고</b>가 난다. → §6의 방법대로만 푸시할 것.
+</div>
+
+<!-- ============ 3 ============ -->
+<h2><span class="no">§3</span>먼저 1분 정리 — detached HEAD 구하기</h2>
+<p>메인 폴더에서 아래를 실행한다 (SourceTree 우상단 <span class="kbd">터미널</span> 버튼 → Git Bash/cmd 열림). "Unity Setting" 커밋에 이름표(브랜치)를 붙여 잃어버리지 않게 만드는 것뿐이다.</p>
+<pre><span class="c"># 메인 폴더(pB)에서 — 지금 HEAD(a0f53fd)에 브랜치 이름을 붙인다</span>
+git branch chore/unity-packages a0f53fd</pre>
+<p>이제 메인 폴더는 자유롭게 체크아웃해도 안전하다. 이 커밋(Multiplayer Tools 설치 기록)은 §5 통합 테스트 때 같이 머지하면 된다.</p>
+<div class="box">
+<b>이 커밋의 정체</b>
+Unity에서 Multiplayer Tools 패키지를 설치하면서 생긴 <code>manifest.json</code>+<code>packages-lock.json</code> 변경이다. 넷코드 브랜치(Step 0)에도 같은 manifest 한 줄이 들어 있어서, 머지하면 같은 내용으로 합쳐지거나 한 줄짜리 충돌이 난다 — 충돌 시 <b>넷코드 쪽(또는 아무 쪽이나 같은 버전)</b>을 선택하면 된다. packages-lock은 Unity가 다시 만들어 주므로 어느 쪽을 골라도 무방.
+</div>
+
+<!-- ============ 4 ============ -->
+<h2><span class="no">§4</span>케이스 A·B — 한쪽 작업만 Unity에서 테스트</h2>
+<p>핵심 아이디어: <b>Library(임포트 캐시)가 있는 메인 폴더에서 테스트</b>한다. 워크트리 폴더를 Unity로 직접 열 수도 있지만(§8 옵션) 첫 임포트가 매우 오래 걸린다.</p>
+<p>단, claude 브랜치들은 워크트리에 물려 있어 메인 폴더에서 <b>같은 이름으로 체크아웃이 안 된다</b>. 그래서 "같은 커밋을 가리키는 <b>테스트용 브랜치</b>"를 만들어 체크아웃한다.</p>
+
+<h3>A. 넷코드만 테스트</h3>
+<div class="step"><span class="n">1</span><div><b>Unity를 닫는다.</b> (브랜치 전환 중 파일이 바뀌면 임포트가 꼬일 수 있음)</div></div>
+<div class="step"><span class="n">2</span><div>메인 폴더 터미널에서:
+<pre><span class="c"># test/netcode 라는 이름으로 넷코드 브랜치의 현재 커밋을 체크아웃 (-B = 있으면 갱신)</span>
+git checkout -B test/netcode claude/sharp-boyd-9b7050</pre></div></div>
+<div class="step"><span class="n">3</span><div>Unity로 메인 폴더를 연다 → 변경된 스크립트만 컴파일된다(수 분 내). 콘솔에 <code>[NetDiag] 세션 출력 폴더:</code> 로그가 보이면 계측 시스템 정상 가동.</div></div>
+<div class="step"><span class="n">4</span><div>테스트 후 수정할 게 나오면 → <b>메인 폴더에서 고치지 말고</b> 넷코드 Claude 채팅에 말한다 (§6의 프롬프트). 수정 커밋이 올라오면 2번을 다시 실행하면 끝.</div></div>
+
+<h3>B. 하네스만 테스트</h3>
+<pre>git checkout -B test/harness claude/laughing-gates-da429a</pre>
+<p>나머지는 A와 동일. 하네스는 <code>.claude</code>·<code>.harness</code> 폴더 중심이라 Unity 컴파일에는 거의 영향이 없고, Claude Code 동작(훅·스킬)을 확인하는 테스트가 된다.</p>
+
+<div class="box green">
+<b>왜 test/* 브랜치를 따로 만드나?</b>
+같은 브랜치를 두 폴더에서 체크아웃하면 git이 거부한다(워크트리의 안전장치). 이름만 다른 브랜치(test/netcode)를 같은 커밋에 붙이면 우회된다. <b>test/* 브랜치에서는 절대 커밋하지 말 것</b> — 테스트 전용 일회용이며, 매번 <code>-B</code>로 덮어쓴다.
+</div>
+
+<!-- ============ 5 ============ -->
+<h2><span class="no">§5</span>케이스 C — 두 작업을 합쳐서 테스트</h2>
+<div class="step"><span class="n">1</span><div>Unity를 닫고, 메인 폴더 터미널에서:
+<pre><span class="c"># master 기준으로 통합 브랜치 생성</span>
+git checkout -B test/integration master
+
+<span class="c"># 넷코드 + 하네스 + 패키지설정 커밋을 순서대로 머지</span>
+git merge claude/sharp-boyd-9b7050
+git merge claude/laughing-gates-da429a
+git merge chore/unity-packages</pre></div></div>
+<div class="step"><span class="n">2</span><div>충돌이 나면 — 예상 지점은 <code>Packages/manifest.json</code> 한 곳뿐이다. SourceTree 좌측 "파일 상태"에서 충돌 파일 우클릭 → <span class="kbd">충돌 해결</span> → 내것/저것 선택, 또는 그냥 Claude 채팅에 맡긴다(§6 프롬프트 3번).</div></div>
+<div class="step"><span class="n">3</span><div>Unity로 메인 폴더 열기 → 통합 상태 테스트. (2인 테스트 절차는 <code>Reports/SCN_Procedures.md</code>)</div></div>
+<div class="step"><span class="n">4</span><div>문제가 나오면: <b>어느 쪽 문제인지</b>에 따라 해당 Claude 채팅에 수정을 시키고, 커밋이 올라오면 1번부터 다시 (머지 다시 하면 됨 — <code>-B</code>가 매번 새로 만들어 준다).</div></div>
+
+<!-- ============ 6 ============ -->
+<h2><span class="no">§6</span>케이스 D — GitHub 최종 업로드 (가장 중요)</h2>
+<p>이 프로젝트의 브랜치 명명 규칙대로, 최종 목적지는 이미 만들어져 있다:</p>
+<table>
+<tr><th>작업</th><th>로컬 작업 브랜치</th><th>GitHub 목적지</th></tr>
+<tr><td><span class="tag tNET">넷코드</span></td><td><code>claude/sharp-boyd-9b7050</code></td><td><code>feature/pC/namkyu/netcode</code></td></tr>
+<tr><td><span class="tag tHAR">하네스</span></td><td><code>claude/laughing-gates-da429a</code></td><td><code>feature/pC/namkyu/harness</code></td></tr>
+</table>
+
+<div class="box red">
+<b>⚠ SourceTree의 Push 버튼을 그냥 누르지 말 것</b>
+두 claude 브랜치의 추적 설정이 둘 다 <code>origin/feature/pC/namkyu/harness</code>로 잘못 묶여 있어, 기본 Push가 엉뚱한 원격 브랜치로 나간다. 아래의 <b>"로컬브랜치:원격브랜치" 지정 푸시</b>만 사용한다. (한 번 아래 ②의 -u 옵션으로 푸시하면 추적이 올바르게 교정되어 이후엔 버튼 푸시도 안전해진다.)
+</div>
+
+<h3>방법 ① 명령 한 줄 (간단·권장)</h3>
+<pre><span class="c"># 넷코드 업로드 — 아무 폴더에서나 실행 가능 (워크트리 포함)</span>
+git push origin claude/sharp-boyd-9b7050:feature/pC/namkyu/netcode
+
+<span class="c"># 하네스 업로드 (원격 harness 브랜치에 이어 붙이기)</span>
+git push origin claude/laughing-gates-da429a:feature/pC/namkyu/harness</pre>
+<p>콜론(:) 왼쪽=내 로컬 브랜치, 오른쪽=GitHub에 올라갈 브랜치 이름이다. 이후 GitHub에서 PR을 만들어 master로 머지하면 끝.</p>
+
+<h3>방법 ② 추적 설정까지 교정하면서 푸시 (이후 버튼 푸시 가능)</h3>
+<pre><span class="c"># 각 워크트리 폴더의 터미널에서 (또는 Claude 채팅에 시키기)</span>
+<span class="c"># 넷코드 워크트리에서:</span>
+git push -u origin claude/sharp-boyd-9b7050:feature/pC/namkyu/netcode
+<span class="c"># 하네스 워크트리에서:</span>
+git push -u origin claude/laughing-gates-da429a:feature/pC/namkyu/harness</pre>
+
+<h3>방법 ③ SourceTree GUI로만 하고 싶다면</h3>
+<div class="step"><span class="n">1</span><div>상단 <span class="kbd">Push</span> 클릭 → 푸시할 브랜치 체크박스에서 해당 claude 브랜치 선택</div></div>
+<div class="step"><span class="n">2</span><div><b>"원격 브랜치" 칸을 반드시 직접 수정</b> — <code>feature/pC/namkyu/netcode</code>(넷코드) 또는 <code>feature/pC/namkyu/harness</code>(하네스)로 타이핑</div></div>
+<div class="step"><span class="n">3</span><div>"추적 설정" 체크 후 Push → 이후부터는 버튼 푸시도 올바른 곳으로 나간다</div></div>
+
+<div class="box green">
+<b>master 반영까지 하려면</b>
+GitHub 웹에서 <code>feature/pC/namkyu/netcode</code> → <code>master</code> PR 생성·머지가 정석(협업자 Ethaniya0912와 리뷰 가능). 로컬에서 직접 하려면: <code>git checkout master && git merge feature/pC/namkyu/netcode && git push origin master</code>. 머지 후에는 §9의 프롬프트로 각 워크트리에 "master 최신을 머지해줘"라고 시켜 동기화한다.
+</div>
+
+<!-- ============ 7 ============ -->
+<h2><span class="no">§7</span>케이스 E — 수정점이 나왔을 때의 일상 루프</h2>
+<figure class="fig">
+<svg viewBox="0 0 940 150" xmlns="http://www.w3.org/2000/svg">
+<style>.fb{fill:#EEF3FA;stroke:#2D5DA8;stroke-width:1.4;rx:8}.ft{font-size:12.5px;font-weight:700;fill:#10233B}.fs{font-size:10.5px;fill:#5C6B7E}.fa{stroke:#2D5DA8;stroke-width:1.8;fill:none;marker-end:url(#arr)}</style>
+<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 Z" fill="#2D5DA8"/></marker></defs>
+<rect x="20" y="40" width="195" height="62" class="fb"/><text x="36" y="66" class="ft">① Claude 채팅에 수정 지시</text><text x="36" y="86" class="fs">해당 워크트리에서 수정+커밋</text>
+<path class="fa" d="M215,71 L255,71"/>
+<rect x="258" y="40" width="195" height="62" class="fb"/><text x="274" y="66" class="ft">② 메인 폴더에서 갱신</text><text x="274" y="86" class="fs m">git checkout -B test/... (§4·§5)</text>
+<path class="fa" d="M453,71 L493,71"/>
+<rect x="496" y="40" width="195" height="62" class="fb"/><text x="512" y="66" class="ft">③ Unity 테스트</text><text x="512" y="86" class="fs">문제 발견 → ①로 / 통과 → ④</text>
+<path class="fa" d="M691,71 L731,71"/>
+<rect x="734" y="40" width="185" height="62" class="fb" style="fill:#EEF7F1;stroke:#2E7D4F"/><text x="750" y="66" class="ft">④ GitHub 푸시 (§6)</text><text x="750" y="86" class="fs">PR → master 머지</text>
+<path class="fa" d="M593,102 C593,135 116,135 116,104" stroke-dasharray="5 3"/>
+</svg>
+<figcaption><b>그림 3.</b> 일상 루프. 직접 고치는 곳은 항상 워크트리(Claude 채팅), 테스트하는 곳은 항상 메인 폴더.</figcaption>
+</figure>
+<div class="box">
+<b>버그를 메인 폴더에서 발견해서 급하게 직접 고쳤다면?</b>
+test/* 브랜치에 커밋하지 말고, 수정 내용을 복사해 두고 되돌린 후 Claude 채팅에 시키는 게 깔끔하다. 이미 커밋했다면 해당 채팅에 "메인 폴더의 test/netcode 브랜치에 내가 커밋한 ___ 를 이 브랜치로 가져와(cherry-pick)줘" 라고 부탁하면 된다.
+</div>
+
+<!-- ============ 8 ============ -->
+<h2><span class="no">§8</span>옵션 — 워크트리 폴더를 Unity로 직접 열기 / SourceTree에 탭 추가</h2>
+<h3>워크트리를 별도 Unity 프로젝트로 열기 (동시 2개 에디터 가능)</h3>
+<p>워크트리 폴더에도 Assets·Packages·ProjectSettings가 다 있으므로 Unity Hub → <span class="kbd">Add</span> → <code>pB\.claude\worktrees\sharp-boyd-9b7050</code> 선택으로 열 수 있다. 메인과 워크트리를 <b>동시에 두 에디터로</b> 띄울 수도 있다(폴더가 다르면 Unity가 허용).</p>
+<table>
+<tr><th>장점</th><th>단점</th></tr>
+<tr><td>브랜치 전환 없이 즉시 테스트, 두 작업 나란히 비교 가능</td><td><b>첫 임포트가 매우 오래 걸림</b>(Library가 없어 전체 리임포트) + 디스크 수십 GB 추가</td></tr>
+</table>
+<div class="box">
+<b>첫 임포트 단축 팁</b> — Unity를 모두 닫은 상태에서 메인 폴더의 <code>Library</code> 폴더를 워크트리 폴더로 <b>복사</b>해 두고 열면 대부분 캐시가 재활용된다(Library는 캐시라 복사해도 안전 — 불일치 부분만 Unity가 다시 굽는다). 그래도 수십 GB 복사라는 점은 감안.
+</div>
+<h3>SourceTree에서 워크트리를 별도 탭으로 보기</h3>
+<p><span class="kbd">파일</span> → <span class="kbd">열기</span>(또는 새 탭 +) → 워크트리 폴더 선택. 그 탭에서는 해당 워크트리의 파일 상태·커밋이 보인다. 단 푸시·브랜치 그래프는 메인 탭과 동일한 저장소를 공유하므로, 그래프 확인은 메인 탭 하나로 충분하다.</p>
+
+<!-- ============ 9 ============ -->
+<h2><span class="no">§9</span>복붙용 Claude 프롬프트 모음</h2>
+<table>
+<tr><th style="width:230px">상황</th><th>어느 채팅에</th></tr>
+</table>
+<p><b>1. 작업 브랜치를 master 최신과 동기화</b> (master가 갱신된 뒤 각 채팅에서):</p>
+<div class="prompt">origin에서 fetch 받고 master 최신을 이 브랜치에 머지해줘. 충돌나면 해결 방안 보고하고 진행해.</div>
+<p><b>2. GitHub 업로드</b> (넷코드 채팅 기준 — 하네스 채팅이면 브랜치명만 교체):</p>
+<div class="prompt">현재 브랜치를 origin의 feature/pC/namkyu/netcode 로 푸시해줘. -u 로 추적도 교정하고, 푸시 전에 어떤 커밋들이 올라가는지 목록 보여줘.</div>
+<p><b>3. 통합 테스트 브랜치 생성/갱신</b> (아무 채팅이나 — 메인 폴더는 Unity를 닫은 상태에서):</p>
+<div class="prompt">메인 저장소 폴더(D:\남규\프로젝트\Unity\pB)에서 test/integration 브랜치를 master 기준으로 새로 만들고, claude/sharp-boyd-9b7050, claude/laughing-gates-da429a, chore/unity-packages 를 순서대로 머지해줘. 충돌나면 파일별로 어느 쪽을 택했는지 보고해. 단, 머지 전에 메인 폴더에 커밋 안 된 변경이 있는지 먼저 확인해.</div>
+<p><b>4. 테스트에서 발견한 버그 수정 지시</b> (해당 채팅에):</p>
+<div class="prompt">Unity에서 테스트해보니 [증상: 어떤 씬에서, 어떤 조작 시, 어떤 에러/현상]. 콘솔 에러: [붙여넣기]. 원인 찾아서 수정하고 커밋해줘.</div>
+<p><b>5. 지금 상태 브리핑</b> (헷갈릴 때 아무 채팅에):</p>
+<div class="prompt">git worktree list 와 git branch -vv, git log --oneline --graph --all -15 결과를 보여주고, 지금 어떤 브랜치가 어디에 체크아웃되어 있고 푸시 안 된 커밋이 뭔지 한국어로 요약해줘.</div>
+<p><b>6. 작업 완전 종료 후 워크트리 정리</b> (모든 머지·푸시가 끝난 뒤):</p>
+<div class="prompt">이 작업은 master에 머지 완료됐어. 이 워크트리를 안전하게 정리해줘 — 푸시 안 된 커밋이 없는지 먼저 확인하고, 있으면 중단하고 알려줘.</div>
+
+<!-- ============ 10 ============ -->
+<h2><span class="no">§10</span>FAQ — 초보가 반드시 만나는 에러들</h2>
+<table>
+<tr><th style="width:330px">증상</th><th>의미와 해결</th></tr>
+<tr><td><code>fatal: 'claude/...' is already checked out at ...</code> (SourceTree 체크아웃 에러)</td><td>그 브랜치는 워크트리가 점유 중이라는 뜻. <b>정상 동작</b>이다. §4처럼 <code>git checkout -B test/이름 브랜치명</code> 으로 우회한다.</td></tr>
+<tr><td>SourceTree Push가 자꾸 harness 원격으로 가려고 함</td><td>추적 설정 오류(§2 ②). §6 방법 ②의 <code>-u</code> 푸시 한 번이면 영구 교정.</td></tr>
+<tr><td>Unity가 갑자기 대량 리임포트 시작</td><td>에디터가 열린 채 브랜치를 전환했기 때문. 기다리면 되지만, 큰 전환(통합 머지 등)은 Unity를 닫고 하는 습관을 들일 것.</td></tr>
+<tr><td>워크트리 폴더를 탐색기에서 그냥 삭제해버렸다</td><td>커밋된 내용은 .git에 남아 있어 안전하다. 메인 폴더에서 <code>git worktree prune</code> 실행 후, 필요하면 브랜치에서 워크트리를 다시 만든다 — 단 <b>커밋 안 한 변경은 사라지므로</b> 삭제 전 반드시 해당 채팅에 커밋을 시킬 것.</td></tr>
+<tr><td>메인 폴더 SourceTree에 "(detached HEAD)" 표시</td><td>브랜치 없이 커밋 위에 서 있다는 뜻. 그 상태에서 커밋하면 이름표가 없어 나중에 찾기 어렵다. §3처럼 즉시 브랜치를 붙인다.</td></tr>
+<tr><td>두 채팅이 같은 파일을 고친다고 한다</td><td>지금 구조(넷코드=Assets/Scripts, 하네스=.claude)는 겹치지 않지만, 겹칠 작업이라면 한쪽을 먼저 master에 머지하고 다른 쪽에 "master 머지해줘"(§9-1)를 시킨 후 진행하는 것이 충돌을 최소화한다.</td></tr>
+<tr><td>packages-lock.json 충돌</td><td>아무 쪽이나 선택해도 됨 — Unity가 manifest 기준으로 다시 생성한다. 확실하게 하려면 충돌 해결 후 Unity를 한 번 열어 자동 갱신시키고 커밋.</td></tr>
+</table>
+
+<h2><span class="no">§11</span>한눈 요약 카드</h2>
+<table>
+<tr><th>하고 싶은 것</th><th>하는 곳</th><th>명령/행동</th></tr>
+<tr><td>넷코드 코드 수정</td><td>넷코드 Claude 채팅</td><td>말로 시키면 워크트리에서 수정·커밋</td></tr>
+<tr><td>하네스 수정</td><td>하네스 Claude 채팅</td><td>〃</td></tr>
+<tr><td>넷코드만 Unity 테스트</td><td>메인 폴더 (Unity 닫고)</td><td><code>git checkout -B test/netcode claude/sharp-boyd-9b7050</code></td></tr>
+<tr><td>하네스만 테스트</td><td>〃</td><td><code>git checkout -B test/harness claude/laughing-gates-da429a</code></td></tr>
+<tr><td>합쳐서 테스트</td><td>〃</td><td><code>test/integration</code> 만들고 3개 머지 (§5)</td></tr>
+<tr><td>GitHub 업로드</td><td>아무 터미널/채팅</td><td><code>git push origin 로컬브랜치:feature/pC/namkyu/이름</code> (§6)</td></tr>
+<tr><td>master 반영</td><td>GitHub 웹</td><td>PR 생성 → 머지 → 각 채팅에 "master 머지해줘"</td></tr>
+<tr><td>전부 끝난 뒤 정리</td><td>해당 채팅</td><td>§9-6 프롬프트 (워크트리 제거)</td></tr>
+</table>
+
+<footer>
+pB 프로젝트 워크트리 가이드 · 2026-06-12 저장소 실측 기준 (메인 detached a0f53fd · 넷코드 004fe51 · 하네스 be2e455) · 본 문서 위치: Reports\Git_Worktree_Unity_가이드.html (+ 사본: Downloads)
+</footer>
+
+</div>
+</body>
+</html>
