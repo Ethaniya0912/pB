@@ -108,7 +108,7 @@
     <span>8단계 파이프라인 ①~⑧</span>
     <span>게이트 G1~G7</span>
     <span>테스트 22/22 PASS</span>
-    <span>2026-06-12 · 기준 커밋 05c2df5</span>
+    <span>2026-06-12 · feature/pC/namkyu/harness</span>
   </div>
 </header>
 
@@ -206,40 +206,71 @@
 <!-- ============================================================ -->
 <h2 id="setup"><span class="num">3.</span>1회 셋업 (설치·환경)</h2>
 
+<h3>3-0. 먼저 — 명령은 "어디서" 치는가</h3>
+<p>이 가이드의 명령·조작은 실행 위치가 4곳으로 나뉜다. 각 절에도 표기하지만 기준은 이 표다.</p>
+<table>
+  <tr><th style="width:230px">종류</th><th style="width:200px">실행 위치</th><th>여는 방법 (Windows)</th></tr>
+  <tr><td>설치 명령<br><code>irm ... | iex</code>, <code>winget install ...</code></td><td><b>Windows PowerShell</b></td>
+      <td>키보드 <b>Win 키</b> → <code>powershell</code> 입력 → <b>Enter</b>. 관리자 권한 불필요(파란/검은 콘솔 창이 뜬다)</td></tr>
+  <tr><td>확인 명령<br><code>unity-cli --version</code>, <code>jq --version</code>, <code>unity-cli --json status</code></td><td><b>아무 터미널</b><br>(PowerShell / Git Bash)</td>
+      <td>위와 동일하게 열면 된다. 단 <b>설치 직후에는 PATH 반영을 위해 반드시 "새 창"을 새로 연다</b> — 설치했던 창에서는 명령을 못 찾을 수 있다</td></tr>
+  <tr><td>bash 스크립트<br><code>bash .harness/hooks/tests/run.sh</code></td><td><b>Git Bash</b><br>(프로젝트 루트에서)</td>
+      <td>파일 탐색기에서 <b>프로젝트 루트 폴더</b>(예: <code>D:\남규\프로젝트\Unity\pB</code>)를 연다 → 빈 곳 <b>우클릭</b> → <b>"Open Git Bash here"</b>. 없으면 시작 메뉴에서 <b>Git Bash</b> 실행 후 <code>cd "D:\남규\프로젝트\Unity\pB"</code></td></tr>
+  <tr><td>슬래시 명령<br><code>/init</code>, <code>/cycle-start ...</code></td><td><b>Claude Code 대화 입력창</b></td>
+      <td>터미널에서 프로젝트 루트로 이동(<code>cd</code>) 후 <code>claude</code> 입력 → Claude Code가 뜨면 <b>맨 아래 대화 입력창</b>에 <code>/</code>로 시작하는 명령을 친다. 터미널 명령이 아님에 주의</td></tr>
+  <tr><td>Unity 메뉴 조작<br>Package Manager, Preferences</td><td><b>Unity Editor 메뉴 바</b></td>
+      <td>Unity Hub → 프로젝트(pB) 열기 → Editor <b>최상단 메뉴 바</b>(File·Edit·Window...)에서 조작</td></tr>
+</table>
+<div class="panel callout"><b>프로젝트 루트</b> = <code>.harness/</code>·<code>Assets/</code> 폴더가 같이 보이는 폴더(예: <code>D:\남규\프로젝트\Unity\pB</code>).
+터미널에서 이동: <code>cd "D:\남규\프로젝트\Unity\pB"</code>. PC마다 경로가 다르면 자기 경로로 바꾼다.</div>
+
 <h3>3-1. jq (권장 — JSON 파싱 정확도)</h3>
-<pre><code><span class="cmt"># Windows — 셋 중 하나</span>
+<p>📍 <b>PowerShell</b>(Win 키 → <code>powershell</code> → Enter)에서 아래 셋 중 <b>하나만</b> 실행:</p>
+<pre><code><span class="cmt"># Windows — 셋 중 하나 (winget은 Windows 10/11 기본 내장)</span>
 winget install jqlang.jq
 choco install jq
-scoop install jq
-
-<span class="cmt"># 확인 (새 터미널)</span>
-jq --version</code></pre>
+scoop install jq</code></pre>
+<p>📍 확인 — PowerShell 또는 Git Bash <b>새 창</b>을 열고:</p>
+<pre><code>jq --version        <span class="cmt"># → jq-1.7.x 출력되면 성공</span></code></pre>
 <p class="muted">없어도 동작한다(python → sed 폴백). 단, 안전 게이트(guard)의 명령 추출 정확도를 위해 설치 권장.</p>
 
 <h3>3-2. unity-cli — CLI 바이너리</h3>
-<pre><code><span class="cmt"># Windows (PowerShell) — 공식 인스톨러</span>
-irm https://raw.githubusercontent.com/youngwoocho02/unity-cli/master/install.ps1 | iex
-
-<span class="cmt"># 확인 / 업데이트</span>
-unity-cli --version
-unity-cli update</code></pre>
+<p>📍 <b>PowerShell</b>(Win 키 → <code>powershell</code> → Enter)에 아래 한 줄을 붙여넣고 Enter:</p>
+<pre><code><span class="cmt"># 공식 인스톨러 — 다운로드와 PATH 등록까지 자동</span>
+irm https://raw.githubusercontent.com/youngwoocho02/unity-cli/master/install.ps1 | iex</code></pre>
+<p>📍 확인 — PowerShell 또는 Git Bash <b>새 창</b>을 열고:</p>
+<pre><code>unity-cli --version   <span class="cmt"># → unity-cli v0.2.x 출력되면 성공</span>
+unity-cli update      <span class="cmt"># (이후 아무 때나) 최신으로 업데이트</span></code></pre>
 
 <h3>3-3. unity-cli — Unity Connector 패키지</h3>
-<p>Unity Editor → <b>Window → Package Manager</b> → <code>+</code> → <b>Add package from git URL</b>:</p>
+<p>📍 <b>Unity Editor</b>에서 (Unity Hub → 프로젝트 열기 → 로딩 완료 후):</p>
+<ol>
+  <li>최상단 메뉴 바에서 <b>Window → Package Manager</b> 클릭 → Package Manager 창이 뜬다.</li>
+  <li>창 <b>왼쪽 위 <code>+</code> 버튼</b>(드롭다운) 클릭 → <b>"Add package from git URL..."</b> 선택.</li>
+  <li>입력란에 아래 URL을 붙여넣고 <b>Add 버튼</b> 클릭:</li>
+</ol>
 <pre><code>https://github.com/youngwoocho02/unity-cli.git?path=unity-connector</code></pre>
-<p>또는 <code>Packages/manifest.json</code> 직접 편집(버전 고정은 <code>#v0.2.21</code> 식 태그):</p>
-<pre><code>"com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector"</code></pre>
+<ol start="4">
+  <li>임포트가 끝나면 목록에 <b>unity-cli-connector</b>가 보이고, <b>Console 창</b>(Window → General → Console)에 에러가 없어야 한다.</li>
+</ol>
+<p>대안 — 파일로 직접 추가: 프로젝트 루트의 <code>Packages\manifest.json</code>을 메모장/VS Code로 열고
+<code>"dependencies": {</code> 바로 아래에 한 줄 추가(버전 고정은 <code>#v0.2.21</code> 식 태그):</p>
+<pre><code>"com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector",</code></pre>
 <div class="panel callout ok">Connector는 Unity 기동 시 <b>자동 활성화</b>된다(기본 포트 8090, 별도 설정 불필요).
-확인: Editor 켠 상태에서 <code>unity-cli --json status</code> → <code>"ready"</code>.</div>
+📍 확인: Editor를 켜둔 채 <b>아무 터미널</b>에서 <code>unity-cli --json status</code> → <code>"ready"</code>가 나오면 연결 성공.</div>
 
 <h3>3-4. Unity Preferences</h3>
-<ul>
-  <li><b>Edit → Preferences → General → Interaction Mode = <code>No Throttling</code></b>
-      — 백그라운드에서도 unity-cli 요청에 즉시 응답하게 한다(컴파일 대기 단축).</li>
-</ul>
+<p>📍 <b>Unity Editor</b> 최상단 메뉴 바에서:</p>
+<ol>
+  <li><b>Edit → Preferences...</b> 클릭(Mac은 Unity → Settings...) → Preferences 창이 뜬다.</li>
+  <li>왼쪽 목록에서 <b>General</b> 탭 선택.</li>
+  <li><b>Interaction Mode</b> 드롭다운을 <b><code>No Throttling</code></b>으로 변경 → 창 닫기(자동 저장).</li>
+</ol>
+<p class="muted">효과: Editor가 백그라운드(다른 창에 포커스)일 때도 unity-cli 요청에 즉시 응답한다 — 훅의 컴파일 대기가 짧아진다.</p>
 
 <h3>3-5. CLAUDE.md (프로젝트 메모리)</h3>
-<p>Claude Code에서 <code>/init</code> 실행 후, 생성된 CLAUDE.md에 다음을 보정한다:</p>
+<p>📍 <b>터미널에서 프로젝트 루트로 이동 후 <code>claude</code> 실행 → Claude Code 대화 입력창</b>에 <code>/init</code> 입력.
+생성된 CLAUDE.md(프로젝트 루트)에 다음을 보정한다:</p>
 <pre><code>## 중요 규칙
 - 사이클 단위 개발은 반드시 /cycle-start &lt;문서&gt; 로 시작한다.
 - 게이트(G1·G2·G3·G5·G7)에서 멈추는 것은 정상 동작 — 확인 후 승인/수정을 응답.
@@ -251,13 +282,13 @@ unity-cli update</code></pre>
 <h3>3-6. 셋업 완료 체크리스트</h3>
 <div class="panel">
 <ul class="checklist">
-  <li>☐ <code>jq --version</code> 동작</li>
-  <li>☐ <code>unity-cli --version</code> 동작</li>
-  <li>☐ Editor 켠 상태에서 <code>unity-cli --json status</code> → <code>ready</code></li>
-  <li>☐ Preferences → Interaction Mode = No Throttling</li>
-  <li>☐ CLAUDE.md 작성</li>
-  <li>☐ <code>bash .harness/hooks/tests/run.sh</code> → <code>PASS=22 FAIL=0</code></li>
-  <li>☐ Claude Code 새 세션 시작 시 <code>=== Unity 하네스 컨텍스트 ===</code> 헤더 표시</li>
+  <li>☐ <code>jq --version</code> 동작 <span class="muted">— 아무 터미널 새 창</span></li>
+  <li>☐ <code>unity-cli --version</code> 동작 <span class="muted">— 아무 터미널 새 창</span></li>
+  <li>☐ Editor 켠 상태에서 <code>unity-cli --json status</code> → <code>ready</code> <span class="muted">— 아무 터미널</span></li>
+  <li>☐ Preferences → Interaction Mode = No Throttling <span class="muted">— Unity Editor 메뉴 바</span></li>
+  <li>☐ CLAUDE.md 작성 <span class="muted">— Claude Code 입력창 <code>/init</code> 후 파일 보정</span></li>
+  <li>☐ <code>bash .harness/hooks/tests/run.sh</code> → <code>PASS=22 FAIL=0</code> <span class="muted">— Git Bash, 프로젝트 루트</span></li>
+  <li>☐ Claude Code 새 세션 시작 시 <code>=== Unity 하네스 컨텍스트 ===</code> 헤더 표시 <span class="muted">— 터미널에서 <code>claude</code> 재실행</span></li>
 </ul>
 </div>
 
@@ -275,6 +306,12 @@ unity-cli update</code></pre>
   <div class="step"><b>4. /cycle-start</b><small>기획 문서 전달</small></div>
 </div>
 
+<ol>
+  <li><b>Unity Editor 열기</b> — Unity Hub에서 프로젝트(pB) 클릭. 로딩 후 <b>Window → General → Console</b>로 Console 창을 띄워 둔다.</li>
+  <li><b>status 확인</b> — 📍 아무 터미널(PowerShell/Git Bash)에서 <code>unity-cli --json status</code> → <code>"ready"</code> 확인.</li>
+  <li><b>Claude Code 시작</b> — 📍 터미널에서 <code>cd "D:\남규\프로젝트\Unity\pB"</code> 후 <code>claude</code> 입력. 시작 화면에 <code>=== Unity 하네스 컨텍스트 ===</code> 헤더가 떠야 정상.</li>
+  <li><b>/cycle-start</b> — 📍 Claude Code <b>대화 입력창</b>에 입력(터미널 명령 아님):</li>
+</ol>
 <pre><code>/cycle-start docs/기획_인벤토리.md inventory</code></pre>
 <p>스캐폴딩 스크립트가 <code>.harness/cycles/2026-06-12_inventory/</code>를 만들고 원본 보관·as-is 스냅샷·색인 등록까지 자동 수행한 뒤, 곧바로 ① target 분석을 시작한다.</p>
 <div class="panel callout warn"><b>왜 /cycle-start 인가?</b> 폴더 생성이라는 부작용이 있어 모델 자동 호출이 금지돼 있다
@@ -428,8 +465,10 @@ unity-cli editor stop</code></pre>
 <!-- ============================================================ -->
 <h2 id="test"><span class="num">10.</span>하네스 자체 테스트</h2>
 
+<p>📍 <b>Git Bash</b>에서 — 파일 탐색기로 프로젝트 루트를 열고 빈 곳 우클릭 → <b>"Open Git Bash here"</b> → 아래 명령 실행:</p>
 <pre><code>bash .harness/hooks/tests/run.sh
 <span class="cmt"># RESULT: PASS=22 FAIL=0</span></code></pre>
+<p class="muted">PowerShell에서는 <code>bash</code>가 Git Bash를 가리키도록 Git for Windows가 설치돼 있으면 동일하게 실행된다(<code>bash .harness/hooks/tests/run.sh</code>).</p>
 
 <table>
   <tr><th style="width:160px">그룹</th><th>케이스</th></tr>
@@ -484,7 +523,7 @@ A. 프로젝트 C#에 <code>[UnityCliTool]</code>로 승격해 <code>unity-cli t
 </div>
 
 <footer>
-  Unity 개발 하네스 사용 가이드 · 2026-06-12 · 기준 커밋 <code>05c2df5</code> ·
+  Unity 개발 하네스 사용 가이드 · 2026-06-12 · 브랜치 <code>feature/pC/namkyu/harness</code> ·
   소스: <code>.harness/</code> + <code>.claude/skills/unity-pipeline/</code> ·
   설계 원칙: 결정(Skill)과 강제(Hook)의 분리
 </footer>
