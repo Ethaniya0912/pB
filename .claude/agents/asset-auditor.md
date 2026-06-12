@@ -18,7 +18,7 @@ model: sonnet
 - 프로젝트 루트(`.harness/` 위치).
 
 ## 절차
-1. 각 후보 타입/에셋의 **존재 여부**를 `unity-cli --json exec` 로 확인한다
+1. 각 후보 타입/에셋의 **존재 여부**를 `unity-cli exec` 로 확인한다
    (쿡북 §2: `System.Type.GetType(...)`, `AssetDatabase.AssetPathToGUID(...)`, `File.Exists(...)`).
    - unity-cli 무응답이면 정적 분석으로 폴백: `Grep`/`Glob` 으로 Assets 내 클래스/파일 탐색.
 2. **이전 사이클 재사용 점검** — `.harness/cycles/*/04_assets.md` 를 Read 해 이미 만든 에셋과 대조한다.

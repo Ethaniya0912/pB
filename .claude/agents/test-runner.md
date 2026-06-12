@@ -2,7 +2,7 @@
 name: test-runner
 description: >
   구현 루프 전용. 컴파일·플레이·콘솔 검증을 격리 컨텍스트에서 수행하고 task 통과/실패와
-  에러 요약을 반환한다. unity-cli editor refresh --compile / play --wait / console --filter error
+  에러 요약을 반환한다. unity-cli editor refresh --compile / play --wait / console --type error
   로 판정한다. 반복 플레이 판정이 길어 메인 컨텍스트를 아낄 때 위임한다.
 tools: Bash, Read, Grep
 model: sonnet
@@ -18,9 +18,9 @@ model: sonnet
 - 필요한 경우 간단한 셋업 스니펫(쿡북 §4/§5).
 
 ## 절차
-1. `unity-cli --json status` 로 ready 확인(busy 면 대기).
-2. `unity-cli editor refresh --compile` → `unity-cli --json console --filter error` 로 컴파일 에러 확인.
-3. 에러 없으면 `unity-cli editor play --wait` → 기대 동작 확인 → `unity-cli --json console --filter error`
+1. `unity-cli status` 로 ready 확인(busy 면 대기).
+2. `unity-cli editor refresh --compile` → `unity-cli console --type error` 로 컴파일 에러 확인.
+3. 에러 없으면 `unity-cli editor play --wait` → 기대 동작 확인 → `unity-cli console --type error`
    재확인 → `unity-cli editor stop`.
 4. 판정한다: **통과**(에러 0 + 기대 동작) / **실패**(에러 또는 기대 불충족).
 

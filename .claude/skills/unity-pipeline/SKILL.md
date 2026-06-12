@@ -28,7 +28,7 @@ description: >
 ## 3. Preconditions (사이클 시작 전 확인)
 1. **사이클 폴더 존재** — `/cycle-start <문서>` 로 스캐폴딩됐는가? 없으면 사용자에게 `/cycle-start`
    실행을 안내한다(이 스킬은 폴더를 직접 만들지 않는다 → 부작용은 cycle-start 전용).
-2. **Unity ready** — `unity-cli --json status` 가 `ready` 인지 확인. busy 면 unity-cli 가 대기하므로
+2. **Unity ready** — `unity-cli status` 가 `ready` 인지 확인. busy 면 unity-cli 가 대기하므로
    그대로 진행 가능. 무응답이면 "Editor offline"으로 보고 후, 분석 단계(①~⑤)는 계속하되 실행
    단계(⑥ 이후)는 사용자에게 Editor 기동을 요청한다.
 3. **컨텍스트 로드** — `.harness/_conventions.md`, 최신 `snapshots/`, 이전 사이클 `04_assets.md` 를
@@ -58,7 +58,7 @@ description: >
   타입·에셋 존재를 확인하고, **이전 사이클 `04_assets.md` 와 최신 `snapshots/` 를 조회**해 중복을 피한다.
 - 위임: 존재성 스캔은 **`asset-auditor` 서브에이전트**(read-only)에 맡길 수 있다(§8).
 - 산출물: scope 매트릭스(요구사항·상태[기구현/신규/변경]·대상에셋·영향범위·리스크).
-- CLI: `unity-cli --json exec "System.Type.GetType(\"Game.Inventory\")!=null"` (쿡북 §존재확인)
+- CLI: `unity-cli exec "System.Type.GetType(\"Game.Inventory\")!=null"` (쿡북 §존재확인)
 - **G2 게이트**: 기존 에셋 수정·영향도 높은 항목을 승인받는다.
 
 ### ④ assets — 에셋 작업 목록 확정  ▸ `04_assets.md`  ▸ **G3**
@@ -105,7 +105,7 @@ description: >
 각 task 에 대해:
 1. **편집** — Edit/Write 로 스크립트·에셋 텍스트 수정.
 2. **정합화·컴파일** — Unity YAML 에셋(`.prefab/.unity/.asset/.mat/.anim/.controller` 등)은
-   **PostToolUse 훅이 자동으로** `reserialize → editor refresh --compile → console --filter error`
+   **PostToolUse 훅이 자동으로** `reserialize → editor refresh --compile → console --type error`
    수행. 코드 계열(`.cs/.asmdef/.shader` 등)은 compile 만.
    → **너는 reserialize 를 수동 호출하지 않는다**(훅 책임). 훅이 stderr 로 에러를 돌려주면 수정한다.
 3. **콘솔 확인** — 컴파일 에러 없으면 다음으로. 있으면 수정 후 재편집(루프 재진입).

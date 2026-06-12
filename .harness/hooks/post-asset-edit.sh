@@ -48,13 +48,12 @@ fi
 # ④ refresh --compile (Unity busy 면 unity-cli 가 자체 대기, 대형 컴파일 대비 타임아웃 연장)
 HARNESS_UCLI_TIMEOUT=120 ucli editor refresh --compile >/dev/null 2>&1
 
-# ⑤ 콘솔 에러 수집
-errout="$(ucli --json console --filter error 2>/dev/null)"
+# ⑤ 콘솔 에러 수집 (v0.3.x: --type error 로 에러 항목만 필터)
+errout="$(ucli console --type error 2>/dev/null)"
 
-# 결과 판정 — 에러/예외 흔적이 있고 비어있지 않으면 피드백
+# 결과 판정 — error 타입만 받았으므로 에러/예외 흔적이 있으면 피드백
 if [ -n "$errout" ] \
-   && printf '%s' "$errout" | grep -Eiq '"(message|type)"[[:space:]]*:|error|exception' \
-   && ! printf '%s' "$errout" | grep -Eq '^\[\]\s*$|"(logs|errors|entries)"[[:space:]]*:[[:space:]]*\[\]'; then
+   && printf '%s' "$errout" | grep -Eiq 'error|exception|assert'; then
   echo "[post-asset-edit] '$rel' 편집 후 콘솔 에러 감지:" >&2
   printf '%s\n' "$errout" | cut -c1-1500 >&2
   log "errors after edit: $rel"

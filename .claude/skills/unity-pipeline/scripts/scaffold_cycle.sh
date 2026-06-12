@@ -69,7 +69,7 @@ fi
 command -v ucli >/dev/null 2>&1 || ucli() { unity-cli "$@"; }
 SNAP="$HARNESS/snapshots/${DATE}_${SLUG}_before.json"
 if command -v unity-cli >/dev/null 2>&1; then
-  if ucli --json exec "return UnityEditor.AssetDatabase.GetAllAssetPaths().Where(p=>p.StartsWith(\"Assets/\")).ToArray()" --usings System.Linq > "$SNAP" 2>/dev/null && [ -s "$SNAP" ]; then
+  if ucli exec "return UnityEditor.AssetDatabase.GetAllAssetPaths().Where(p=>p.StartsWith(\"Assets/\")).ToArray()" --usings System.Linq > "$SNAP" 2>/dev/null && [ -s "$SNAP" ]; then
     echo "[scaffold] 스냅샷: ${SNAP#$ROOT/}" >&2
   else
     echo "[scaffold] 스냅샷 실패(Editor offline?) — 건너뜀" >&2

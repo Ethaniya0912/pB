@@ -15,11 +15,12 @@
 
 ## 3. unity-cli 규칙
 - 멀티 인스턴스 혼선 방지: 가능하면 `unity-cli --project <ProjectRoot> ...` 로 대상을 고정한다.
-- 상태 게이팅: 변경성 명령 전 `unity-cli --json status` 로 `ready` 확인(busy 면 unity-cli 가 대기).
+- 상태 게이팅: 변경성 명령 전 `unity-cli status` 로 `ready` 확인(busy 면 unity-cli 가 대기).
 - 안전장치: Unity YAML 에셋(`.prefab/.unity/.asset/.mat/.anim/.controller/.physicMaterial` 등) 텍스트
   편집 후 반드시 `reserialize`(PostToolUse 훅이 자동 수행). 코드 계열(`.cs/.asmdef/.shader` 등)은 컴파일만.
 - 타임아웃: 훅 내 unity-cli 호출은 `ucli` 래퍼(기본 50s, `HARNESS_UCLI_TIMEOUT` 으로 조정)를 쓴다.
-- 읽기 전용 질의는 `--json exec` 로, 반복 셋업은 `[UnityCliTool]` 커스텀 툴로 승격한다.
+- 읽기 전용 질의는 `exec` 로(복잡한 코드는 stdin 파이프), 반복 셋업은 `[UnityCliTool]` 커스텀 툴로 승격한다.
+- v0.3.x 문법: `--json`/`--port` 없음. 콘솔 필터는 `console --type error`. 전역 `--project`/`--timeout <ms>`.
 - 권장 설정: Unity Preferences → Interaction Mode = `No Throttling`.
 
 ## 4. 체크박스 규약 (07_plan.md)

@@ -15,7 +15,7 @@ echo "=== Unity 하네스 컨텍스트 · source=${source} ==="
 
 # ① Unity Editor 상태 (10s 타임아웃 — 세션 시작을 지연시키지 않는다)
 if command -v unity-cli >/dev/null 2>&1; then
-  status="$(HARNESS_UCLI_TIMEOUT=10 ucli --json status 2>/dev/null)"
+  status="$(HARNESS_UCLI_TIMEOUT=10 ucli status 2>/dev/null)"
   if [ -n "$status" ]; then
     printf '[unity] %s\n' "$(printf '%s' "$status" | tr -d '\n' | cut -c1-600)"
   else

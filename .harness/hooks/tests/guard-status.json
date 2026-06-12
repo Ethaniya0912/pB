@@ -1,1 +1,1 @@
-{"tool_name":"Bash","tool_input":{"command":"unity-cli --json status"},"session_id":"t1"}
+{"tool_name":"Bash","tool_input":{"command":"unity-cli status"},"session_id":"t1"}

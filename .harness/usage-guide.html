@@ -212,7 +212,7 @@
   <tr><th style="width:230px">종류</th><th style="width:200px">실행 위치</th><th>여는 방법 (Windows)</th></tr>
   <tr><td>설치 명령<br><code>irm ... | iex</code>, <code>winget install ...</code></td><td><b>Windows PowerShell</b></td>
       <td>키보드 <b>Win 키</b> → <code>powershell</code> 입력 → <b>Enter</b>. 관리자 권한 불필요(파란/검은 콘솔 창이 뜬다)</td></tr>
-  <tr><td>확인 명령<br><code>unity-cli --version</code>, <code>jq --version</code>, <code>unity-cli --json status</code></td><td><b>아무 터미널</b><br>(PowerShell / Git Bash)</td>
+  <tr><td>확인 명령<br><code>unity-cli --version</code>, <code>jq --version</code>, <code>unity-cli status</code></td><td><b>아무 터미널</b><br>(PowerShell / Git Bash)</td>
       <td>위와 동일하게 열면 된다. 단 <b>설치 직후에는 PATH 반영을 위해 반드시 "새 창"을 새로 연다</b> — 설치했던 창에서는 명령을 못 찾을 수 있다</td></tr>
   <tr><td>bash 스크립트<br><code>bash .harness/hooks/tests/run.sh</code></td><td><b>Git Bash</b><br>(프로젝트 루트에서)</td>
       <td>파일 탐색기에서 <b>프로젝트 루트 폴더</b>(예: <code>D:\남규\프로젝트\Unity\pB</code>)를 연다 → 빈 곳 <b>우클릭</b> → <b>"Open Git Bash here"</b>. 없으면 시작 메뉴에서 <b>Git Bash</b> 실행 후 <code>cd "D:\남규\프로젝트\Unity\pB"</code></td></tr>
@@ -254,10 +254,10 @@ unity-cli update      <span class="cmt"># (이후 아무 때나) 최신으로 �
   <li>임포트가 끝나면 목록에 <b>unity-cli-connector</b>가 보이고, <b>Console 창</b>(Window → General → Console)에 에러가 없어야 한다.</li>
 </ol>
 <p>대안 — 파일로 직접 추가: 프로젝트 루트의 <code>Packages\manifest.json</code>을 메모장/VS Code로 열고
-<code>"dependencies": {</code> 바로 아래에 한 줄 추가(버전 고정은 <code>#v0.2.21</code> 식 태그):</p>
+<code>"dependencies": {</code> 바로 아래에 한 줄 추가(버전 고정은 <code>#v0.3.22</code> 식 태그):</p>
 <pre><code>"com.youngwoocho02.unity-cli-connector": "https://github.com/youngwoocho02/unity-cli.git?path=unity-connector",</code></pre>
 <div class="panel callout ok">Connector는 Unity 기동 시 <b>자동 활성화</b>된다(기본 포트 8090, 별도 설정 불필요).
-📍 확인: Editor를 켜둔 채 <b>아무 터미널</b>에서 <code>unity-cli --json status</code> → <code>"ready"</code>가 나오면 연결 성공.</div>
+📍 확인: Editor를 켜둔 채 <b>아무 터미널</b>에서 <code>unity-cli status</code> → <code>"ready"</code>가 나오면 연결 성공.</div>
 
 <h3>3-4. Unity Preferences</h3>
 <p>📍 <b>Unity Editor</b> 최상단 메뉴 바에서:</p>
@@ -284,7 +284,7 @@ unity-cli update      <span class="cmt"># (이후 아무 때나) 최신으로 �
 <ul class="checklist">
   <li>☐ <code>jq --version</code> 동작 <span class="muted">— 아무 터미널 새 창</span></li>
   <li>☐ <code>unity-cli --version</code> 동작 <span class="muted">— 아무 터미널 새 창</span></li>
-  <li>☐ Editor 켠 상태에서 <code>unity-cli --json status</code> → <code>ready</code> <span class="muted">— 아무 터미널</span></li>
+  <li>☐ Editor 켠 상태에서 <code>unity-cli status</code> → <code>ready</code> <span class="muted">— 아무 터미널</span></li>
   <li>☐ Preferences → Interaction Mode = No Throttling <span class="muted">— Unity Editor 메뉴 바</span></li>
   <li>☐ CLAUDE.md 작성 <span class="muted">— Claude Code 입력창 <code>/init</code> 후 파일 보정</span></li>
   <li>☐ <code>bash .harness/hooks/tests/run.sh</code> → <code>PASS=22 FAIL=0</code> <span class="muted">— Git Bash, 프로젝트 루트</span></li>
@@ -299,7 +299,7 @@ unity-cli update      <span class="cmt"># (이후 아무 때나) 최신으로 �
 <div class="flow">
   <div class="step"><b>1. Unity Editor 열기</b><small>Console 창 표시</small></div>
   <div class="arrow">→</div>
-  <div class="step"><b>2. status 확인</b><small>unity-cli --json status</small></div>
+  <div class="step"><b>2. status 확인</b><small>unity-cli status</small></div>
   <div class="arrow">→</div>
   <div class="step"><b>3. Claude Code 시작</b><small>SessionStart 훅이 컨텍스트 주입</small></div>
   <div class="arrow">→</div>
@@ -308,7 +308,7 @@ unity-cli update      <span class="cmt"># (이후 아무 때나) 최신으로 �
 
 <ol>
   <li><b>Unity Editor 열기</b> — Unity Hub에서 프로젝트(pB) 클릭. 로딩 후 <b>Window → General → Console</b>로 Console 창을 띄워 둔다.</li>
-  <li><b>status 확인</b> — 📍 아무 터미널(PowerShell/Git Bash)에서 <code>unity-cli --json status</code> → <code>"ready"</code> 확인.</li>
+  <li><b>status 확인</b> — 📍 아무 터미널(PowerShell/Git Bash)에서 <code>unity-cli status</code> → <code>"ready"</code> 확인.</li>
   <li><b>Claude Code 시작</b> — 📍 터미널에서 <code>cd "D:\남규\프로젝트\Unity\pB"</code> 후 <code>claude</code> 입력. 시작 화면에 <code>=== Unity 하네스 컨텍스트 ===</code> 헤더가 떠야 정상.</li>
   <li><b>/cycle-start</b> — 📍 Claude Code <b>대화 입력창</b>에 입력(터미널 명령 아님):</li>
 </ol>
@@ -394,7 +394,7 @@ unity-cli update      <span class="cmt"># (이후 아무 때나) 최신으로 �
 <table>
   <tr><th style="width:170px">편집된 파일</th><th>자동 수행</th></tr>
   <tr><td>Unity YAML 에셋<br><code>.prefab .unity .asset .mat .anim .controller .physicMaterial .spriteatlas</code> 등</td>
-      <td><code>reserialize</code> → <code>editor refresh --compile</code> → <code>console --filter error</code>. 에러 발견 시 stderr로 Claude에 피드백(즉시 수정 루프)</td></tr>
+      <td><code>reserialize</code> → <code>editor refresh --compile</code> → <code>console --type error</code>. 에러 발견 시 stderr로 Claude에 피드백(즉시 수정 루프)</td></tr>
   <tr><td>코드 계열<br><code>.cs .asmdef .shader .hlsl .uss .uxml</code> 등</td>
       <td>compile + console 검증만 (reserialize 생략)</td></tr>
   <tr><td>Assets/Packages 외부</td><td>완전 무시(불필요한 컴파일 방지)</td></tr>
@@ -426,9 +426,9 @@ unity-cli update      <span class="cmt"># (이후 아무 때나) 최신으로 �
 
 <pre><code><span class="cmt"># Claude가 task별로 수행하는 검증 명령 (쿡북 §5)</span>
 unity-cli editor refresh --compile          <span class="cmt"># (편집 시 훅이 이미 수행)</span>
-unity-cli --json console --filter error
+unity-cli console --type error
 unity-cli editor play --wait
-unity-cli --json console --filter error
+unity-cli console --type error
 unity-cli editor stop</code></pre>
 
 <ul>
