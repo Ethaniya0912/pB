@@ -484,6 +484,8 @@ unity-cli editor stop</code></pre>
 
 <table>
   <tr><th style="width:280px">증상</th><th style="width:200px">원인</th><th>해결</th></tr>
+  <tr><td>설치한 명령이 <code>인식되지 않습니다</code> (CommandNotFound)</td><td>설치 후 같은 창에서 실행 — PATH 미반영</td><td>터미널 <b>새 창</b>을 열고 재시도(§3-0). 기존 창 유지 시: <code>$env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")</code></td></tr>
+  <tr><td><code>'unity-cli.exe' ... 애플리케이션 제어 정책에서 이 파일을 차단했습니다</code></td><td><b>Smart App Control</b>(또는 WDAC)이 서명 없는 바이너리 실행 차단 — Windows 11 신규 설치 PC는 기본 켜짐/평가 모드</td><td>설정 → 개인 정보 및 보안 → Windows 보안 → <b>앱 및 브라우저 컨트롤 → 스마트 앱 컨트롤 설정 → 끄기</b> 후 새 터미널에서 재시도. ⚠ 앱별 예외 불가·한 번 끄면 재설치 전까지 못 켬. 상태 확인: <code>(Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy").VerifiedAndReputablePolicyState</code> (1=켜짐, 2=평가, 0=꺼짐). 0인데도 막히면 회사 관리 정책(WDAC/AppLocker) → IT 관리자 문의</td></tr>
   <tr><td>세션 시작 시 <code>[unity] unity-cli 미설치</code></td><td>PATH에 unity-cli 없음</td><td>§3-2 설치 후 새 터미널에서 Claude Code 재시작</td></tr>
   <tr><td><code>unity-cli status</code> 무응답</td><td>Editor 꺼짐 / Connector 미설치 / 포트 충돌</td><td>Editor 기동 → Package Manager에서 Connector 확인 → 포트 8090 점유 확인</td></tr>
   <tr><td>에셋 편집 후 정합화가 안 됨</td><td>unity-cli 미설치(경고만 출력 중)</td><td>§3-2~3-3 설치 — 이후 자동 활성화</td></tr>
