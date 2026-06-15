@@ -40,7 +40,10 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnConnecting(ConnectionInfo info)
         {
+            // [Step 0 / P2-4 채널화] 수명주기 로그는 NETCODE_DEBUG 전용 (릴리즈 콘솔 0, M9).
+#if NETCODE_DEBUG
             Debug.Log("ClientCallbacks: OnConnecting");
+#endif
         }
 
         /// <summary>
@@ -48,7 +51,9 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnConnected(ConnectionInfo info)
         {
+#if NETCODE_DEBUG
             Debug.Log("ClientCallbacks: OnConnected");
+#endif
             transport.InvokeOnTransportEvent(NetworkEvent.Connect, transport.ServerClientId, emptyPayload, Time.realtimeSinceStartup);
         }
 
@@ -57,7 +62,9 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnDisconnected(ConnectionInfo info)
         {
+#if NETCODE_DEBUG
             Debug.Log("ClientCallbacks: OnDisconnected");
+#endif
             NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", $"Client.OnDisconnected endReason={info.EndReason}"); // [Step 0 계측]
             transport.InvokeOnTransportEvent(NetworkEvent.Disconnect, transport.ServerClientId, emptyPayload, Time.realtimeSinceStartup);
         }
@@ -79,7 +86,8 @@ public class SteamP2PRelayTransport : NetworkTransport
             byte[] payload = new byte[size];
             Marshal.Copy(data, payload, 0, size);
 
-            transport.InvokeOnTransportEvent(NetworkEvent.Data, transport.ServerClientId, new ArraySegment<byte>(payload, 0, size), Time.realtimeSinceStartup);
+            // [Step 0 / PROF] NetSim 활성 시 지연/지터 주입 경유, 비활성 시 즉시 전달.
+            transport.DeliverData(transport.ServerClientId, payload);
         }
     }
 
@@ -92,7 +100,9 @@ public class SteamP2PRelayTransport : NetworkTransport
 
         public ServerCallbacks(SteamP2PRelayTransport transport)
         {
+#if NETCODE_DEBUG
             Debug.Log("Instantiating ServerCallbacks");
+#endif
             this.transport = transport;
         }
 
@@ -101,7 +111,9 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnConnecting(Connection connection, ConnectionInfo info)
         {
+#if NETCODE_DEBUG
             Debug.Log("ServerCallbacks: OnConnecting");
+#endif
             connection.Accept();
         }
 
@@ -110,7 +122,9 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnConnected(Connection connection, ConnectionInfo info)
         {
+#if NETCODE_DEBUG
             Debug.Log("ServerCallbacks: OnConnected");
+#endif
             transport.InvokeOnTransportEvent(NetworkEvent.Connect, connection.Id, emptyPayload, Time.realtimeSinceStartup);
         }
 
@@ -119,7 +133,9 @@ public class SteamP2PRelayTransport : NetworkTransport
         /// </summary>
         public void OnDisconnected(Connection connection, ConnectionInfo info)
         {
+#if NETCODE_DEBUG
             Debug.Log("ServerCallbacks: OnDisconnected");
+#endif
             NetDiag.NetDiagnostics.Event("TRANSPORT-RAW", $"Server.OnDisconnected conn={connection.Id} endReason={info.EndReason}");
             connection.Close();
             // [Step 1 / P0-2] Connect → Disconnect 수정. 기존에는 클라이언트 이탈이 NGO에
@@ -145,7 +161,8 @@ public class SteamP2PRelayTransport : NetworkTransport
             byte[] payload = new byte[size];
             Marshal.Copy(data, payload, 0, size);
 
-            transport.InvokeOnTransportEvent(NetworkEvent.Data, connection.Id, new ArraySegment<byte>(payload, 0, size), Time.realtimeSinceStartup);
+            // [Step 0 / PROF] NetSim 활성 시 지연/지터 주입 경유, 비활성 시 즉시 전달.
+            transport.DeliverData(connection.Id, payload);
         }
     }
 
@@ -153,6 +170,49 @@ public class SteamP2PRelayTransport : NetworkTransport
 
     private SocketManager socketManager = null;
     private ConnectionManager clientConnection = null;
+
+    // =========================================================================
+    // [Step 0 / PROF] 수신 경로 지연/지터 주입 큐 (NetSimProfiles).
+    // 손실(loss)은 주입하지 않는다 — 본 위치는 Steam 신뢰성 계층 이후라 reliable 드롭 시
+    // 영구 유실되어 세션이 깨진다(NetSimProfiles.cs 주석 참조). PROF-A/B 손실은 Clumsy 보완.
+    // NetSimProfiles.Enabled == false(기본 OFF)면 DeliverData 가 즉시 경로로 통과 → 무침습.
+    // =========================================================================
+    struct DelayedPacket
+    {
+        public ulong clientId;
+        public byte[] payload;
+        public float releaseAt;
+    }
+    private readonly Queue<DelayedPacket> simQueue = new Queue<DelayedPacket>();
+    private float lastReleaseAt = 0f;
+
+    /// <summary>
+    /// 수신 Data 이벤트를 NetSim 프로파일에 따라 즉시 또는 지연 전달한다.
+    /// </summary>
+    void DeliverData(ulong clientId, byte[] payload)
+    {
+        if (!NetDiag.NetSimProfiles.Enabled)
+        {
+            InvokeOnTransportEvent(NetworkEvent.Data, clientId, new ArraySegment<byte>(payload), Time.realtimeSinceStartup);
+            return;
+        }
+
+        float now = Time.realtimeSinceStartup;
+        float releaseAt = NetDiag.NetSimProfiles.ComputeReleaseTime(now, lastReleaseAt);
+        lastReleaseAt = releaseAt;
+        simQueue.Enqueue(new DelayedPacket { clientId = clientId, payload = payload, releaseAt = releaseAt });
+    }
+
+    /// 만기된 지연 패킷을 FIFO 순서로 방출(재정렬 없음).
+    void PumpSimQueue()
+    {
+        float now = Time.realtimeSinceStartup;
+        while (simQueue.Count > 0 && simQueue.Peek().releaseAt <= now)
+        {
+            var p = simQueue.Dequeue();
+            InvokeOnTransportEvent(NetworkEvent.Data, p.clientId, new ArraySegment<byte>(p.payload), Time.realtimeSinceStartup);
+        }
+    }
 
     /// <summary>
     /// A constant `clientId` that represents the server
@@ -252,7 +312,9 @@ public class SteamP2PRelayTransport : NetworkTransport
     /// <param name="clientId">The clientId to disconnect</param>
     override public void DisconnectRemoteClient(ulong clientId)
     {
+#if NETCODE_DEBUG
         Debug.Log("DisconnectRemoteClient.");
+#endif
 
         if (socketManager == null) return;
 
@@ -269,7 +331,9 @@ public class SteamP2PRelayTransport : NetworkTransport
     /// </summary>
     override public void DisconnectLocalClient()
     {
+#if NETCODE_DEBUG
         Debug.Log("DisconnectLocalClient.");
+#endif
         clientConnection?.Close();
     }
 
@@ -311,7 +375,9 @@ public class SteamP2PRelayTransport : NetworkTransport
     /// </summary>
     override public void Shutdown()
     {
+#if NETCODE_DEBUG
         Debug.Log("Shutdown.");
+#endif
         // [Step 1 / P1-1] Steam API 전체 종료(SteamClient.Shutdown) 금지 — 소켓/연결만 정리.
         // Steam API의 초기화·종료 수명은 SteamClient 컴포넌트가 단독 소유한다.
         // 기존에는 방 퇴장(NetworkManager.Shutdown → Transport.Shutdown)마다 Steam API 전체가
@@ -323,6 +389,10 @@ public class SteamP2PRelayTransport : NetworkTransport
         clientConnection = null;
         socketManager = null;
         isClient = false;
+
+        // [Step 0 / PROF] 지연 큐 정리 — 재호스팅 시 이전 세션 잔여 패킷 방출 방지.
+        simQueue.Clear();
+        lastReleaseAt = 0f;
     }
 
 
@@ -342,6 +412,9 @@ public class SteamP2PRelayTransport : NetworkTransport
         {
             // 방을 나갈 때 소켓이 닫히면서 발생하는 정상적인 Null 에러이므로 무시 (콘솔 도배 방지)
         }
+
+        // [Step 0 / PROF] 수신 직후 만기된 지연 패킷 방출 (NetSim OFF면 큐가 비어 무비용).
+        PumpSimQueue();
     }
 
     // =========================================================================
@@ -387,7 +460,9 @@ public class SteamP2PRelayTransport : NetworkTransport
 
     public override void Initialize(NetworkManager networkManager = null)
     {
+#if NETCODE_DEBUG
         Debug.Log("Initialize.");
+#endif
         Steamworks.SteamNetworkingUtils.InitRelayNetworkAccess();
 
         if (debug)
