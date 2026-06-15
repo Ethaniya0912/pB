@@ -31,16 +31,19 @@
 
 > 동일 SCN · 동일 PROF에서 측정. Baseline 칸은 Step0_Baseline.md에서 전기.
 
+> **단일 에디터 근사 측정(2026-06-13, 하네스 사이클 `2026-06-13_netcode2`)**: host-only로 가능한 항목만 자동 측정.
+> 증빙: `.harness/cycles/2026-06-13_netcode2/evidence/Step1_smoke_20260613.md`. 원격 피어 필요분은 2인 대기.
+
 | 지표 | 검증 방법 | Baseline (Step 0) | After (Step 1) | 합격 기준 | 판정 |
 |---|---|---|---|---|---|
-| M1 RTT | RNSM + PROF-A(150ms)/B(250ms) | 0 고정 | | 주입 지연 ±20% 추종 | |
-| M2 대형 메시지 | F9 스윕 (echo.csv) | 임계: ___B에서 손상 | 512: /1023: /1024: /1025: /1300: /4096: /16384: /65536: | 전부 PASS | |
-| M2 접속 | SCN-01 인벤 100+ | 성공률 ___% | /회 | 100% | |
-| M3 끊김 정합 | SCN-02A kill ×5 + events.csv | Disconnect 시 **Connect** 수신 | | TRANSPORT-RAW Disconnected → TRANSPORT-EVT **Disconnect** 짝 5/5 | |
-| M3 정리 체인 | 〃 + 로비 UI | 유령 ___건 | | ready맵·세션 카운트 정상 감소, 유령 0 | |
-| P1-2 순서 | Sequenced 채널 연번 100건 | (Step 0 실측) | | 역전 0건 | |
-| M8 재호스팅 | SCN-02B ×10 | ___/10 | /10 | 10/10, Steam 재초기화 에러 0 | |
-| 통합 | SCN-07 30분 (PROF-A) | — | | 끊김·유령·디싱크 0, 체크섬 MISMATCH 0 | |
+| M1 RTT | RNSM + PROF-A(150ms)/B(250ms) | 0 고정 | **0ms (단일 에디터 host loopback)** | 주입 지연 ±20% 추종 | ◐ loopback 0 정상 / 원격 추종은 2인 대기 |
+| M2 대형 메시지 | F9 스윕 (echo.csv) | 임계: ___B에서 손상 | (미측정 — host 루프백 무의미) | 전부 PASS | ☐ 2인 필수(BoundaryEchoHarness L70) |
+| M2 접속 | SCN-01 인벤 100+ | 성공률 ___% | (2인 대기) | 100% | ☐ 2인 |
+| M3 끊김 정합 | SCN-02A kill ×5 + events.csv | Disconnect 시 **Connect** 수신 | **host Shutdown → OnClientDisconnectCallback 정상, Connect 오발화 0** | Disconnected→**Disconnect** 짝 | ◐ host-local 정상 / 원격 이탈 경로 2인 대기 |
+| M3 정리 체인 | 〃 + 로비 UI | 유령 ___건 | OnClientStopped/OnServerStopped 정상 | 유령 0 | ◐ 2인 대기(유령 정량) |
+| P1-2 순서 | Sequenced 채널 연번 100건 | (Step 0 실측) | (코드 검증: UnreliableSequenced→Reliable 승격) | 역전 0건 | ☐ 2인 |
+| M8 재호스팅 | SCN-02B ×10 | ___/10 | **×3 전부 SteamClient 생존·StartHost 성공·에러 0** | 10/10, Steam 재초기화 에러 0 | ◐ P1-1 효과 입증 / 정량 10/10 2인 대기 |
+| 통합 | SCN-07 30분 (PROF-A) | — | (미측정) | 끊김·유령·디싱크 0 | ☐ 2인·30분 |
 
 ### 증거 첨부 목록
 - [ ] RNSM RTT 칸 캡처 (Before 0 / After 추종) — M1
@@ -55,11 +58,11 @@
 
 ## Step 1 게이트 판정
 
-- [ ] 구현 체크리스트 6항목 완료 (위 표) — **코드 완료 2026-06-12, 측정 대기**
-- [ ] M1·M2·M3·M8 Before/After 합격
-- [ ] SCN-07 30분 soak 통과 (**데모 게이트 1차**)
+- [x] 구현 체크리스트 6항목 완료 — **코드 완료 2026-06-12**, 정합 재검증 2026-06-13(compile 0, Step 0과 공존)
+- [◐] M1·M3·M8 단일 에디터 근사 합격 (host-only) / M2·원격 경로·정량은 2인 대기
+- [ ] SCN-07 30분 soak 통과 (**데모 게이트 1차**) — 2인/시간 필요, 미집행
 
-**판정**: ☐ 통과 → Step 2 착수 가능 / ☐ 미통과 (사유: )
+**판정**: ◑ **부분 통과** — Step 1 코드 정합·host-only 측정 합격(M1/M3/M8 정성). **데모 게이트 1차(SCN-07 30분 soak)와 M2·정량 M8은 2인 실기기 측정 후 최종 판정.** 그 전까지 Step 2 착수는 가능하나 데모 게이트는 미통과 상태.
 
 ### 잔존 알려진 한계 (Step 1 범위 밖 — 기록만)
 - 클라이언트 줍기 불가(P0-5)·전투 판정 분산(P0-3)은 Step 2 대상 — soak 중 관련 이상은 합격 판정에서 제외하되 기록.

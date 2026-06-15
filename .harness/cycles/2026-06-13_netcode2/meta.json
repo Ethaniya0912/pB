@@ -1,0 +1,13 @@
+{
+  "id": "2026-06-13_netcode2",
+  "title": "netcode2",
+  "created": "2026-06-13 12:40",
+  "updated": "2026-06-13 13:40",
+  "status": "signed_off",
+  "awaiting_gate": null,
+  "stage": "09_next",
+  "input": ["00_input/코옵_Netcode_실행계획_v1.1.md"],
+  "snapshots": { "before": "snapshots/2026-06-13_netcode2_before.txt", "after": null },
+  "evidence": "evidence/",
+  "links": { "index": "../../_index.md", "decisions": "decisions.md", "glossary": "../../glossary/_glossary.md" }
+}

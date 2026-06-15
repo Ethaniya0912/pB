@@ -1,0 +1,109 @@
+# Hierarchy Scan — 2026-06-13
+# unity-cli exec (read-only) 결과 전문
+
+=== 활성 씬 ===
+Scene_main_menu_01
+
+=== 빌드 씬 목록 ===
+0: Assets/Scenes/Scene_main_menu_01.unity
+1: Assets/Scenes/Scene_World_01.unity
+2: Assets/Scenes/Scene_S6.unity
+3: Assets/Scenes/Scene_S13.unity
+4: Assets/Scenes/Scene_S11.unity
+5: Assets/Scenes/Scene_pB2.unity
+6: Assets/Scenes/Wk3_NaturalEmergenceScene.unity
+7: Assets/Scenes/Scene_AI_Test.unity
+
+=== 루트 오브젝트 목록 ===
+━━━━ Cyber Layer ━━━━
+World Network Manager
+━━━━ Physics Layer ━━━━
+━━━━ UI Layer ━━━━
+━━━━ Helper Layer ━━━━
+
+=== Hierarchy 2단계 전개 ===
+=== ━━━━ Cyber Layer ━━━━ ===
+  ─── Bridge System ───
+    World Bridge Manager
+    World AI Bridge Manager
+    World Terrain Bridge Manager
+    World Scenario Bridge Manager
+    World Faction Bridge Manager (1)
+  ─── AI Domain ───
+    World AI Context Manager
+    World AI Spawn Manager
+    AI Context Bootstrapper
+    World Faction State Manager (1)
+  ─── Game State / Network ───
+    World Game State Manager
+    World Save Game Manager
+  ─── Item / Action / Utility ───
+    World Item Database
+    World Action Manager
+    World Utility Manager
+    World Item Spawner
+  ─── FX ───
+    World SoundFX Manager
+    World Character Effects Manager
+  ─── Player / Camera ───
+    World Camera Manager
+    Player Input Manager
+=== World Network Manager ===
+=== ━━━━ Physics Layer ━━━━ ===
+  ─── Terrain ───
+    CaveSystem
+    CaveSystem_test
+    TerrainSyncManager
+  ─── Rendering  ───
+    Shader Coordination Manager
+    GPGPU_ShadowManager
+    Global Volume
+    Directional Light
+  ─── Player  ───
+    Player Camera(Left&Right)
+    Character Safe Zone
+  ─── Input  ───
+    EventSystem
+=== ━━━━ UI Layer ━━━━ ===
+  Lobby Screen Canvas
+    Room Browser Panel
+    Lobby Room Panel
+  Title Screen Canvas
+    Title Screen Background
+    Title Screen Load Menu
+    Delete Character Pop Up
+    Waiting For Invite Pop Up
+  Player UI Manager
+    HUD Manager
+    Pop Up Manager
+=== ━━━━ Helper Layer ━━━━ ===
+  (자식 없음 — 빈 레이어 그룹)
+
+=== DontDestroyOnLoadHelper 부착 오브젝트 전체 목록 ===
+World Utility Manager (parent=─── Item / Action / Utility ───)
+World Item Spawner (parent=─── Item / Action / Utility ───)
+World Bridge Manager (parent=─── Bridge System ───)
+GPGPU_ShadowManager (parent=─── Rendering  ───)
+World Network Manager (parent=ROOT)
+Player UI Manager (parent=━━━━ UI Layer ━━━━)
+World Terrain Bridge Manager (parent=─── Bridge System ───)
+World SoundFX Manager (parent=─── FX ───)
+World AI Spawn Manager (parent=─── AI Domain ───)
+Player Input Manager (parent=─── Player / Camera ───)
+World Faction Bridge Manager (1) (parent=─── Bridge System ───)
+World Game State Manager (parent=─── Game State / Network ───)
+World Camera Manager (parent=─── Player / Camera ───)
+World Item Database (parent=─── Item / Action / Utility ───)
+Player Camera(Left&Right) (parent=─── Player  ───)
+World Scenario Bridge Manager (parent=─── Bridge System ───)
+World AI Context Manager (parent=─── AI Domain ───)
+World AI Bridge Manager (parent=─── Bridge System ───)
+World Character Effects Manager (parent=─── FX ───)
+Shader Coordination Manager (parent=─── Rendering  ───)
+EventSystem (parent=─── Input  ───)
+CaveSystem (parent=─── Terrain ───)
+World Save Game Manager (parent=─── Game State / Network ───)
+TerrainSyncManager (parent=─── Terrain ───)
+World Faction State Manager (1) (parent=─── AI Domain ───)
+World Action Manager (parent=─── Item / Action / Utility ───)
+

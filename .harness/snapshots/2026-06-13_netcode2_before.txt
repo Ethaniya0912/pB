@@ -1,0 +1,2706 @@
+Assets/Abiogenesis3d
+Assets/Abiogenesis3d/Campfire
+Assets/Abiogenesis3d/Campfire/Audio
+Assets/Abiogenesis3d/Campfire/Audio/Campfire.wav
+Assets/Abiogenesis3d/Campfire/Campfire.asmdef
+Assets/Abiogenesis3d/Campfire/Materials
+Assets/Abiogenesis3d/Campfire/Materials/Fire_fx.mat
+Assets/Abiogenesis3d/Campfire/Materials/Floor.mat
+Assets/Abiogenesis3d/Campfire/Materials/Rock.mat
+Assets/Abiogenesis3d/Campfire/Materials/Wood.mat
+Assets/Abiogenesis3d/Campfire/Models
+Assets/Abiogenesis3d/Campfire/Models/Rock.asset
+Assets/Abiogenesis3d/Campfire/Prefabs
+Assets/Abiogenesis3d/Campfire/Prefabs/CampFire.prefab
+Assets/Abiogenesis3d/Campfire/Prefabs/Fire.prefab
+Assets/Abiogenesis3d/Campfire/README.md
+Assets/Abiogenesis3d/Campfire/Scenes
+Assets/Abiogenesis3d/Campfire/Scenes/Example.unity
+Assets/Abiogenesis3d/Campfire/Scripts
+Assets/Abiogenesis3d/Campfire/Scripts/LightFlicker.cs
+Assets/Abiogenesis3d/Campfire/Textures
+Assets/Abiogenesis3d/Campfire/Textures/Fire.png
+Assets/Abiogenesis3d/Shared
+Assets/Abiogenesis3d/Shared/InEditor
+Assets/Abiogenesis3d/Shared/InEditor/AutoImportUnityPackage.cs
+Assets/Abiogenesis3d/Shared/Shared.asmdef
+Assets/ArtDesireBoutique
+Assets/ArtDesireBoutique/Audio
+Assets/ArtDesireBoutique/Audio/MOVE
+Assets/ArtDesireBoutique/Audio/MOVE/FOOTSTEPS
+Assets/ArtDesireBoutique/Audio/MOVE/FOOTSTEPS/FootstepS (1).wav
+Assets/ArtDesireBoutique/Audio/MOVE/JUMP
+Assets/ArtDesireBoutique/Audio/MOVE/JUMP/Jump (1).wav
+Assets/ArtDesireBoutique/Audio/PLAYER
+Assets/ArtDesireBoutique/Audio/PLAYER/DAMAGE
+Assets/ArtDesireBoutique/Audio/PLAYER/DAMAGE/Damage (1).wav
+Assets/ArtDesireBoutique/Audio/PLAYER/DIE
+Assets/ArtDesireBoutique/Audio/PLAYER/DIE/Human (1).wav
+Assets/ArtDesireBoutique/Audio/POWERUPS
+Assets/ArtDesireBoutique/Audio/POWERUPS/Powerup (1).wav
+Assets/Arts
+Assets/Arts/Animations
+Assets/Arts/Animations/Animations_Mixamo
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/draw sword 1.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/ranger_without_cape_rigged_root.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sheath sword 1.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield attack (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield attack (3).fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield attack (4).fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield attack.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield block (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield block idle.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield block.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield death.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield idle.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield run (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield run.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield strafe (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield strafe.fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield turn (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Lite Sword and Shield Pack/sword and shield turn.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/draw sword 1.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/draw sword 2.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sheath sword 1.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sheath sword 2.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield 180 turn (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield 180 turn.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield attack (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield attack (3).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield attack (4).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield attack.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield block (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield block idle.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield block.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield casting (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield casting.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouch block (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouch block idle.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouch block.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouch idle.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouch.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouching (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouching (3).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield crouching.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield death (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield death.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield idle (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield idle (3).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield idle (4).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield idle.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield impact (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield impact (3).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield impact.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield jump (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield jump.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield kick.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield power up.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield run (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield run.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield slash (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield slash (3).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield slash (4).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield slash (5).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield slash.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield strafe (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield strafe (3).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield strafe (4).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield strafe.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield turn (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield turn.fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield walk (2).fbx
+Assets/Arts/Animations/Animations_Mixamo/Pro Sword and Shield Pack/sword and shield walk.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Idle.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Left Turn 90.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Left Turn.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Right Strafe Walking.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Right Turn 90.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Right Turn.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Standard Walk.fbx
+Assets/Arts/Animations/Animations_Mixamo/ranger_without_cape_rigged_root@Walk Strafe Left.fbx
+Assets/Arts/Animations/Humanoid
+Assets/Arts/Animations/Humanoid/Damage
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Big Stomach Hit_fwd_01.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Hit On The Back.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Hit Reaction_left_01.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Hit Reaction_right_01.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Hit To Body_bwd_01.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Hit To Body_fwd_01.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Hit To Body_fwd_02.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Shoulder Hit And Fall_left_01.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanCharacterDummy_M@Shoulder Hit And Fall_right_01.fbx
+Assets/Arts/Animations/Humanoid/Damage/HumanM@Death01.fbx
+Assets/Arts/Animations/Humanoid/_Core
+Assets/Arts/Animations/Humanoid/_Core/Combat
+Assets/Arts/Animations/Humanoid/_Core/Combat/HeavyAttack
+Assets/Arts/Animations/Humanoid/_Core/Combat/HeavyAttack/HumanCharacterDummy_M@Heavy Attack_Hold.fbx
+Assets/Arts/Animations/Humanoid/_Core/Combat/HeavyAttack/HumanCharacterDummy_M@Heavy Attack_release.fbx
+Assets/Arts/Animations/Humanoid/_Core/Combat/HeavyAttack/HumanCharacterDummy_M@HeavyAttack_Charge.fbx
+Assets/Arts/Animations/Humanoid/_Core/Combat/HeavyAttack/HumanCharacterDummy_M@HeavyAttack_Full.fbx
+Assets/Arts/Animations/Humanoid/_Core/Combat/HeavyAttack/HumanCharacterDummy_M@Main_Heavy Attack_02.fbx
+Assets/Arts/Animations/Humanoid/_Core/Combat/HumanM@Attack1H01_R.fbx
+Assets/Arts/Animations/Humanoid/_Core/Combat/LightAttack
+Assets/Arts/Animations/Humanoid/_Core/Combat/LightAttack/HumanCharacterDummy_M@Main_Light_Attack_01.fbx
+Assets/Arts/Animations/Humanoid/_Core/Combat/LightAttack/HumanCharacterDummy_M@Main_Light_Attack_02.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Idle01.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_Backward.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_BackwardLeft.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_BackwardRight.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_Forward.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_ForwardLeft.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_ForwardRight.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_Left.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Run01_Right.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_Backward.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_BackwardLeft.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_BackwardRight.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_Forward.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_ForwardLeft.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_ForwardRight.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_Left.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/HumanM@Walk01_Right.fbx
+Assets/Arts/Animations/Humanoid/_Core/Locomotion/SheathCharacter@HipsUnsheath_RightHand.fbx
+Assets/Arts/Animations/Humanoid/_Mask
+Assets/Arts/Animations/Humanoid/_Mask/Upperbody Mask.mask
+Assets/Arts/Animations/TDA
+Assets/Arts/Animations/TDA/Ranger
+Assets/Arts/Animations/TDA/Ranger/strafe
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_1hsword_swing_left_to_right.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_1hsword_swing_right_to_left.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_Right.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_RightToIdle.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_back.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_backToIdle.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_fast
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_fast/strafe_Right_fast.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_fast/strafe_front_fast.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_fast/strafe_left_fast.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_front.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_frontToIdle.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_idle.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_idleToBack.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_idleToFront.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_idleToLeft.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_idleToRight.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_leftToIdle.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_leftgrip_idle.fbx
+Assets/Arts/Animations/TDA/Ranger/strafe/strafe_leftt.fbx
+Assets/Arts/Animations/TDA/Skeleton
+Assets/Arts/Animations/TDA/Skeleton/got hit
+Assets/Arts/Animations/TDA/Skeleton/got hit/holding_great_sword_left_hitreaction1.fbx
+Assets/Arts/Animations/TDA/Skeleton/got hit/holding_great_sword_left_hitreaction2.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_run_within_range.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_run_within_range_fixed.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_slow_walk.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_swing.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_turn_right_90.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_walk.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_walk_fixed.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_walk_left_45.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_walk_left_45_fixed.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_walk_right_45.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/great_sword_walk_right_45_fixed.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/hit_reaction
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/hit_reaction/holding_great_sword_left_hitreaction1.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword 1/hit_reaction/holding_great_sword_left_hitreaction2.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword/great_sword_slow_walk.fbx
+Assets/Arts/Animations/TDA/Skeleton/holding_Great_sword/great_sword_swing.fbx
+Assets/Arts/Animations/TDA/Skeleton/skeleton_idle.fbx
+Assets/Arts/Animations/TDA/Skeleton/skeleton_walk(not-using).fbx
+Assets/Arts/Audio
+Assets/Arts/Audio/SoundFX
+Assets/Arts/Audio/SoundFX/Actions
+Assets/Arts/Audio/SoundFX/Actions/Jump.wav
+Assets/Arts/Audio/SoundFX/Physical Damages
+Assets/Arts/Audio/SoundFX/Physical Damages/blade_hit_07.wav
+Assets/Arts/Audio/SoundFX/Physical Damages/blade_hit_08.wav
+Assets/Arts/Audio/audio_tda_elevenlabs
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_entity_hu_#1-1773639964348.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_entity_hu_#2-1773639964276.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_entity_hu_#3-1773639964276.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_entity_hu_#4-1773639964277.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_mechanica_#1-1773639964273.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_mechanica_#2-1773639964274.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_mechanica_#3-1773639964274.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/garguantua/Gargantuan_mechanica_#4-1773639964275.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#1-1773639273145.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#1-1773639273146.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#2-1773639273145.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#2-1773639273147.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#3-1773639273145.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#3-1773639273147.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#4-1773639273146.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/eerie sounds/low frequency/Ultra-low_frequency__#4-1773639273147.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/troll
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/troll/unsettling_hollow_bo_#1-1773634956146.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/troll/unsettling_hollow_bo_#2-1773634946022.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/troll/unsettling_hollow_bo_#3-1773634946023.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/troll/unsettling_hollow_bo_#4-1773634946023.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/unsettling_hollow_bo_#1-1773634802388.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/unsettling_hollow_bo_#2-1773634834123.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/unsettling_hollow_bo_#3-1773634834123.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/cave_enviornment/unsettling_hollow_bo_#4-1773634834123.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human
+Assets/Arts/Audio/audio_tda_elevenlabs/human/attack voice
+Assets/Arts/Audio/audio_tda_elevenlabs/human/attack voice/Intense_male_physica_#2-1773635432272.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/attack voice/Intense_male_physica_#2-1773635439157.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/attack voice/attack_1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina high
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina high/male_breathing,_focu_#1-1773635889828.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina high/male_breathing,_focu_#2-1773635889828.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina high/male_breathing,_focu_#3-1773635889829.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina high/male_breathing,_focu_#4-1773635889829.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina low
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina low/male_breathing,_focu_#1-1773635640120.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina low/male_breathing,_focu_#2-1773635640120.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina low/male_breathing,_focu_#3-1773635640121.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina low/male_breathing,_focu_#4-1773635640121.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina_empty
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina_empty/male_breathing,_focu_#1-1773635727546.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina_empty/male_breathing,_focu_#2-1773635727547.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina_empty/male_breathing,_focu_#3-1773635727547.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/breath_stamina_empty/male_breathing,_focu_#4-1773635727548.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/euk
+Assets/Arts/Audio/audio_tda_elevenlabs/human/euk/fumble1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/euk/fumble2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/euk/fumble3.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/euk/male_on_battle,_Fumb_#1-1773636919579.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/euk/male_on_battle,_Fumb_#2-1773636798305.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/euk/male_on_battle,_Fumb_#3-1773636979993.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/footsteps
+Assets/Arts/Audio/audio_tda_elevenlabs/human/footsteps/Crunchy_footstep_Left.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/footsteps/Crunchy_footstep_Right.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/footsteps/Crunchy_footsteps_wa_#1-1773631796182.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/footsteps/Crunchy_footsteps_wa_#2-1773631818085.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/footsteps/Crunchy_footsteps_wa_#3-1773631818085.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/footsteps/Crunchy_footsteps_wa_#4-1773631818086.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hit voice
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hit voice/Intense_male_physica_#3-1773635494740.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hit voice/hitreaction_1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hit voice/hitreaction_v2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hp_heart_bounce
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hp_heart_bounce/hear_50%.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hp_heart_bounce/heart_10%.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hp_heart_bounce/heart_30%.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/hp_heart_bounce/heart_70%.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/rotating_fabric_cloth
+Assets/Arts/Audio/audio_tda_elevenlabs/human/rotating_fabric_cloth/Subtle_cloth_rustle__#3-1773636002132.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/rotating_fabric_cloth/Subtle_cloth_rustle__#4-1773636002133.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/rotating_fabric_cloth/fabric_rotation (1).mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/rotating_fabric_cloth/fabric_rotation.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/weapon draw
+Assets/Arts/Audio/audio_tda_elevenlabs/human/weapon draw/Very_slow_scraping_o_#3-1773637107473.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/weapon draw/sword_dragging_on_th_#1-1773637330045.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/weapon draw/sword_dragging_on_th_#2-1773637333789.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/weapon draw/sword_dragging_on_th_#3-1773637333234.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/human/weapon draw/sword_draw1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit/skeleton_hit.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit/skeleton_hit2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit/skeleton_hit2_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit/skeleton_hit_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit_user
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit_user/skeleton_hit_user.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_hit_user/skeleton_hit_user_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_laughing.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_parrying
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_parrying/skeleton_parrying.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_parrying/skeleton_parrying2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_parrying/skeleton_parrying2_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/skeleton_parrying/skeleton_parrying_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking close
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking close/high_frequency,_Slow_#1-1773634490985.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking close/high_frequency,_Slow_#2-1773634490986.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking close/skeleton_draw_near.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking close/skeleton_draw_near1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton far_teeth biting.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton far_teeth biting_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far_2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far_2_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far_3.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far_3_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far_4.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far_4_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/walking from far/skeleton walking from far_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/weapon dragging sound
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/weapon dragging sound/sword-like_metal_dra_#4-1773637515856.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/skeleton/weapon dragging sound/sword_dragging.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/troll
+Assets/Arts/Audio/audio_tda_elevenlabs/troll/troll far
+Assets/Arts/Audio/audio_tda_elevenlabs/troll/troll far/sequence_of_dusty_Dr_#1-1773634716764.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/troll/troll far/sequence_of_dusty_Dr_#2-1773634720263.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/troll/troll far/sequence_of_dusty_Dr_#3-1773634720263.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/troll/troll far/sequence_of_dusty_Dr_#4-1773634720264.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/attack_slash1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/attack_slash2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/attack_slash1_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/attack_slash2_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/iron_shield1_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/skeleton_hit_ground.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/sword_slash_air_1_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/sword_slash_air_2_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/sword_slash_air_3_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/sword_slash_air_4_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/wooden_shield1_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/wooden_shield2_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/fixed/wooden_shield3_fix.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/iron_shield1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/skeleton_slashing to ground.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/sword_slash_air_1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/sword_slash_air_2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/sword_slash_air_3.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/sword_slash_air_4.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/wooden_shield1.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/wooden_shield2.mp3
+Assets/Arts/Audio/audio_tda_elevenlabs/weapon/wooden_shield3.mp3
+Assets/Arts/HitBlood.prefab
+Assets/Arts/HitSpark.prefab
+Assets/Arts/Materials
+Assets/Arts/Materials/Dummy.mat
+Assets/Arts/Materials/SparkMaterial.mat
+Assets/Arts/Materials/WallofPain.mat
+Assets/Arts/Materials/motionblur.mat
+Assets/Arts/Materials/ranger_motionblur.mat
+Assets/Arts/Models
+Assets/Arts/Models/HumanCharacterDummy_M.fbx
+Assets/Arts/Models/Material_0.mat
+Assets/Arts/Models/Mushroom.fbx
+Assets/Arts/Models/SM_Wep_Broadsword_01.fbx
+Assets/Arts/Models/Weapons
+Assets/Arts/Models/Weapons/Material_0.002.mat
+Assets/Arts/Models/Weapons/Materials
+Assets/Arts/Models/Weapons/Materials/old_steel_sword_rembg.mat
+Assets/Arts/Models/Weapons/old_rusted_broken_great_sword_rotation_fixed
+Assets/Arts/Models/Weapons/old_rusted_broken_great_sword_rotation_fixed/modddif_material_0.001.mat
+Assets/Arts/Models/Weapons/old_rusted_broken_great_sword_rotation_fixed/old_rusted_broken_great_sword_rotation_fixed.fbx
+Assets/Arts/Models/Weapons/old_steel_sword_rembg.png
+Assets/Arts/Models/Weapons/onehanded_sword_rigged_socket_finished_fixed.fbx
+Assets/Arts/Models/ranger_v2
+Assets/Arts/Models/ranger_v2/Material.mat
+Assets/Arts/Models/ranger_v2/RangerTexture_Restored.png
+Assets/Arts/Models/ranger_v2/Ranger_v2_maskmap_1024px.exr
+Assets/Arts/Models/ranger_v2/Ranger_v2_normal_1024.png
+Assets/Arts/Models/ranger_v2/ranger_v2.fbx
+Assets/Arts/Models/ranger_without_cape_rigged
+Assets/Arts/Models/ranger_without_cape_rigged/Material.002.mat
+Assets/Arts/Models/ranger_without_cape_rigged/ranger_without_cape_rigged_root.fbx
+Assets/Arts/Models/ranger_without_cape_rigged/ranger_without_cape_rigged_root_idle.fbx
+Assets/Arts/Models/ranger_without_cape_rigged/ranger_without_cape_rigged_root_rotation.fbx
+Assets/Arts/Models/ranger_without_cape_rigged/tmpc0u36509 1.png
+Assets/Arts/Models/ranger_without_cape_rigged/tmpc0u36509.png
+Assets/Arts/Models/ranger_without_cape_rigged_v2
+Assets/Arts/Models/ranger_without_cape_rigged_v2/Material.001.mat
+Assets/Arts/Models/ranger_without_cape_rigged_v2/Material.001_origin.mat
+Assets/Arts/Models/ranger_without_cape_rigged_v2/ranger_without_cape_rigged_socket_fixed.fbx
+Assets/Arts/Models/ranger_without_cape_rigged_v2/ranger_without_cape_rigged_v2.fbx
+Assets/Arts/Models/ranger_without_cape_rigged_v2/upscale
+Assets/Arts/Models/skeleton_v2
+Assets/Arts/Models/skeleton_v2/Material.001.mat
+Assets/Arts/Models/skeleton_v2/Skull_v2_diffuse_2048px_upscale.png
+Assets/Arts/Models/skeleton_v2/skeleton_v2_fixed_root.fbx
+Assets/Arts/Models/skeleton_v2/tmprlv7j3b5.png
+Assets/Arts/Models/skeleton_v3
+Assets/Arts/Models/skeleton_v3/Material.004.mat
+Assets/Arts/Models/skeleton_v3/skeleton_v3_fixed_socket_name.fbx
+Assets/Arts/Textures
+Assets/Arts/Textures/Texture_01.png
+Assets/Arts/Textures/Texture_01_Dark.png
+Assets/Arts/Textures/Texture_01_Swap_Snow_To_Grass.png
+Assets/Arts/Textures/Texture_Alt_02.png
+Assets/Arts/Textures/Texture_Alt_02_Dark.png
+Assets/Arts/Textures/Texture_Alt_03.png
+Assets/Arts/Textures/Texture_Alt_03_Dark.png
+Assets/Arts/Textures/Texture_Alt_04.png
+Assets/Arts/Textures/Texture_Alt_04_Dark.png
+Assets/Arts/Textures/cave
+Assets/Arts/Textures/cave/Image
+Assets/Arts/Textures/cave/Image/cave_tileset
+Assets/Arts/Textures/cave/Image/cave_tileset/Earth_soil_maskmap_256px.exr
+Assets/Arts/Textures/cave/Image/cave_tileset/Earth_soil_normal_256px.png
+Assets/Arts/Textures/cave/Image/cave_tileset/Earth_soil_normal_v2_256px.png
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_basalt_diffuse_256px_snn.png
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_basalt_maskmap_256px.exr
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_basalt_normal_256px.png
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_basalt_normal_v2_256.png
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_limestone_diffuse_256px_snn.png
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_limestone_maskmap_256px.exr
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_limestone_normal_256px.png
+Assets/Arts/Textures/cave/Image/cave_tileset/cave_limestone_normal_v2_256px.png
+Assets/Arts/Textures/cave/Image/cave_tileset/earth_soil_diffuse_256px_snn.png
+Assets/Arts/Textures/cave/Image/cave_tileset/limestone-cliffs_albedo.png
+Assets/Arts/Textures/cave/Image/cave_tileset/limestone-cliffs_normal-ogl.png
+Assets/Arts/Textures/cave/Image/cave_tileset/limestone_pbr_cave.exr
+Assets/Arts/Textures/cave/Image/old
+Assets/Arts/Textures/cave/Image/old/Earth_soil_maskmap_256px.exr
+Assets/Arts/Textures/cave/Image/old/Earth_soil_normal_256px.png
+Assets/Arts/Textures/cave/Image/old/Materials
+Assets/Arts/Textures/cave/Image/old/Materials/cave_v1_diffuse_256px.mat
+Assets/Arts/Textures/cave/Image/old/cave_basalt_diffuse_256px.png
+Assets/Arts/Textures/cave/Image/old/cave_basalt_maskmap_256px.exr
+Assets/Arts/Textures/cave/Image/old/cave_basalt_normal_256px.png
+Assets/Arts/Textures/cave/Image/old/cave_limestone_diffuse_256px.png
+Assets/Arts/Textures/cave/Image/old/cave_limestone_maskmap_256px.exr
+Assets/Arts/Textures/cave/Image/old/cave_limestone_normal_256px.png
+Assets/Arts/Textures/cave/Image/old/cave_v1_diffuse_256px.png
+Assets/Arts/Textures/cave/Image/old/cave_v1_maskmap_256px.exr
+Assets/Arts/Textures/cave/Image/old/cave_v1_normal_256px.png
+Assets/Arts/Textures/cave/Image/old/earth_soil.png
+Assets/Arts/Textures/cave/Image/old/retro_assets_seamless_256px.png
+Assets/Arts/UI Sprites
+Assets/Arts/UI Sprites/Icons
+Assets/Arts/UI Sprites/Icons/Items
+Assets/Arts/UI Sprites/Icons/Items/Weapons
+Assets/Arts/UI Sprites/Icons/Items/Weapons/sword.png
+Assets/Assets
+Assets/Assets/Harpia Games
+Assets/Assets/Harpia Games/Camping Pack
+Assets/Assets/Harpia Games/Camping Pack/Materials
+Assets/Assets/Harpia Games/Camping Pack/Materials/Custom Materials
+Assets/Assets/Harpia Games/Camping Pack/Materials/Custom Materials/Clipboard Paper Material.mat
+Assets/Assets/Harpia Games/Camping Pack/Materials/Custom Materials/Map Material.mat
+Assets/Assets/Harpia Games/Camping Pack/Materials/Custom Materials/Pills Bottle Material.mat
+Assets/Assets/Harpia Games/Camping Pack/Materials/Custom Materials/Warning Sign Material.mat
+Assets/Assets/Harpia Games/Camping Pack/Render Settings
+Assets/Assets/Harpia Games/Camping Pack/Render Settings/Camping Pack Post Processing.asset
+Assets/Assets/Harpia Games/Camping Pack/Render Settings/Camping Pack Universal Render Pipeline Asset.asset
+Assets/Assets/Harpia Games/Camping Pack/Render Settings/Camping Pack Universal Render Pipeline Asset_Renderer.asset
+Assets/Blink
+Assets/Blink/Art
+Assets/Blink/Art/Animations
+Assets/Blink/Art/Animations/Animations_Starter_Pack
+Assets/Blink/Art/Animations/Animations_Starter_Pack/Movement
+Assets/Blink/Art/Animations/Animations_Starter_Pack/Movement/RollBackward.fbx
+Assets/Blink/Art/Animations/Animations_Starter_Pack/Movement/RollLeft.fbx
+Assets/Blink/Art/Animations/Animations_Starter_Pack/Movement/RollRight.fbx
+Assets/CaveDiagnostics
+Assets/Data
+Assets/Data.zip
+Assets/Data/Animation Controllers
+Assets/Data/Animation Controllers/Humanoid.controller
+Assets/Data/Animation Controllers/Skeleton.controller
+Assets/Data/Behavior Graph
+Assets/Data/Behavior Graph/AttackSequence.cs
+Assets/Data/Behavior Graph/CombatPhase.cs
+Assets/Data/Behavior Graph/HumanoidAI_BehaviorGraph.asset
+Assets/Data/Behavior Graph/MobAI_BehaviorGraph.asset
+Assets/Data/Effects
+Assets/Data/Effects/HitSpark
+Assets/Data/Effects/HitSpark/HitSparkVFXRegistry.asset
+Assets/Data/Effects/HitSpark/HitSparkVFX_Default.asset
+Assets/Data/Effects/HitSpark/HitSparkVFX_Heavy.asset
+Assets/Data/Effects/Instant Effects
+Assets/Data/Effects/Instant Effects/Take Damage Effect.asset
+Assets/Data/Effects/Instant Effects/Take Stamina Damage Effect.asset
+Assets/Data/Items
+Assets/Data/Items/Apple.asset
+Assets/Data/Items/Bags
+Assets/Data/Items/Bags/Bag Pack.asset
+Assets/Data/Items/Bags/Bag.asset
+Assets/Data/Items/CookingRecipe
+Assets/Data/Items/CookingRecipe/GrilledApple.asset
+Assets/Data/Items/CookingRecipe/GrilledMeat.asset
+Assets/Data/Items/CookingRecipe/PorkPorridge.asset
+Assets/Data/Items/Foods
+Assets/Data/Items/Foods/Apple.asset
+Assets/Data/Items/Foods/Burnt
+Assets/Data/Items/Foods/Burnt/Burnt Meat.asset
+Assets/Data/Items/Foods/Burnt/Charcoal.asset
+Assets/Data/Items/Foods/Cooked
+Assets/Data/Items/Foods/Cooked/Grilled Apple.asset
+Assets/Data/Items/Foods/Cooked/Grilled Meat.asset
+Assets/Data/Items/Foods/Cooked/PorkPorridge.asset
+Assets/Data/Items/Foods/Meat.asset
+Assets/Data/Items/HeatSource
+Assets/Data/Items/HeatSource/CampFire.asset
+Assets/Data/Items/Misc
+Assets/Data/Items/Misc/Charcoal.asset
+Assets/Data/Items/Tools
+Assets/Data/Items/Tools/Pan.prefab
+Assets/Data/Items/Weapons
+Assets/Data/Items/Weapons/Melee Weapons
+Assets/Data/Items/Weapons/Melee Weapons/Broad Sword.asset
+Assets/Data/Items/Weapons/Melee Weapons/Kitchen Knife.asset
+Assets/Data/Items/Weapons/Melee Weapons/Old rusted broken great sword.asset
+Assets/Data/Items/Weapons/Melee Weapons/Straight Sword TDA.asset
+Assets/Data/Items/Weapons/Melee Weapons/Straight Sword.asset
+Assets/Data/Items/Weapons/Melee Weapons/Unarmed.asset
+Assets/Data/Items/Weapons/Shield Weapons
+Assets/Data/Items/Weapons/Shield Weapons/Buckler_SO.asset
+Assets/Data/Items/Weapons/Shield Weapons/Kite_Shield_SO.asset
+Assets/Data/Items/Weapons/Shield Weapons/Tower_Shield_SO.asset
+Assets/Data/Prefabs
+Assets/Data/Prefabs/Bootstrapper
+Assets/Data/Prefabs/Bootstrapper/AI Context Bootstrapper.prefab
+Assets/Data/Prefabs/Bootstrapper/HumanoidBootstrapper.prefab
+Assets/Data/Prefabs/Effects
+Assets/Data/Prefabs/Effects/HitSpark
+Assets/Data/Prefabs/Effects/HitSpark/HitSpark_GPU .prefab
+Assets/Data/Prefabs/FactionBridgeDiagnostics.prefab
+Assets/Data/Prefabs/Humanoid
+Assets/Data/Prefabs/Humanoid/Ranger_Humanoid_01.prefab
+Assets/Data/Prefabs/Humanoid/Skeleton_Humanoid_01.prefab
+Assets/Data/Prefabs/Items
+Assets/Data/Prefabs/Items/Cooking
+Assets/Data/Prefabs/Items/Cooking/Pan.prefab
+Assets/Data/Prefabs/Items/Cooking/Pot.prefab
+Assets/Data/Prefabs/Items/FireSource
+Assets/Data/Prefabs/Items/FireSource/CampFire.prefab
+Assets/Data/Prefabs/Items/Foods
+Assets/Data/Prefabs/Items/Foods/Burnt
+Assets/Data/Prefabs/Items/Foods/Burnt/Burnt Meat t bone.prefab
+Assets/Data/Prefabs/Items/Foods/Charcoal.prefab
+Assets/Data/Prefabs/Items/Foods/Cooked
+Assets/Data/Prefabs/Items/Foods/Cooked/Grilled Apple.prefab
+Assets/Data/Prefabs/Items/Foods/Cooked/Grilled Meat t bone.prefab
+Assets/Data/Prefabs/Items/Foods/Cooked/PorkPorridge.prefab
+Assets/Data/Prefabs/Items/Foods/Ingredients
+Assets/Data/Prefabs/Items/Foods/Ingredients/Apple.prefab
+Assets/Data/Prefabs/Items/Foods/Ingredients/Meat t bone.prefab
+Assets/Data/Prefabs/Items/Weapons
+Assets/Data/Prefabs/Items/Weapons/Weapon_Broad_Sword.prefab
+Assets/Data/Prefabs/Items/Weapons/Weapon_Kitchen_Knife.prefab
+Assets/Data/Prefabs/Items/Weapons/Weapon_Old rusted broken great sword.prefab
+Assets/Data/Prefabs/Items/Weapons/Weapon_Shiled_Buckler.prefab
+Assets/Data/Prefabs/Items/Weapons/Weapon_Straight_Sword 1.prefab
+Assets/Data/Prefabs/Items/Weapons/Weapon_Straight_Sword.prefab
+Assets/Data/Prefabs/Items/Weapons/Weapon_Straight_Sword_TDA.prefab
+Assets/Data/Prefabs/Items/Weapons/Weapon_Unarmed_01.prefab
+Assets/Data/Prefabs/Mob
+Assets/Data/Prefabs/Mob/Dummy_01.prefab
+Assets/Data/Prefabs/Mob/Dummy_04.prefab
+Assets/Data/Prefabs/Mob/Dummy_AI.prefab
+Assets/Data/Prefabs/Mob/Goblin_01.prefab
+Assets/Data/Prefabs/Mob/Orc_01.prefab
+Assets/Data/Prefabs/Mob/Skeleton_01.prefab
+Assets/Data/Prefabs/Player
+Assets/Data/Prefabs/Player Camera(Left&Right).prefab
+Assets/Data/Prefabs/Player/Player.prefab
+Assets/Data/Prefabs/Player/Player_ranger 2.prefab
+Assets/Data/Prefabs/Player/Player_ranger.prefab
+Assets/Data/Prefabs/PlayerListItemPrefab .prefab
+Assets/Data/Prefabs/Player_ranger 2.prefab
+Assets/Data/Prefabs/RoomListItemPrefab.prefab
+Assets/Data/Prefabs/Save Slot(0).prefab
+Assets/Data/Prefabs/Test
+Assets/Data/Prefabs/Test/Dense.prefab
+Assets/Data/Prefabs/UI
+Assets/Data/Prefabs/UI/Quick Slot UI.prefab
+Assets/Data/Prefabs/UI/SpeechBubble.prefab
+Assets/Data/Prefabs/Wall of Pain.prefab
+Assets/Data/Prefabs/WorldManagers
+Assets/Data/Prefabs/WorldManagers/GroupAIManager.prefab
+Assets/Data/Prefabs/WorldManagers/Player UI Manager.prefab
+Assets/Data/Prefabs/WorldManagers/TerrainSyncManager.prefab
+Assets/Data/Prefabs/WorldManagers/World AI Bridge Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World AI Context Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World AI Spawn Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Action Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Bridge Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Camera Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Character Effects Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Faction Bridge Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Faction State Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Game State Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Item Database.prefab
+Assets/Data/Prefabs/WorldManagers/World Item Spawner 1.prefab
+Assets/Data/Prefabs/WorldManagers/World Item Spawner.prefab
+Assets/Data/Prefabs/WorldManagers/World Network Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Save Game Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Scenario Bridge Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World SoundFX Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Terrain Bridge Manager.prefab
+Assets/Data/Prefabs/WorldManagers/World Utility Manager.prefab
+Assets/Data/SO
+Assets/Data/SO/AI_ActionConfig
+Assets/Data/SO/AI_ActionConfig/HumanoidActionConfig.asset
+Assets/Data/SO/AI_Alignment
+Assets/Data/SO/AI_Alignment/DefaultAlignmentDefinitions.asset
+Assets/Data/SO/AI_Archetype
+Assets/Data/SO/AI_Archetype/Archetype_Artist.asset
+Assets/Data/SO/AI_Archetype/Archetype_Assassin.asset
+Assets/Data/SO/AI_Archetype/Archetype_Bandit.asset
+Assets/Data/SO/AI_Archetype/Archetype_Bard.asset
+Assets/Data/SO/AI_Archetype/Archetype_Beggar.asset
+Assets/Data/SO/AI_Archetype/Archetype_Bodyguard.asset
+Assets/Data/SO/AI_Archetype/Archetype_Brave.asset
+Assets/Data/SO/AI_Archetype/Archetype_Commoner.asset
+Assets/Data/SO/AI_Archetype/Archetype_Coward.asset
+Assets/Data/SO/AI_Archetype/Archetype_Cultist.asset
+Assets/Data/SO/AI_Archetype/Archetype_Farmer.asset
+Assets/Data/SO/AI_Archetype/Archetype_Glutton.asset
+Assets/Data/SO/AI_Archetype/Archetype_Hermit.asset
+Assets/Data/SO/AI_Archetype/Archetype_Hunter.asset
+Assets/Data/SO/AI_Archetype/Archetype_Innkeeper.asset
+Assets/Data/SO/AI_Archetype/Archetype_Knight.asset
+Assets/Data/SO/AI_Archetype/Archetype_Loyal.asset
+Assets/Data/SO/AI_Archetype/Archetype_Martyr.asset
+Assets/Data/SO/AI_Archetype/Archetype_Mercenary.asset
+Assets/Data/SO/AI_Archetype/Archetype_Merchant.asset
+Assets/Data/SO/AI_Archetype/Archetype_Noble.asset
+Assets/Data/SO/AI_Archetype/Archetype_Ranger.asset
+Assets/Data/SO/AI_Archetype/Archetype_Reckless.asset
+Assets/Data/SO/AI_Archetype/Archetype_Scholar.asset
+Assets/Data/SO/AI_Archetype/Archetype_Stoic.asset
+Assets/Data/SO/AI_Archetype/Archetype_Thief.asset
+Assets/Data/SO/AI_Checklist
+Assets/Data/SO/AI_Checklist/Week2Checklist.asset
+Assets/Data/SO/AI_Combat Profiles
+Assets/Data/SO/AI_Combat Profiles/Goblin_T1_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Goblin_T2_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Goblin_T3_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Orc_T1_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Orc_T2_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Orc_T3_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Ranger_T1_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Skeleton_T1_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Skeleton_T2_CombatProfile.asset
+Assets/Data/SO/AI_Combat Profiles/Skeleton_T3_CombatProfile.asset
+Assets/Data/SO/AI_DialoguePreset
+Assets/Data/SO/AI_DialoguePreset/DialoguePreset_Aggressive.asset
+Assets/Data/SO/AI_DialoguePreset/DialoguePreset_Anxious.asset
+Assets/Data/SO/AI_DialoguePreset/DialoguePreset_Cold.asset
+Assets/Data/SO/AI_DialoguePreset/DialoguePreset_Neutral.asset
+Assets/Data/SO/AI_DialoguePreset/DialoguePreset_Warm.asset
+Assets/Data/SO/AI_DisasterArchetype
+Assets/Data/SO/AI_Faction
+Assets/Data/SO/AI_Faction/AI_FactionCultureSO
+Assets/Data/SO/AI_Faction/AI_FactionCultureSO/FactionCulture_Goblin.asset
+Assets/Data/SO/AI_Faction/AI_FactionDefaultMaskSO
+Assets/Data/SO/AI_Faction/AI_FactionDefaultMaskSO/FactionDefaultMask_Goblin.asset
+Assets/Data/SO/AI_Faction/AI_FactionDefinitionSO
+Assets/Data/SO/AI_Faction/AI_FactionDefinitionSO/FactionDefinition_Goblin.asset
+Assets/Data/SO/AI_Faction/AI_FactionDefinitionSO/FactionDefinition_Ranger.asset
+Assets/Data/SO/AI_Faction/AI_FactionGroupPolicySO
+Assets/Data/SO/AI_Faction/AI_FactionGroupPolicySO/Goblin_Policy.asset
+Assets/Data/SO/AI_Faction/AI_FactionGroupPolicySO/Orc_Policy.asset
+Assets/Data/SO/AI_Faction/AI_FactionGroupPolicySO/Skeleton_Policy.asset
+Assets/Data/SO/AI_Faction/AI_FactionThresholdConfigSO
+Assets/Data/SO/AI_Faction/AI_FactionThresholdConfigSO/FactionThresholdConfig_Goblin.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Goblin_T1.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Goblin_T2.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Goblin_T3.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Orc_T1.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Orc_T2.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Orc_T3.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Skeleton_T1.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Skeleton_T2.asset
+Assets/Data/SO/AI_Faction/AI_FactionTierSO/Skeleton_T3.asset
+Assets/Data/SO/AI_Faction/AI_MobFactionDataSO
+Assets/Data/SO/AI_Faction/AI_MobFactionDataSO/Goblin_Faction.asset
+Assets/Data/SO/AI_Faction/AI_MobFactionDataSO/Orc_Faction.asset
+Assets/Data/SO/AI_Faction/AI_MobFactionDataSO/Skeleton_Faction.asset
+Assets/Data/SO/AI_FormationSlotData
+Assets/Data/SO/AI_FormationSlotData/Formation_Aggressive.asset
+Assets/Data/SO/AI_FormationSlotData/Formation_Default.asset
+Assets/Data/SO/AI_FormationSlotData/Formation_Defensive.asset
+Assets/Data/SO/AI_FormationSlotData/Formation_Skirmish.asset
+Assets/Data/SO/AI_GroupArchetype
+Assets/Data/SO/AI_GroupArchetype/GroupArchetype_ColdLogic.asset
+Assets/Data/SO/AI_GroupArchetype/GroupArchetype_Despair.asset
+Assets/Data/SO/AI_GroupArchetype/GroupArchetype_Frenzy.asset
+Assets/Data/SO/AI_GroupArchetype/GroupArchetype_Paralysis.asset
+Assets/Data/SO/AI_Personality
+Assets/Data/SO/AI_Personality/Artist.asset
+Assets/Data/SO/AI_Personality/Assassin.asset
+Assets/Data/SO/AI_Personality/Bandit.asset
+Assets/Data/SO/AI_Personality/Bard.asset
+Assets/Data/SO/AI_Personality/Beggar.asset
+Assets/Data/SO/AI_Personality/Bodyguard.asset
+Assets/Data/SO/AI_Personality/Brave.asset
+Assets/Data/SO/AI_Personality/Commoner.asset
+Assets/Data/SO/AI_Personality/Coward.asset
+Assets/Data/SO/AI_Personality/Cultist.asset
+Assets/Data/SO/AI_Personality/Farmer.asset
+Assets/Data/SO/AI_Personality/Glutton.asset
+Assets/Data/SO/AI_Personality/Hermit.asset
+Assets/Data/SO/AI_Personality/Hunter.asset
+Assets/Data/SO/AI_Personality/Innkeeper.asset
+Assets/Data/SO/AI_Personality/Knight.asset
+Assets/Data/SO/AI_Personality/Loyal.asset
+Assets/Data/SO/AI_Personality/Martyr.asset
+Assets/Data/SO/AI_Personality/Mercenary.asset
+Assets/Data/SO/AI_Personality/Merchant.asset
+Assets/Data/SO/AI_Personality/Noble.asset
+Assets/Data/SO/AI_Personality/Reckless.asset
+Assets/Data/SO/AI_Personality/Scholar.asset
+Assets/Data/SO/AI_Personality/Stoic.asset
+Assets/Data/SO/AI_Personality/Thief.asset
+Assets/Data/SO/AI_Speech
+Assets/Data/SO/AI_Speech/Altruist
+Assets/Data/SO/AI_Speech/Altruist/SpeechTemplate_Companion_Altruist.asset
+Assets/Data/SO/AI_Speech/Altruist/SpeechTemplate_Friendly_Altruist.asset
+Assets/Data/SO/AI_Speech/Altruist/SpeechTemplate_Hostile_Altruist.asset
+Assets/Data/SO/AI_Speech/Altruist/SpeechTemplate_Neutral_Altruist.asset
+Assets/Data/SO/AI_Speech/Default
+Assets/Data/SO/AI_Speech/Default/SpeechTemplate_Companion_Default.asset
+Assets/Data/SO/AI_Speech/Default/SpeechTemplate_Friendly_Default.asset
+Assets/Data/SO/AI_Speech/Default/SpeechTemplate_Hostile_Default.asset
+Assets/Data/SO/AI_Speech/Default/SpeechTemplate_Neutral_Default.asset
+Assets/Data/SO/AI_Speech/Disaster
+Assets/Data/SO/AI_Speech/GroupArchetype
+Assets/Data/SO/AI_Speech/GroupArchetype/SpeechTemplate_GroupArchetype_ColdLogic.asset
+Assets/Data/SO/AI_Speech/GroupArchetype/SpeechTemplate_GroupArchetype_Despair.asset
+Assets/Data/SO/AI_Speech/GroupArchetype/SpeechTemplate_GroupArchetype_Frenzy.asset
+Assets/Data/SO/AI_Speech/GroupArchetype/SpeechTemplate_GroupArchetype_Paralysis.asset
+Assets/Data/SO/AI_States
+Assets/Data/SO/AI_States/Attack State.asset
+Assets/Data/SO/AI_States/Call For Help State.asset
+Assets/Data/SO/AI_States/Combat Stance State.asset
+Assets/Data/SO/AI_States/Flee State.asset
+Assets/Data/SO/AI_States/Idle State.asset
+Assets/Data/SO/AI_States/Patrol State.asset
+Assets/Data/SO/AI_States/Pursue Target State.asset
+Assets/Data/SO/AI_States/Retreat State.asset
+Assets/Data/SO/AI_TagRules
+Assets/Data/SO/AI_TagRules/HumanoidTagRules.asset
+Assets/Data/SO/Animations
+Assets/Data/SO/Animations/Charge_Windup_Left.asset
+Assets/Data/SO/Animations/Charge_Windup_Right.asset
+Assets/Data/SO/Animations/Dead_01.asset
+Assets/Data/SO/Animations/Fumble_Stagger.asset
+Assets/Data/SO/Animations/Grab_Item.asset
+Assets/Data/SO/Animations/Heavy_Attack_Left.asset
+Assets/Data/SO/Animations/Heavy_Attack_Right.asset
+Assets/Data/SO/Animations/Player
+Assets/Data/SO/Animations/Player/Dead_01.asset
+Assets/Data/SO/Animations/Player/Grab_Item.asset
+Assets/Data/SO/Animations/Player/Player_Base_Set.asset
+Assets/Data/SO/Animations/Player/Roll_Forward.asset
+Assets/Data/SO/Animations/Player/Slash_Attack_01.asset
+Assets/Data/SO/Animations/Player/Stagger_Medium.asset
+Assets/Data/SO/Animations/Player/Turn_Left_180.asset
+Assets/Data/SO/Animations/Player/Turn_Left_90.asset
+Assets/Data/SO/Animations/Player/Turn_Right_180.asset
+Assets/Data/SO/Animations/Player/Turn_Right_90.asset
+Assets/Data/SO/Animations/Roll_Forward.asset
+Assets/Data/SO/Animations/Skeleton
+Assets/Data/SO/Animations/Skeleton/Skeleton_Base_Set.asset
+Assets/Data/SO/Animations/Slash_Attack_Left.asset
+Assets/Data/SO/Animations/Slash_Attack_Right.asset
+Assets/Data/SO/Animations/Stagger_Backward.asset
+Assets/Data/SO/Animations/Stagger_Forward.asset
+Assets/Data/SO/Animations/Stagger_Left.asset
+Assets/Data/SO/Animations/Stagger_Medium.asset
+Assets/Data/SO/Animations/Stagger_Right.asset
+Assets/Data/SO/Animations/Stance_Hold_Left.asset
+Assets/Data/SO/Animations/Stance_Hold_Right.asset
+Assets/Data/SO/Animations/Turn_Left_180.asset
+Assets/Data/SO/Animations/Turn_Left_90.asset
+Assets/Data/SO/Animations/Turn_Right_180.asset
+Assets/Data/SO/Animations/Turn_Right_90.asset
+Assets/Data/SO/Camera
+Assets/Data/SO/Camera/Blur Event Response SO
+Assets/Data/SO/Camera/Blur Event Response SO/BlurEventResponse_AI.asset
+Assets/Data/SO/Camera/Blur Event Response SO/BlurEventResponse_Player.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Attack_Impact_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Attack_Windup_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Block_Heavy_Impact_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Combat_FreeAim_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Combat_Giant_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Combat_Humanoid_SO 1.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Combat_Humanoid_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Cooking_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Deflected_Impact_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Exhausted_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_GuardBreak_Stun_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Guard_Close_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Guard_Far_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Hit_Stagger_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Idle_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Inventory_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Light_Impact_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Normal_Explore_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Parry_Clash_SO.asset
+Assets/Data/SO/Camera/Tier1_Camera Stance Preset SO/Stance_Table_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Combat_FreeAim_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Cooking_Mode_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_GuardBreak_Fail_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Guard_BlockHeavy_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Guard_Deflected_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_HeavySlash_Camera_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Inventory_Open_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_LightSlash_Camera_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_LockOff_Humanoid_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_LockOn_Giant_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_LockOn_Humanoid_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Normal_Explore_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Parry_Success_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Player_Hit_SO.asset
+Assets/Data/SO/Camera/Tier2_Camera Sequence Preset SO/Seq_Table_Interact_SO.asset
+Assets/Data/Weapon Actions
+Assets/Data/Weapon Actions/Heavy Attack Weapon Item Action.asset
+Assets/Data/Weapon Actions/Light Attack Weapon Item Action.asset
+Assets/Data/Weapon Actions/Test Action.asset
+Assets/Deadly Kombat Free version
+Assets/Deadly Kombat Free version/block_large_59.wav
+Assets/Deadly Kombat Free version/block_large_71.wav
+Assets/Deadly Kombat Free version/block_medium_09.wav
+Assets/Deadly Kombat Free version/block_medium_25.wav
+Assets/Deadly Kombat Free version/block_small_69.wav
+Assets/Deadly Kombat Free version/block_small_73.wav
+Assets/Deadly Kombat Free version/body_hit_finisher_23.wav
+Assets/Deadly Kombat Free version/body_hit_finisher_27.wav
+Assets/Deadly Kombat Free version/body_hit_finisher_42.wav
+Assets/Deadly Kombat Free version/body_hit_finisher_52.wav
+Assets/Deadly Kombat Free version/body_hit_large_32.wav
+Assets/Deadly Kombat Free version/body_hit_large_44.wav
+Assets/Deadly Kombat Free version/body_hit_large_76.wav
+Assets/Deadly Kombat Free version/body_hit_small_11.wav
+Assets/Deadly Kombat Free version/body_hit_small_20.wav
+Assets/Deadly Kombat Free version/body_hit_small_23.wav
+Assets/Deadly Kombat Free version/body_hit_small_79.wav
+Assets/Deadly Kombat Free version/bone_breaking_03.wav
+Assets/Deadly Kombat Free version/bone_breaking_53.wav
+Assets/Deadly Kombat Free version/face_hit_Large_20.wav
+Assets/Deadly Kombat Free version/face_hit_Large_29.wav
+Assets/Deadly Kombat Free version/face_hit_Large_78.wav
+Assets/Deadly Kombat Free version/face_hit_finisher_19.wav
+Assets/Deadly Kombat Free version/face_hit_finisher_40.wav
+Assets/Deadly Kombat Free version/face_hit_finisher_61.wav
+Assets/Deadly Kombat Free version/face_hit_finisher_73.wav
+Assets/Deadly Kombat Free version/face_hit_small_01.wav
+Assets/Deadly Kombat Free version/face_hit_small_13.wav
+Assets/Deadly Kombat Free version/face_hit_small_23.wav
+Assets/Deadly Kombat Free version/face_hit_small_78.wav
+Assets/Deadly Kombat Free version/fire_punch_02.wav
+Assets/Deadly Kombat Free version/fire_punch_finisher_06.wav
+Assets/Deadly Kombat Free version/guts_and_gore_19.wav
+Assets/Deadly Kombat Free version/guts_and_gore_59.wav
+Assets/Deadly Kombat Free version/guts_and_gore_68.wav
+Assets/Deadly Kombat Free version/kick_long_whoosh_19.wav
+Assets/Deadly Kombat Free version/kick_short_whoosh_12.wav
+Assets/Deadly Kombat Free version/kick_short_whoosh_23.wav
+Assets/Deadly Kombat Free version/metal_punch_06.wav
+Assets/Deadly Kombat Free version/metal_punch_finisher_07.wav
+Assets/Deadly Kombat Free version/punch_long_whoosh_21.wav
+Assets/Deadly Kombat Free version/punch_long_whoosh_30.wav
+Assets/Deadly Kombat Free version/punch_short_whoosh_16.wav
+Assets/Deadly Kombat Free version/punch_short_whoosh_30.wav
+Assets/Deadly Kombat Free version/somersalt_01.wav
+Assets/Deadly Kombat Free version/somersalt_10.wav
+Assets/Deadly Kombat Free version/wood_bat_finisher_01.wav
+Assets/Deadly Kombat Free version/wood_bat_finisher_05.wav
+Assets/DefaultNetworkPrefabs.asset
+Assets/DefaultVolumeProfile.asset
+Assets/Definitely Not A Hero
+Assets/Definitely Not A Hero/showcase.unity
+Assets/Dummy_02.prefab
+Assets/Dummy_03.prefab
+Assets/Dungeon.prefab
+Assets/Editor
+Assets/Editor/AnimationEventPreviewWindow.cs
+Assets/Editor/CaveURPOptimizerEditor.cs
+Assets/Editor/FactionProfileSetupWizard.cs
+Assets/Editor/Filmic_LUT.png
+Assets/Editor/GlobalRampDebugger.cs
+Assets/Editor/LUTPreset.cs
+Assets/Editor/LUTWorkbenchEditor.cs
+Assets/Editor/Lighting Ramp Generator.cs
+Assets/Editor/LutGeneratorEditor.cs
+Assets/Editor/MyLUT.png
+Assets/Editor/NewLUT.asset
+Assets/Editor/NewLUTPreset.asset
+Assets/Editor/New_LUT.png
+Assets/Editor/P1_SparkMotionVectorSetup.cs
+Assets/Editor/TDABehaviorGraph
+Assets/Editor/TDABehaviorGraph.zip
+Assets/Editor/TDAMasterInspector_Main.cs
+Assets/Editor/TDAMasterInspector_Tabs.cs
+Assets/Editor/TDAMasterInspector_Utils.cs
+Assets/Filmic_LUT.png
+Assets/Fonts
+Assets/Fonts/Cinzel
+Assets/Fonts/Cinzel/Cinzel-VariableFont_wght SDF.asset
+Assets/Fonts/Cinzel/Cinzel-VariableFont_wght.ttf
+Assets/Fonts/Cinzel/OFL.txt
+Assets/Fonts/Cinzel/README.txt
+Assets/Fonts/Cinzel/static
+Assets/Fonts/Cinzel/static/Cinzel-Black.ttf
+Assets/Fonts/Cinzel/static/Cinzel-Bold.ttf
+Assets/Fonts/Cinzel/static/Cinzel-ExtraBold.ttf
+Assets/Fonts/Cinzel/static/Cinzel-Medium.ttf
+Assets/Fonts/Cinzel/static/Cinzel-Regular.ttf
+Assets/Fonts/Cinzel/static/Cinzel-SemiBold.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR
+Assets/Fonts/DotGothic16,Noto_Serif_KR/DotGothic16
+Assets/Fonts/DotGothic16,Noto_Serif_KR/DotGothic16/DotGothic16-Regular SDF.asset
+Assets/Fonts/DotGothic16,Noto_Serif_KR/DotGothic16/DotGothic16-Regular.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/DotGothic16/OFL.txt
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/NotoSerifKR-VariableFont_wght.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/OFL.txt
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/README.txt
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-Black.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-Bold.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-ExtraBold.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-ExtraLight.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-Light.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-Medium.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-Regular.ttf
+Assets/Fonts/DotGothic16,Noto_Serif_KR/Noto_Serif_KR/static/NotoSerifKR-SemiBold.ttf
+Assets/Fonts/DungGeunMo TTF
+Assets/Fonts/DungGeunMo TTF/DungGeunMo SDF.asset
+Assets/Fonts/DungGeunMo TTF/DungGeunMo.ttf
+Assets/Fonts/Noto_Serif_KR
+Assets/Fonts/Noto_Serif_KR/NotoSerifKR-VariableFont_wght SDF.asset
+Assets/Fonts/Noto_Serif_KR/NotoSerifKR-VariableFont_wght.ttf
+Assets/Fonts/Noto_Serif_KR/OFL.txt
+Assets/Fonts/Noto_Serif_KR/README.txt
+Assets/Fonts/Noto_Serif_KR/static
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-Black.ttf
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-Bold.ttf
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-ExtraBold.ttf
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-ExtraLight.ttf
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-Light.ttf
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-Medium.ttf
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-Regular.ttf
+Assets/Fonts/Noto_Serif_KR/static/NotoSerifKR-SemiBold.ttf
+Assets/Fonts/alagard
+Assets/Fonts/alagard/alagard SDF.asset
+Assets/Fonts/alagard/alagard.ttf
+Assets/GeneratedLuts
+Assets/GeneratedLuts/Filmic_LUT.png
+Assets/Kevin Iglesias
+Assets/Kevin Iglesias/Harpia Games
+Assets/Kevin Iglesias/Harpia Games/Camping Pack
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Cooking
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Cooking/Pan.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Cooking/Pot 2.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food/Apple.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food/Banana.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food/Cookie.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food/Meat t bone.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food/Pear.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food/Snacks.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Icons/Food/Water bottle 1.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials/Atlas Texture Camping Pack Metallic.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials/Atlas Texture Camping Pack Transparent.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials/Atlas Texture Camping Pack Variant 1 Variant.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials/Atlas Texture Camping Pack Variant 1.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials/Atlas Texture Camping Pack Variant Variant.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials/Atlas Texture Camping Pack Variant.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Materials/Atlas Texture Camping Pack.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Axe 3.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Backpack 3.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Bornfire support.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Bornfire wood logs.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Bornfire.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Camping knife 2.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Camping lantern.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Camping/Camping table 1.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Colliders Mesh
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Colliders Mesh/Camping
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Colliders Mesh/Camping/Camping Table 1
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Colliders Mesh/Camping/Camping Table 1/Collider Camping Table 1 - 1.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Colliders Mesh/Camping/Camping Table 1/Collider Camping Table 1 - 2.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Colliders Mesh/Camping/Camping Table 1/Collider Camping Table 1 - 3.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Cooking
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Cooking/Materials
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Cooking/Materials/Pan-Altas Texture Low Poly Material.mat
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Cooking/Pan.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Cooking/Pot 2.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food/Apple.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food/Banana.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food/Cookie.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food/Meat t bone.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food/Pear.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food/Snacks.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Meshes/Food/Water bottle 1.fbx
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Axe 3.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Backpack 3.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Bornfire support.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Bornfire wood logs.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Bornfire.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Camping knife 2.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Camping lantern.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Camping/Camping table 1.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Cooking
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Cooking/Pan.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Cooking/Pot 2.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food/Apple.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food/Banana.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food/Cookie.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food/Meat t bone.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food/Pear.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food/Snacks.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Prefabs/Food/Water bottle 1.prefab
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Textures
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Textures/Texture Atlas Camping Pack Emission.png
+Assets/Kevin Iglesias/Harpia Games/Camping Pack/Textures/Texture Atlas Camping Pack.png
+Assets/Kevin Iglesias/Human Animations
+Assets/Kevin Iglesias/Human Animations/Animations
+Assets/Kevin Iglesias/Human Animations/Animations/Male
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/1H
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/1H/HumanM@Attack1H01_L.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/1H/HumanM@Attack1H01_R.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/1H/HumanM@CombatIdle1H01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/2H
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/2H/HumanM@Attack2H01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/2H/HumanM@CombatIdle2H01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/HumanM@CombatDamage01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/HumanM@CombatIdle01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/HumanM@Death01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/Polearm
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/Polearm/HumanM@AttackPolearm01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/Polearm/HumanM@CombatIdlePolearm01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/Shield
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Combat/Shield/HumanM@AttackShield01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Idles
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Idles/HumanM@Idle01-Idle02.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Idles/HumanM@Idle02-Idle01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Idles/HumanM@Idle02.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Fall01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Jump01 - Begin.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Jump01 - Land.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Jump01 [RM] - Begin.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Jump01 [RM] - Land.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Jump01 [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Jump01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_Backward [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_BackwardLeft [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_BackwardRight [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_Forward [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_ForwardLeft [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_ForwardRight [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_Left [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/RootMotion/HumanM@Run01_Right [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/HumanM@Sprint01_Forward.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/HumanM@Sprint01_ForwardLeft.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/HumanM@Sprint01_ForwardRight.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/HumanM@Sprint01_Left.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/HumanM@Sprint01_Right.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/RootMotion
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/RootMotion/HumanM@Sprint01_Forward [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/RootMotion/HumanM@Sprint01_ForwardLeft [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/RootMotion/HumanM@Sprint01_ForwardRight [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/RootMotion/HumanM@Sprint01_Left [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/RootMotion/HumanM@Sprint01_Right [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/HumanM@StrafeRun01_BackwardLeft.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/HumanM@StrafeRun01_BackwardRight.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/HumanM@StrafeRun01_ForwardLeft.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/HumanM@StrafeRun01_ForwardRight.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/HumanM@StrafeRun01_Left.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/HumanM@StrafeRun01_Right.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/RootMotion
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/RootMotion/HumanM@StrafeRun01_BackwardLeft [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/RootMotion/HumanM@StrafeRun01_BackwardRight [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/RootMotion/HumanM@StrafeRun01_ForwardLeft [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/RootMotion/HumanM@StrafeRun01_ForwardRight [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/RootMotion/HumanM@StrafeRun01_Left [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Strafe/StrafeRun/RootMotion/HumanM@StrafeRun01_Right [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Turn
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Turn/HumanM@Turn01_Left [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Turn/HumanM@Turn01_Left.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Turn/HumanM@Turn01_Right [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Turn/HumanM@Turn01_Right.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_Backward [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_BackwardLeft [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_BackwardRight [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_Forward [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_ForwardLeft [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_ForwardRight [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_Left [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/RootMotion/HumanM@Walk01_Right [RM].fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Social
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Social/Conversation
+Assets/Kevin Iglesias/Human Animations/Animations/Male/Social/Conversation/HumanM@Talk01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/Human@HandsClosed01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/Human@ObjectGripHands01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanF@ObjectGripShoulder01_L.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanF@ObjectGripShoulder01_R.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanF@ObjectGripShoulder02_L.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanF@ObjectGripShoulder02_R.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanF@WeaponHold2H01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanF@WeaponHoldPolearm01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanM@ObjectGripShoulder01_L.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanM@ObjectGripShoulder01_R.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanM@ObjectGripShoulder02_L.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanM@ObjectGripShoulder02_R.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanM@WeaponHold2H01.fbx
+Assets/Kevin Iglesias/Human Animations/Animations/Masked Poses/HumanM@WeaponHoldPolearm01.fbx
+Assets/Kevin Iglesias/Human Animations/Materials
+Assets/Kevin Iglesias/Human Animations/Materials/HumanAnimations_Dummy-Orange.mat
+Assets/Kevin Iglesias/Human Animations/Materials/HumanAnimations_Dummy-Red.mat
+Assets/Kevin Iglesias/Human Animations/Models
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Arms
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Arms/Human Arm Left Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Arms/Human Arm Right Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Arms/Human Arms Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Hands
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Hands/Human Hand Left Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Hands/Human Hand Right Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Hands/Human Hands Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Human Body Full Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Human Body Upper Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/Avatar Masks/Human Head Mask.mask
+Assets/Kevin Iglesias/Human Animations/Models/HumanF_Model.fbx
+Assets/Kevin Iglesias/Human Animations/Models/HumanM_Model.fbx
+Assets/Kevin Iglesias/Human Animations/Textures
+Assets/Kevin Iglesias/Human Animations/Textures/HumanAnimations_ColorPalette.png
+Assets/Kevin Iglesias/Human Character Dummy
+Assets/Kevin Iglesias/Human Character Dummy/Human Character Dummy.unity
+Assets/Kevin Iglesias/Human Character Dummy/Materials
+Assets/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy.mat
+Assets/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_Blue.mat
+Assets/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_Green.mat
+Assets/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_Orange.mat
+Assets/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_Purple.mat
+Assets/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_Red.mat
+Assets/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_Yellow.mat
+Assets/Kevin Iglesias/Human Character Dummy/Models
+Assets/Kevin Iglesias/Human Character Dummy/Models/HumanCharacterDummy_F.fbx
+Assets/Kevin Iglesias/Human Character Dummy/Models/HumanCharacterDummy_M.fbx
+Assets/Kevin Iglesias/Human Character Dummy/Models/HumanDummyModels_Source.zip
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_F Blue.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_F Green.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_F Orange.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_F Purple.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_F Red.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_F White.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_F Yellow.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_M Blue.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_M Green.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_M Orange.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_M Purple.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_M Red.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_M White.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_M Yellow.prefab
+Assets/Kevin Iglesias/Human Character Dummy/Textures
+Assets/Kevin Iglesias/Human Character Dummy/Textures/HumanCharacterDummy_ColorPalette.png
+Assets/Kevin Iglesias/SheathScript
+Assets/Kevin Iglesias/SheathScript/Animations
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@BackSheath_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@BackSheath_LeftHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@BackSheath_RightHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@BackUnsheath_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@BackUnsheath_LeftHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@BackUnsheath_RightHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@HipsSheath_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@HipsSheath_LeftHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@HipsSheath_RightHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@HipsUnsheath_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@HipsUnsheath_LeftHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@Idle01.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@Idle_Unarmed.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@KatanaArmed_Idle01.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@KatanaSheath.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@KatanaUnarmed_Idle01.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@KatanaUnsheath.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@LowerBackSheath_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@LowerBackSheath_LeftHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@LowerBackSheath_RightHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@LowerBackUnsheath_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@LowerBackUnsheath_LeftHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@LowerBackUnsheath_RightHand.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@MixSheathA_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@MixSheathB_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@MixUnsheathA_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/Animations/SheathCharacter@MixUnsheathB_BothHands.fbx
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/BothHands@BackSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/BothHands@HipsAndBackMixA.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/BothHands@HipsAndBackMixB.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/BothHands@HipsSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/BothHands@LowerBackSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/LeftHand@Katana.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/LeftHand@LeftBackSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/LeftHand@LeftHipsSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/LeftHand@LeftLowerBackSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/LeftHand@RightHipsSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/RightHand@Knife.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/RightHand@LeftHipsSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/RightHand@RightHipsSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/RightHand@RightLowerBackSheath.controller
+Assets/Kevin Iglesias/SheathScript/AnimatorControllers/RightHand@RigthBackSheath.controller
+Assets/Kevin Iglesias/SheathScript/Materials
+Assets/Kevin Iglesias/SheathScript/Materials/FloorMaterial.mat
+Assets/Kevin Iglesias/SheathScript/Materials/SheathScriptMaterial.mat
+Assets/Kevin Iglesias/SheathScript/Prefabs
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Axes
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Axes/Axes_BothHands@Back.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Axes/Axes_BothHands@Hips.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Greatswords
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Greatswords/Greatswords_BothHands@Back.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Polearms
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Polearms/Polearms_BothHands@Back.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Polearms/Polearms_BothHands@LowerBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndAxe
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndAxe/SwordAndAxeA_BothHands@HipsAndBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndAxe/SwordAndAxeB_BothHands@HipsAndBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndShield
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndShield/SwordAndShieldA_BothHands@Back.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndShield/SwordAndShieldA_BothHands@HipsAndBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndShield/SwordAndShieldB_BothHands@Back.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/SwordAndShield/SwordAndShieldB_BothHands@HipsAndBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Swords
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Swords/Swords_BothHands@Back.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/BothHands/Swords/Swords_BothHands@Hips.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Axe
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Axe/Axe_LeftHand@LeftBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Axe/Axe_LeftHand@RightHips.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Axe/Axe_RightHand@LeftHips.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Axe/Axe_RightHand@RightBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Greatsword
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Greatsword/Greatsword_LeftHand@LeftBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Greatsword/Greatsword_RightHand@RightBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Katana
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Katana/Katana_LeftHand.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Polearm
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Polearm/Polearm_LeftHand@LeftBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Polearm/Polearm_LeftHand@LeftLowerBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Polearm/Polearm_RightHand@RightBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Polearm/Polearm_RightHand@RightLowerBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Rifle
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Rifle/Rifle_LeftHand@LeftBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Rifle/Rifle_LeftHand@LeftLowerBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Rifle/Rifle_RightHand@RightBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Rifle/Rifle_RightHand@RightLowerBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Shield
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Shield/Shield_LeftHand@LeftBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Shield/Shield_RightHand@RightBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Sword
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Sword/Sword_LeftHand@LeftBack.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Sword/Sword_LeftHand@RightHips.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Sword/Sword_RightHand@LeftHips.prefab
+Assets/Kevin Iglesias/SheathScript/Prefabs/OneHand/Sword/Sword_RightHand@RightBack.prefab
+Assets/Kevin Iglesias/SheathScript/SourceModels
+Assets/Kevin Iglesias/SheathScript/SourceModels/SheathScriptCharacter.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/1HAxe.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/1HSword.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/2HSword.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/AssaultRifle.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/Gun.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/Katana.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/Polearm.fbx
+Assets/Kevin Iglesias/SheathScript/SourceModels/Weapons/Shield.fbx
+Assets/Kevin Iglesias/SheathScript/Textures
+Assets/Kevin Iglesias/SheathScript/Textures/FloorTexture.png
+Assets/Kevin Iglesias/SheathScript/Textures/SheathScriptTexture.png
+Assets/LowPoly Fantasy Bags
+Assets/LowPoly Fantasy Bags/Materials
+Assets/LowPoly Fantasy Bags/Materials/Bag.2.mat
+Assets/LowPoly Fantasy Bags/Materials/Bag.2_Green.mat
+Assets/LowPoly Fantasy Bags/Materials/Bag.2_Red.mat
+Assets/LowPoly Fantasy Bags/Materials/Bag.2_White.mat
+Assets/LowPoly Fantasy Bags/Materials/Bag.3.mat
+Assets/LowPoly Fantasy Bags/Materials/Bag.3_Bloody.mat
+Assets/LowPoly Fantasy Bags/Materials/Bag.4.mat
+Assets/LowPoly Fantasy Bags/Models
+Assets/LowPoly Fantasy Bags/Models/Bag.2.fbx
+Assets/LowPoly Fantasy Bags/Models/Bag.3.fbx
+Assets/LowPoly Fantasy Bags/Models/Bag.4.fbx
+Assets/LowPoly Fantasy Bags/Prefab
+Assets/LowPoly Fantasy Bags/Prefab/Bag.2.prefab
+Assets/LowPoly Fantasy Bags/Prefab/Bag.2_Green.prefab
+Assets/LowPoly Fantasy Bags/Prefab/Bag.2_Red.prefab
+Assets/LowPoly Fantasy Bags/Prefab/Bag.2_White.prefab
+Assets/LowPoly Fantasy Bags/Prefab/Bag.3.prefab
+Assets/LowPoly Fantasy Bags/Prefab/Bag.3_Bloody.prefab
+Assets/LowPoly Fantasy Bags/Prefab/Bag.4.prefab
+Assets/LowPoly Fantasy Bags/Textures
+Assets/LowPoly Fantasy Bags/Textures/512x512
+Assets/LowPoly Fantasy Bags/Textures/512x512/Bag.2_BaseColor_512.png
+Assets/LowPoly Fantasy Bags/Textures/512x512/Bag.2_Green_BaseColor_512.png
+Assets/LowPoly Fantasy Bags/Textures/512x512/Bag.2_Red_BaseColor_512.png
+Assets/LowPoly Fantasy Bags/Textures/512x512/Bag.2_White_BaseColor_512.png
+Assets/LowPoly Fantasy Bags/Textures/512x512/Bag.3_BaseColor_512.png
+Assets/LowPoly Fantasy Bags/Textures/512x512/Bag.3_Bloody_BaseColor_512.png
+Assets/LowPoly Fantasy Bags/Textures/512x512/Bag.4_BaseColor_512.png
+Assets/LowPoly Fantasy Bags/Textures/512x512/Materials
+Assets/LowPoly Fantasy Bags/Textures/512x512/Materials/Bag.3_BaseColor_512.mat
+Assets/LowPoly Fantasy Bags/Textures/512x512/Materials/Bag.3_BaseColor_513.mat
+Assets/LowPoly Fantasy Bags/Textures/512x512/Materials/Bag.4_BaseColor_512.mat
+Assets/Materials
+Assets/NewLUT.asset
+Assets/New_LUT.png
+Assets/POI_Forensic_Report.txt
+Assets/Package Install
+Assets/Package Install/UnitySSGIURP-main
+Assets/Package Install/UnitySSGIURP-main/CHANGELOG.md
+Assets/Package Install/UnitySSGIURP-main/Editor
+Assets/Package Install/UnitySSGIURP-main/Editor/KeepDeferredVariantsEditor.cs
+Assets/Package Install/UnitySSGIURP-main/Editor/SSGIURP.Editor.asmdef
+Assets/Package Install/UnitySSGIURP-main/Editor/ScreenSpaceGlobalIlluminationVolumeEditor.cs
+Assets/Package Install/UnitySSGIURP-main/LICENSE.md
+Assets/Package Install/UnitySSGIURP-main/README.md
+Assets/Package Install/UnitySSGIURP-main/Runtime
+Assets/Package Install/UnitySSGIURP-main/Runtime/SSGIURP.asmdef
+Assets/Package Install/UnitySSGIURP-main/Runtime/ScreenSpaceGlobalIlluminationURP.cs
+Assets/Package Install/UnitySSGIURP-main/Runtime/ScreenSpaceGlobalIlluminationVolume.cs
+Assets/Package Install/UnitySSGIURP-main/Shaders
+Assets/Package Install/UnitySSGIURP-main/Shaders/SSGI.hlsl
+Assets/Package Install/UnitySSGIURP-main/Shaders/SSGIConfig.hlsl
+Assets/Package Install/UnitySSGIURP-main/Shaders/SSGIDenoise.hlsl
+Assets/Package Install/UnitySSGIURP-main/Shaders/SSGIFallback.hlsl
+Assets/Package Install/UnitySSGIURP-main/Shaders/SSGIInput.hlsl
+Assets/Package Install/UnitySSGIURP-main/Shaders/SSGIUtilities.hlsl
+Assets/Package Install/UnitySSGIURP-main/Shaders/ScreenSpaceGlobalIllumination.shader
+Assets/Package Install/UnitySSGIURP-main/package.json
+Assets/PlayerControls.cs
+Assets/PlayerControls.inputactions
+Assets/PlayerInputManager.cs
+Assets/Plugins
+Assets/Plugins/Facepunch
+Assets/Plugins/Facepunch/Facepunch.Steamworks.Posix.dll
+Assets/Plugins/Facepunch/Facepunch.Steamworks.Posix.xml
+Assets/Plugins/Facepunch/Facepunch.Steamworks.Win32.dll
+Assets/Plugins/Facepunch/Facepunch.Steamworks.Win32.xml
+Assets/Plugins/Facepunch/Facepunch.Steamworks.Win64.dll
+Assets/Plugins/Facepunch/Facepunch.Steamworks.Win64.xml
+Assets/Plugins/Facepunch/redistributable_bin
+Assets/Plugins/Facepunch/redistributable_bin/linux32
+Assets/Plugins/Facepunch/redistributable_bin/linux32/libsteam_api.so
+Assets/Plugins/Facepunch/redistributable_bin/linux64
+Assets/Plugins/Facepunch/redistributable_bin/linux64/libsteam_api.so
+Assets/Plugins/Facepunch/redistributable_bin/osx
+Assets/Plugins/Facepunch/redistributable_bin/osx/libsteam_api.dylib
+Assets/Plugins/Facepunch/redistributable_bin/steam_api.dll
+Assets/Plugins/Facepunch/redistributable_bin/steam_api.lib
+Assets/Plugins/Facepunch/redistributable_bin/win64
+Assets/Plugins/Facepunch/redistributable_bin/win64/steam_api64.dll
+Assets/Plugins/Facepunch/redistributable_bin/win64/steam_api64.lib
+Assets/Plugins/ParrelSync
+Assets/Plugins/ParrelSync/ScriptableObjects
+Assets/Plugins/ParrelSync/ScriptableObjects/ParrelSyncProjectSettings.asset
+Assets/Plugins/SteamAudio
+Assets/Plugins/SteamAudio/Binaries
+Assets/Plugins/SteamAudio/Binaries/Android
+Assets/Plugins/SteamAudio/Binaries/Android/arm64
+Assets/Plugins/SteamAudio/Binaries/Android/arm64/libaudioplugin_phonon.so
+Assets/Plugins/SteamAudio/Binaries/Android/arm64/libphonon.so
+Assets/Plugins/SteamAudio/Binaries/Android/armv7
+Assets/Plugins/SteamAudio/Binaries/Android/armv7/libaudioplugin_phonon.so
+Assets/Plugins/SteamAudio/Binaries/Android/armv7/libphonon.so
+Assets/Plugins/SteamAudio/Binaries/Android/x86
+Assets/Plugins/SteamAudio/Binaries/Android/x86/libaudioplugin_phonon.so
+Assets/Plugins/SteamAudio/Binaries/Android/x86/libphonon.so
+Assets/Plugins/SteamAudio/Binaries/HTML5
+Assets/Plugins/SteamAudio/Binaries/HTML5/libaudioplugin_phonon.a
+Assets/Plugins/SteamAudio/Binaries/HTML5/libphonon.a
+Assets/Plugins/SteamAudio/Binaries/Linux
+Assets/Plugins/SteamAudio/Binaries/Linux/x86
+Assets/Plugins/SteamAudio/Binaries/Linux/x86/libaudioplugin_phonon.so
+Assets/Plugins/SteamAudio/Binaries/Linux/x86/libphonon.so
+Assets/Plugins/SteamAudio/Binaries/Linux/x86_64
+Assets/Plugins/SteamAudio/Binaries/Linux/x86_64/libaudioplugin_phonon.so
+Assets/Plugins/SteamAudio/Binaries/Linux/x86_64/libphonon.so
+Assets/Plugins/SteamAudio/Binaries/Windows
+Assets/Plugins/SteamAudio/Binaries/Windows/x86
+Assets/Plugins/SteamAudio/Binaries/Windows/x86/audioplugin_phonon.dll
+Assets/Plugins/SteamAudio/Binaries/Windows/x86/phonon.dll
+Assets/Plugins/SteamAudio/Binaries/Windows/x86_64
+Assets/Plugins/SteamAudio/Binaries/Windows/x86_64/GPUUtilities.dll
+Assets/Plugins/SteamAudio/Binaries/Windows/x86_64/TrueAudioNext.dll
+Assets/Plugins/SteamAudio/Binaries/Windows/x86_64/audioplugin_phonon.dll
+Assets/Plugins/SteamAudio/Binaries/Windows/x86_64/phonon.dll
+Assets/Plugins/SteamAudio/Binaries/iOS
+Assets/Plugins/SteamAudio/Binaries/iOS/SteamAudioUnityAppController.h
+Assets/Plugins/SteamAudio/Binaries/iOS/SteamAudioUnityAppController.mm
+Assets/Plugins/SteamAudio/Binaries/iOS/libaudioplugin_phonon.a
+Assets/Plugins/SteamAudio/Binaries/iOS/libmysofa.a
+Assets/Plugins/SteamAudio/Binaries/iOS/libpffft.a
+Assets/Plugins/SteamAudio/Binaries/iOS/libphonon.a
+Assets/Plugins/SteamAudio/Binaries/macOS
+Assets/Plugins/SteamAudio/Binaries/macOS/audioplugin_phonon.bundle
+Assets/Plugins/SteamAudio/Binaries/macOS/phonon.bundle
+Assets/Plugins/SteamAudio/Resources
+Assets/Plugins/SteamAudio/Resources/Materials
+Assets/Plugins/SteamAudio/Resources/Materials/Brick.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Carpet.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Ceramic.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Concrete.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Default.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Glass.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Gravel.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Metal.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Plaster.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Rock.asset
+Assets/Plugins/SteamAudio/Resources/Materials/Wood.asset
+Assets/Plugins/SteamAudio/Resources/SteamAudioSettings.asset
+Assets/Plugins/SteamAudio/Scripts
+Assets/Plugins/SteamAudio/Scripts/Editor
+Assets/Plugins/SteamAudio/Scripts/Editor/Build.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SOFAFileEditor.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SOFAFileImporter.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SOFAFileImporterEditor.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SerializedDataInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioAmbisonicSourceInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioBakedListenerInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioBakedSourceInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioDynamicObjectInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioGeometryInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioListenerInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioManagerInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioMaterialInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioMixerReturnGUI.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioProbeBatchInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioReverbDataEditor.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioReverbDataPointInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioReverbGUI.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioSettingsInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioSourceInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioStaticMeshInspector.cs
+Assets/Plugins/SteamAudio/Scripts/Editor/SteamAudioUnityEditor.asmdef
+Assets/Plugins/SteamAudio/Scripts/Runtime
+Assets/Plugins/SteamAudio/Scripts/Runtime/AudioEngineAmbisonicSource.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/AudioEngineSource.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/AudioEngineState.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/Baker.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/Common.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/Context.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/EmbreeDevice.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/HRTF.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/InstancedMesh.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/OpenCLDevice.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/ProbeBatch.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/RadeonRaysDevice.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SOFAFile.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/Scene.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SerializedData.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SerializedObject.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/Simulator.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/StaticMesh.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudio.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioAmbisonicSource.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioBakedListener.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioBakedSource.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioDynamicObject.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioGeometry.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioListener.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioManager.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioMaterial.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioProbeBatch.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioReverbData.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioReverbDataPoint.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioSettings.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioSource.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/SteamAudioStaticMesh.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/TrueAudioNextDevice.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/UnityAudioEngineAmbisonicSource.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/UnityAudioEngineSource.cs
+Assets/Plugins/SteamAudio/Scripts/Runtime/UnityAudioEngineState.cs
+Assets/Plugins/SteamAudio/SteamAudioUnity.asmdef
+Assets/Polygonal Particles
+Assets/Polygonal Particles/Assets
+Assets/Polygonal Particles/Assets/Materials
+Assets/Polygonal Particles/Assets/Materials/Blizzard.mat
+Assets/Polygonal Particles/Assets/Materials/BlizzardMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Blood.mat
+Assets/Polygonal Particles/Assets/Materials/BloodMobile.mat
+Assets/Polygonal Particles/Assets/Materials/DesertDust.mat
+Assets/Polygonal Particles/Assets/Materials/Dust.mat
+Assets/Polygonal Particles/Assets/Materials/DustMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Explosion.mat
+Assets/Polygonal Particles/Assets/Materials/ExplosionMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Fire.mat
+Assets/Polygonal Particles/Assets/Materials/FireMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Fireflies.mat
+Assets/Polygonal Particles/Assets/Materials/FirefliesMobile.mat
+Assets/Polygonal Particles/Assets/Materials/JetExhaust.mat
+Assets/Polygonal Particles/Assets/Materials/JetExhaustMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Leaf.mat
+Assets/Polygonal Particles/Assets/Materials/LeafMobile.mat
+Assets/Polygonal Particles/Assets/Materials/RadiationCloud.mat
+Assets/Polygonal Particles/Assets/Materials/RadiationCloudMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Rain.mat
+Assets/Polygonal Particles/Assets/Materials/RainMobile.mat
+Assets/Polygonal Particles/Assets/Materials/SkyboxMaterial.mat
+Assets/Polygonal Particles/Assets/Materials/Snow.mat
+Assets/Polygonal Particles/Assets/Materials/SnowMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Splinter.mat
+Assets/Polygonal Particles/Assets/Materials/SplinterMobile.mat
+Assets/Polygonal Particles/Assets/Materials/Terrain.mat
+Assets/Polygonal Particles/Assets/Materials/WhiteSmoke.mat
+Assets/Polygonal Particles/Assets/Materials/WhiteSmokeMobile.mat
+Assets/Polygonal Particles/Assets/Meshes
+Assets/Polygonal Particles/Assets/Meshes/Assets_Campfire.fbx
+Assets/Polygonal Particles/Assets/Meshes/Building_TowerConcrete.fbx
+Assets/Polygonal Particles/Assets/Meshes/Firefly.fbx
+Assets/Polygonal Particles/Assets/Meshes/Leaf.fbx
+Assets/Polygonal Particles/Assets/Meshes/Materials
+Assets/Polygonal Particles/Assets/Meshes/Materials/Firefly.mat
+Assets/Polygonal Particles/Assets/Meshes/Materials/Smoke01.mat
+Assets/Polygonal Particles/Assets/Meshes/ParticleMeshes.fbx
+Assets/Polygonal Particles/Assets/Meshes/PolygonalMesh.fbx
+Assets/Polygonal Particles/Assets/Meshes/WoodChip.fbx
+Assets/Polygonal Particles/Assets/Prefabs
+Assets/Polygonal Particles/Assets/Prefabs/Environment
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Blizzard.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Blizzard_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Blizzard_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Bubbles.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Bubbles_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Bubbles_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/DesertDust.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/DesertDust_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/DesertDust_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/DustWithLeaves.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/DustWithLeaves_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/DustWithLeaves_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Fireflies.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Fireflies_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Fireflies_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Leaves.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Leaves_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/Leaves_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/RadiationCloud.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/RadiationCloud_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Environment/RadiationCloud_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion01.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion01_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion01_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion02.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion02_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion02_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion03.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion03_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Explosion03_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Puff.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/PuffLarge.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Puff_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Explosions/Puff_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire01.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire01_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire01_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire02.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire02_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire02_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire03.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire03_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Fire03_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/FireArea.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/FireArea_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/FireArea_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/FireBall.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/FireBall_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/FireBall_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Flame.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Flame_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Fire/Flame_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitBlood.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitBlood_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitBlood_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitCrystal.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitCrystal_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitCrystal_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitRock01.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitRock01_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitRock01_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitRock02.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitRock02_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitRock02_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitTree.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitTree_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Hit Particles/HitTree_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke01.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke01_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke01_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke02.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke02_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke02_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke03.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke03_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke03_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke04.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke04_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Smoke/Smoke04_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water
+Assets/Polygonal Particles/Assets/Prefabs/Water/Rain01.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Rain01_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Rain01_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Rain02.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Rain02_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Rain02_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Snow01.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Snow01_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Snow01_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Snow02.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Snow02_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Snow02_Mobile.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Splash.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Splash_HighPerformance.prefab
+Assets/Polygonal Particles/Assets/Prefabs/Water/Splash_Mobile.prefab
+Assets/Polygonal Particles/Assets/Shaders
+Assets/Polygonal Particles/Assets/Shaders/GradientBackgroundShader.shader
+Assets/Polygonal Particles/README.pdf
+Assets/Polytope Studio
+Assets/Polytope Studio/Lowpoly_Characters
+Assets/Polytope Studio/Lowpoly_Characters/Animations
+Assets/Polytope Studio/Lowpoly_Characters/Animations/PT_Armor_anim_controller.controller
+Assets/Polytope Studio/Lowpoly_Characters/Animations/PT_Pose_01.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Prefabs
+Assets/Polytope Studio/Lowpoly_Characters/Prefabs/Modular_Armors
+Assets/Polytope Studio/Lowpoly_Characters/Prefabs/Modular_Armors/PT_Lowpoly_Armors_Male_Moduar_Free.prefab
+Assets/Polytope Studio/Lowpoly_Characters/Sources
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Materials
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Materials/PT_Armors_Material.mat
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Materials/PT_Armors_Material_Toon.mat
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/PT_Lowpoly_Armors_Male_Moduar_Free.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_01_A_body.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_01_A_boots.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_01_A_cape.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_01_A_gauntlets.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_01_A_helmet.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_01_A_legs.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_cloth_00_body.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_cloth_00_boots.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_cloth_00_gauntlets.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Meshes/Separate_Parts/PT_Male_Armor_cloth_00_legs.fbx
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Shaders
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Shaders/PT_Armors_Shader_PBR.shader
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Shaders/PT_Armors_Shader_Toon.shader
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Base_Texture.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Cloth_Mask_01.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Feathers_Mask_02.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Gems_Mask_01.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Leather_Mask_01.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Lips_Scars_Mask_01.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Metal_Mask_01.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Skin_Eye_Hair_Mask_01.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Armors_Skin_Eye_Hair_Mask_02.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_Coat_of_Arms_01.png
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Modular_Armors/Textures/PT_texture.tga
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Scripts
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Scripts/Editor
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Scripts/Editor/PT_Create_Prefab_Editor.cs
+Assets/Polytope Studio/Lowpoly_Characters/Sources/Scripts/PT_Create_Prefab.cs
+Assets/Polytope Studio/Lowpoly_Characters/URP
+Assets/Polytope Studio/Lowpoly_Props
+Assets/Polytope Studio/Lowpoly_Props/Prefabs
+Assets/Polytope Studio/Lowpoly_Props/Prefabs/PT_Chest_01.prefab
+Assets/Polytope Studio/Lowpoly_Props/Sources
+Assets/Polytope Studio/Lowpoly_Props/Sources/Materials
+Assets/Polytope Studio/Lowpoly_Props/Sources/Materials/PT_Props_mat.mat
+Assets/Polytope Studio/Lowpoly_Props/Sources/Materials/PT_mat.mat
+Assets/Polytope Studio/Lowpoly_Props/Sources/Meshes
+Assets/Polytope Studio/Lowpoly_Props/Sources/Meshes/PT_Chest_01.fbx
+Assets/Polytope Studio/Lowpoly_Props/Sources/Shaders
+Assets/Polytope Studio/Lowpoly_Props/Sources/Shaders/PT_Props_Shader.shader
+Assets/Polytope Studio/Lowpoly_Props/Sources/Textures
+Assets/Polytope Studio/Lowpoly_Props/Sources/Textures/PT_Props_Texture_01.png
+Assets/Polytope Studio/Lowpoly_Props/Sources/Textures/PT_Tools_Texture_Mask_01.png
+Assets/Polytope Studio/Lowpoly_Props/Sources/Textures/PT_texture.tga
+Assets/Polytope Studio/Lowpoly_Weapons
+Assets/Polytope Studio/Lowpoly_Weapons/Animations
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_01_anim.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_01_anim_ctrl.controller
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_02_anim.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_02_anim_ctrl.controller
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_03_anim.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_03_anim_ctrl.controller
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_04_anim.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Bow_04_anim_ctrl.controller
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Crossbow_02_anim.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Crossbow_02_anim_ctrl.controller
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Longbow_02_anim.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Animations/PT_Longbow_02_anim_ctrl.controller
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Arrow_03_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Bow_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Longsword_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Mace_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Pike_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Quiver_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Shield_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Shield_06_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Shield_19_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_ShortWaraxe_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/Prefabs/PT_Sword_01_a.prefab
+Assets/Polytope Studio/Lowpoly_Weapons/SRP
+Assets/Polytope Studio/Lowpoly_Weapons/Sources
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Materials
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Materials/PT_Weapons_Material.mat
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Materials/PT_mat.mat
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Arrow_03_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Bow_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Longsword_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Mace_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Pike_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Quiver_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Shield_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Shield_06_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Shield_19_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_ShortWaraxe_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Meshes/PT_Sword_01_a.fbx
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Shaders
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Shaders/PT_Weapons_Shader_PBR.shader
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Shaders/PT_Weapons_Shader_Toon.shader
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Textures
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Textures/PT_Coat_of_Arms_10.png
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Textures/PT_Weapons_Texture_01_base.png
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Textures/PT_Weapons_Texture_01_mask.png
+Assets/Polytope Studio/Lowpoly_Weapons/Sources/Textures/PT_texture.tga
+Assets/Ranger_rigged_v4.fbx
+Assets/Readme.asset
+Assets/Reports
+Assets/Reports/Day4_ChecklistReport.md
+Assets/Rig.fbx
+Assets/Scenes
+Assets/Scenes/AI TEST
+Assets/Scenes/AI TEST.unity
+Assets/Scenes/AI TEST/NavMesh-GroundPlane_NavMeshStatic.asset
+Assets/Scenes/AI TEST/NavMesh-Plane 1.asset
+Assets/Scenes/AI TEST/NavMesh-Plane.asset
+Assets/Scenes/AI TEST/NavMesh.asset
+Assets/Scenes/Scene_AI_Test
+Assets/Scenes/Scene_AI_Test.unity
+Assets/Scenes/Scene_AI_Test/NavMesh-Plane.asset
+Assets/Scenes/Scene_Fog.unity
+Assets/Scenes/Scene_S11.unity
+Assets/Scenes/Scene_S13.unity
+Assets/Scenes/Scene_S6.unity
+Assets/Scenes/Scene_Simple_map_generator.unity
+Assets/Scenes/Scene_World_01
+Assets/Scenes/Scene_World_01.unity
+Assets/Scenes/Scene_World_01/Global Volume Profile.asset
+Assets/Scenes/Scene_main_menu_01
+Assets/Scenes/Scene_main_menu_01.unity
+Assets/Scenes/Scene_main_menu_01/LightingData.asset
+Assets/Scenes/Scene_main_menu_01/ReflectionProbe-0.exr
+Assets/Scenes/Scene_pB2
+Assets/Scenes/Scene_pB2.unity
+Assets/Scenes/Scene_pB2/World Volume Manager Profile.asset
+Assets/Scenes/Wk3_NaturalEmergenceScene
+Assets/Scenes/Wk3_NaturalEmergenceScene.unity
+Assets/Scenes/Wk3_NaturalEmergenceScene/NavMesh-NavMeshSurface 1.asset
+Assets/Scenes/Wk3_NaturalEmergenceScene/NavMesh-NavMeshSurface.asset
+Assets/Scripts
+Assets/Scripts.zip
+Assets/Scripts/Animator
+Assets/Scripts/Animator/AnimationEventParamsSO.cs
+Assets/Scripts/Animator/AnimatorBehaviours
+Assets/Scripts/Animator/AnimatorBehaviours/BaseActionBehaviour.cs
+Assets/Scripts/Animator/AnimatorBehaviours/ResetCharacterStateBehaviour.cs
+Assets/Scripts/Animator/AnimatorParameterHash.cs
+Assets/Scripts/Animator/CharacterAnimationSetSO.cs
+Assets/Scripts/Animator/Editor
+Assets/Scripts/Animator/Editor/AnimationEventTypeDrawer.cs
+Assets/Scripts/Animator/IAnimationEventListener.cs
+Assets/Scripts/BlurEventResponseSO.cs
+Assets/Scripts/Bridges&Interfaces
+Assets/Scripts/Bridges&Interfaces/Bridges
+Assets/Scripts/Bridges&Interfaces/Bridges/BridgeManager.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/Contracts
+Assets/Scripts/Bridges&Interfaces/Bridges/Contracts/AIBridgeContracts.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/Contracts/FactionBridgeContracts.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/Contracts/ScenarioBridgeContracts.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/Contracts/TerrainBridgeContracts.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/DTOs
+Assets/Scripts/Bridges&Interfaces/Bridges/DTOs/README.md
+Assets/Scripts/Bridges&Interfaces/Bridges/Mocks
+Assets/Scripts/Bridges&Interfaces/Bridges/Mocks/MockAIReceivers.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/Mocks/README.md
+Assets/Scripts/Bridges&Interfaces/Bridges/WorldAIBridgeManager.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/WorldBridgeManager.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/WorldScenarioBridgeManager.cs
+Assets/Scripts/Bridges&Interfaces/Bridges/WorldTerrainBridgeManager.cs
+Assets/Scripts/Bridges&Interfaces/Interfaces
+Assets/Scripts/Bridges&Interfaces/Interfaces/Core
+Assets/Scripts/Bridges&Interfaces/Interfaces/Core/CoreInterfaces.cs
+Assets/Scripts/Bridges&Interfaces/Interfaces/Deprecated
+Assets/Scripts/Bridges&Interfaces/Interfaces/Deprecated/DeprecatedInterfaces.cs
+Assets/Scripts/Bridges&Interfaces/Interfaces/Domain
+Assets/Scripts/Bridges&Interfaces/Interfaces/Domain/AIDomainInterfaces.cs
+Assets/Scripts/Bridges&Interfaces/Interfaces/Domain/CharacterDomainInterfaces.cs
+Assets/Scripts/Bridges&Interfaces/Interfaces/Domain/NarrativeDomainInterfaces.cs
+Assets/Scripts/Bridges&Interfaces/Interfaces/Domain/PresentationDomainInterfaces.cs
+Assets/Scripts/Bridges&Interfaces/Interfaces/Domain/TerrainDomainInterfaces.cs
+Assets/Scripts/Bridges&Interfaces/Stubs
+Assets/Scripts/Bridges&Interfaces/Stubs/README.md
+Assets/Scripts/Bridges&Interfaces/Stubs/StubBlackboard.cs
+Assets/Scripts/Bridges_Interfaces
+Assets/Scripts/Camera
+Assets/Scripts/Camera/CameraDirectingPreviewer.cs
+Assets/Scripts/Camera/CameraSequencePresetSO.cs
+Assets/Scripts/Camera/CameraStancePresetSO.cs
+Assets/Scripts/Camera/Editor
+Assets/Scripts/Camera/Editor/CameraDirectingPreviewerWindow.cs
+Assets/Scripts/Camera/Editor/PlayerCameraEditor.cs
+Assets/Scripts/Camera/Editor/TDA_CameraSOWizard.cs
+Assets/Scripts/Camera/ICameraEffectReceiver.cs
+Assets/Scripts/Camera/QuickShowInInspectorEditor.cs
+Assets/Scripts/Character
+Assets/Scripts/Character/Ai
+Assets/Scripts/Character/Ai/AICharacterAnimationManager.cs
+Assets/Scripts/Character/Ai/AICharacterCombatManager.cs
+Assets/Scripts/Character/Ai/AICharacterDefenseManager.cs
+Assets/Scripts/Character/Ai/AICharacterEffectsManager.cs
+Assets/Scripts/Character/Ai/AICharacterEquipmentDebugger.cs
+Assets/Scripts/Character/Ai/AICharacterEquipmentManager.cs
+Assets/Scripts/Character/Ai/AICharacterEventManager.cs
+Assets/Scripts/Character/Ai/AICharacterExecutionManager.cs
+Assets/Scripts/Character/Ai/AICharacterIKController.cs
+Assets/Scripts/Character/Ai/AICharacterInventoryManager.cs
+Assets/Scripts/Character/Ai/AICharacterLocomotionManager.cs
+Assets/Scripts/Character/Ai/AICharacterManager.cs
+Assets/Scripts/Character/Ai/AICharacterManagerDebugger.cs
+Assets/Scripts/Character/Ai/AICharacterNetworkManager.cs
+Assets/Scripts/Character/Ai/AICharacterSoundFxManager.cs
+Assets/Scripts/Character/Ai/AICharacterStatsManager.cs
+Assets/Scripts/Character/Ai/AIState.cs
+Assets/Scripts/Character/Ai/AttackState.cs
+Assets/Scripts/Character/Ai/CallForHelpState.cs
+Assets/Scripts/Character/Ai/CombatStanceState.cs
+Assets/Scripts/Character/Ai/Debugger
+Assets/Scripts/Character/Ai/Debugger/AIDebugKeys.cs
+Assets/Scripts/Character/Ai/Debugger/AIDebuggerSettings.cs
+Assets/Scripts/Character/Ai/Debugger/AIDebuggerSettingsWindow.cs
+Assets/Scripts/Character/Ai/Debugger/AIPerceptionDebugger.cs
+Assets/Scripts/Character/Ai/Debugger/AIPerceptionDebuggerEditor.cs
+Assets/Scripts/Character/Ai/Debugger/PerceptionProbeWindow.cs
+Assets/Scripts/Character/Ai/FleeState.cs
+Assets/Scripts/Character/Ai/GroggyState.cs
+Assets/Scripts/Character/Ai/IdleState.cs
+Assets/Scripts/Character/Ai/PatrolState.cs
+Assets/Scripts/Character/Ai/PursueTargetState.cs
+Assets/Scripts/Character/Ai/RetreatState.cs
+Assets/Scripts/Character/CharacterAnimationManager.cs
+Assets/Scripts/Character/CharacterCombatManager.cs
+Assets/Scripts/Character/CharacterDefenseManager.cs
+Assets/Scripts/Character/CharacterEffectsManager.cs
+Assets/Scripts/Character/CharacterEquipmentManager.cs
+Assets/Scripts/Character/CharacterEventManager.cs
+Assets/Scripts/Character/CharacterExecutionManager.cs
+Assets/Scripts/Character/CharacterIKController.cs
+Assets/Scripts/Character/CharacterInteractionManager.cs
+Assets/Scripts/Character/CharacterInventoryManager.cs
+Assets/Scripts/Character/CharacterLocomotionManager.cs
+Assets/Scripts/Character/CharacterManager.cs
+Assets/Scripts/Character/CharacterManagerDebugger.cs
+Assets/Scripts/Character/CharacterNetworkManager.cs
+Assets/Scripts/Character/CharacterQTEManager.cs
+Assets/Scripts/Character/CharacterSoundFxManager.cs
+Assets/Scripts/Character/CharacterStatsManager.cs
+Assets/Scripts/Character/CharacterVisualFeedbackManager.cs
+Assets/Scripts/Character/Editor
+Assets/Scripts/Character/Editor/TDA_CharacterDebuggerEditor.cs
+Assets/Scripts/Character/Editor/WorldCharacterDebuggerWindow.cs
+Assets/Scripts/Character/PB4AnimatorDebugger.cs
+Assets/Scripts/Character/Player
+Assets/Scripts/Character/Player/Player UI
+Assets/Scripts/Character/Player/Player UI/PlayerUIHUDManager.cs
+Assets/Scripts/Character/Player/Player UI/PlayerUIManager.cs
+Assets/Scripts/Character/Player/Player UI/UI_StatBar.cs
+Assets/Scripts/Character/Player/PlayerAnimationManager.cs
+Assets/Scripts/Character/Player/PlayerCamera.cs
+Assets/Scripts/Character/Player/PlayerCombatManager.cs
+Assets/Scripts/Character/Player/PlayerDefenseManager.cs
+Assets/Scripts/Character/Player/PlayerEffectsManager.cs
+Assets/Scripts/Character/Player/PlayerEquipmentDebugger.cs
+Assets/Scripts/Character/Player/PlayerEquipmentManager.cs
+Assets/Scripts/Character/Player/PlayerEventManager.cs
+Assets/Scripts/Character/Player/PlayerExecutionManager.cs
+Assets/Scripts/Character/Player/PlayerGestureManager.cs
+Assets/Scripts/Character/Player/PlayerIKController.cs
+Assets/Scripts/Character/Player/PlayerInputDiagnostics.cs
+Assets/Scripts/Character/Player/PlayerInteractionManager.cs
+Assets/Scripts/Character/Player/PlayerInventoryManager.cs
+Assets/Scripts/Character/Player/PlayerLocomotionManager.cs
+Assets/Scripts/Character/Player/PlayerManager.cs
+Assets/Scripts/Character/Player/PlayerManagerDebugger.cs
+Assets/Scripts/Character/Player/PlayerNetworkManager.cs
+Assets/Scripts/Character/Player/PlayerQTEManager.cs
+Assets/Scripts/Character/Player/PlayerSoundFxManager.cs
+Assets/Scripts/Character/Player/PlayerStatsManager.cs
+Assets/Scripts/Character/Player/PlayerVisualFeedbackManager.cs
+Assets/Scripts/Character/WeaponModelInstantiationSlot.cs
+Assets/Scripts/Colliders
+Assets/Scripts/Colliders/DamageCollider.cs
+Assets/Scripts/Colliders/MeleeWeaponDamageCollider.cs
+Assets/Scripts/Data
+Assets/Scripts/Data/FinisherData.cs
+Assets/Scripts/Effects
+Assets/Scripts/Effects/InstantCharacterEffect.cs
+Assets/Scripts/Effects/TakeDamageEffect.cs
+Assets/Scripts/Effects/TakeStaminaDamageEffect.cs
+Assets/Scripts/Enums.cs
+Assets/Scripts/Game Saving
+Assets/Scripts/Game Saving/CharacterSaveData.cs
+Assets/Scripts/Game Saving/SaveFileDataWriter.cs
+Assets/Scripts/Game Saving/SerializableDictionary.cs
+Assets/Scripts/Game Saving/WorldSaveData.cs
+Assets/Scripts/Helper
+Assets/Scripts/Helper/DontDestroyOnLoadHelper.cs
+Assets/Scripts/Interaction
+Assets/Scripts/Interaction/Cooking interactable.cs
+Assets/Scripts/Interaction/DoorInteractable.cs
+Assets/Scripts/Interaction/InteractableEntity.cs
+Assets/Scripts/Interaction/InteractableItem.cs
+Assets/Scripts/Interaction/InteractableObject.cs
+Assets/Scripts/Interaction/NPCInteractable.cs
+Assets/Scripts/Interaction/PickUpItemInteractable.cs
+Assets/Scripts/Inventory
+Assets/Scripts/Inventory/Bag Pack.prefab
+Assets/Scripts/Inventory/Bag.prefab
+Assets/Scripts/Inventory/BagVisualController.cs
+Assets/Scripts/Inventory/Bag_Opaque.mat
+Assets/Scripts/Inventory/Bag_Transparent.mat
+Assets/Scripts/Inventory/Box.prefab
+Assets/Scripts/Inventory/EquipmentItem.cs
+Assets/Scripts/Inventory/IInventoryHolder.cs
+Assets/Scripts/Inventory/Inventory3DRaycaster.cs
+Assets/Scripts/Inventory/InventoryItem.cs
+Assets/Scripts/Inventory/InventoryItemVisual.cs
+Assets/Scripts/Inventory/LootableInteractable.cs
+Assets/Scripts/Inventory/ModelContainer.prefab
+Assets/Scripts/Inventory/Pickable Item.prefab
+Assets/Scripts/Inventory/UI_InventoryGrid.cs
+Assets/Scripts/Inventory/WorldInventoryManager.cs
+Assets/Scripts/Inventory/WorldItemSpawner.cs
+Assets/Scripts/Items
+Assets/Scripts/Items/CookingItem
+Assets/Scripts/Items/CookingItem/CookingRecipeSO.cs
+Assets/Scripts/Items/CookingItem/CookingStation.cs
+Assets/Scripts/Items/CookingItem/GrillCookingStation.cs
+Assets/Scripts/Items/CookingItem/HeatSourceLogic.cs
+Assets/Scripts/Items/CookingItem/HeatSourceSO.cs
+Assets/Scripts/Items/CookingItem/PotCookingStation.cs
+Assets/Scripts/Items/FoodItem.cs
+Assets/Scripts/Items/Item.cs
+Assets/Scripts/Items/MeleeWeaponItem.cs
+Assets/Scripts/Items/OptimizedNetworkItem.cs
+Assets/Scripts/Items/ShieldManager.cs
+Assets/Scripts/Items/ShieldWeaponItemSO.cs
+Assets/Scripts/Items/WeaponItem Actions
+Assets/Scripts/Items/WeaponItem Actions/WeaponItemAction.cs
+Assets/Scripts/Items/WeaponItem.cs
+Assets/Scripts/Items/WeaponManager.cs
+Assets/Scripts/Menu Scene
+Assets/Scripts/Menu Scene/TitleScreenLoadMenuInputManager.cs
+Assets/Scripts/Menu Scene/TitleScreenManager.cs
+Assets/Scripts/Networking
+Assets/Scripts/Networking/SteamClient.cs
+Assets/Scripts/Networking/SteamLobbyManager.cs
+Assets/Scripts/Networking/SteamP2PRelayTransport.cs
+Assets/Scripts/Slicing
+Assets/Scripts/Slicing/Action_Knifecut.asset
+Assets/Scripts/Slicing/Mat_Carrot.mat
+Assets/Scripts/Slicing/Mat_CarrotInside.mat
+Assets/Scripts/Slicing/MeshSlicer.cs
+Assets/Scripts/Slicing/SliceableObject.cs
+Assets/Scripts/Slicing/SlicedHull.cs
+Assets/Scripts/Slicing/SlicingDamageCollider.cs
+Assets/Scripts/Slicing/SlicingWeaponItemAction.cs
+Assets/Scripts/Slicing/Test_Carrot.prefab
+Assets/Scripts/UI
+Assets/Scripts/UI/LobbyUIManager.cs
+Assets/Scripts/UI/PlayerUIPopUpManager.cs
+Assets/Scripts/UI/UI_Character_Save_Slot.cs
+Assets/Scripts/UI/UI_Match_Scroll_Wheel_To_Selected_Button.cs
+Assets/Scripts/Utilities
+Assets/Scripts/Utilities/Cave Genderator
+Assets/Scripts/Utilities/Cave Genderator/#Uc8fc#Uc0c1#Uc808#Ub9ac.asset
+Assets/Scripts/Utilities/Cave Genderator/BiomeSDF_ProfileSO.cs
+Assets/Scripts/Utilities/Cave Genderator/BiomeShaderSync.cs
+Assets/Scripts/Utilities/Cave Genderator/BufferDiagnostic.cs
+Assets/Scripts/Utilities/Cave Genderator/CardinalBiomeBiasSO.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveBiomeData.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveBiomeMath.hlsl
+Assets/Scripts/Utilities/Cave Genderator/CaveBiomeSettings.asset
+Assets/Scripts/Utilities/Cave Genderator/CaveBiomeSettings.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveChunkManager.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveChunkSceneProbe.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveChunk_Base.prefab
+Assets/Scripts/Utilities/Cave Genderator/CaveComputeDispatcher.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveDataStructs.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveDataStructs.hlsl
+Assets/Scripts/Utilities/Cave Genderator/CaveDensityGenerator.compute
+Assets/Scripts/Utilities/Cave Genderator/CaveDiskCache.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveDreamcoreTerrain.mat
+Assets/Scripts/Utilities/Cave Genderator/CaveDreamcoreTerrain.shader
+Assets/Scripts/Utilities/Cave Genderator/CaveEcosystemManager.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveGeometryPrimitives.hlsl
+Assets/Scripts/Utilities/Cave Genderator/CaveInstancedPropFeature.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveLightingManager.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveLightingTestScene.unity
+Assets/Scripts/Utilities/Cave Genderator/CaveManager.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveMarchingCubes.compute
+Assets/Scripts/Utilities/Cave Genderator/CaveMeshJobManager.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveNodeGraphBuilder.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveNoiseLibrary.hlsl
+Assets/Scripts/Utilities/Cave Genderator/CavePresetData.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveSaveLoadSystem.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveScene.unity
+Assets/Scripts/Utilities/Cave Genderator/CaveSpawnerManager.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveSystem.prefab
+Assets/Scripts/Utilities/Cave Genderator/CaveSystem_CaveUndergroundWater.mat
+Assets/Scripts/Utilities/Cave Genderator/CaveTerrainConfig.asset
+Assets/Scripts/Utilities/Cave Genderator/CaveTerrainConfig.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveTerrainValidator.cs
+Assets/Scripts/Utilities/Cave Genderator/CaveTriplanarSplat.hlsl
+Assets/Scripts/Utilities/Cave Genderator/CaveUndergroundWater.shader
+Assets/Scripts/Utilities/Cave Genderator/ChunkGhostDataManager.cs
+Assets/Scripts/Utilities/Cave Genderator/ChunkSeamStitcher.cs
+Assets/Scripts/Utilities/Cave Genderator/EdgeConstraintSO.cs
+Assets/Scripts/Utilities/Cave Genderator/Editor
+Assets/Scripts/Utilities/Cave Genderator/Editor/BiomeDebugVisualizerWindow.cs
+Assets/Scripts/Utilities/Cave Genderator/Editor/CaveNetworkDebuggerWindow.cs
+Assets/Scripts/Utilities/Cave Genderator/Editor/CaveTerrainPreviewWindow.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/BiomeSampler.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/EdgeMeshOutlineExtractor.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/GraphPreviewWindow.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/IPreviewExtension.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/MarchingCubes.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewAnimation.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewGraphGenerator.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewMeshRenderer.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewPresets.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewRealtimeWatcher.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewSDF.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewSDFHelpers.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewSceneRenderer.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/PreviewStatsCalculator.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/ShaderNoiseCompat.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphPreviewEditor/SimplexNoise2D.cs
+Assets/Scripts/Utilities/Cave Genderator/GraphSupervisor.cs
+Assets/Scripts/Utilities/Cave Genderator/Image
+Assets/Scripts/Utilities/Cave Genderator/JunctionTagLookupTable.asset
+Assets/Scripts/Utilities/Cave Genderator/JunctionTagLookupTable.cs
+Assets/Scripts/Utilities/Cave Genderator/MarchingCubesTables.cs
+Assets/Scripts/Utilities/Cave Genderator/NewCardinalBias.asset
+Assets/Scripts/Utilities/Cave Genderator/NewEdgeConstraint.asset
+Assets/Scripts/Utilities/Cave Genderator/NewRoomGeometryMatrix.asset
+Assets/Scripts/Utilities/Cave Genderator/PassageMetric.cs
+Assets/Scripts/Utilities/Cave Genderator/PlayabilityAuditorWindow.cs
+Assets/Scripts/Utilities/Cave Genderator/Ramp Buret 1.mat
+Assets/Scripts/Utilities/Cave Genderator/Ramp Buret 2.mat
+Assets/Scripts/Utilities/Cave Genderator/Ramp Buret 3.mat
+Assets/Scripts/Utilities/Cave Genderator/RoomGeometryMatrixSO.cs
+Assets/Scripts/Utilities/Cave Genderator/RouteGeometry.cs
+Assets/Scripts/Utilities/Cave Genderator/RoutePlanner.cs
+Assets/Scripts/Utilities/Cave Genderator/Sinkhole Light.prefab
+Assets/Scripts/Utilities/Cave Genderator/SpatialHash.cs
+Assets/Scripts/Utilities/Cave Genderator/SubBiomeProfileSO.cs
+Assets/Scripts/Utilities/Cave Genderator/TerrainBridgeDiagnostics.cs
+Assets/Scripts/Utilities/Cave Genderator/TerrainCacheManager.cs
+Assets/Scripts/Utilities/Cave Genderator/TerrainContextAnalyzer.cs
+Assets/Scripts/Utilities/Cave Genderator/TerrainSyncNetworkManager.cs
+Assets/Scripts/Utilities/Cave Genderator/colonade.asset
+Assets/Scripts/Utilities/Cave Genderator/testSubBiomeProfileSo.asset
+Assets/Scripts/Utilities/Cave Genderator/석회암(오리지널).asset
+Assets/Scripts/Utilities/Cave Genderator/석회암.asset
+Assets/Scripts/Utilities/Cave Genderator/주상절리(오리지널).asset
+Assets/Scripts/Utilities/Cave Genderator/주상절리.asset
+Assets/Scripts/Utilities/Cave Genderator/퇴적단층.asset
+Assets/Scripts/Utilities/NetDiagnostics
+Assets/Scripts/Utilities/NetDiagnostics/BoundaryEchoHarness.cs
+Assets/Scripts/Utilities/NetDiagnostics/NetDiagnostics.cs
+Assets/Scripts/Utilities/NetDiagnostics/NetDiagnosticsBootstrap.cs
+Assets/Scripts/Utilities/NetDiagnostics/NetEventLogger.cs
+Assets/Scripts/Utilities/NetDiagnostics/NetSimController.cs
+Assets/Scripts/Utilities/NetDiagnostics/NetSimProfiles.cs
+Assets/Scripts/Utilities/NetDiagnostics/RnsmHud.cs
+Assets/Scripts/Utilities/NetDiagnostics/SoakHarness.cs
+Assets/Scripts/Utilities/NetDiagnostics/StateChecksumV0.cs
+Assets/Scripts/Utilities/NetDiagnostics/VerdictLogger.cs
+Assets/Scripts/Utilities/Prefabs
+Assets/Scripts/Utilities/Prefabs/BossArenaTriggerPrefab.prefab
+Assets/Scripts/Utilities/Prefabs/RareOrePrefab.prefab
+Assets/Scripts/Utilities/Prefabs/SpiderLairPrefab.prefab
+Assets/Scripts/Utilities/Prefabs/TeasureChestPrefab.prefab
+Assets/Scripts/Utilities/Simple Procedural Map Generator
+Assets/Scripts/Utilities/Simple Procedural Map Generator/DungeonAlgorithm.cs
+Assets/Scripts/Utilities/Simple Procedural Map Generator/DungeonData.cs
+Assets/Scripts/Utilities/Simple Procedural Map Generator/DungeonEvaluator.cs
+Assets/Scripts/Utilities/Simple Procedural Map Generator/DungeonRenderer.cs
+Assets/Scripts/Utilities/Simple Procedural Map Generator/SimpleMapGenerator.cs
+Assets/Scripts/Utilities/SimpleAISpawner.cs
+Assets/Scripts/Utilities/Trigger Proxy.cs
+Assets/Scripts/Utility_DestroyAfterTime.cs
+Assets/Scripts/VFX
+Assets/Scripts/VFX/HitSparkVFXData.cs
+Assets/Scripts/VFX/HitSparkVFXRegistry.cs
+Assets/Scripts/Weapon Actions
+Assets/Scripts/Weapon Actions/HeavyAttackWeaponItemAction.cs
+Assets/Scripts/Weapon Actions/LightAttackWeaponItemAction.cs
+Assets/Scripts/World Manager
+Assets/Scripts/World Manager/Editor
+Assets/Scripts/World Manager/Editor/FactionSpawnControlWindow.cs
+Assets/Scripts/World Manager/FactionBootstrap.cs
+Assets/Scripts/World Manager/FactionBridgeDiagnostics.cs
+Assets/Scripts/World Manager/PolicyImplementorPicker.cs
+Assets/Scripts/World Manager/SpawnRequestSceneTool.cs
+Assets/Scripts/World Manager/WorldAISpawnManager.cs
+Assets/Scripts/World Manager/WorldActionManager.cs
+Assets/Scripts/World Manager/WorldCameraManager.cs
+Assets/Scripts/World Manager/WorldCharacterEffectsManager.cs
+Assets/Scripts/World Manager/WorldFactionBridgeManager.cs
+Assets/Scripts/World Manager/WorldFactionStateManager.cs
+Assets/Scripts/World Manager/WorldGameSessionManager.cs
+Assets/Scripts/World Manager/WorldGameStateManager.cs
+Assets/Scripts/World Manager/WorldItemDatabase.cs
+Assets/Scripts/World Manager/WorldSaveGameManager.cs
+Assets/Scripts/World Manager/WorldSaveGameManager.cs.rej
+Assets/Scripts/World Manager/WorldSoundFXManager.cs
+Assets/Scripts/World Manager/WorldUtilityManager.cs
+Assets/Scripts/pB-4
+Assets/Scripts/pB-4/Editor
+Assets/Scripts/pB-4/Editor/FakeContextInjectorWindow.cs
+Assets/Scripts/pB-4/Editor/Wk3SceneSetupTool.cs
+Assets/Scripts/pB-4/SO
+Assets/Scripts/pB-4/SO/Approved
+Assets/Scripts/pB-4/SO/Draft
+Assets/Scripts/pB-4/SO/Reviewed
+Assets/Scripts/pB-4/SO_PB4
+Assets/Scripts/pB-4/SO_PB4/BiomeSDF
+Assets/Scripts/pB-4/SO_PB4/BiomeSDF/Canyon_SDF.asset
+Assets/Scripts/pB-4/SO_PB4/BiomeSDF/Crystal_SDF.asset
+Assets/Scripts/pB-4/SO_PB4/BiomeSDF/DirtCave_SDF.asset
+Assets/Scripts/pB-4/SO_PB4/BiomeSDF/Lava_SDF.asset
+Assets/Scripts/pB-4/SO_PB4/BiomeSDF/Ruins_SDF.asset
+Assets/Scripts/pB-4/SO_PB4/BiomeSDF/Waterway_SDF.asset
+Assets/Scripts/pB-4/SO_PB4/Faction
+Assets/Scripts/pB-4/SO_PB4/Faction/Scenario
+Assets/Scripts/pB-4/SO_PB4/Faction/Scenario/ScenarioArc
+Assets/Scripts/pB-4/SO_PB4/Faction/Scenario/ScenarioArc/TestArc_Week1.asset
+Assets/Scripts/pB-4/SO_PB4/Faction/Terrain
+Assets/Scripts/pB-4/Temp
+Assets/Scripts/pB-4/Temp/BB_Test.cs
+Assets/Scripts/pB-4/Temp/EB_Test.cs
+Assets/Scripts/pB-4/week0_Core
+Assets/Scripts/pB-4/week0_Core/ArchetypeMapSO.cs
+Assets/Scripts/pB-4/week0_Core/BaseAIBrain.cs
+Assets/Scripts/pB-4/week0_Core/BiomeAffinitySO.cs
+Assets/Scripts/pB-4/week0_Core/EventBus.cs
+Assets/Scripts/pB-4/week0_Core/FactionGroupPolicySO.cs
+Assets/Scripts/pB-4/week0_Core/FactionTierSO.cs
+Assets/Scripts/pB-4/week0_Core/FormationSO.cs
+Assets/Scripts/pB-4/week0_Core/GameBlackboard.cs
+Assets/Scripts/pB-4/week0_Core/GameBlackboardAdapter.cs
+Assets/Scripts/pB-4/week0_Core/GroupArchetypeSO.cs
+Assets/Scripts/pB-4/week0_Core/MobFactionDataSO.cs
+Assets/Scripts/pB-4/week0_Core/PersonalityTagSO.cs
+Assets/Scripts/pB-4/week0_Core/ScenarioArcSO.cs
+Assets/Scripts/pB-4/week0_Core/SpeechLibrarySO.cs
+Assets/Scripts/pB-4/week0_Core/SpeechTriggerContext.cs
+Assets/Scripts/pB-4/week0_Core/TraumaDataSO.cs
+Assets/Scripts/pB-4/week0_Core/VectorLibrarySO.cs
+Assets/Scripts/pB-4/week0_TerrainDC
+Assets/Scripts/pB-4/week0_TerrainDC/CaveDualContouring.compute
+Assets/Scripts/pB-4/week0_TerrainDC/CaveNormalBaker.cs
+Assets/Scripts/pB-4/week0_TerrainDC/DCDataStructs.cs
+Assets/Scripts/pB-4/week0_TerrainDC/DCMeshBuilder.cs
+Assets/Scripts/pB-4/week0_TerrainDC/DCPerformanceProfiler.cs
+Assets/Scripts/pB-4/week0_TerrainDC/DCPipelineExtension.cs
+Assets/Scripts/pB-4/week1_AI_GroupPolicy
+Assets/Scripts/pB-4/week1_AI_GroupPolicy/DuelGroupPolicy.cs
+Assets/Scripts/pB-4/week1_AI_GroupPolicy/PhalanxGroupPolicy.cs
+Assets/Scripts/pB-4/week1_AI_GroupPolicy/SwarmGroupPolicy.cs
+Assets/Scripts/pB-4/week1_AI_HumanoidAI
+Assets/Scripts/pB-4/week1_AI_HumanoidAI/HumanoidAIBrain.cs
+Assets/Scripts/pB-4/week1_AI_MobAI
+Assets/Scripts/pB-4/week1_AI_MobAI/MobAIBrain.Debug.cs
+Assets/Scripts/pB-4/week1_AI_MobAI/MobAIBrain.cs
+Assets/Scripts/pB-4/week1_Audio
+Assets/Scripts/pB-4/week1_Audio/FactionAmbientSFXSO.cs
+Assets/Scripts/pB-4/week1_Audio/FactionDetectionSFXManager.cs
+Assets/Scripts/pB-4/week1_Audio/FactionWarbandSFXSO.cs
+Assets/Scripts/pB-4/week1_BT_AI
+Assets/Scripts/pB-4/week1_BT_AI/BTCombatContext.cs
+Assets/Scripts/pB-4/week1_BT_Actions
+Assets/Scripts/pB-4/week1_BT_Actions/CircleStrafeAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/FleeDuelAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/FleePhalanxAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/FleeSwarmAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/IdleAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/PatrolNodeDataAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/StalkAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/StrikeAction.cs
+Assets/Scripts/pB-4/week1_BT_Actions/TacticalRepositionAction.cs
+Assets/Scripts/pB-4/week1_BT_Conditions
+Assets/Scripts/pB-4/week1_BT_Conditions/HasTargetCondition.cs
+Assets/Scripts/pB-4/week1_BT_Conditions/IsFleeCondition.cs
+Assets/Scripts/pB-4/week1_BT_Conditions/IsUtilityWinnerCondition.cs
+Assets/Scripts/pB-4/week1_BT_Data
+Assets/Scripts/pB-4/week1_BT_Data/FactionCombatProfileSO.cs
+Assets/Scripts/pB-4/week1_BT_Data/NewEnum.cs
+Assets/Scripts/pB-4/week1_BT_Data/PolicyType.cs
+Assets/Scripts/pB-4/week1_BT_Debugger
+Assets/Scripts/pB-4/week1_BT_Debugger/BB_DiagnosticTest.cs
+Assets/Scripts/pB-4/week1_BT_Perception
+Assets/Scripts/pB-4/week1_BT_Perception/MemoryPerception.cs
+Assets/Scripts/pB-4/week1_BT_Perception/PredictionPerception.cs
+Assets/Scripts/pB-4/week1_BT_Perception/SoundPerception.cs
+Assets/Scripts/pB-4/week1_Bridge
+Assets/Scripts/pB-4/week1_Bridge/PB4DecisionAdapter.cs
+Assets/Scripts/pB-4/week1_Editor
+Assets/Scripts/pB-4/week1_Editor/PB4DebugDashboard.cs
+Assets/Scripts/pB-4/week1_Editor/PB4LiveTestSceneSetup.cs
+Assets/Scripts/pB-4/week1_Perception
+Assets/Scripts/pB-4/week1_Perception/AIPerceptionSystem.cs
+Assets/Scripts/pB-4/week1_Perception/FootprintTrailSystem.cs
+Assets/Scripts/pB-4/week1_Perception/PersistentHuntDirector.cs
+Assets/Scripts/pB-4/week1_Perception/SoundEventEmitter.cs
+Assets/Scripts/pB-4/week1_Perception/TrapTriggerSystem.cs
+Assets/Scripts/pB-4/week1_Scenario
+Assets/Scripts/pB-4/week1_Scenario/ScenarioArcManager.cs
+Assets/Scripts/pB-4/week1_Terrain
+Assets/Scripts/pB-4/week1_Terrain/ProceduralSplineMesh.cs
+Assets/Scripts/pB-4/week1_Terrain/TerrainSampler.cs
+Assets/Scripts/pB-4/week2_AI
+Assets/Scripts/pB-4/week2_AI/PersonalityTagResolver.cs
+Assets/Scripts/pB-4/week2_AI/SituationVectorEncoder.cs
+Assets/Scripts/pB-4/week2_AI/UtilityMasterFormula.cs
+Assets/Scripts/pB-4/week2_AI_Day3
+Assets/Scripts/pB-4/week2_AI_Day3/CommandAcceptanceResolver.cs
+Assets/Scripts/pB-4/week2_AI_Day3/DilemmaPivotResolver.cs
+Assets/Scripts/pB-4/week2_AI_Day3/KarmaDirector.cs
+Assets/Scripts/pB-4/week2_AI_Day3/NPCAlignmentController.cs
+Assets/Scripts/pB-4/week2_AI_Day4
+Assets/Scripts/pB-4/week2_AI_Day4/DialogueRenderer.cs
+Assets/Scripts/pB-4/week2_AI_Day4/Editor
+Assets/Scripts/pB-4/week2_AI_Day4/Editor/Day4ChecklistEvaluator.cs
+Assets/Scripts/pB-4/week2_AI_Day4/Editor/SpeechSampleAssetGenerator.cs
+Assets/Scripts/pB-4/week2_AI_Day4/Editor/SpeechTestWindow.cs
+Assets/Scripts/pB-4/week2_AI_Day4/ISpeechAssembler.cs
+Assets/Scripts/pB-4/week2_AI_Day4/SpeechAssembler.cs
+Assets/Scripts/pB-4/week2_AI_Day4/SpeechDispatcher.cs
+Assets/Scripts/pB-4/week2_AI_Day4/SpeechTone.cs
+Assets/Scripts/pB-4/week2_Bootstrap
+Assets/Scripts/pB-4/week2_Bootstrap/Editor
+Assets/Scripts/pB-4/week2_Bootstrap/Editor/HumanoidBootstrapperEditor.cs
+Assets/Scripts/pB-4/week2_Bootstrap/HumanoidBootstrapper.cs
+Assets/Scripts/pB-4/week2_Bootstrap/TestTrustBridgeListener.cs
+Assets/Scripts/pB-4/week2_Data
+Assets/Scripts/pB-4/week2_Data/DialogueLibrarySO.cs
+Assets/Scripts/pB-4/week2_Data/DialoguePresetSO.cs
+Assets/Scripts/pB-4/week2_Data/DilemmaPivotSO.cs
+Assets/Scripts/pB-4/week2_Data/HumanoidArchetypeSO.cs
+Assets/Scripts/pB-4/week2_Data/HumanoidCombatProfileSO.cs
+Assets/Scripts/pB-4/week2_Data/NPCAlignmentSO.cs
+Assets/Scripts/pB-4/week2_Data/PersonalityMatrixSO.cs
+Assets/Scripts/pB-4/week2_Data/PersonalityTagRuleSO.cs
+Assets/Scripts/pB-4/week2_Data/SpeechTemplateSO.cs
+Assets/Scripts/pB-4/week2_Data/UtilityActionConfigSO.cs
+Assets/Scripts/pB-4/week2_Editor
+Assets/Scripts/pB-4/week2_Editor/PB4DebugDashboard_v02.cs
+Assets/Scripts/pB-4/week2_Scenario
+Assets/Scripts/pB-4/week2_Scenario/DilemmaNode.cs
+Assets/Scripts/pB-4/week2_Terrain
+Assets/Scripts/pB-4/week2_Terrain/DynamicFogController.cs
+Assets/Scripts/pB-4/week2_Terrain/HNGSIntensityController.cs
+Assets/Scripts/pB-4/week2_Tooling
+Assets/Scripts/pB-4/week2_Tooling/BiomeMapDebugger.cs
+Assets/Scripts/pB-4/week2_Tooling/Editor
+Assets/Scripts/pB-4/week2_Tooling/Editor/HumanoidVisualStageSetup.cs
+Assets/Scripts/pB-4/week2_Tooling/Editor/PB4DebugDashboard.cs
+Assets/Scripts/pB-4/week2_Tooling/Editor/PB4_Day3_TestLab.cs
+Assets/Scripts/pB-4/week2_Tooling/Editor/README.md
+Assets/Scripts/pB-4/week2_Tooling/Editor/Week2ChecklistPatcher.cs
+Assets/Scripts/pB-4/week2_Tooling/Editor/Week2ProgressTrackerEditor.cs
+Assets/Scripts/pB-4/week2_Tooling/Editor/Week2ProgressWindow.cs
+Assets/Scripts/pB-4/week2_Tooling/Editor/Week2_T5_3_MobRegressionRunner.cs
+Assets/Scripts/pB-4/week2_Tooling/HumanoidVisualAutoVerifier.cs
+Assets/Scripts/pB-4/week2_Tooling/RAGEngineVerifier.cs
+Assets/Scripts/pB-4/week2_Tooling/README.md
+Assets/Scripts/pB-4/week2_Tooling/T52_LocomotionBridge.cs
+Assets/Scripts/pB-4/week2_Tooling/Week2ChecklistSO.cs
+Assets/Scripts/pB-4/week2_Tooling/Week2ProgressTracker.cs
+Assets/Scripts/pB-4/week2_Tooling/Week2_T5_3_MobRegressionProbe.cs
+Assets/Scripts/pB-4/week3_AI
+Assets/Scripts/pB-4/week3_AI/BlackboardUpdater.cs
+Assets/Scripts/pB-4/week3_AI/GroupAIManager.AttackToken.cs
+Assets/Scripts/pB-4/week3_AI/GroupAIManager.Debug.cs
+Assets/Scripts/pB-4/week3_AI/GroupAIManager.Escalation.cs
+Assets/Scripts/pB-4/week3_AI/GroupAIManager.Faction.cs
+Assets/Scripts/pB-4/week3_AI/GroupAIManager.cs
+Assets/Scripts/pB-4/week3_AI/GroupAIManagerInspector.cs
+Assets/Scripts/pB-4/week3_AI/Stubs
+Assets/Scripts/pB-4/week3_AI/Stubs/BiomeSpawnResolverStub.cs
+Assets/Scripts/pB-4/week3_AI/Stubs/HNGSControllerStub.cs
+Assets/Scripts/pB-4/week3_AI/Stubs/IncidentRecorderStub.cs
+Assets/Scripts/pB-4/week3_AI/Stubs/NarrativeVectorLibStub.cs
+Assets/Scripts/pB-4/week3_AI/WorldAIContextManager.cs
+Assets/Scripts/pB-4/week3_Bootstrap
+Assets/Scripts/pB-4/week3_Bootstrap/AIContextBootstrapper.cs
+Assets/Scripts/pB-4/week3_Editor
+Assets/Scripts/pB-4/week3_Editor/PB4DebugDashboard_v03.cs
+Assets/Scripts/pB-4/week3_Scenario
+Assets/Scripts/pB-4/week3_Scenario/ArcProgressionManager.cs
+Assets/Scripts/pB-4/week3_Scenario/CriticAgent.cs
+Assets/Scripts/pB-4/week3_Scenario/MetaScenarioGenerator.cs
+Assets/Scripts/pB-4/week3_Terrain
+Assets/Scripts/pB-4/week3_Terrain/DenseForestSpawner.cs
+Assets/Scripts/pB-4/week3_Terrain/SubBiomeResolver.cs
+Assets/Scripts/pB-4/week3_Terrain/TacticalAmbushPositioner.cs
+Assets/Scripts/pB-4/week4_AI
+Assets/Scripts/pB-4/week4_AI_Social
+Assets/Scripts/pB-4/week4_AI_Social/AbandonRescueResolver.cs
+Assets/Scripts/pB-4/week4_AI_Social/HumanoidAIBrain.Acceptance.cs
+Assets/Scripts/pB-4/week4_AI_Social/HumanoidAIBrain.Dilemma.cs
+Assets/Scripts/pB-4/week4_AI_Social/RelationshipRecord.cs
+Assets/Scripts/pB-4/week4_AI_Social/TerrainSemanticMapper.cs
+Assets/Scripts/pB-4/week4_AI_Social/TraumaSystem.cs
+Assets/Scripts/pB-4/week4_AI_Social/TrustMatrix.cs
+Assets/Scripts/pB-4/week4_Editor
+Assets/Scripts/pB-4/week4_Editor/PB4DebugDashboard_v04.cs
+Assets/Scripts/pB-4/week4_Scenario
+Assets/Scripts/pB-4/week4_Scenario/NarrativeBiddingEvaluator.cs
+Assets/Scripts/pB-4/week4_Terrain
+Assets/Scripts/pB-4/week4_Terrain/FuzzyTagConverter.cs
+Assets/Scripts/pB-4/week5_A12
+Assets/Scripts/pB-4/week5_A12/FactionThresholdConfigSO.cs
+Assets/Scripts/pB-4/week5_A12/ThresholdCheckResult.cs
+Assets/Scripts/pB-4/week5_AI
+Assets/Scripts/pB-4/week5_AI/CommandDirective.cs
+Assets/Scripts/pB-4/week5_AI/FormationSlotAllocator.cs
+Assets/Scripts/pB-4/week5_Editor
+Assets/Scripts/pB-4/week5_Editor/PB4DebugDashboard_v05.cs
+Assets/Scripts/pB-4/week5_Faction
+Assets/Scripts/pB-4/week5_Faction/Data
+Assets/Scripts/pB-4/week5_Faction/Data/FactionCultureSO.cs
+Assets/Scripts/pB-4/week5_Faction/Data/FactionDefaultMaskSO.cs
+Assets/Scripts/pB-4/week5_Faction/Data/FactionDefinitionSO.cs
+Assets/Scripts/pB-4/week5_Faction/Runtime
+Assets/Scripts/pB-4/week5_Faction/Runtime/FactionStateBits.cs
+Assets/Scripts/pB-4/week5_Faction/Runtime/FactionStateChangeEventArgs.cs
+Assets/Scripts/pB-4/week5_Faction/Runtime/FactionStateSnapshot.cs
+Assets/Scripts/pB-4/week5_Faction/Runtime/FactionWorldState.cs
+Assets/Scripts/pB-4/week5_Faction/Runtime/FactionWorldStateMapper.cs
+Assets/Scripts/pB-4/week5_Faction/Tags
+Assets/Scripts/pB-4/week5_Faction/Tags/FactionStateTags.cs
+Assets/Scripts/pB-4/week5_Scenario
+Assets/Scripts/pB-4/week5_Scenario/DisasterSeedEvaluator.cs
+Assets/Scripts/pB-4/week5_Terrain
+Assets/Scripts/pB-4/week5_Terrain/BiomeSpawnResolver.cs
+Assets/Scripts/pB-4/week6_Editor
+Assets/Scripts/pB-4/week6_Editor/PB4DebugDashboard_v06.cs
+Assets/Scripts/pB-4/week6_Integration
+Assets/Scripts/pB-4/week6_Integration/FiveStageChainOrchestrator.cs
+Assets/Scripts/pB-4/week6_Integration/IntegrationValidator.cs
+Assets/Scripts/pB-4/week6_Integration/MixedCombatTestHarness.cs
+Assets/Scripts/pB-4/week6_Terrain
+Assets/Scripts/pB-4/week6_Terrain/JunctionLifecycleManager.cs
+Assets/Scripts/pB-4/week7_AI
+Assets/Scripts/pB-4/week7_AI/SpeechAssembler.cs
+Assets/Scripts/pB-4/week7_Editor
+Assets/Scripts/pB-4/week7_Editor/PB4DebugDashboard_v07.cs
+Assets/Scripts/pB-4/week7_Scenario
+Assets/Scripts/pB-4/week7_Scenario/IncidentRecorder.cs
+Assets/Scripts/pB-4/week7_Scenario/JournalAutoWriter.cs
+Assets/Scripts/pB-4/week7_Scenario/LightweightRAGEngine.cs
+Assets/Scripts/pB-4/week8_Data
+Assets/Scripts/pB-4/week8_Data/MasterDatabaseSO.cs
+Assets/Scripts/pB-4/week8_Editor
+Assets/Scripts/pB-4/week8_Editor/PB4DebugDashboard_v08.cs
+Assets/Scripts/pB-4/week8_Integration
+Assets/Scripts/pB-4/week8_Integration/IntegrationScenarioMatrix.cs
+Assets/Scripts/pB-4/week8_Integration/PipelineBenchmark.cs
+Assets/Scripts/pB-4/week8_Integration/StressTestRunner.cs
+Assets/Settings
+Assets/Settings/SampleSceneProfile.asset
+Assets/Settings/UI_Renderer.asset
+Assets/Settings/URP-Balanced-Renderer.asset
+Assets/Settings/URP-Balanced.asset
+Assets/Settings/URP-HighFidelity-Renderer.asset
+Assets/Settings/URP-HighFidelity.asset
+Assets/Settings/URP-HighFidelity_Color_Quantization.asset
+Assets/Settings/URP-Performant-Renderer.asset
+Assets/Settings/URP-Performant.asset
+Assets/Shader
+Assets/Shader/Depth Blur
+Assets/Shader/Depth Blur/Big Stair Variant.prefab
+Assets/Shader/Depth Blur/Big Wall.prefab
+Assets/Shader/Depth Blur/DepthBlur.mat
+Assets/Shader/Depth Blur/DepthBlur.shader
+Assets/Shader/Depth Blur/DepthBlurGlobalInjector.cs
+Assets/Shader/Depth LUT
+Assets/Shader/Depth LUT/AutoMovementTest.cs
+Assets/Shader/Depth LUT/DepthLUT 1.mat
+Assets/Shader/Depth LUT/DepthLUT.mat
+Assets/Shader/Depth LUT/DepthLUT.shader
+Assets/Shader/Depth LUT/DreamcoreLUTRendererFeature.cs
+Assets/Shader/Depth LUT/MultiLayerStencilFeature.cs
+Assets/Shader/DreamcoreStencilRegistry.cs
+Assets/Shader/Dreamcorescreenspaceblur
+Assets/Shader/Dreamcorescreenspaceblur/Dreamcore_Blur.shader
+Assets/Shader/Dreamcorescreenspaceblur/Hidden_Dreamcore_Blur.mat
+Assets/Shader/Fog
+Assets/Shader/Fog/AtmosphericMassConfig.cs
+Assets/Shader/Fog/AtmosphericMassRendererFeature.cs
+Assets/Shader/Fog/ChunkyAtmosphere.shader
+Assets/Shader/Fog/DreamcoreDiagosticTool.cs
+Assets/Shader/Fog/EdgePreservingBleed.shader
+Assets/Shader/Fog/FogZone.prefab
+Assets/Shader/Fog/FogZoneController.cs
+Assets/Shader/Fog/ShaderCoordinationManager.cs
+Assets/Shader/Fog/VolumetricFog_Core.hlsl
+Assets/Shader/Fog/VolumetricFog_Input.hlsl
+Assets/Shader/Fog/Wolrd Shader Manager.prefab
+Assets/Shader/Fog/blue_noise_texture_64.png
+Assets/Shader/Fog_Compute
+Assets/Shader/Fog_Compute/FroxelAtmosphere.compute
+Assets/Shader/Fog_Compute/FroxelAtmosphereFeature.cs
+Assets/Shader/Fog_Compute/FroxelComposition.shader
+Assets/Shader/Fog_Compute/GPGPU_ShadowManager.prefab
+Assets/Shader/Fog_Compute/GPUCulling.compute
+Assets/Shader/Fog_Compute/GPUDrivenShadow.shader
+Assets/Shader/Fog_Compute/GPUDrivenShadowManager.cs
+Assets/Shader/Fog_Compute/Mat_FroxelComposition.mat
+Assets/Shader/Fog_Compute/Mat_GPUDrivenShadow.mat
+Assets/Shader/Fog_Compute/Shader Coordination Manager.prefab
+Assets/Shader/Fog_Compute/ShadowCasterToggleTool.cs
+Assets/Shader/Hightlight
+Assets/Shader/Hightlight/Highlight.mat
+Assets/Shader/Hightlight/Highlight.shadergraph
+Assets/Shader/Hightlight/White.mat
+Assets/Shader/Motion Blur
+Assets/Shader/Motion Blur/AvatarAutoWeightBaker.cs
+Assets/Shader/Motion Blur/CS_GetVertexBufferDiagnostic.cs
+Assets/Shader/Motion Blur/CS_OMBSkinningCache.compute
+Assets/Shader/Motion Blur/Hidden_Dreamcore_ScreenSpaceMotionBlur.mat
+Assets/Shader/Motion Blur/MotionVectorBatchSetup.cs
+Assets/Shader/Motion Blur/OMBSkinningCacheManager.cs
+Assets/Shader/Motion Blur/ObjectMotionBlur_CS.shader
+Assets/Shader/Motion Blur/P2_ObjectMotionBlurController.cs
+Assets/Shader/Motion Blur/P3_LockOnBlurMediator.cs
+Assets/Shader/Motion Blur/P4_WeaponBlurStateController.cs
+Assets/Shader/Motion Blur/Particle Blur
+Assets/Shader/Motion Blur/Particle Blur/ParrySparkGPUManager.cs
+Assets/Shader/Motion Blur/Particle Blur/SparkPhysics.compute
+Assets/Shader/Motion Blur/Particle Blur/SparkRender.shader
+Assets/Shader/Motion Blur/SSMBDistanceDiagnostic.cs
+Assets/Shader/Motion Blur/ScreenSpaceMotionBlur.shader
+Assets/Shader/Motion Blur/ScreenSpaceMotionBlurFeature.cs
+Assets/Shader/MultiLayerLUT
+Assets/Shader/MultiLayerLUT/3D LUT
+Assets/Shader/MultiLayerLUT/3D LUT/LUT_Cold.png
+Assets/Shader/MultiLayerLUT/3D LUT/LUT_Hostile.png
+Assets/Shader/MultiLayerLUT/3D LUT/LUT_POI.png
+Assets/Shader/MultiLayerLUT/3D LUT/LUT_TEST.png
+Assets/Shader/MultiLayerLUT/3D LUT/LUT_TEST_RED.png
+Assets/Shader/MultiLayerLUT/3D LUT/LUT_Warm.png
+Assets/Shader/MultiLayerLUT/BiomeStateManager.cs
+Assets/Shader/MultiLayerLUT/BiomeTrigger.cs
+Assets/Shader/MultiLayerLUT/DreamcorePBR_MOHR_Parallax.hlsl
+Assets/Shader/MultiLayerLUT/MadnessController.cs
+Assets/Shader/MultiLayerLUT/MultiLayerCharacter.shader
+Assets/Shader/MultiLayerLUT/MultiLayerIDMap.mat
+Assets/Shader/MultiLayerLUT/MultiLayerIDMap.shader
+Assets/Shader/MultiLayerLUT/MultiLayerLUTIntegratedFeature.cs
+Assets/Shader/MultiLayerLUT/MultiLayerMasterComposite.mat
+Assets/Shader/MultiLayerLUT/MultiLayerMasterComposite.shader
+Assets/Shader/Ramp
+Assets/Shader/Ramp/Dreamcore Volume Profile.asset
+Assets/Shader/Ramp/DreamcoreLightingSource.cs
+Assets/Shader/Ramp/Dreamcore_Amber_Fixed_LUT.png
+Assets/Shader/Ramp/Dreamcore_Amber_Fixed_LUT2.png
+Assets/Shader/Ramp/Dreamcore_Engine_LUT_3.png
+Assets/Shader/Ramp/Dungeon2 1.prefab
+Assets/Shader/Ramp/Dungeon2.prefab
+Assets/Shader/Ramp/Low.mat
+Assets/Shader/Ramp/Low.shadergraph
+Assets/Shader/Ramp/Main Camera.prefab
+Assets/Shader/Ramp/PBR Stylized Textures
+Assets/Shader/Ramp/Ramp Buret.mat
+Assets/Shader/Ramp/Ramp+Sacnline.hlsl
+Assets/Shader/Ramp/Ramp.hlsl
+Assets/Shader/Ramp/Ramp.shadergraph
+Assets/Shader/Ramp/Rendering.renderTexture
+Assets/Shader/Ramp/RetroView.prefab
+Assets/Shader/Ramp/Scanline.shadergraph
+Assets/Shader/Ramp/Scanline_Dreamcore.mat
+Assets/Shader/Ramp/ToonRamp_New.png
+Assets/Shader/Ramp/VHSHandheldCamera.cs
+Assets/Shader/Ramp/dreamcore_Preset1.png
+Assets/Shader/Ramp/dreamcore_Preset2-1.png
+Assets/Shader/Ramp/dreamcore_Preset2-3.png
+Assets/Shader/Ramp/dreamcore_Preset2.png
+Assets/Shader/Ramp/original.mat
+Assets/Shader/Ramp/retro_256px_maskmap2Image.exr
+Assets/Shader/Ramp/retro_4x4_Baked_AO_256px.png
+Assets/Shader/Ramp/retro_4x4_diffuse_256px.png
+Assets/Shader/Ramp/retro_4x4_normal_256px.png
+Assets/Shader/pB-2
+Assets/Shader/pB-2/HLSL
+Assets/Shader/pB-2/HLSL/Cylinder.mat
+Assets/Shader/pB-2/HLSL/FlickeringLight.cs
+Assets/Shader/pB-2/HLSL/color_quantization
+Assets/Shader/pB-2/HLSL/color_quantization/color_quantization.hlsl
+Assets/Shader/pB-2/HLSL/color_quantization/color_quantization.shadergraph
+Assets/Shader/pB-2/HLSL/final.shadergraph
+Assets/Shader/pB-2/HLSL/hybrid_dithering
+Assets/Shader/pB-2/HLSL/hybrid_dithering/hybrid_dithering.hlsl
+Assets/Shader/pB-2/HLSL/hybrid_dithering/hybrid_dithering.shadergraph
+Assets/Shader/pB-2/HLSL/retro block 1.mat
+Assets/Shader/pB-2/HLSL/retro block floor.mat
+Assets/Shader/pB-2/HLSL/retro block.mat
+Assets/Shader/pB-2/HLSL/tiling.hlsl
+Assets/Shader/pB-2/HLSL/vertex_snapping
+Assets/Shader/pB-2/HLSL/vertex_snapping/vertex_snapping.shadergraph
+Assets/Shader/pB-2/HLSL/vertex_snapping/vertext_snapping.hlsl
+Assets/Shader/pB-2/Phase 3
+Assets/Shader/pB-2/Phase 3/Color Quantization
+Assets/Shader/pB-2/Phase 3/Color Quantization/Color Quantization.mat
+Assets/Shader/pB-2/Phase 3/Color Quantization/Color Quantization.shadergraph
+Assets/Shader/pB-2/Phase 3/Color Quantization/Lit.mat
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Dithering and Color Palette
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Dithering and Color Palette.unity
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Dithering and Color Palette/Main Camera Profile.asset
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Palette 1 (1 Saturation Layer).png
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Palette 2 (2 Saturation Layers).png
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Palette 4 (5 Saturation Layers).png
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Palette 5 (3 Saturation Layers).png
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Palette 6 (1 Saturation Layer).png
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/RenderTextures
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/RenderTextures/Rendering.renderTexture
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/RenderTextures/Rendering2.renderTexture
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Shaders
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Shaders/Low.mat
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Shaders/Low.shadergraph
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/Shaders/RetroEffect.shadergraph
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/bayer4tile8.png
+Assets/Shader/pB-2/Phase 3/Dithering and Color Palette/bayer8tile4.png
+Assets/Shader/pB-2/Phase 3/Materials
+Assets/Shader/pB-2/Phase 3/Materials/retro_4x4_diffuse_256px.mat
+Assets/Shader/pB-2/Phase 3/retro_4x4_Baked_AO_256px.png
+Assets/Shader/pB-2/Phase 3/retro_4x4_diffuse_256px.mat
+Assets/Shader/pB-2/Phase 3/retro_4x4_diffuse_256px.png
+Assets/Shader/pB-2/Phase 3/retro_4x4_normal_256px.png
+Assets/Tests
+Assets/Tests/PlayMode
+Assets/TextMesh Pro
+Assets/TextMesh Pro/Documentation
+Assets/TextMesh Pro/Documentation/TextMesh Pro User Guide 2016.pdf
+Assets/TextMesh Pro/Fonts
+Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt
+Assets/TextMesh Pro/Fonts/LiberationSans.ttf
+Assets/TextMesh Pro/Resources
+Assets/TextMesh Pro/Resources/Fonts & Materials
+Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Drop Shadow.mat
+Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset
+Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Outline.mat
+Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset
+Assets/TextMesh Pro/Resources/LineBreaking Following Characters.txt
+Assets/TextMesh Pro/Resources/LineBreaking Leading Characters.txt
+Assets/TextMesh Pro/Resources/Sprite Assets
+Assets/TextMesh Pro/Resources/Sprite Assets/EmojiOne.asset
+Assets/TextMesh Pro/Resources/Style Sheets
+Assets/TextMesh Pro/Resources/Style Sheets/Default Style Sheet.asset
+Assets/TextMesh Pro/Resources/TMP Settings.asset
+Assets/TextMesh Pro/Shaders
+Assets/TextMesh Pro/Shaders/SDFFunctions.hlsl
+Assets/TextMesh Pro/Shaders/TMP_Bitmap-Custom-Atlas.shader
+Assets/TextMesh Pro/Shaders/TMP_Bitmap-Mobile.shader
+Assets/TextMesh Pro/Shaders/TMP_Bitmap.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF Overlay.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF SSD.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-HDRP LIT.shadergraph
+Assets/TextMesh Pro/Shaders/TMP_SDF-HDRP UNLIT.shadergraph
+Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Masking.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Overlay.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile SSD.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile-2-Pass.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-Surface-Mobile.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-Surface.shader
+Assets/TextMesh Pro/Shaders/TMP_SDF-URP Lit.shadergraph
+Assets/TextMesh Pro/Shaders/TMP_SDF-URP Unlit.shadergraph
+Assets/TextMesh Pro/Shaders/TMP_SDF.shader
+Assets/TextMesh Pro/Shaders/TMP_Sprite.shader
+Assets/TextMesh Pro/Shaders/TMPro.cginc
+Assets/TextMesh Pro/Shaders/TMPro_Mobile.cginc
+Assets/TextMesh Pro/Shaders/TMPro_Properties.cginc
+Assets/TextMesh Pro/Shaders/TMPro_Surface.cginc
+Assets/TextMesh Pro/Sprites
+Assets/TextMesh Pro/Sprites/EmojiOne Attribution.txt
+Assets/TextMesh Pro/Sprites/EmojiOne.json
+Assets/TextMesh Pro/Sprites/EmojiOne.png
+Assets/TutorialInfo
+Assets/TutorialInfo/Icons
+Assets/TutorialInfo/Icons/URP.png
+Assets/TutorialInfo/Layout.wlt
+Assets/TutorialInfo/Scripts
+Assets/TutorialInfo/Scripts/Editor
+Assets/TutorialInfo/Scripts/Editor/ReadmeEditor.cs
+Assets/TutorialInfo/Scripts/Readme.cs
+Assets/UnityTechnologies
+Assets/UnityTechnologies/SpaceRobotKyle
+Assets/UnityTechnologies/SpaceRobotKyle/Materials
+Assets/UnityTechnologies/SpaceRobotKyle/Materials/Robot_Color.mat
+Assets/UniversalRenderPipelineGlobalSettings.asset
+Assets/_Recovery
+Assets/_Recovery/0 (1).unity
+Assets/_Recovery/0 (10).unity
+Assets/_Recovery/0 (11).unity
+Assets/_Recovery/0 (12).unity
+Assets/_Recovery/0 (13).unity
+Assets/_Recovery/0 (14).unity
+Assets/_Recovery/0 (15).unity
+Assets/_Recovery/0 (16).unity
+Assets/_Recovery/0 (17).unity
+Assets/_Recovery/0 (18).unity
+Assets/_Recovery/0 (19).unity
+Assets/_Recovery/0 (2).unity
+Assets/_Recovery/0 (20).unity
+Assets/_Recovery/0 (21).unity
+Assets/_Recovery/0 (22).unity
+Assets/_Recovery/0 (23).unity
+Assets/_Recovery/0 (24).unity
+Assets/_Recovery/0 (25).unity
+Assets/_Recovery/0 (26).unity
+Assets/_Recovery/0 (27).unity
+Assets/_Recovery/0 (28).unity
+Assets/_Recovery/0 (29).unity
+Assets/_Recovery/0 (3).unity
+Assets/_Recovery/0 (4).unity
+Assets/_Recovery/0 (5).unity
+Assets/_Recovery/0 (6).unity
+Assets/_Recovery/0 (7).unity
+Assets/_Recovery/0 (8).unity
+Assets/_Recovery/0 (9).unity
+Assets/_Recovery/0.unity

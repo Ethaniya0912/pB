@@ -1,0 +1,26 @@
+{
+  "_note": "unity-cli exec stdout이 ~6KB에서 잘려 전체 AssetDatabase 덤프 불가(before.json도 101줄로 truncated, 실제 Assets/ 2705개). 변경이 일어난 범위만 기록하며, 전체 diff의 권위 기록은 git이다.",
+  "scope": "Assets/Scripts/Utilities/NetDiagnostics + Assets/Scripts/Networking + Reports/Step0_Baseline.md",
+  "added": [
+    "Assets/Scripts/Utilities/NetDiagnostics/RnsmHud.cs",
+    "Assets/Scripts/Utilities/NetDiagnostics/NetSimProfiles.cs"
+  ],
+  "modified": [
+    "Assets/Scripts/Networking/SteamP2PRelayTransport.cs",
+    "Assets/Scripts/Utilities/NetDiagnostics/NetDiagnosticsBootstrap.cs",
+    "Reports/Step0_Baseline.md"
+  ],
+  "preexisting_unchanged_instrumentation": [
+    "Assets/Scripts/Utilities/NetDiagnostics/NetDiagnostics.cs",
+    "Assets/Scripts/Utilities/NetDiagnostics/NetDiagnosticsBootstrap.cs (이전, 본 사이클 append)",
+    "Assets/Scripts/Utilities/NetDiagnostics/NetEventLogger.cs",
+    "Assets/Scripts/Utilities/NetDiagnostics/VerdictLogger.cs",
+    "Assets/Scripts/Utilities/NetDiagnostics/StateChecksumV0.cs",
+    "Assets/Scripts/Utilities/NetDiagnostics/SoakHarness.cs",
+    "Assets/Scripts/Utilities/NetDiagnostics/BoundaryEchoHarness.cs"
+  ],
+  "runtime_attach_verified_in_play": [
+    "NetEventLogger", "StateChecksumV0", "BoundaryEchoHarness", "SoakHarness",
+    "RnsmHud", "RuntimeNetStatsMonitor(auto by RnsmHud)", "NetSimController"
+  ]
+}
