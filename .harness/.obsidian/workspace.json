@@ -1,0 +1,198 @@
+{
+  "main": {
+    "id": "f070236648877e5a",
+    "type": "split",
+    "children": [
+      {
+        "id": "82832bb19a0365d2",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "14371fb39049f26a",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "cycles/2026-06-13_netcode2/02_goal.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "02_goal"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "a32bb7b0ffc69e89",
+    "type": "split",
+    "children": [
+      {
+        "id": "f496133b92f2a501",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "462fcb0d319c759e",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "파일 탐색기"
+            }
+          },
+          {
+            "id": "5016377ef9941950",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "검색"
+            }
+          },
+          {
+            "id": "41686bcdcd81c227",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "북마크"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 245.5
+  },
+  "right": {
+    "id": "4a6b7fec4e1091a3",
+    "type": "split",
+    "children": [
+      {
+        "id": "3e95773c6d7373a8",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7ccfd6c3bd64a578",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "cycles/2026-06-13_netcode2/02_goal.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "02_goal 의 백링크"
+            }
+          },
+          {
+            "id": "c1b450a6f4580ec0",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "cycles/2026-06-13_netcode2/02_goal.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "02_goal 의 나가는 링크"
+            }
+          },
+          {
+            "id": "f32ecb07dad0162d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "태그"
+            }
+          },
+          {
+            "id": "55c129b70c1a7d66",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "모든 속성"
+            }
+          },
+          {
+            "id": "ea22abea14afa732",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "cycles/2026-06-13_netcode2/02_goal.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "02_goal 의 개요"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:빠른 전환기 열기": false,
+      "graph:그래프 뷰 열기": false,
+      "canvas:새 캔버스 만들기": false,
+      "daily-notes:오늘의 일일 노트 열기": false,
+      "templates:템플릿 삽입": false,
+      "command-palette:명령어 팔레트 열기": false,
+      "bases:새 베이스 생성하기": false
+    }
+  },
+  "active": "14371fb39049f26a",
+  "lastOpenFiles": [
+    "cycles/2026-06-13_netcode2/01_target.md",
+    "cycles/2026-06-13_netcode2/02_goal.md",
+    "_index.md",
+    "2026-06-13.md",
+    "무제.canvas",
+    "무제 1.base",
+    "cycles/2026-06-12_netcode/04_assets.md",
+    "무제.base",
+    "cycles/2026-06-13_netcode2/03_scope.md"
+  ]
+}

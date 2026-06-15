@@ -16,11 +16,12 @@ disable-model-invocation: true
    ```bash
    bash .claude/skills/unity-pipeline/scripts/scaffold_cycle.sh "<문서경로>" "[slug]"
    ```
-   - `.harness/cycles/<YYYY-MM-DD_slug>/` 에 `00_input/`, `05_spec/`, 템플릿 `01~08`,
-     `meta.json`, `decisions.md` 가 생성된다.
+   - `.harness/cycles/<YYYY-MM-DD_slug>/` 에 `00_input/`, `05_spec/`, `evidence/`(증빙 보관),
+     템플릿 `01~09`(⑨ next 포함), `meta.json`, `decisions.md` 가 생성된다.
+   - 템플릿의 `<cycle-id>` 플레이스홀더가 실제 사이클 ID 로 치환된다(Foam 위키링크 활성화).
    - 입력 문서가 `00_input/` 에 복사된다.
-   - unity-cli 가 있으면 `snapshots/<...>_before.json` 에 as-is 덤프가 저장된다.
-   - `_index.md` 에 시작 행이 추가된다.
+   - unity-cli 가 있으면 `snapshots/<...>_before.txt` 에 as-is 덤프가 저장된다(Editor 직접 기록 — stdout 잘림 회피).
+   - `_index.md` 에 시작 행이 추가되고, `glossary/` 분류 폴더(용어 사전)가 보장된다.
    - 스크립트 **마지막 줄**이 생성된 사이클 경로다 — 이를 기억한다.
 
 2. **입력 점검** — `00_input/` 의 문서를 읽고, 인자가 비었으면 사용자에게 문서 경로를 묻는다.

@@ -13,6 +13,8 @@
 5. 구현 루프 (컴파일·플레이·콘솔)
 6. 커스텀 툴
 7. 스냅샷 덤프 (as-is)
+8. 검증 증빙 수집 (⑧ result · evidence/)
+9. 대용량 출력 처리 (컨텍스트 절약)
 
 ---
 
@@ -59,6 +61,12 @@ unity-cli exec "UnityEditor.AssetDatabase.AssetPathToGUID(\"Assets/Prefabs/Playe
 
 # 씬 내 오브젝트 존재
 unity-cli exec "UnityEngine.GameObject.Find(\"Player\")!=null"
+
+# ★ 배치 질의(권장) — 여러 건을 exec 1회로 (왕복 절감, SKILL §8.1-1)
+unity-cli exec "return string.Join(\"\\n\", new[]{
+  \"InventorySystem=\"+(System.Type.GetType(\"Game.Inventory.InventorySystem, Assembly-CSharp\")!=null),
+  \"Player.prefab=\"+(UnityEditor.AssetDatabase.AssetPathToGUID(\"Assets/Prefabs/Player.prefab\")!=\"\"),
+  \"PlayerGO=\"+(UnityEngine.GameObject.Find(\"Player\")!=null) });"
 ```
 
 ## 3. 에셋 트리 덤프 (R1 컨텍스트)
@@ -107,9 +115,49 @@ unity-cli <ToolName> --params '<json>'       # 커스텀 툴 직접 호출
 
 ## 7. 스냅샷 덤프 (as-is, /cycle-start 가 호출)
 ```bash
-# 프로젝트 에셋 인벤토리 덤프 — snapshots/<날짜>_<slug>_before.json 에 저장
+# ★ 파일 직접 쓰기(권장) — exec 안에서 File.WriteAllLines 로 저장하면 stdout 잘림(~6KB)이 원천 회피된다
+unity-cli exec "var ps=UnityEditor.AssetDatabase.GetAllAssetPaths().Where(p=>p.StartsWith(\"Assets/\")).OrderBy(p=>p).ToArray(); System.IO.File.WriteAllLines(\".harness/snapshots/<날짜>_<slug>_before.txt\", ps); return \"saved \"+ps.Length;" --usings System.Linq
+
+# (구) stdout 수신 방식 — 소규모 질의에만. 대용량은 위 파일 쓰기로.
 unity-cli exec "return UnityEditor.AssetDatabase.GetAllAssetPaths().Where(p=>p.StartsWith(\"Assets/\")).ToArray()" --usings System.Linq
 ```
+- 스냅샷 diff: `diff before.txt after.txt` (정렬돼 있어 안정적). 전체 diff 의 권위는 여전히 git.
+
+## 8. 검증 증빙 수집 (⑧ result — `_conventions.md` §10)
+> 모든 출력은 사이클 폴더 `evidence/` 에 저장하고 08_result.md 에서 발췌+링크한다.
+> `<CID>` = `.harness/cycles/<id>` (프로젝트 루트 기준 상대경로).
+```bash
+# (a) 검증 시각 기록 — 루프 시작/종료 시 1회씩
+date '+%Y-%m-%d %H:%M'                                   # → result "검증 환경·시각" 표에 기입
+
+# (b) 검증 환경 — Unity/Connector 버전 증빙
+unity-cli status > "<CID>/evidence/status.txt"
+
+# (c) 콘솔 덤프 — 판정 근거 저장(에러만 / 최근 N줄)
+unity-cli console --type error > "<CID>/evidence/console_error.txt"
+unity-cli console --lines 100  > "<CID>/evidence/console_tail.txt"
+
+# (d) 플레이 중 스크린샷 — HUD·화면 증빙 (경로는 프로젝트 루트 기준, 플레이모드에서만 동작)
+unity-cli exec "UnityEngine.ScreenCapture.CaptureScreenshot(\".harness/cycles/<id>/evidence/play_smoke.png\"); return \"shot\";"
+# 저장은 비동기(다음 프레임) — 1~2초 후 파일 존재를 확인한다. supersize 인자(2)로 2배 해상도 가능.
+
+# (e) 특정 상태 증빙 — exec 결과를 그대로 파일로 (예: 부착 컴포넌트 목록)
+unity-cli exec "var go=GameObject.Find(\"[NetDiagnostics]\"); return go==null?\"NO-GO\":string.Join(\",\", go.GetComponents<MonoBehaviour>().Select(c=>c.GetType().Name));" --usings System.Linq,UnityEngine > "<CID>/evidence/components.txt"
+```
+- 판정 직후 바로 저장한다(나중에 재현 불가). md 임베드: `![..](evidence/play_smoke.png)`.
+
+## 9. 대용량 출력 처리 (컨텍스트 절약 — SKILL §8.1-2)
+> 원칙: **대화(stdout)로 받지 말고 파일로 쓰게 한 뒤 발췌만 읽는다.**
+```bash
+# (a) CLI 출력 리다이렉트 — 콘솔·목록류
+unity-cli console --lines 200 > "<CID>/evidence/console_full.txt"   # 이후 grep/head 로 발췌
+# (b) exec 결과를 에디터가 직접 파일로 — stdout 잘림 회피(§7 패턴)
+unity-cli exec "System.IO.File.WriteAllText(\"<경로>\", <문자열식>); return \"saved\";"
+# (c) 발췌 읽기 — 전체 Read 금지
+grep -m5 "error CS" "<CID>/evidence/console_full.txt"
+head -30 "<CID>/evidence/console_full.txt"
+```
+- exec stdout 한도는 ~6KB(실측) — 그 이상은 (b) 필수. 산출물 md 에는 발췌 + 파일 링크만 싣는다.
 
 ---
 ### 주의 (v0.3.x)

@@ -12,8 +12,10 @@
    - 우선 **Edit/Write 로 텍스트 편집** → PostToolUse 훅이 `reserialize → refresh --compile → console` 자동.
    - 절차적 생성이 쉬우면 `unity-cli exec` 스니펫(쿡북 §4). 파괴적이면 G4 가드가 ask.
 4. 적용 후 console 에러 0 을 확인한다(훅이 stderr 로 피드백).
+5. **to-be Hierarchy 배치 트리**(_conventions §15)를 그린다 — 오브젝트가 씬 계층 어디에(레이어 `━━━━`→
+   그룹 `───`→GO). 런타임 자동생성이면 "씬 배치 없음 — 자동생성(플레이 시 생성)"으로 명시(에디트 모드 씬엔 없음).
 
-## 산출물 — test_env 매트릭스 + 적용 스니펫
+## 산출물 — test_env 매트릭스 + 적용 스니펫 + to-be Hierarchy 트리
 컬럼: `대상 | as-is | to-be | 적용 방법`
 
 예시:

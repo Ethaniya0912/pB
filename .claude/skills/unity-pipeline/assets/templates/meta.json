@@ -7,6 +7,7 @@
   "awaiting_gate": null,
   "stage": "01_target",
   "input": ["00_input/<원본>"],
-  "snapshots": { "before": "snapshots/<ts>.json", "after": null },
-  "links": { "index": "../../_index.md", "decisions": "decisions.md" }
+  "snapshots": { "before": "snapshots/<ts>_before.txt", "after": null },
+  "evidence": "evidence/",
+  "links": { "index": "../../_index.md", "decisions": "decisions.md", "glossary": "../../glossary/_glossary.md" }
 }
