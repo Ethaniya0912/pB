@@ -26,6 +26,8 @@ Steamworks 파트너 계정·AppID 상태도 미확인(`steamworks-admin.md` 참
 
 미결정. 출시 전 최소 아래 구성이 필요하다.
 
+## 🎯 목표·권장 (target)
+
 > **다이어그램 — 권장 빌드 파이프라인 (target)**:
 
 ```mermaid

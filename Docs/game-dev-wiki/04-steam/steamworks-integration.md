@@ -16,15 +16,12 @@ Facepunch.Steamworks DLL 직접 삽입 방식으로 Steam API를 초기화·종�
 
 ## 현황 (pB)
 
-> **다이어그램 — 인증: 현재(로비 멤버십=암묵) → 목표(세션 티켓 검증)**:
+> **다이어그램 — 현재 인증: 로비 멤버십 = 암묵 인증** (세션 티켓 없음):
 
 ```mermaid
 flowchart LR
   J["lobby.Join()"] --> M["로비 멤버십 = 암묵 인증"]
   M --> R["ConnectRelay (게임 레벨 검증 없음)"]
-  R -.->|"목표 🎯"| T["AuthSessionTicket → BeginAuthSession 검증<br/>+ ConnectionApproval (정원·버전)"]
-  classDef target fill:#ede9fe,stroke:#6d28d9,color:#000;
-  class T target
 ```
 
 **래퍼**: Facepunch.Steamworks (Steamworks.NET 아님). Unity Package Manager 미등록 — DLL을 직접 `Assets/Plugins/Facepunch/` 에 적재한다.
@@ -92,6 +89,24 @@ clientConnection = Steamworks.SteamNetworkingSockets.ConnectRelay<ConnectionMana
 **AppID 480 사용 이유**: 정식 출시 전 개발 단계에서 전 세계 Spacewar 앱 유저들의 로비와 섞이지 않도록 `GameIdKey = "GameUniqueId"`, `GameIdValue = "PennutButterProject"` 필터를 로비 데이터로 추가 삽입(`SteamLobbyManager.OnLobbyCreated`에서 `GameID = "TDA"` 태그도 추가).
 
 **Steam API 수명 단독 소유(P1-1)**: 기존에는 씬 전환이나 중복 인스턴스 파괴 시 `OnDestroy → ShutdownSteam()` 이 살아있는 Steam API를 꺼 재호스팅이 불안정했다. `isOwner` 플래그로 소유 인스턴스만 종료 가능하도록 수정됨.
+
+## 🎯 목표·권장 (target)
+
+> **다이어그램 — 목표: 세션 티켓 검증**:
+
+```mermaid
+flowchart LR
+  C["클라 접속 + AuthSessionTicket"] --> S["서버 BeginAuthSession(ticket, steamId)"]
+  S --> V{"검증(소유권·밴)"}
+  V -->|유효| OK["ConnectionApproval 승인 (정원·버전)"]
+  V -->|무효| NO["거부"]
+  classDef t fill:#ede9fe,stroke:#6d28d9,color:#000;
+  class OK t
+```
+
+- 협동·친구초대 중심이면 현재 암묵 인증으로 충분하나, **공개 매치/전용 서버**로 확장하면 위장 접속 방지를 위해 `GetAuthSessionTicket` → `BeginAuthSession` 검증이 필요하다.
+- 현재 미사용인 NGO `ConnectionApprovalCallback`을 입장 게이트로 연결하면 정원·버전 검증까지 함께 처리된다([[lobby-matchmaking]] P2-6).
+- 선행 조건: AppID 480 → 실 AppID 교체.
 
 ## ⚠ 비판·리스크
 

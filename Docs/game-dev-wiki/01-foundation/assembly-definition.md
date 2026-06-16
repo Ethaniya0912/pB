@@ -20,22 +20,13 @@ asmdef로 컴파일 타임과 의존성을 관리하는 전략 상세. **현재 
 
 ## 현황 (pB)
 
-> **다이어그램 — 현재(단일 Assembly-CSharp) vs 목표 분리** (화살표 = 의존 방향, 순환 불가):
+> **다이어그램 — 현재: 단일 Assembly-CSharp** (게임 코드 전체가 한 어셈블리):
 
 ```mermaid
 flowchart TB
-  subgraph NOW["현재 — 단일 Assembly-CSharp"]
+  TP["서드파티 asmdef 6개<br/>Abiogenesis3d · SSGIURP · SteamAudio"] --> X
+  subgraph NOW["Assembly-CSharp (게임 코드 전체)"]
     X["Scripts 전체<br/>Networking · Character · pB-4 · Utilities …"]
-  end
-  subgraph TARGET["목표 — asmdef 분리 (아래 권고안)"]
-    GAME["pB.Runtime.Gameplay<br/>(Character · AI)"]
-    NETA["pB.Runtime.Networking<br/>(NGO · Steam)"]
-    CORE["pB.Runtime.Core<br/>(공통 데이터 · 이벤트)"]
-    ED["pB.Editor"]
-    GAME --> CORE
-    GAME --> NETA
-    NETA --> CORE
-    ED --> GAME
   end
   classDef warn fill:#fef9c3,stroke:#a16207,color:#000;
   class X warn
@@ -77,6 +68,33 @@ Assets/Plugins/SteamAudio/SteamAudioUnity.asmdef
 - **현재 결정**: 아무 결정 없이 Unity 기본값(asmdef 없음 → Assembly-CSharp 통합) 유지 중
 - **서드파티만 분리**: 구매/포함한 에셋 패키지(Campfire, SSGI, SteamAudio)는 자체 asmdef를 가져왔고, 게임 코드는 그에 의존하는 형태
 - **언어 버전**: C# 9.0 (`LangVersion` in csproj)
+
+## 🎯 목표·권장 (target)
+
+> **다이어그램 — 권장 asmdef 분리** (화살표 = 의존 방향, 순환 불가):
+
+```mermaid
+flowchart TB
+  GAME["pB.Runtime.Gameplay<br/>(Character · AI)"]
+  NETA["pB.Runtime.Networking<br/>(NGO · Steam)"]
+  CORE["pB.Runtime.Core<br/>(공통 데이터 · 이벤트)"]
+  IFACE["pB.Runtime.Interfaces<br/>(계약 — 최하단)"]
+  ED["pB.Editor"]
+  GAME --> CORE
+  GAME --> NETA
+  NETA --> CORE
+  GAME --> IFACE
+  NETA --> IFACE
+  CORE --> IFACE
+  ED --> GAME
+  classDef base fill:#dbeafe,stroke:#1d4ed8,color:#000;
+  class IFACE,CORE base
+```
+
+- **규칙: 화살표는 위로(의존)만.** `Interfaces`(계약)를 최하단에 두면 누구도 역의존하지 않아 순환이 원천 차단된다.
+- AI와 Character는 서로 직접 참조하지 않고 **Interfaces + Bridge**로만 만난다([[ai-bridge-architecture]]) → 순환 불가.
+- **효과**: AI만 고치면 AI 어셈블리만 재컴파일 → 이터레이션 가속. 클라/서버 코드 경계가 생겨 전용 서버 빌드 분리도 쉬워진다.
+- **착수 순서**: 한 번에 쪼개지 말고 `Interfaces → Core → Networking → Gameplay → Editor` 순으로 점진 분리(초기 누락 참조 정리 비용이 큼). 신규 시스템부터 asmdef로 시작하는 것도 방법.
 
 ## ⚠ 비판·리스크
 

@@ -14,7 +14,7 @@ pB에는 클라이언트 측 예측(Client-Side Prediction) 및 서버 재조정
 
 ## 현황 (pB)
 
-> **다이어그램 — 현재(보간만) vs 목표(예측+재조정)**:
+> **다이어그램 — 현재: 오너 권위 + 보간 (재조정 없음)**:
 
 ```mermaid
 sequenceDiagram
@@ -26,18 +26,6 @@ sequenceDiagram
   OW->>N: networkPosition.Value = transform.position (매 프레임)
   N->>OT: 값 복제
   OT->>OT: SmoothDamp(0.1s) 보간 — 서버 보정 없음
-```
-
-```mermaid
-sequenceDiagram
-  autonumber
-  actor C as 클라
-  participant S as 서버(권위)
-  Note over C,S: 목표(target) — 예측 + 재조정
-  C->>C: 입력 로컬 즉시 적용(예측) + 버퍼 저장
-  C->>S: 입력(tick N)
-  S->>C: 권위 상태 + 처리된 tick
-  C->>C: 불일치면 스냅 후 입력 재생(reconcile)
 ```
 
 **예측 현황 — 미구현**
@@ -102,6 +90,33 @@ NGO 2.7.0은 `ClientNetworkTransform`, `NetworkRigidbody`, `NetworkTransform`(�
 | SmoothDamp 보간 | 구현 단순성. 네트워크 상태 변화에 대한 탄력성은 검증되지 않음 |
 
 결정의 명시적 ADR 문서가 없다. 추정에 근거하므로 확인이 필요하다.
+
+## 🎯 목표·권장 (target)
+
+> **다이어그램 — 목표: 예측 + 재조정**:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor C as 클라
+  participant S as 서버(권위)
+  Note over C,S: 목표(target) — 예측 + 재조정
+  C->>C: 입력 로컬 즉시 적용(예측) + 버퍼 저장
+  C->>S: 입력(tick N)
+  S->>C: 권위 상태 + 처리된 tick
+  C->>C: 불일치면 스냅 후 입력 재생(reconcile)
+```
+
+도입 시 필요한 요소 (현재 전부 없음):
+
+| 요소 | 현재 | 목표 |
+|---|---|---|
+| 서버 틱 클럭 | ❌ 프레임 기반 | ✅ 고정 틱 |
+| 입력 버퍼/시퀀스 | ❌ | ✅ tick별 입력 큐 |
+| 서버 권위 시뮬레이션 | ❌ (오너가 위치 기록) | ✅ 서버가 이동 계산 |
+| 오예측 정정(reconcile) | ❌ | ✅ 스냅 + 재생 |
+
+- 코옵 PvE라 우선순위는 낮지만, RTT 150ms+ 체감 측정(R1) 후 도입 여부를 판단할 것. 최소한 **위치 스냅 임계**(Step 4 P2-2)부터 적용 권장.
 
 ## ⚠ 비판·리스크
 

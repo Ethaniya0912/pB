@@ -15,23 +15,6 @@ pB에는 히트 판정 lag compensation(서버 측 되감기·히스토리 버�
 
 ## 현황 (pB)
 
-> **다이어그램 — 일반적 랙보상(rewind) 기법** (미구현·참고용. pB의 Step 2 방향은 *피격자 Owner 위임* — 아래 설계·결정 참조):
-
-```mermaid
-sequenceDiagram
-  autonumber
-  actor A as 공격자
-  participant S as 서버(권위)
-  participant H as 위치 히스토리 버퍼
-  loop 매 틱
-    S->>H: 히트박스 위치 스냅샷(tick → 위치)
-  end
-  A->>S: 공격(내 화면 기준 tick T)
-  S->>H: T - RTT/2 시점으로 되감기(rewind)
-  H-->>S: 그 시점 피격자 위치
-  S->>S: 되감은 위치로 명중 판정 → 즉시 복원
-```
-
 **히트 판정 경로** (코드 실측)
 
 ```
@@ -69,6 +52,29 @@ lag compensation 미채택 결정의 명시적 ADR이 없다. 친선 코옵 PvE 
 ```
 
 이 방식은 lag compensation(서버 되감기)과 달리, 피격자 본인 화면 기준 공정성을 추구한다. 히스토리 버퍼가 없고 추가 RTT 교환(공격자→서버→피격자→서버→전파)이 발생한다.
+
+## 🎯 목표·권장 (target)
+
+> pB가 택한 방향은 **피격자 Owner 위임**(위 설계·결정). 아래는 비교용 **일반적 랙보상(rewind) 기법**과 전제다.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor A as 공격자
+  participant S as 서버(권위)
+  participant H as 위치 히스토리 버퍼
+  loop 매 틱
+    S->>H: 히트박스 위치 스냅샷(tick → 위치)
+  end
+  A->>S: 공격(내 화면 기준 tick T)
+  S->>H: T - RTT/2 시점으로 되감기(rewind)
+  H-->>S: 그 시점 피격자 위치
+  S->>S: 되감은 위치로 명중 판정 → 즉시 복원
+```
+
+**도입 전제 (현재 전부 없음)**: 서버 권위 전투(공격자 보고 → 서버 판정) · 고정 서버 틱 · N틱 히트박스 히스토리 버퍼 · 클라별 RTT 보정.
+- pB는 근접 소울라이크라 히트스캔 총기는 없지만, 빠른 근접 판정(처형·패링)에서 고핑 시 빗맞음이 체감될 수 있다.
+- **M5 실측(2인 실기기) 후** rewind vs 피격자 Owner 위임을 결정할 것. 친선 코옵 범위에서 rewind 필요 여부는 데이터로 판단.
 
 ## ⚠ 비판·리스크
 

@@ -17,7 +17,7 @@ verified: 2026-06-15
 
 ## 현황 (pB)
 
-> **다이어그램 — 세이브/로드 흐름** (서버=월드 권위 / 클라=자기 캐릭터 로컬, Steam Cloud 없음):
+> **다이어그램 — 현재 세이브/로드 흐름** (서버=월드 권위 / 클라=자기 캐릭터 로컬):
 
 ```mermaid
 flowchart TB
@@ -31,9 +31,6 @@ flowchart TB
   end
   CSD --> CL
   WSD --> SV
-  CLOUD["🎯 Steam Cloud (미구현)"]:::t
-  CLOUD -.-> SAVE
-  classDef t fill:#ede9fe,stroke:#6d28d9,color:#000;
 ```
 
 ### 세이브 파일 구조
@@ -68,6 +65,23 @@ flowchart TB
 - 5슬롯 고정: 다크소울 류 참조. 슬롯 추가 시 코드 수동 확장 필요(switch-case 구조).
 - 서버 전용 월드 저장: NGO 권위 모델에서 클라이언트가 월드 상태를 쓰면 충돌 발생. 의도적 선택.
 - `DontDestroyOnLoad` 싱글톤: 씬 전환 시 데이터 유지를 위해 `WorldSaveGameManager` 가 루트 오브젝트로 영속.
+
+## 🎯 목표·권장 (target)
+
+> **다이어그램 — 목표: Steam Cloud 동기화**:
+
+```mermaid
+flowchart LR
+  LOCAL["로컬 세이브<br/>persistentDataPath"] -->|"🎯 동기화"| CLOUD["Steam Cloud<br/>SteamRemoteStorage"]
+  CLOUD -->|"충돌 시"| RESOLVE["충돌 해소(최신/수동 선택)"]
+  classDef t fill:#ede9fe,stroke:#6d28d9,color:#000;
+  class CLOUD,RESOLVE t
+```
+
+- **Steam Cloud 동기화**: `SteamRemoteStorage`로 슬롯 동기화 + 로컬↔클라우드 충돌 해소 분기. 다른 PC 접속 시 진행도 보존(현재는 로컬-only라 소실).
+- **오토세이브/종료-시-저장**: 현재 수동 → 체크포인트·주기 저장 권장.
+- **세이브 버전 필드**: `saveVersion` 추가 + 마이그레이션 체인(필드 추가/삭제 호환).
+- **월드 슬롯 다중화**: 현재 `worldSlots_01` 고정 → 세션 ID 기반 동적 파일명.
 
 ## ⚠ 비판·리스크
 

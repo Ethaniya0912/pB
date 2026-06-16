@@ -15,18 +15,13 @@ verified: 2026-06-15
 
 ## 현황 (pB)
 
-> **다이어그램 — NetworkObject 생애: 현재(매번 생성/파괴) vs 목표(풀 재사용)**:
+> **다이어그램 — 현재 NetworkObject 생애: 매번 생성/파괴**:
 
 ```mermaid
 flowchart LR
-  REQ["스폰 요청"] --> CUR["현재: Instantiate + NetworkObject.Spawn"]
+  REQ["스폰 요청"] --> CUR["Instantiate + NetworkObject.Spawn"]
   CUR --> USE["사용 (OptimizedNetworkItem 동기화)"]
-  USE --> DES["현재: Despawn + Destroy (매번 파괴)"]
-  REQ -.->|"목표 🎯"| H["INetworkPrefabInstanceHandler 풀"]
-  DES -.->|"목표 🎯"| H
-  H -.-> REUSE["비활성 재사용 (Destroy 안 함)"]
-  classDef t fill:#ede9fe,stroke:#6d28d9,color:#000;
-  class H,REUSE t
+  USE --> DES["Despawn + Destroy (매번 파괴)"]
   classDef warn fill:#fee2e2,stroke:#b91c1c,color:#000;
   class DES warn
 ```
@@ -54,6 +49,27 @@ flowchart LR
 
 - 현재 EA 전 프로토타입 단계로 스폰 빈도가 낮아 `Instantiate`/`Destroy` 선택.
 - 청크 풀만 존재하는 이유: 지형 청크는 전체 화면 메시이므로 생성 비용이 크고, 뷰 거리 내 재진입 빈도가 높음.
+
+## 🎯 목표·권장 (target)
+
+> **다이어그램 — 목표: NGO 풀 재사용**:
+
+```mermaid
+flowchart LR
+  REQ["스폰 요청"] --> H{"INetworkPrefabInstanceHandler"}
+  H -->|풀 여유| REUSE["비활성 객체 재활성화"]
+  H -->|풀 빔| NEW["Instantiate 1회"]
+  REUSE --> USE["사용"]
+  NEW --> USE
+  USE -->|Despawn| RET["Destroy 대신 풀 반환(비활성)"]
+  RET --> H
+  classDef t fill:#ede9fe,stroke:#6d28d9,color:#000;
+  class H,RET t
+```
+
+- `NetworkManager.PrefabHandler.AddHandler(prefab, handler)`로 `Instantiate/Destroy`를 가로채 재사용. **드롭 아이템·투사체·히트 VFX**가 1순위 후보(자주 생성/파괴 → GC 스파이크).
+- 이미 있는 동굴 청크 풀(`CaveChunkManager.chunkPool`) 패턴을 **NGO 오브젝트로 확장**하면 일관적이다.
+- AI 20기 전투(`SCN-06`)의 사망/재스폰 반복에서 효과가 가장 크다.
 
 ## ⚠ 비판·리스크
 

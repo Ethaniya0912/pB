@@ -16,23 +16,14 @@ verified: 2026-06-15
 
 ## 현황 (pB)
 
-> **다이어그램 — 호스트 이탈: 현재(세션 소멸) vs 목표(마이그레이션)**:
+> **다이어그램 — 현재: 호스트 이탈 = 세션 소멸**:
 
 ```mermaid
-flowchart TB
-  subgraph NOW["현재 — 마이그레이션 없음"]
-    H1["호스트 이탈"] --> D["OnClientDisconnected(ServerClientId)"]
-    D --> R["RevertToTitleScreen → 전원 타이틀"]
-  end
-  subgraph TARGET["목표 🎯 — 호스트 마이그레이션"]
-    H2["호스트 이탈"] --> E["결정적 선출(최소 SteamId)"]
-    E --> NH["새 호스트 StartHost + 스냅샷 복원"]
-    NH --> RJ["나머지 재접속(StartClient)"]
-  end
+flowchart LR
+  H1["호스트 이탈"] --> D["OnClientDisconnected(ServerClientId)"]
+  D --> R["RevertToTitleScreen → 전원 타이틀"]
   classDef warn fill:#fee2e2,stroke:#b91c1c,color:#000;
   class R warn
-  classDef t fill:#ede9fe,stroke:#6d28d9,color:#000;
-  class NH t
 ```
 
 **네트워크 토폴로지**
@@ -59,6 +50,25 @@ flowchart TB
 - 소규모 인디 EA 전략: Steam P2P 중계로 운영 비용 0. 별도 서버 운영 비용 제거.
 - 인원: 게임 특성상 소규모(2~4인) — P2P 지연이 허용 가능한 범위.
 - 전용 서버 전환은 ADR 검토 대상으로 분류됨(아직 ADR 없음).
+
+## 🎯 목표·권장 (target)
+
+> **다이어그램 — 목표: 호스트 마이그레이션**:
+
+```mermaid
+flowchart LR
+  H2["호스트 이탈"] --> E["결정적 선출(최소 SteamId)"]
+  E --> NH["새 호스트 StartHost + 스냅샷 복원"]
+  NH --> RJ["나머지 재접속(StartClient)"]
+  classDef t fill:#ede9fe,stroke:#6d28d9,color:#000;
+  class NH t
+```
+
+**도입 전제 / 난점**:
+- **상태 스냅샷**: 권위 상태(AI·드롭템·월드 오브젝트)를 직렬화해 클라들이 보유해야 새 호스트가 복원 가능. 캐릭터는 이미 로컬 세이브 기반([[save-load]])이라 상대적으로 쉽지만 **AI/팩션/월드 런타임 상태**는 별도 스냅샷 설계 필요.
+- **결정적 호스트 선출**: 동시 다중 승격 방지(최소 SteamId 등 단일 규칙).
+- **재접속 윈도우**: 끊김 즉시 타이틀 복귀 대신 재시도 상태 필요(Step 3 P2-6과 연동).
+- 난이도 높음 → 협동 세션 지속성을 중요 기능으로 정한 뒤 착수. 대안은 **전용 서버** 도입.
 
 ## ⚠ 비판·리스크
 
