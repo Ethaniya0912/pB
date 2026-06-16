@@ -41,7 +41,6 @@
   nav.toc a{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 12px}
   nav.toc a:hover{color:var(--text);text-decoration:none;border-color:var(--blue)}
 
-  /* layer map */
   .layers{display:flex;flex-direction:column;gap:0;margin:8px 0}
   .band{border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;background:var(--surface)}
   .band .bt{font-weight:600;font-size:15px}
@@ -57,12 +56,10 @@
   .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
   .t-adr{background:var(--slate-bg);color:var(--slate)} .t-gdr{background:var(--blue-bg);color:var(--blue)} .t-fsb{background:var(--teal-bg);color:var(--teal)}
 
-  /* anatomy */
   .flow{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;margin:10px 0}
   .flow .st{flex:1;min-width:96px;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 8px;text-align:center;font-size:13px}
   .flow .ar{display:flex;align-items:center;color:var(--faint)}
 
-  /* lenses */
   .lenses{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:10px 0}
   .lens{border-radius:var(--radius-sm);padding:14px 16px}
   .lens .lt{font-weight:600;font-size:14px}
@@ -88,6 +85,21 @@
   ul{margin:8px 0;padding-left:20px} li{margin:4px 0}
   footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
   .badge{display:inline-block;font-size:11px;color:var(--amber);background:var(--amber-bg);padding:2px 9px;border-radius:999px;font-weight:600}
+
+  /* intake / triage visuals */
+  .funnel{display:flex;flex-direction:column;align-items:center;gap:3px;margin:16px 0}
+  .fb{border-radius:var(--radius-sm);padding:11px 16px;text-align:center;border:1px solid var(--border);background:var(--surface);font-size:14px;transition:width .2s}
+  .drop{font-size:12px;color:var(--faint);text-align:center;padding:1px 0}
+  .drop.bad{color:var(--red)} .drop.amb{color:var(--amber)}
+  .outcomes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}
+  .oc{border:1px solid var(--border);border-left-width:4px;border-radius:var(--radius-sm);padding:10px 13px;background:var(--surface);font-size:13px}
+  .oc .ot{font-weight:600;font-size:14px}
+  .oc .od{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .oc.go{border-left-color:var(--green)} .oc.bad{border-left-color:var(--red)} .oc.dup{border-left-color:var(--amber)}
+  .oc.con{border-left-color:var(--amber)} .oc.hold{border-left-color:var(--slate)} .oc.split{border-left-color:var(--blue)}
+  .split2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+  .mini{font-size:12.5px} .mini th,.mini td{padding:6px 10px}
+  .mini .term{font-size:12px}
 </style>
 </head>
 <body>
@@ -104,10 +116,13 @@
   <a href="#map">1 · 레이어 지도</a>
   <a href="#glossary">2 · 용어 설명</a>
   <a href="#flow">3 · 결정 흐름</a>
-  <a href="#types">4 · 기록 3종 + 템플릿</a>
-  <a href="#lens">5 · pB 의무 3렌즈</a>
-  <a href="#seeds">6 · 씨앗 예시</a>
-  <a href="#ops">7 · 운영 규칙</a>
+  <a href="#funnel">4 · 인테이크 깔때기</a>
+  <a href="#triage">5 · 트리아지</a>
+  <a href="#conflict">6 · 충돌 · 스테일</a>
+  <a href="#types">7 · 기록 3종 + 템플릿</a>
+  <a href="#lens">8 · 의무 3렌즈</a>
+  <a href="#seeds">9 · 씨앗 예시</a>
+  <a href="#ops">10 · 운영 규칙</a>
 </nav>
 
 <h2 id="map"><span class="n">01</span> 레이어 지도</h2>
@@ -139,113 +154,197 @@
   <thead><tr><th style="width:170px">용어</th><th>뜻</th></tr></thead>
   <tbody>
     <tr><td class="term">결정 레이어</td><td>기획과 개발 사이에서 경계 결정을 모으는 위키 섹션(<code>13-decisions/</code>). 이 가이드가 설명하는 대상.</td></tr>
-    <tr><td class="term">ADR</td><td>Architecture Decision Record — <strong>기술 결정</strong> 기록. 형식: 맥락 / 검토한 선택지 / 결정 / 근거 / 영향. pB에 이미 존재(<code>02-architecture/adr-0001-netcode</code> 등).</td></tr>
-    <tr><td class="term">GDR</td><td>Game Design Decision Record — <strong>게임 기획 결정</strong> 기록. ADR과 같은 형식에 <em>기술·네트워크 영향</em> 섹션을 더한 것. (신설)</td></tr>
-    <tr><td class="term">FSB</td><td>Feature / System Bridge — <strong>기능·시스템 브리지</strong> 문서. 한 기능을 기획 의도 → 시스템 → 데이터 → 네트워크 → 검증으로 세로 관통해 기획서와 코드를 한 문서로 잇는다. 결정 레이어의 핵심 산출물. (신설)</td></tr>
-    <tr><td class="term">3렌즈</td><td>모든 GDR·FSB의 <strong>의무 섹션 3개</strong> — ① 네트워크·권위·동기화 ② 데이터·튜닝 ③ 검증. "기획 결정"을 "기술 약속"으로 번역하는 장치.</td></tr>
-    <tr><td class="term">M-지표</td><td>프로젝트의 정량 측정 지표(M1~M11). 예: M5 판정 일치율, M6 대역폭. 검증 렌즈에서 "이 수치로 됐다고 판정"에 인용.</td></tr>
-    <tr><td class="term">SCN</td><td>테스트 시나리오(SCN-01~07). 예: SCN-06 AI 20기 부하. 검증 렌즈에서 인용.</td></tr>
-    <tr><td class="term">P-code</td><td>Netcode 실행계획의 작업 코드(예: P0-3 방어/패링 권위, P2-6 재접속). 결정 → 작업 추적 연결 고리.</td></tr>
-    <tr><td class="term">status</td><td>결정의 수명 상태: <code>proposed</code> → <code>accepted</code> → <code>implemented</code> → <code>superseded</code>.</td></tr>
-    <tr><td class="term">append-only</td><td>결정은 수정하지 않는다. 바뀌면 옛 결정을 <code>superseded</code>로 표시하고 새 ID로 추가. (ADR 규약과 동일)</td></tr>
-    <tr><td class="term">as-built / 현황</td><td>코드 실측 기반 현재 구현. 위키 토픽 문서의 <code>## 현황 (pB)</code>. 결정 레이어가 "왜·무엇을 정했나"라면, 현황은 "지금 실제로 어떻게 돼 있나".</td></tr>
-    <tr><td class="term">⚠ 비판·리스크</td><td>위키 토픽 문서 의무 섹션. 약점·부채·미검증 가정. <code>12-issues</code> 레지스터(R-001~)로 집계됨.</td></tr>
-    <tr><td class="term">하네스 사이클</td><td><code>.harness</code>의 8단계 작업 파이프라인(target→goal→scope→assets→spec→test_env→plan→result). 휘발성(작업 단위). 경계 결정이 나오면 GDR/FSB로 <em>승격</em>해 영속화.</td></tr>
-    <tr><td class="term">권위 (authority)</td><td>네트워크에서 특정 상태를 누가 쓰는가(Owner-write / Server-write). pB 권한 모델은 <code>03-network/authority-model</code> 참조.</td></tr>
+    <tr><td class="term">후보 / 백로그</td><td>기획서에서 뽑은 결정거리 한 줄(주장·요구·선택지). 싸다. 대부분 여기서 살고 죽는다. 채택된 소수만 결정으로 승격.</td></tr>
+    <tr><td class="term">트리아지</td><td>후보를 채택/기각/중복/충돌/보류/분할로 분류·솎아내는 작업. 채택/비채택 판정.</td></tr>
+    <tr><td class="term">승격 기준</td><td>후보 → 결정 기록으로 올릴지 거르는 3관문: ① 대안이 있었나 ② 영향이 큰가 ③ 안정적인가. 셋 다 yes일 때만 기록.</td></tr>
+    <tr><td class="term">ADR</td><td>Architecture Decision Record — <strong>기술 결정</strong>. 맥락 / 선택지 / 결정 / 근거 / 영향. 기존(<code>02-architecture</code>).</td></tr>
+    <tr><td class="term">GDR</td><td>Game Design Decision Record — <strong>게임 기획 결정</strong>. ADR 형식 + 기술·네트워크 영향. (신설)</td></tr>
+    <tr><td class="term">FSB</td><td>Feature / System Bridge — <strong>기능·시스템 브리지</strong>. 한 기능을 기획→시스템→데이터→네트워크→검증으로 세로 관통. (신설)</td></tr>
+    <tr><td class="term">3렌즈</td><td>모든 GDR·FSB 의무 섹션 — ① 네트워크·권위·동기화 ② 데이터·튜닝 ③ 검증.</td></tr>
+    <tr><td class="term">출처 레지스트리</td><td>기획 doc 목록. <code>소스ID · 버전/날짜 · 상태(active/superseded) · 파생 항목 수</code>. 후보·결정은 <code>source@버전</code>을 인용.</td></tr>
+    <tr><td class="term">충돌 로그</td><td>기획 자료끼리 모순될 때 등록하는 1급 항목. 해소 = 결정(GDR/ADR)이 어느 쪽을 채택할지 판정.</td></tr>
+    <tr><td class="term">stale</td><td>인용한 소스가 갱신·폐기되어 재검토가 필요한 상태. 스테일 스윕으로 자동 색출(기존 <code>source</code>/<code>verified</code> 메커니즘 재사용).</td></tr>
+    <tr><td class="term">M-지표</td><td>정량 측정 지표(M1~M11). 예: M5 판정 일치율, M6 대역폭. 검증 렌즈에서 인용.</td></tr>
+    <tr><td class="term">SCN</td><td>테스트 시나리오(SCN-01~07). 예: SCN-06 AI 20기 부하.</td></tr>
+    <tr><td class="term">P-code</td><td>Netcode 실행계획 작업 코드(예: P0-3, P2-6). 결정 → 작업 추적.</td></tr>
+    <tr><td class="term">status</td><td>결정 수명: <code>proposed → accepted → implemented → superseded</code>.</td></tr>
+    <tr><td class="term">append-only</td><td>결정은 수정 금지. 바뀌면 옛 결정을 <code>superseded</code>로 두고 새 ID로 추가.</td></tr>
+    <tr><td class="term">하네스 사이클</td><td><code>.harness</code>의 8단계 작업 파이프라인. <code>scope</code> 단계가 인테이크 자리, <code>result</code>에서 결정 승격.</td></tr>
   </tbody>
 </table>
 
 <h2 id="flow"><span class="n">03</span> 결정 흐름</h2>
-
 <h3>① 어떤 기록을 만드나 (분기)</h3>
 <table>
   <thead><tr><th style="width:200px">이 결정은…</th><th>만들 기록</th></tr></thead>
   <tbody>
-    <tr><td>순수 기술 선택인가? <span class="muted">(엔진·라이브러리·아키텍처)</span></td><td><span class="tag t-adr">ADR</span> &nbsp;<span class="muted">02-architecture</span></td></tr>
-    <tr><td>게임 디자인 선택인가? <span class="muted">(규칙·진행·밸런스·내러티브)</span></td><td><span class="tag t-gdr">GDR</span> &nbsp;<span class="muted">+ 기술·네트워크 영향 필수</span></td></tr>
-    <tr><td>한 기능/시스템을 기획→코드로 관통해야 하나?</td><td><span class="tag t-fsb">FSB</span> &nbsp;<span class="muted">기능 해부 문서</span></td></tr>
-    <tr><td>작은 결정이라 전체 기록은 과한가?</td><td><span class="muted">결정 로그 한 줄 (선택) → 커지면 위로 승격</span></td></tr>
+    <tr><td>순수 기술 선택인가? <span class="muted">(엔진·라이브러리·아키텍처)</span></td><td><span class="tag t-adr">ADR</span></td></tr>
+    <tr><td>게임 디자인 선택인가? <span class="muted">(규칙·진행·밸런스·내러티브)</span></td><td><span class="tag t-gdr">GDR</span> <span class="muted">+ 기술·네트워크 영향 필수</span></td></tr>
+    <tr><td>한 기능/시스템을 기획→코드로 관통해야 하나?</td><td><span class="tag t-fsb">FSB</span></td></tr>
+    <tr><td>작은 결정이라 전체 기록은 과한가?</td><td><span class="muted">백로그 요구사항으로만 → 커지면 승격</span></td></tr>
   </tbody>
 </table>
-
 <h3>② 수명 (lifecycle)</h3>
 <div class="pills">
-  <span class="pill">proposed <span class="muted">초안</span></span><span class="muted">→</span>
-  <span class="pill">accepted <span class="muted">합의</span></span><span class="muted">→</span>
-  <span class="pill go">implemented <span style="opacity:.8">현황 링크</span></span><span class="muted">→</span>
-  <span class="pill">superseded <span class="muted">대체됨</span></span>
+  <span class="pill">proposed</span><span class="muted">→</span>
+  <span class="pill">accepted</span><span class="muted">→</span>
+  <span class="pill go">implemented · 현황 링크</span><span class="muted">→</span>
+  <span class="pill">superseded</span>
 </div>
-<p class="muted"><code>implemented</code>가 되면 해당 결정 문서는 as-built 현황 문서로 링크를 건다(이 결정이 코드의 어디로 실현됐는지). 대체될 땐 옛 문서를 지우지 않고 <code>superseded</code> 표시 + 새 결정 링크.</p>
+<p class="muted"><code>implemented</code>이면 결정 문서가 as-built 현황으로 링크. 대체 시 옛 문서는 지우지 않고 <code>superseded</code> + 새 결정 링크(append-only).</p>
 
-<h3>③ 연결 (양방향 링크)</h3>
+<h2 id="funnel"><span class="n">04</span> 기획서 → 결정: 인테이크 깔때기</h2>
+<p class="muted"><strong>기획서 하나에서 후보가 수십~수백 개 나오는 건 정상이다.</strong> 문제는 그걸 전부 GDR/FSB/ADR로 만들 때다. 핵심은 깔때기 — 후보는 싸게 받아 두고, 트리아지와 승격 기준으로 걸러, <strong>극소수만 결정 기록으로</strong> 올린다.</p>
+<div class="funnel">
+  <div class="fb" style="width:100%">기획 자료 (소스) · <code>doc@ver</code> <span class="muted">— 주장 · 요구 수백</span></div>
+  <div class="drop">↓ 후보 추출 (한 줄씩)</div>
+  <div class="fb" style="width:78%">후보 백로그 <span class="muted">— 싸다, 대부분 여기서 정리</span></div>
+  <div class="drop bad">↓ 트리아지 — 기각 · 중복 · 충돌 · 보류 솎아냄</div>
+  <div class="fb" style="width:54%;border-color:var(--blue)">채택 (accepted)</div>
+  <div class="drop amb">↓ 승격 기준 (대안 · 영향 · 안정) — 사소건은 요구사항만</div>
+  <div class="fb" style="width:34%;background:var(--blue-bg);border:2px solid var(--blue);color:var(--blue);font-weight:600">결정 기록 · GDR / FSB / ADR <span style="font-weight:400">— 수십</span></div>
+</div>
+<div class="note"><strong>비용 비대칭이 핵심.</strong> 후보 = 한 줄(싸다) / 결정 = 문서(비싸다). 그래서 <em>승격하기 전에</em> 거른다. 폭발은 백로그에서 흡수된다.</div>
+
+<h2 id="triage"><span class="n">05</span> 트리아지 — 채택 · 비채택 솎아내기</h2>
+<p class="muted">후보 하나하나가 거치는 분류. 이게 당신이 말한 "솎아내는 작업".</p>
+<div class="flow">
+  <div class="st">기획 doc<br><span class="muted" style="font-size:11px">@ver</span></div>
+  <div class="ar">→</div>
+  <div class="st">후보 추출<br><span class="muted" style="font-size:11px">백로그 inbox</span></div>
+  <div class="ar">→</div>
+  <div class="st" style="background:var(--blue-bg);color:var(--blue)">트리아지<br><span style="font-size:11px">분류·판정</span></div>
+</div>
+<p class="muted" style="margin-top:14px">트리아지 결과 6갈래:</p>
+<div class="outcomes">
+  <div class="oc go"><div class="ot">채택 accepted</div><div class="od">유효·필요 → 승격 심사로</div></div>
+  <div class="oc bad"><div class="ot">기각 rejected</div><div class="od">범위 밖·불필요. 이유 한 줄 남김</div></div>
+  <div class="oc dup"><div class="ot">중복 duplicate</div><div class="od">기존 항목에 병합 (216→133 사례)</div></div>
+  <div class="oc con"><div class="ot">충돌 conflict</div><div class="od">다른 자료와 모순 → 충돌 로그로</div></div>
+  <div class="oc hold"><div class="ot">보류 hold</div><div class="od">선행 결정 대기 → 나중 재검토</div></div>
+  <div class="oc split"><div class="ot">분할 split</div><div class="od">너무 큼 → 작은 후보 여러 개로</div></div>
+</div>
+<p class="muted" style="margin-top:14px">채택된 후보의 두 갈래:</p>
+<div class="split2">
+  <div class="card" style="padding:12px 14px"><strong>요구사항 only</strong><div class="muted" style="font-size:13px;margin-top:4px">사소·자명 → 백로그 요구로만 추적. 문서 안 만듦.</div></div>
+  <div class="card" style="padding:12px 14px;border:2px solid var(--blue)"><strong style="color:var(--blue)">승격 → GDR / FSB / ADR</strong><div class="muted" style="font-size:13px;margin-top:4px">승격 기준 3관문 통과분만 정식 결정 기록으로.</div></div>
+</div>
+<div class="note" style="margin-top:14px"><strong>충돌·stale 루프:</strong> 충돌 항목은 결정이 판정하면 다시 채택/기각으로 흘러간다. 소스가 바뀌면 승격·요구 항목이 <code>stale</code>로 표시되어 트리아지로 되돌아온다(아래 6장).</div>
+
+<h2 id="conflict"><span class="n">06</span> 충돌 · outdated 솎아내기</h2>
+
+<h3>충돌은 버그가 아니라 "결정 트리거"</h3>
+<p class="muted">두 기획 자료가 모순되면 → 충돌 로그에 등록(아직 무엇이 맞는지 미정) → 결정(GDR/ADR)이 판정한다. 충돌은 결정을 강제하는 신호다.</p>
+<div class="flow">
+  <div class="st" style="background:var(--red-bg);color:var(--red)">기획 A ⨯ 기획 B<br><span style="font-size:11px">모순</span></div>
+  <div class="ar">→</div>
+  <div class="st">충돌 로그 등록<br><span class="muted" style="font-size:11px">conflicts.md</span></div>
+  <div class="ar">→</div>
+  <div class="st" style="background:var(--blue-bg);color:var(--blue)">결정이 판정<br><span style="font-size:11px">GDR / ADR</span></div>
+  <div class="ar">→</div>
+  <div class="st" style="background:var(--green-bg);color:var(--green)">A 채택 / B superseded</div>
+</div>
+
+<h3>outdated — 출처·버전·스테일 스윕</h3>
+<p class="muted">기획 doc이 갱신·폐기되면, 그 소스에서 나온 항목을 자동 색출해 재검토한다. 기존 <code>source</code>/<code>verified</code> + <code>check-wiki-stale.sh</code> 메커니즘을 그대로 확장.</p>
+<div class="flow">
+  <div class="st" style="background:var(--amber-bg);color:var(--amber)">소스 doc 갱신 / 폐기</div>
+  <div class="ar">→</div>
+  <div class="st">파생 항목 <code>stale</code> 플래그</div>
+  <div class="ar">→</div>
+  <div class="st" style="background:var(--blue-bg);color:var(--blue)">재트리아지<br><span style="font-size:11px">유효? superseded? 기각?</span></div>
+</div>
+
+<h3>산출물 — 레지스터 3종 (표 형태)</h3>
+<div class="card" style="padding:14px 16px">
+  <p style="margin:0 0 4px"><strong>decision-backlog.md</strong> <span class="muted" style="font-size:13px">— 후보 백로그</span></p>
+  <table class="mini">
+    <thead><tr><th>후보ID</th><th>source@ver</th><th>유형</th><th>상태</th><th>결정</th></tr></thead>
+    <tbody>
+      <tr><td class="term">C-014</td><td>design-combat@2</td><td><span class="tag t-gdr">GDR</span></td><td>채택→승격</td><td>GDR-0002</td></tr>
+      <tr><td class="term">C-021</td><td>design-combat@2</td><td>—</td><td>요구사항only</td><td>—</td></tr>
+      <tr><td class="term">C-022</td><td>design-coop@1</td><td><span class="tag t-fsb">FSB</span></td><td>충돌</td><td>→ CF-3</td></tr>
+      <tr><td class="term">C-030</td><td>design-mine@1</td><td>—</td><td>stale</td><td>재검토</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="grid2" style="margin-top:12px">
+  <div class="card" style="padding:14px 16px">
+    <p style="margin:0 0 4px"><strong>sources.md</strong> <span class="muted" style="font-size:13px">— 출처 레지스트리</span></p>
+    <table class="mini">
+      <thead><tr><th>소스ID</th><th>ver</th><th>상태</th></tr></thead>
+      <tbody>
+        <tr><td class="term">design-combat</td><td>2</td><td><span class="pill go" style="font-size:11px">active</span></td></tr>
+        <tr><td class="term">design-coop</td><td>1</td><td><span class="pill go" style="font-size:11px">active</span></td></tr>
+        <tr><td class="term">design-mine</td><td>1</td><td><span class="pill" style="font-size:11px">superseded</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card" style="padding:14px 16px">
+    <p style="margin:0 0 4px"><strong>conflicts.md</strong> <span class="muted" style="font-size:13px">— 충돌 로그</span></p>
+    <table class="mini">
+      <thead><tr><th>충돌ID</th><th>내용</th><th>해소</th></tr></thead>
+      <tbody>
+        <tr><td class="term">CF-3</td><td>동접 4 vs 5</td><td>GDR-0001</td></tr>
+        <tr><td class="term">CF-5</td><td>사망 처리 상이</td><td><span class="muted">미해소</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h3>pB 맞춤 — 이미 가진 걸 그대로</h3>
 <ul>
-  <li><strong>GDR/FSB →</strong> 관련 as-built 현황(<code>[[authority-model]]</code> 등) + 이슈 R-ID(<code>[[risk-register]]</code>) + 근거 <code>ADR</code></li>
-  <li><strong>현황 문서 →</strong> "이 설계의 근거 결정" 으로 GDR/FSB 역링크</li>
-  <li><strong>하네스 사이클 ⑦plan·⑧result</strong> 에서 경계 결정이 나오면 GDR/FSB로 승격(휘발 → 영속)</li>
+  <li>하네스 <code>unity-pipeline</code>의 <strong>scope 단계 = 인테이크</strong>(후보 추출+트리아지), <strong>result 단계 = 승격</strong>. 새 도구가 아니라 사이클 산출을 결정 레이어로 흘려보냄.</li>
+  <li>레지스터 표 패턴(<code>risk-register</code>)·dedup(216→133)·<code>status</code>·append-only·스테일 점검 전부 재사용.</li>
 </ul>
 
-<h3>④ 무엇이 새 결정을 촉발하나 (trigger)</h3>
-<div class="flow">
-  <div class="st">새 기획 의도</div><div class="ar">→</div>
-  <div class="st">이슈 레지스터 ⚠ 항목</div><div class="ar">→</div>
-  <div class="st">사이클 중 발견</div><div class="ar">→</div>
-  <div class="st" style="background:var(--blue-bg);color:var(--blue)">GDR / FSB 작성</div>
-</div>
-
-<h2 id="types"><span class="n">04</span> 기록 3종 + 템플릿</h2>
-
-<h3><span class="tag t-adr">ADR</span> 기술 결정 (기존 — 그대로 유지)</h3>
-<p class="muted">pB에 이미 있는 형식. <code>.foam/templates/adr-template.md</code>.</p>
+<h2 id="types"><span class="n">07</span> 기록 3종 + 템플릿</h2>
+<h3><span class="tag t-adr">ADR</span> 기술 결정 (기존 — 그대로)</h3>
 <pre><span class="c"># ADR-NNNN · 제목</span>
-## 맥락 (Context)        <span class="c"># 왜 이 결정이 필요한가</span>
+## 맥락 (Context)
 ## 검토한 선택지 (Options)
 ## 결정 (Decision)
 ## 근거 (Rationale)
 ## 영향 (Consequences)</pre>
 
 <h3><span class="tag t-gdr">GDR</span> 게임 기획 결정 (신설)</h3>
-<p class="muted">ADR 형식 + pB 3렌즈. frontmatter는 위키 규약(<code>_wiki-conventions</code>)을 따른다.</p>
 <pre><span class="c">---
 title: 사망-규칙
 tags: [decision, gdr, gameplay]
-status: proposed        # proposed→accepted→implemented→superseded
+status: proposed
+source: [design-combat@2]      # 출처 doc@버전
 verified: 2026-06-16
 ---</span>
 # GDR-0002 · 사망 규칙
-## 맥락          <span class="c"># 어떤 기획 문제·목표인가</span>
-## 검토한 선택지   <span class="c"># 영구사망 / 루트 드롭 / 부활 … 각 장단</span>
-## 결정
-## 근거          <span class="c"># 플레이테스트·코어루프 근거</span>
-## 🔗 네트워크·권위·동기화   <span class="c"># [의무] 누가 권위? sync? 난입 시?</span>
-## 📊 데이터·튜닝            <span class="c"># [의무] 어떤 SO/수치 → 데이터 파이프라인</span>
+## 맥락 / 검토한 선택지 / 결정 / 근거
+## 🔗 네트워크·권위·동기화   <span class="c"># [의무]</span>
+## 📊 데이터·튜닝            <span class="c"># [의무]</span>
 ## ✅ 검증                  <span class="c"># [의무] M-지표 / SCN / 수용기준</span>
 ## 영향 / 관련 문서</pre>
 
 <h3><span class="tag t-fsb">FSB</span> 기능·시스템 브리지 (신설 — 핵심)</h3>
-<p class="muted">한 기능을 세로로 관통. 하네스 사이클의 spec+plan을 <em>결정 수준으로 영속화</em>한 형태.</p>
 <pre><span class="c">---
 title: 채굴-지형파괴-동기화
 tags: [decision, fsb, mining, network]
 status: proposed
+source: [design-mine@1]
 verified: 2026-06-16
 ---</span>
 # FSB-mining · 채굴 / 지형 파괴 동기화
-## 기획 의도        <span class="c"># 무엇을, 왜 (플레이어 경험)</span>
-## 시스템           <span class="c"># 건드리는 코드/매니저 (CaveManager 등)</span>
-## 📊 데이터·튜닝     <span class="c"># SO·수치·itemID</span>
-## 🔗 네트워크·권위·동기화  <span class="c"># 어디까지 결정적? 무엇을 sync? 대역폭?</span>
-## ✅ 검증           <span class="c"># M-지표·SCN·수용기준</span>
-## 미해결 / 리스크    <span class="c"># → risk-register R-ID 링크</span>
-## 관련 문서        <span class="c"># 현황·ADR·이슈 역링크</span></pre>
+## 기획 의도 / 시스템
+## 📊 데이터·튜닝
+## 🔗 네트워크·권위·동기화
+## ✅ 검증
+## 미해결 / 리스크   <span class="c"># → risk-register R-ID</span>
+## 관련 문서</pre>
 
-<h2 id="lens"><span class="n">05</span> pB 의무 3렌즈</h2>
-<p class="muted">모든 GDR·FSB가 반드시 답해야 하는 3가지. 위키 토픽 문서에서 <code>## ⚠ 비판·리스크</code>가 의무인 것과 같은 원리 — 빠지면 나중에 이슈 레지스터에 ⚠로 반드시 되돌아온다.</p>
+<h2 id="lens"><span class="n">08</span> pB 의무 3렌즈</h2>
+<p class="muted">모든 GDR·FSB가 반드시 답한다. 위키 토픽 문서의 <code>## ⚠ 비판·리스크</code>가 의무인 것과 같은 원리 — 빠지면 나중에 이슈 레지스터에 ⚠로 되돌아온다.</p>
 <div class="lenses">
-  <div class="lens net"><div class="lt">🔗 네트워크 · 권위 · 동기화</div><div class="ld">누가 권위(Owner/Server)? 동기화 방식? 대역폭? 난입·재접속 시 동작?</div></div>
-  <div class="lens dat"><div class="lt">📊 데이터 · 튜닝</div><div class="ld">어떤 ScriptableObject·수치를 쓰나? itemID·밸런스 → 데이터 파이프라인 연결.</div></div>
-  <div class="lens ver"><div class="lt">✅ 검증</div><div class="ld">어떤 M-지표 / SCN 시나리오 / 수용기준으로 "됐다"를 판정하나?</div></div>
+  <div class="lens net"><div class="lt">🔗 네트워크 · 권위 · 동기화</div><div class="ld">누가 권위(Owner/Server)? 동기화 방식? 대역폭? 난입·재접속 시?</div></div>
+  <div class="lens dat"><div class="lt">📊 데이터 · 튜닝</div><div class="ld">어떤 ScriptableObject·수치? itemID·밸런스 → 데이터 파이프라인.</div></div>
+  <div class="lens ver"><div class="lt">✅ 검증</div><div class="ld">어떤 M-지표 / SCN 시나리오 / 수용기준으로 "됐다"를 판정?</div></div>
 </div>
-
 <h3>FSB는 한 기능을 세로로 관통한다</h3>
 <div class="flow">
   <div class="st">기획 의도</div><div class="ar">→</div>
@@ -255,27 +354,27 @@ verified: 2026-06-16
   <div class="st" style="background:var(--green-bg);color:var(--green)">검증 (M-지표)</div>
 </div>
 
-<h2 id="seeds"><span class="n">06</span> 씨앗 예시 (pB 실제 미결정)</h2>
+<h2 id="seeds"><span class="n">09</span> 씨앗 예시 (pB 실제 미결정)</h2>
 <div class="grid2">
-  <div class="card"><div class="rn"><span class="tag t-gdr">GDR-0001</span></div><p style="margin:8px 0 0"><strong>최대 동접 4 → 5</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">코드 <code>maxPlayers=4</code> vs 기획 2-5인 충돌. 로비·대역폭·스폰 영향. → 이슈 <code>R-004</code>.</p></div>
-  <div class="card"><div class="rn"><span class="tag t-gdr">GDR-0002</span></div><p style="margin:8px 0 0"><strong>사망 규칙</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">영구사망 / 루트 드롭 / 부활? 권위·드롭 스폰·세이브 영향 큼.</p></div>
+  <div class="card"><div class="rn"><span class="tag t-gdr">GDR-0001</span></div><p style="margin:8px 0 0"><strong>최대 동접 4 → 5</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">코드 <code>maxPlayers=4</code> vs 기획 2-5인. 충돌 <code>CF-3</code> · 이슈 <code>R-004</code>.</p></div>
+  <div class="card"><div class="rn"><span class="tag t-gdr">GDR-0002</span></div><p style="margin:8px 0 0"><strong>사망 규칙</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">영구사망 / 루트 드롭 / 부활? 권위·드롭 스폰·세이브 영향.</p></div>
   <div class="card"><div class="rn"><span class="tag t-fsb">FSB-mining</span></div><p style="margin:8px 0 0"><strong>채굴 / 지형 파괴 동기화</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">GPGPU 동굴 ↔ NGO. 어디까지 결정적? 무엇을 sync?</p></div>
-  <div class="card"><div class="rn"><span class="tag t-fsb">FSB-trust</span></div><p style="margin:8px 0 0"><strong>신뢰 시스템</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">수용 공식 + 4티어 상태머신 + N:M 동기화 대역폭. → 이슈 <code>R-067</code>.</p></div>
+  <div class="card"><div class="rn"><span class="tag t-fsb">FSB-trust</span></div><p style="margin:8px 0 0"><strong>신뢰 시스템</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">수용 공식 + 4티어 상태머신 + N:M 동기화. 이슈 <code>R-067</code>.</p></div>
 </div>
 
-<h2 id="ops"><span class="n">07</span> 운영 규칙</h2>
+<h2 id="ops"><span class="n">10</span> 운영 규칙</h2>
 <ul>
-  <li><strong>위치</strong>: <code>Docs/game-dev-wiki/13-decisions/</code> (허브 + GDR/FSB 문서). ADR은 기존대로 <code>02-architecture/</code>.</li>
-  <li><strong>ID</strong>: <code>ADR-NNNN</code>(기존) · <code>GDR-NNNN</code> · <code>FSB-&lt;슬러그&gt;</code>.</li>
+  <li><strong>위치</strong>: <code>Docs/game-dev-wiki/13-decisions/</code>(허브 + 결정 + 백로그/출처/충돌 레지스터). ADR은 기존대로 <code>02-architecture/</code>.</li>
+  <li><strong>ID</strong>: <code>ADR-NNNN</code> · <code>GDR-NNNN</code> · <code>FSB-&lt;슬러그&gt;</code> · 후보 <code>C-NNN</code> · 충돌 <code>CF-N</code>.</li>
   <li><strong>append-only</strong>: 기존 결정 수정 금지. 대체 시 새 ID + 옛 결정 <code>superseded</code>.</li>
-  <li><strong>frontmatter</strong>: 기존 위키 규약(<code>_wiki-conventions</code>) 그대로 + <code>status</code>에 proposed/accepted/implemented/superseded 사용.</li>
-  <li><strong>링크 규약</strong>: 결정 → 현황·이슈·ADR 양방향 위키링크 <code>[[slug|한글]]</code>.</li>
-  <li><strong>하네스 연계</strong>: 사이클 result에서 나온 경계 결정을 GDR/FSB로 승격(휘발 → 영속).</li>
+  <li><strong>출처 인용</strong>: 모든 후보·결정의 frontmatter에 <code>source: [doc@버전]</code>. 소스 변경 시 스테일 스윕으로 재트리아지.</li>
+  <li><strong>케이던스</strong>: 기획 doc 인입 시 1회 트리아지 패스 → 주기 스윕으로 hold·stale 재검토. <strong>결정 오너(채택 확정자)</strong>를 명시.</li>
+  <li><strong>링크 규약</strong>: 결정 ↔ 현황·이슈·ADR 양방향 <code>[[slug|한글]]</code>.</li>
 </ul>
 
 <footer>
   pB game-dev-wiki · 결정 레이어 가이드 · 상태: 제안(proposed) · 2026-06-16<br>
-  채택하면 <code>13-decisions/</code> 허브 + <code>.foam/templates</code>의 GDR·FSB 템플릿 + 씨앗 문서로 정식 편입합니다.
+  채택하면 <code>13-decisions/</code> 허브 + <code>.foam/templates</code>의 GDR·FSB 템플릿 + 백로그/출처/충돌 레지스터 + 씨앗 문서로 정식 편입합니다.
 </footer>
 
 </div>
