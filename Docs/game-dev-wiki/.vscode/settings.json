@@ -1,0 +1,7 @@
+{
+  "editor.wordWrap": "on",
+  "[markdown]": {
+    "editor.quickSuggestions": { "other": true, "comments": false, "strings": false }
+  },
+  "foam.openDailyNote.directory": "journal"
+}

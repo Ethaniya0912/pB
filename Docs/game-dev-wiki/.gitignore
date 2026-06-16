@@ -1,0 +1,6 @@
+# Foam / VS Code
+.foam/cache/
+
+# OS
+.DS_Store
+Thumbs.db
