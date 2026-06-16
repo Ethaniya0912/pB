@@ -39,6 +39,53 @@ verified: 2026-06-15
 - [[09-security-hub|09 · 보안 / 안티치트]] — 안티치트 · 서버 권위
 - [[10-infra-hub|10 · 서버 호스팅 인프라]] — 서버 호스팅
 - [[11-ops-biz-hub|11 · 운영 & Steamworks 행정]] — Steamworks 행정
+- [[12-issues-hub|12 · 이슈·리스크 레지스터]] — 비판·권고·이슈 종합 (각 문서 `⚠ 비판·리스크` 집계)
+
+## 🗺️ 위키 지도
+
+```mermaid
+flowchart TB
+  HOME["🗺️ pB Game Dev Wiki"]
+  HOME --> F0["00 개요"]
+  HOME --> F1["01 기반"]
+  HOME --> F2["02 아키텍처"]
+  HOME --> F3["03 네트워크 ⭐"]
+  HOME --> F4["04 Steam ⭐"]
+  HOME --> F5["05 코어"]
+  HOME --> F6["06 데이터"]
+  HOME --> F7["07 빌드·CI"]
+  HOME --> F8["08 QA"]
+  HOME --> F9["09 보안"]
+  HOME --> F10["10 인프라"]
+  HOME --> F11["11 운영"]
+  HOME --> F12["12 이슈 레지스터 🆕"]
+  classDef star fill:#fde68a,stroke:#b45309,color:#000;
+  class F3,F4 star;
+```
+
+## 📐 도표 인덱스 (Mermaid)
+
+각 문서에 박힌 Mermaid 도표 모음. **✅ 현재 구현 / 🎯 목표·권장**(목표는 `## 🎯 목표·권장` 헤더에 별도 정리).
+
+| 영역 | 문서 | 도표 | 유형 |
+|---|---|---|---|
+| 기반 | [[project-structure\|프로젝트-구조]] | 코어 모듈 맵 | ✅ |
+| 기반 | [[assembly-definition\|assembly-definition]] | 현재 단일 어셈블리 / 권장 분리 | ✅🎯 |
+| 아키텍처 | [[ai-bridge-architecture\|ai-bridge-아키텍처]] | AI 도메인·Bridge 결합 | ✅ |
+| 네트워크 | [[authority-model\|권한-모델]] | 권한별 write 주체 | ✅ |
+| 네트워크 | [[state-sync\|상태-동기화]] | 데미지 RPC 왕복 | ✅ |
+| 네트워크 | [[prediction-reconciliation\|예측-재조정-보간]] | 현재 보간 / 목표 예측+재조정 | ✅🎯 |
+| 네트워크 | [[lag-compensation\|랙-보상]] | rewind 기법 | 🎯 |
+| 네트워크 | [[network-topology\|네트워크-토폴로지]] | 연결/세션 상태 | ✅ |
+| Steam | [[lobby-matchmaking\|로비-매치메이킹]] | 접속 전체 흐름 | ✅ |
+| Steam | [[steamworks-integration\|steamworks-통합]] | 현재 인증 / 목표 티켓 검증 | ✅🎯 |
+| Steam | [[steam-build-pipeline\|steam-빌드-파이프라인]] | 권장 SteamPipe 흐름 | 🎯 |
+| 코어 | [[object-pooling\|오브젝트-풀링]] | 현재 생성·파괴 / 목표 풀 | ✅🎯 |
+| 코어 | [[save-load\|세이브-로드]] | 세이브 분기 / 목표 클라우드 | ✅🎯 |
+| 코어 | [[scene-manager\|씬-매니저]] | 씬 흐름 + GameState | ✅ |
+| 코어 | [[ui-framework\|ui-프레임워크]] | 화면 전환 맵 | ✅ |
+| 데이터 | [[data-pipeline\|데이터-파이프라인]] | 데이터 흐름(ID) | ✅ |
+| 인프라 | [[server-hosting\|서버-호스팅]] | 현재 세션소멸 / 목표 마이그레이션 | ✅🎯 |
 
 ## 태그 빠른 찾기
 `#network` `#steam` `#architecture` `#tooling` `#security` `#decision` `#adr`
