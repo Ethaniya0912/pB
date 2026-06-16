@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pB 결정 레이어 — 기획↔개발 브리지 가이드</title>
+<style>
+  :root{
+    --bg:#f6f8fa; --surface:#ffffff; --surface2:#f0f3f7; --text:#1b1f24; --muted:#586472; --faint:#8a94a0; --border:#e1e6ec;
+    --blue:#2563eb; --blue-bg:#e9f1ff; --teal:#0f766e; --teal-bg:#e2f4f1; --amber:#b45309; --amber-bg:#fbeed7;
+    --green:#15803d; --green-bg:#e6f6ec; --slate:#475569; --slate-bg:#eceff3; --red:#b91c1c; --red-bg:#fcebeb;
+    --radius:12px; --radius-sm:8px;
+    --mono:ui-monospace,SFMono-Regular,"Cascadia Code",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d1117; --surface:#161b22; --surface2:#1c232c; --text:#e6e9ee; --muted:#9aa4b0; --faint:#6b7480; --border:#272e37;
+      --blue:#79a6ff; --blue-bg:#16233c; --teal:#5fd3c4; --teal-bg:#0f2e2a; --amber:#e3a857; --amber-bg:#34270f;
+      --green:#6fce8f; --green-bg:#10301c; --slate:#9fb0c3; --slate-bg:#20262e; --red:#f07a7a; --red-bg:#341416;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:16px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 80px}
+  header.top{padding:40px 0 20px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  .kicker{font-size:13px;color:var(--blue);letter-spacing:.04em;margin:0 0 6px}
+  h1{font-size:30px;font-weight:600;margin:0 0 10px;letter-spacing:-.01em}
+  .lede{font-size:17px;color:var(--muted);margin:0;max-width:70ch}
+  h2{font-size:21px;font-weight:600;margin:48px 0 14px;padding-top:8px;display:flex;align-items:center;gap:10px}
+  h2 .n{font-size:13px;color:var(--faint);font-family:var(--mono);font-weight:500}
+  h3{font-size:16px;font-weight:600;margin:22px 0 8px}
+  p{margin:10px 0}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface2);padding:2px 6px;border-radius:6px}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .muted{color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+  nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+  nav.toc a{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 12px}
+  nav.toc a:hover{color:var(--text);text-decoration:none;border-color:var(--blue)}
+
+  /* layer map */
+  .layers{display:flex;flex-direction:column;gap:0;margin:8px 0}
+  .band{border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;background:var(--surface)}
+  .band .bt{font-weight:600;font-size:15px}
+  .band .bd{font-size:13px;color:var(--muted);margin-top:2px}
+  .band.bridge{border:2px solid var(--blue);background:var(--blue-bg)}
+  .band.bridge .bt{color:var(--blue)}
+  .down{align-self:center;color:var(--faint);font-size:20px;line-height:1;margin:6px 0}
+  .recs{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}
+  .rec{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px}
+  .rec .rn{font-weight:600;display:flex;align-items:center;gap:8px}
+  .rec .rr{font-size:13px;color:var(--muted);margin:3px 0 0}
+  .rec .re{font-size:12px;color:var(--faint);margin-top:6px}
+  .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-adr{background:var(--slate-bg);color:var(--slate)} .t-gdr{background:var(--blue-bg);color:var(--blue)} .t-fsb{background:var(--teal-bg);color:var(--teal)}
+
+  /* anatomy */
+  .flow{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;margin:10px 0}
+  .flow .st{flex:1;min-width:96px;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 8px;text-align:center;font-size:13px}
+  .flow .ar{display:flex;align-items:center;color:var(--faint)}
+
+  /* lenses */
+  .lenses{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:10px 0}
+  .lens{border-radius:var(--radius-sm);padding:14px 16px}
+  .lens .lt{font-weight:600;font-size:14px}
+  .lens .ld{font-size:13px;margin-top:5px}
+  .lens.net{background:var(--blue-bg)} .lens.net .lt,.lens.net .ld{color:var(--blue)}
+  .lens.dat{background:var(--amber-bg)} .lens.dat .lt,.lens.dat .ld{color:var(--amber)}
+  .lens.ver{background:var(--green-bg)} .lens.ver .lt,.lens.ver .ld{color:var(--green)}
+
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em}
+  td:first-child{white-space:nowrap}
+  tbody tr:hover{background:var(--surface2)}
+  .term{font-family:var(--mono);font-weight:600;color:var(--text)}
+
+  pre{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;overflow:auto;font-family:var(--mono);font-size:13px;line-height:1.55;color:var(--text)}
+  pre .c{color:var(--faint)}
+  .pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .pill{font-size:12px;background:var(--surface2);border-radius:999px;padding:4px 12px;color:var(--muted)}
+  .pill.go{background:var(--green-bg);color:var(--green)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .note{border-left:3px solid var(--blue);background:var(--blue-bg);padding:10px 14px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:14px;color:var(--text)}
+  ul{margin:8px 0;padding-left:20px} li{margin:4px 0}
+  footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+  .badge{display:inline-block;font-size:11px;color:var(--amber);background:var(--amber-bg);padding:2px 9px;border-radius:999px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <p class="kicker">pB · game-dev-wiki</p>
+  <h1>결정 레이어 — 기획 ↔ 개발 브리지 가이드</h1>
+  <p class="lede">기획서와 코드 사이에서 "이건 기획 결정이자 동시에 기술 약속"인 <strong>경계 결정</strong>을 영속적으로 박제하는 문서·도표 체계. pB는 멀티플레이 + 시뮬레이션(팩션·신뢰·트라우마)이라 거의 모든 기획 결정이 권위·동기화·튜닝과 직결됩니다.</p>
+  <p style="margin-top:12px"><span class="badge">제안 (proposed)</span> <span class="muted" style="font-size:13px">— 아직 채택 전 초안. 채택 시 <code>13-decisions/</code> 섹션으로 정식 편입.</span></p>
+</header>
+
+<nav class="toc">
+  <a href="#map">1 · 레이어 지도</a>
+  <a href="#glossary">2 · 용어 설명</a>
+  <a href="#flow">3 · 결정 흐름</a>
+  <a href="#types">4 · 기록 3종 + 템플릿</a>
+  <a href="#lens">5 · pB 의무 3렌즈</a>
+  <a href="#seeds">6 · 씨앗 예시</a>
+  <a href="#ops">7 · 운영 규칙</a>
+</nav>
+
+<h2 id="map"><span class="n">01</span> 레이어 지도</h2>
+<p class="muted">기획(의도)과 개발(현실) 사이에 결정 레이어가 들어가, 둘을 잇는다. 가운데가 지금 비어 있는 칸이다.</p>
+<div class="layers">
+  <div class="band">
+    <div class="bt">🎨 기획 (의도)</div>
+    <div class="bd">코어루프 · 장르 · 동접 · 내러티브 — <code>00-overview/project-overview</code></div>
+  </div>
+  <div class="down">↓</div>
+  <div class="band bridge">
+    <div class="bt">🌉 결정 레이어 — 기획 ↔ 개발 경계 <span class="muted" style="font-weight:400">(신설)</span></div>
+    <div class="recs">
+      <div class="rec"><div class="rn"><span class="tag t-adr">ADR</span> 기술 결정</div><div class="rr">기술 선택·트레이드오프 (기존)</div><div class="re">예: NGO + Steam P2P · URP + SSGI</div></div>
+      <div class="rec"><div class="rn"><span class="tag t-gdr">GDR</span> 기획 결정</div><div class="rr">게임 디자인 결정 + 근거 (신설)</div><div class="re">예: 사망 = 루트 드롭? · 동접 5인?</div></div>
+      <div class="rec"><div class="rn"><span class="tag t-fsb">FSB</span> 기능·시스템 브리지</div><div class="rr">한 기능을 세로로 관통 (신설)</div><div class="re">예: 채굴 동기화 · 신뢰 시스템</div></div>
+    </div>
+  </div>
+  <div class="down">↓</div>
+  <div class="band">
+    <div class="bt">⚙️ 개발 (현실)</div>
+    <div class="bd">as-built 현황 + 비판 · 이슈 레지스터(<code>12-issues</code>) · 코드 / 하네스 사이클</div>
+  </div>
+</div>
+<div class="note">이슈 레지스터의 <strong>⚠ 비판·리스크</strong> 항목이 거꾸로 새 결정을 촉발한다(개발 → 결정 레이어 피드백). 즉 양방향이다.</div>
+
+<h2 id="glossary"><span class="n">02</span> 용어 설명</h2>
+<table>
+  <thead><tr><th style="width:170px">용어</th><th>뜻</th></tr></thead>
+  <tbody>
+    <tr><td class="term">결정 레이어</td><td>기획과 개발 사이에서 경계 결정을 모으는 위키 섹션(<code>13-decisions/</code>). 이 가이드가 설명하는 대상.</td></tr>
+    <tr><td class="term">ADR</td><td>Architecture Decision Record — <strong>기술 결정</strong> 기록. 형식: 맥락 / 검토한 선택지 / 결정 / 근거 / 영향. pB에 이미 존재(<code>02-architecture/adr-0001-netcode</code> 등).</td></tr>
+    <tr><td class="term">GDR</td><td>Game Design Decision Record — <strong>게임 기획 결정</strong> 기록. ADR과 같은 형식에 <em>기술·네트워크 영향</em> 섹션을 더한 것. (신설)</td></tr>
+    <tr><td class="term">FSB</td><td>Feature / System Bridge — <strong>기능·시스템 브리지</strong> 문서. 한 기능을 기획 의도 → 시스템 → 데이터 → 네트워크 → 검증으로 세로 관통해 기획서와 코드를 한 문서로 잇는다. 결정 레이어의 핵심 산출물. (신설)</td></tr>
+    <tr><td class="term">3렌즈</td><td>모든 GDR·FSB의 <strong>의무 섹션 3개</strong> — ① 네트워크·권위·동기화 ② 데이터·튜닝 ③ 검증. "기획 결정"을 "기술 약속"으로 번역하는 장치.</td></tr>
+    <tr><td class="term">M-지표</td><td>프로젝트의 정량 측정 지표(M1~M11). 예: M5 판정 일치율, M6 대역폭. 검증 렌즈에서 "이 수치로 됐다고 판정"에 인용.</td></tr>
+    <tr><td class="term">SCN</td><td>테스트 시나리오(SCN-01~07). 예: SCN-06 AI 20기 부하. 검증 렌즈에서 인용.</td></tr>
+    <tr><td class="term">P-code</td><td>Netcode 실행계획의 작업 코드(예: P0-3 방어/패링 권위, P2-6 재접속). 결정 → 작업 추적 연결 고리.</td></tr>
+    <tr><td class="term">status</td><td>결정의 수명 상태: <code>proposed</code> → <code>accepted</code> → <code>implemented</code> → <code>superseded</code>.</td></tr>
+    <tr><td class="term">append-only</td><td>결정은 수정하지 않는다. 바뀌면 옛 결정을 <code>superseded</code>로 표시하고 새 ID로 추가. (ADR 규약과 동일)</td></tr>
+    <tr><td class="term">as-built / 현황</td><td>코드 실측 기반 현재 구현. 위키 토픽 문서의 <code>## 현황 (pB)</code>. 결정 레이어가 "왜·무엇을 정했나"라면, 현황은 "지금 실제로 어떻게 돼 있나".</td></tr>
+    <tr><td class="term">⚠ 비판·리스크</td><td>위키 토픽 문서 의무 섹션. 약점·부채·미검증 가정. <code>12-issues</code> 레지스터(R-001~)로 집계됨.</td></tr>
+    <tr><td class="term">하네스 사이클</td><td><code>.harness</code>의 8단계 작업 파이프라인(target→goal→scope→assets→spec→test_env→plan→result). 휘발성(작업 단위). 경계 결정이 나오면 GDR/FSB로 <em>승격</em>해 영속화.</td></tr>
+    <tr><td class="term">권위 (authority)</td><td>네트워크에서 특정 상태를 누가 쓰는가(Owner-write / Server-write). pB 권한 모델은 <code>03-network/authority-model</code> 참조.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="flow"><span class="n">03</span> 결정 흐름</h2>
+
+<h3>① 어떤 기록을 만드나 (분기)</h3>
+<table>
+  <thead><tr><th style="width:200px">이 결정은…</th><th>만들 기록</th></tr></thead>
+  <tbody>
+    <tr><td>순수 기술 선택인가? <span class="muted">(엔진·라이브러리·아키텍처)</span></td><td><span class="tag t-adr">ADR</span> &nbsp;<span class="muted">02-architecture</span></td></tr>
+    <tr><td>게임 디자인 선택인가? <span class="muted">(규칙·진행·밸런스·내러티브)</span></td><td><span class="tag t-gdr">GDR</span> &nbsp;<span class="muted">+ 기술·네트워크 영향 필수</span></td></tr>
+    <tr><td>한 기능/시스템을 기획→코드로 관통해야 하나?</td><td><span class="tag t-fsb">FSB</span> &nbsp;<span class="muted">기능 해부 문서</span></td></tr>
+    <tr><td>작은 결정이라 전체 기록은 과한가?</td><td><span class="muted">결정 로그 한 줄 (선택) → 커지면 위로 승격</span></td></tr>
+  </tbody>
+</table>
+
+<h3>② 수명 (lifecycle)</h3>
+<div class="pills">
+  <span class="pill">proposed <span class="muted">초안</span></span><span class="muted">→</span>
+  <span class="pill">accepted <span class="muted">합의</span></span><span class="muted">→</span>
+  <span class="pill go">implemented <span style="opacity:.8">현황 링크</span></span><span class="muted">→</span>
+  <span class="pill">superseded <span class="muted">대체됨</span></span>
+</div>
+<p class="muted"><code>implemented</code>가 되면 해당 결정 문서는 as-built 현황 문서로 링크를 건다(이 결정이 코드의 어디로 실현됐는지). 대체될 땐 옛 문서를 지우지 않고 <code>superseded</code> 표시 + 새 결정 링크.</p>
+
+<h3>③ 연결 (양방향 링크)</h3>
+<ul>
+  <li><strong>GDR/FSB →</strong> 관련 as-built 현황(<code>[[authority-model]]</code> 등) + 이슈 R-ID(<code>[[risk-register]]</code>) + 근거 <code>ADR</code></li>
+  <li><strong>현황 문서 →</strong> "이 설계의 근거 결정" 으로 GDR/FSB 역링크</li>
+  <li><strong>하네스 사이클 ⑦plan·⑧result</strong> 에서 경계 결정이 나오면 GDR/FSB로 승격(휘발 → 영속)</li>
+</ul>
+
+<h3>④ 무엇이 새 결정을 촉발하나 (trigger)</h3>
+<div class="flow">
+  <div class="st">새 기획 의도</div><div class="ar">→</div>
+  <div class="st">이슈 레지스터 ⚠ 항목</div><div class="ar">→</div>
+  <div class="st">사이클 중 발견</div><div class="ar">→</div>
+  <div class="st" style="background:var(--blue-bg);color:var(--blue)">GDR / FSB 작성</div>
+</div>
+
+<h2 id="types"><span class="n">04</span> 기록 3종 + 템플릿</h2>
+
+<h3><span class="tag t-adr">ADR</span> 기술 결정 (기존 — 그대로 유지)</h3>
+<p class="muted">pB에 이미 있는 형식. <code>.foam/templates/adr-template.md</code>.</p>
+<pre><span class="c"># ADR-NNNN · 제목</span>
+## 맥락 (Context)        <span class="c"># 왜 이 결정이 필요한가</span>
+## 검토한 선택지 (Options)
+## 결정 (Decision)
+## 근거 (Rationale)
+## 영향 (Consequences)</pre>
+
+<h3><span class="tag t-gdr">GDR</span> 게임 기획 결정 (신설)</h3>
+<p class="muted">ADR 형식 + pB 3렌즈. frontmatter는 위키 규약(<code>_wiki-conventions</code>)을 따른다.</p>
+<pre><span class="c">---
+title: 사망-규칙
+tags: [decision, gdr, gameplay]
+status: proposed        # proposed→accepted→implemented→superseded
+verified: 2026-06-16
+---</span>
+# GDR-0002 · 사망 규칙
+## 맥락          <span class="c"># 어떤 기획 문제·목표인가</span>
+## 검토한 선택지   <span class="c"># 영구사망 / 루트 드롭 / 부활 … 각 장단</span>
+## 결정
+## 근거          <span class="c"># 플레이테스트·코어루프 근거</span>
+## 🔗 네트워크·권위·동기화   <span class="c"># [의무] 누가 권위? sync? 난입 시?</span>
+## 📊 데이터·튜닝            <span class="c"># [의무] 어떤 SO/수치 → 데이터 파이프라인</span>
+## ✅ 검증                  <span class="c"># [의무] M-지표 / SCN / 수용기준</span>
+## 영향 / 관련 문서</pre>
+
+<h3><span class="tag t-fsb">FSB</span> 기능·시스템 브리지 (신설 — 핵심)</h3>
+<p class="muted">한 기능을 세로로 관통. 하네스 사이클의 spec+plan을 <em>결정 수준으로 영속화</em>한 형태.</p>
+<pre><span class="c">---
+title: 채굴-지형파괴-동기화
+tags: [decision, fsb, mining, network]
+status: proposed
+verified: 2026-06-16
+---</span>
+# FSB-mining · 채굴 / 지형 파괴 동기화
+## 기획 의도        <span class="c"># 무엇을, 왜 (플레이어 경험)</span>
+## 시스템           <span class="c"># 건드리는 코드/매니저 (CaveManager 등)</span>
+## 📊 데이터·튜닝     <span class="c"># SO·수치·itemID</span>
+## 🔗 네트워크·권위·동기화  <span class="c"># 어디까지 결정적? 무엇을 sync? 대역폭?</span>
+## ✅ 검증           <span class="c"># M-지표·SCN·수용기준</span>
+## 미해결 / 리스크    <span class="c"># → risk-register R-ID 링크</span>
+## 관련 문서        <span class="c"># 현황·ADR·이슈 역링크</span></pre>
+
+<h2 id="lens"><span class="n">05</span> pB 의무 3렌즈</h2>
+<p class="muted">모든 GDR·FSB가 반드시 답해야 하는 3가지. 위키 토픽 문서에서 <code>## ⚠ 비판·리스크</code>가 의무인 것과 같은 원리 — 빠지면 나중에 이슈 레지스터에 ⚠로 반드시 되돌아온다.</p>
+<div class="lenses">
+  <div class="lens net"><div class="lt">🔗 네트워크 · 권위 · 동기화</div><div class="ld">누가 권위(Owner/Server)? 동기화 방식? 대역폭? 난입·재접속 시 동작?</div></div>
+  <div class="lens dat"><div class="lt">📊 데이터 · 튜닝</div><div class="ld">어떤 ScriptableObject·수치를 쓰나? itemID·밸런스 → 데이터 파이프라인 연결.</div></div>
+  <div class="lens ver"><div class="lt">✅ 검증</div><div class="ld">어떤 M-지표 / SCN 시나리오 / 수용기준으로 "됐다"를 판정하나?</div></div>
+</div>
+
+<h3>FSB는 한 기능을 세로로 관통한다</h3>
+<div class="flow">
+  <div class="st">기획 의도</div><div class="ar">→</div>
+  <div class="st">시스템</div><div class="ar">→</div>
+  <div class="st">데이터 (SO)</div><div class="ar">→</div>
+  <div class="st" style="background:var(--blue-bg);color:var(--blue)">네트워크 (권위·sync)</div><div class="ar">→</div>
+  <div class="st" style="background:var(--green-bg);color:var(--green)">검증 (M-지표)</div>
+</div>
+
+<h2 id="seeds"><span class="n">06</span> 씨앗 예시 (pB 실제 미결정)</h2>
+<div class="grid2">
+  <div class="card"><div class="rn"><span class="tag t-gdr">GDR-0001</span></div><p style="margin:8px 0 0"><strong>최대 동접 4 → 5</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">코드 <code>maxPlayers=4</code> vs 기획 2-5인 충돌. 로비·대역폭·스폰 영향. → 이슈 <code>R-004</code>.</p></div>
+  <div class="card"><div class="rn"><span class="tag t-gdr">GDR-0002</span></div><p style="margin:8px 0 0"><strong>사망 규칙</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">영구사망 / 루트 드롭 / 부활? 권위·드롭 스폰·세이브 영향 큼.</p></div>
+  <div class="card"><div class="rn"><span class="tag t-fsb">FSB-mining</span></div><p style="margin:8px 0 0"><strong>채굴 / 지형 파괴 동기화</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">GPGPU 동굴 ↔ NGO. 어디까지 결정적? 무엇을 sync?</p></div>
+  <div class="card"><div class="rn"><span class="tag t-fsb">FSB-trust</span></div><p style="margin:8px 0 0"><strong>신뢰 시스템</strong></p><p class="muted" style="font-size:14px;margin:4px 0 0">수용 공식 + 4티어 상태머신 + N:M 동기화 대역폭. → 이슈 <code>R-067</code>.</p></div>
+</div>
+
+<h2 id="ops"><span class="n">07</span> 운영 규칙</h2>
+<ul>
+  <li><strong>위치</strong>: <code>Docs/game-dev-wiki/13-decisions/</code> (허브 + GDR/FSB 문서). ADR은 기존대로 <code>02-architecture/</code>.</li>
+  <li><strong>ID</strong>: <code>ADR-NNNN</code>(기존) · <code>GDR-NNNN</code> · <code>FSB-&lt;슬러그&gt;</code>.</li>
+  <li><strong>append-only</strong>: 기존 결정 수정 금지. 대체 시 새 ID + 옛 결정 <code>superseded</code>.</li>
+  <li><strong>frontmatter</strong>: 기존 위키 규약(<code>_wiki-conventions</code>) 그대로 + <code>status</code>에 proposed/accepted/implemented/superseded 사용.</li>
+  <li><strong>링크 규약</strong>: 결정 → 현황·이슈·ADR 양방향 위키링크 <code>[[slug|한글]]</code>.</li>
+  <li><strong>하네스 연계</strong>: 사이클 result에서 나온 경계 결정을 GDR/FSB로 승격(휘발 → 영속).</li>
+</ul>
+
+<footer>
+  pB game-dev-wiki · 결정 레이어 가이드 · 상태: 제안(proposed) · 2026-06-16<br>
+  채택하면 <code>13-decisions/</code> 허브 + <code>.foam/templates</code>의 GDR·FSB 템플릿 + 씨앗 문서로 정식 편입합니다.
+</footer>
+
+</div>
+</body>
+</html>
