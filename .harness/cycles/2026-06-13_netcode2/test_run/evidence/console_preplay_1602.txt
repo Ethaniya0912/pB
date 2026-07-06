@@ -1,0 +1,4 @@
+[
+  "[치명적 오류] DepthLayerGPUData의 메모리 크기가 80바이트(16바이트 정렬)가 아닙니다! 현재: 88\nCaveSystem.CaveBiomeSettings:ValidateDataStructures () (at Assets/Scripts/Utilities/Cave Genderator/CaveBiomeSettings.cs:339)\nUnityEditor.EditorAssemblies:ProcessInitializeOnLoadMethodAttributes ()",
+  "Screen Space Global Illumination URP: Material is not using Hidden/Lighting/ScreenSpaceGlobalIllumination shader.\nScreenSpaceGlobalIlluminationURP:Create () (at Assets/Package Install/UnitySSGIURP-main/Runtime/ScreenSpaceGlobalIlluminationURP.cs:255)\nUnityEngine.GUIUtility:ProcessEvent (int,intptr,bool\u0026)"
+]

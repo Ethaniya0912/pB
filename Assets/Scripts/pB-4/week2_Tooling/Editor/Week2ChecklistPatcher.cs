@@ -28,7 +28,7 @@ namespace TDA.PB4.Tooling.Editor
     public static class Week2ChecklistPatcher
     {
         private const string MENU_PATH = "Window/pB-4/Day 5/Patch Checklist (T5.3 entries)";
-        private const string T53_REPORT_REL = "../Reports/Week2_Day5_T5_3_MobRegression.md";
+        private const string T53_REPORT_REL = "../Reports/auto/Week2_Day5_T5_3_MobRegression.md"; // 도구 자동 출력 규약(Reports/_index.md)
         private const string T53_PASS_MARKER = "종합 판정**: ✅ PASS";
 
         [MenuItem(MENU_PATH, priority = 60)]

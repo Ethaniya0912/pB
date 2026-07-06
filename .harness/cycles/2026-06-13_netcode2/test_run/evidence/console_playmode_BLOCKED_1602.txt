@@ -1,0 +1,14 @@
+PLAY MODE VERIFICATION - BLOCKED: Editor offline
+
+unity-cli editor play --wait was issued at 16:02.
+The command returned immediately with: "Error: failed sending command to Unity: cannot connect to Unity"
+Subsequent status checks showed: "Unity: not responding (last heartbeat N ago)"
+Heartbeat counter climbed monotonically from ~1m to 10m+ without ever recovering to "ready".
+
+Conclusion: Unity Editor entered an unresponsive state immediately after the play command was sent.
+Likely cause: domain reload + Steam SDK initialization block on entry to play mode,
+or the connector WebSocket disconnected during the play mode domain reload.
+
+Steps 4-8 (exec, NetSim, M3 disconnect, M8 rehost, editor stop) could NOT be executed.
+
+Evidence of pre-play state (steps 1-2) was successfully captured.

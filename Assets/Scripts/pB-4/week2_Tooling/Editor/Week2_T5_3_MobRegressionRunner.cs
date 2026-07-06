@@ -420,7 +420,7 @@ namespace TDA.PB4.Tooling.MobRegression.Editor
 
                 using (new EditorGUI.DisabledScope(!canExport))
                 {
-                    if (GUILayout.Button("Export Reports/Week2_Day5_T5_3_MobRegression.md", GUILayout.Height(30)))
+                    if (GUILayout.Button("Export Reports/auto/Week2_Day5_T5_3_MobRegression.md", GUILayout.Height(30)))
                         ExportMarkdown();
                 }
                 if (!canExport)
@@ -789,7 +789,7 @@ namespace TDA.PB4.Tooling.MobRegression.Editor
             }
 
             string projectRoot = Directory.GetParent(Application.dataPath)!.FullName;
-            string reportsDir = Path.Combine(projectRoot, "Reports");
+            string reportsDir = Path.Combine(projectRoot, "Reports", "auto"); // 도구 자동 출력 규약(Reports/_index.md)
             Directory.CreateDirectory(reportsDir);
             string outPath = Path.Combine(reportsDir, "Week2_Day5_T5_3_MobRegression.md");
 

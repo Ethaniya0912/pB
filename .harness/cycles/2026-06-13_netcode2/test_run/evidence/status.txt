@@ -1,0 +1,7 @@
+unity-cli status (pre-play): Unity: ready
+  Project: C:/Users/rnk50/Unity/pB
+  Version: 6000.3.1f1
+  Connector: 0.3.22
+  PID: 15344
+
+unity-cli status (post editor play --wait attempt): Unity: not responding (last heartbeat 10m+ ago)

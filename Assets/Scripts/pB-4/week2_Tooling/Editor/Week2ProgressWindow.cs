@@ -8,7 +8,7 @@
 //   2) Day별 항목 그룹 (Day 1~4 + 외부 의존)
 //   3) 항목별 상태 색상 표시 (Passed=초록 / Failed=빨강 / NotChecked=회색 / ExternalDep=파랑)
 //   4) "Re-Evaluate" 버튼 → Tracker.EvaluateAll() 호출
-//   5) "Export to Markdown" 버튼 → Reports/Week2_Progress_*.md 출력
+//   5) "Export to Markdown" 버튼 → Reports/auto/Week2_Progress_*.md 출력
 //   6) 실패 항목 클릭 시 verify 표현식 + 마지막 메시지 표시
 //
 // [Day 5 T5.1 산출물]

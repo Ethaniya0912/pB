@@ -559,7 +559,7 @@ namespace TDA.PB4.Tooling
 
         /// <summary>
         /// 체크리스트 결과를 Markdown 파일로 출력.
-        /// 출력 위치: Assets/../Reports/Week2_Progress_{yyyyMMdd_HHmmss}.md (프로젝트 루트의 Reports 폴더)
+        /// 출력 위치: Assets/../Reports/auto/Week2_Progress_{yyyyMMdd_HHmmss}.md (도구 자동 출력은 Reports/auto — Reports/_index.md 규약)
         /// </summary>
         [ContextMenu("Export to Markdown")]
         public void ExportToMarkdown()
@@ -573,7 +573,7 @@ namespace TDA.PB4.Tooling
             EvaluateAll();
 
             string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-            string reportsDir = Path.Combine(projectRoot, "Reports");
+            string reportsDir = Path.Combine(projectRoot, "Reports", "auto");
             if (!Directory.Exists(reportsDir))
                 Directory.CreateDirectory(reportsDir);
 

@@ -1,0 +1,203 @@
+{
+  "main": {
+    "id": "7a6180a1f2a0e797",
+    "type": "split",
+    "children": [
+      {
+        "id": "b2b7fb815fc09df9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "94758c429e36da04",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "02-architecture/adr-0002-render-pipeline.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "adr-0002-render-pipeline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "eb01236778d3de3c",
+    "type": "split",
+    "children": [
+      {
+        "id": "532442ea9c76dbc6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f44cfb89136ee89d",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "파일 탐색기"
+            }
+          },
+          {
+            "id": "e918784e7b23e947",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "검색"
+            }
+          },
+          {
+            "id": "6aa3a22ce51c2380",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "북마크"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 200
+  },
+  "right": {
+    "id": "93cf38e65dfd9ce2",
+    "type": "split",
+    "children": [
+      {
+        "id": "860eb94fb7ea4d0c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "2da4169321f8ee19",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "02-architecture/adr-0002-render-pipeline.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "adr-0002-render-pipeline 의 백링크"
+            }
+          },
+          {
+            "id": "c670a51e28ff631a",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "02-architecture/adr-0002-render-pipeline.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "adr-0002-render-pipeline 의 나가는 링크"
+            }
+          },
+          {
+            "id": "ffad6455df6e547a",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "태그"
+            }
+          },
+          {
+            "id": "a61a64f0568bfa74",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "모든 속성"
+            }
+          },
+          {
+            "id": "cd8a6c18d454fb5a",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "02-architecture/adr-0002-render-pipeline.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "adr-0002-render-pipeline 의 개요"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:빠른 전환기 열기": false,
+      "graph:그래프 뷰 열기": false,
+      "canvas:새 캔버스 만들기": false,
+      "daily-notes:오늘의 일일 노트 열기": false,
+      "templates:템플릿 삽입": false,
+      "command-palette:명령어 팔레트 열기": false,
+      "bases:새 베이스 생성하기": false
+    }
+  },
+  "active": "94758c429e36da04",
+  "lastOpenFiles": [
+    "02-architecture/adr-template.md",
+    "02-architecture/render-pipeline.md",
+    "02-architecture/ecs-vs-oop.md",
+    "02-architecture/di-container.md",
+    "02-architecture/ai-bridge-architecture.md",
+    "02-architecture/02-architecture-hub.md",
+    "02-architecture/adr-0001-netcode.md",
+    "07-build-ci/07-build-ci-hub.md",
+    "01-foundation/coding-conventions.md",
+    "12-issues/risk-register.md",
+    "12-issues/recommendations.md",
+    "_wiki-conventions.md",
+    "02-architecture/adr-0002-render-pipeline.md",
+    "12-issues/12-issues-hub.md"
+  ]
+}

@@ -104,6 +104,53 @@ cycle_dir() {
   printf '%s' "$cycles/$latest"
 }
 
+# ── Unity 코드 정적 검사 ─────────────────────────────────────────────────────
+# unity_object_classes <file.cs> : 파일에서 UnityEngine.Object 파생 concrete 클래스명을
+#   줄당 1개 출력한다. 규칙: `class X : (ns.)*Base` 의 Base 가 MonoBehaviour /
+#   ScriptableObject / NetworkBehaviour / StateMachineBehaviour 인 것.
+#   abstract/partial 은 제외(첨부 불가 베이스 · 분할 정의).
+#
+# 용도: 이런 클래스는 파일명=클래스명이어야 MonoScript(m_Script) 바인딩이 생긴다.
+#   어긋나면 컴파일은 통과하지만 도메인 리로드 시 missing-script 로 파괴된다
+#   (2026-06-12 NetSimController 회귀의 근본 원인).
+# 한계(비차단 경고이므로 허용): 전이 상속(중간 베이스 경유)·제네릭 제약·주석 내 선언·
+#   베이스가 다음 줄로 넘어간 선언은 판별하지 않는다.
+unity_object_classes() {
+  local file="$1"
+  [ -f "$file" ] || return 0
+  grep -E '\bclass[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' "$file" \
+    | grep -vE '^[[:space:]]*(//|\*|/\*)' \
+    | grep -Ev '\b(abstract|partial)\b' \
+    | grep -E ':[[:space:]]*([A-Za-z_][A-Za-z0-9_]*\.)*(MonoBehaviour|ScriptableObject|NetworkBehaviour|StateMachineBehaviour)\b' \
+    | sed -E 's/.*\bclass[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/' \
+    | awk 'NF' | sort -u
+}
+
+# unity_filename_risk <file.cs> <stem> : 파일명=클래스명 위반 위험을 Unity 실동작 기준으로 진단.
+#   출력(위험 있으면 1줄, 없으면 무출력):
+#     MULTI<TAB>C1,C2,...   한 파일에 MB 2개 이상 → MonoScript 는 최대 1개만 바인딩, 나머지 고아.
+#     STEAL<TAB>X           MB 1개(X)인데 파일명과 동명의 타입이 따로 있어 그 타입이 바인딩을
+#                           가로채 X 가 고아가 됨(2026-06-12 NetSimController 회귀의 정확한 조건).
+#   비위험(무출력): MB 1개이고 파일명 동명 타입이 없으면 Unity 가 그 MB 로 폴백 바인딩 → 안전
+#     (예: 단일 클래스 TriggerProxy 가 "Trigger Proxy.cs" 에 있어도 GetClass 가 정상 반환).
+unity_filename_risk() {
+  local file="$1" stem="$2" mbs mbn x
+  mbs="$(unity_object_classes "$file" | awk 'NF')"
+  [ -n "$mbs" ] || return 0
+  mbn="$(printf '%s\n' "$mbs" | wc -l | tr -d ' ')"
+  if [ "$mbn" -ge 2 ]; then
+    printf 'MULTI\t%s\n' "$(printf '%s' "$mbs" | tr '\n' ',' | sed 's/,$//')"
+    return 0
+  fi
+  x="$mbs"
+  if [ "$x" != "$stem" ] \
+     && printf '%s' "$stem" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$' \
+     && grep -E "\b(class|struct|enum|interface)[[:space:]]+${stem}\b" "$file" \
+        | grep -qvE '^[[:space:]]*(//|\*|/\*)'; then
+    printf 'STEAL\t%s\n' "$x"
+  fi
+}
+
 # ── unity-cli 타임아웃 래퍼 ──────────────────────────────────────────────────
 # ucli <args...> : GNU timeout 이 있으면 제한 시간(기본 50s) 내로 unity-cli 실행.
 # Editor 행(컴파일 교착·무응답) 시 훅 전체가 Claude 훅 타임아웃에 걸려 죽는 것을 방지.

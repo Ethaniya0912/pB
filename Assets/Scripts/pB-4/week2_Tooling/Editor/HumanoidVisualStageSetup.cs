@@ -1199,7 +1199,7 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
             }
 
             string projectRoot = Directory.GetParent(Application.dataPath)!.FullName;
-            string reportsDir = Path.Combine(projectRoot, "Reports");
+            string reportsDir = Path.Combine(projectRoot, "Reports", "auto"); // 도구 자동 출력 규약(Reports/_index.md)
             Directory.CreateDirectory(reportsDir);
             string outPath = Path.Combine(reportsDir, "Week2_Day5_T5_2_HumanoidVisual.md");
 
@@ -1296,7 +1296,7 @@ namespace TDA.PB4.Tooling.HumanoidVisual.Editor
         {
             // 수동 체크리스트 마킹 기반 보고서 (기존 v4와 동일)
             string projectRoot = Directory.GetParent(Application.dataPath)!.FullName;
-            string reportsDir = Path.Combine(projectRoot, "Reports");
+            string reportsDir = Path.Combine(projectRoot, "Reports", "auto"); // 도구 자동 출력 규약(Reports/_index.md)
             Directory.CreateDirectory(reportsDir);
             string outPath = Path.Combine(reportsDir, "Week2_Day5_T5_2_HumanoidVisual_Manual.md");
 

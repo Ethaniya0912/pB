@@ -15,6 +15,7 @@
 7. 스냅샷 덤프 (as-is)
 8. 검증 증빙 수집 (⑧ result · evidence/)
 9. 대용량 출력 처리 (컨텍스트 절약)
+10. 테스트 씬 셋업 (/test-run · 더미 stub·씬·교체)
 
 ---
 
@@ -105,6 +106,25 @@ unity-cli console --type error              # 플레이 중/후 에러 재확인
 unity-cli editor stop                        # 플레이모드 종료
 ```
 - 판정: console 에러 0 + 의도한 동작 확인 → task 통과(`07_plan.md` `- [x]`).
+- ⚠ **`console --type error` 만으로는 missing-script 를 못 잡는다**: "The referenced script ... is missing!" 는
+  **warning/log** 으로 뜬다(2026-06-12 NetSimController 회귀가 이 사각으로 빠짐). 런타임 부착 컴포넌트를
+  검증할 땐 아래 5.1 센서스를 쓰고, warning 도 확인한다: `unity-cli console --type warning,log`.
+  (PostToolUse 훅이 `.cs` 저장 시 이 패턴을 자동 스캔하고, 파일명=클래스명 위반도 작성 시점에 린트한다 — `.harness/hooks/post-asset-edit.sh`.)
+
+## 5.1 컴포넌트 센서스 (런타임 부착 생존 점검)
+> `RuntimeInitializeOnLoadMethod` 등으로 런타임 부착한 컴포넌트가 **도메인 리로드를 생존하는지** 확인한다.
+> **`GameObject.Find` 금지** — DontSave/DontDestroyOnLoad 좀비(이전 세션 잔존분)를 잡아 오진을 부른다.
+```bash
+# 동명 GO 전수 조회 + 에디터 잔존(IsPersistent) 필터 + missing-script 카운트.
+# missing=진짜 null(파괴/husk) → 도메인 리로드 후 파괴됐다는 신호. goCount>1 이면 좀비 누적.
+unity-cli exec "var gos=UnityEngine.Resources.FindObjectsOfTypeAll<UnityEngine.GameObject>().Where(g=>g.name==\"[NetDiagnostics]\"&&!UnityEditor.EditorUtility.IsPersistent(g)).ToArray(); var sb=new System.Text.StringBuilder(); sb.Append(\"goCount=\").Append(gos.Length).Append(\"\\n\"); foreach(var g in gos){ var all=g.GetComponents<UnityEngine.MonoBehaviour>(); sb.Append(\"id=\").Append(g.GetInstanceID()).Append(\" total=\").Append(all.Length).Append(\" missing=\").Append(UnityEditor.GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(g)).Append(\"\\n\"); } return sb.ToString();" --usings System.Linq
+
+# MonoScript 바인딩 직접 확인 — GetClass()==null 또는 의도와 다른 클래스면 파일명=클래스명 위반.
+unity-cli exec "var ms=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditor.MonoScript>(\"Assets/.../Foo.cs\"); return ms==null?\"no-monoscript\":(ms.GetClass()==null?\"GetClass=NULL(고아)\":ms.GetClass().Name);"
+```
+- 도메인 리로드 재현(원 트리거): 플레이 중 `editor refresh --compile --force` → 다시 센서스. husk 면 `missing` 증가.
+- 규칙: **MonoBehaviour/ScriptableObject 는 파일명=클래스명 단독 파일**. 한 파일에 MB 2개거나, 파일명과
+  동명의 다른 타입이 있으면 MonoScript 바인딩을 빼앗겨 리로드 시 missing-script 가 된다. [[Unity 리로드 생존 규칙]]
 
 ## 6. 커스텀 툴 (반복 셋업 승격)
 ```bash
@@ -158,6 +178,35 @@ grep -m5 "error CS" "<CID>/evidence/console_full.txt"
 head -30 "<CID>/evidence/console_full.txt"
 ```
 - exec stdout 한도는 ~6KB(실측) — 그 이상은 (b) 필수. 산출물 md 에는 발췌 + 파일 링크만 싣는다.
+
+## 10. 테스트 씬 셋업 (`/test-run` — `_conventions.md` §17)
+> 복잡한 셋업은 **stdin 파이프**(`echo '…C#…' | unity-cli exec`)로 보내 셸 이스케이프를 피한다.
+> `<C>` = cycle-id. 테스트 에셋 루트 = `Assets/_TestRuns/<C>/assets`. 모든 생성 후 `AssetDatabase.SaveAssets()`.
+```bash
+# (a) 폴더 구조 생성 (.meta 정합 — mkdir 대신 AssetDatabase)
+echo 'foreach(var p in new[]{"Assets/_TestRuns","Assets/_TestRuns/<C>","Assets/_TestRuns/<C>/assets","Assets/_TestRuns/<C>/assets/Prefabs","Assets/_TestRuns/<C>/assets/Materials"}){ if(!UnityEditor.AssetDatabase.IsValidFolder(p)){ var i=p.LastIndexOf("/"); UnityEditor.AssetDatabase.CreateFolder(p.Substring(0,i), p.Substring(i+1)); } } UnityEditor.AssetDatabase.SaveAssets(); return "folders ok";' | unity-cli exec
+
+# (b) 동작 stub 머티리얼
+echo 'var m=new UnityEngine.Material(UnityEngine.Shader.Find("Universal Render Pipeline/Lit")); UnityEditor.AssetDatabase.CreateAsset(m,"Assets/_TestRuns/<C>/assets/Materials/Mat_S1__DUMMY.mat"); UnityEditor.AssetDatabase.SaveAssets(); return "mat";' | unity-cli exec
+
+# (c) 동작 stub 프리팹 (primitive 메시 + 컴포넌트 — 로딩·참조 검증되게)
+echo 'var go=UnityEngine.GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube); go.name="S1__DUMMY"; /* 사이클 명시 컴포넌트 있으면 go.AddComponent<T>() */ var p=UnityEditor.PrefabUtility.SaveAsPrefabAsset(go,"Assets/_TestRuns/<C>/assets/Prefabs/S1__DUMMY.prefab"); UnityEngine.Object.DestroyImmediate(go); return p!=null?"prefab ok":"FAIL";' | unity-cli exec
+
+# (d) 동작 stub ScriptableObject (타입이 존재할 때만)
+echo 'var t=System.Type.GetType("Game.MyData, Assembly-CSharp"); if(t==null) return "no-type"; var so=UnityEngine.ScriptableObject.CreateInstance(t); UnityEditor.AssetDatabase.CreateAsset(so,"Assets/_TestRuns/<C>/assets/Data_S2__DUMMY.asset"); return "so";' | unity-cli exec
+
+# (e) 새 테스트 씬 생성 + Hierarchy 배치 + 프리팹 인스턴스화 + 저장
+echo 'var s=UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.DefaultGameObjects, UnityEditor.SceneManagement.NewSceneMode.Single); var grp=new UnityEngine.GameObject("━━━━ Test Layer ━━━━"); var pf=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_TestRuns/<C>/assets/Prefabs/S1__DUMMY.prefab"); var inst=(UnityEngine.GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(pf); inst.transform.SetParent(grp.transform); UnityEditor.SceneManagement.EditorSceneManager.SaveScene(s,"Assets/_TestRuns/<C>/<C>_TestScene.unity"); return "scene ok";' | unity-cli exec
+
+# (f) 에셋 로딩·참조 검증 (플레이 전 정합)
+echo 'var pf=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>("Assets/_TestRuns/<C>/assets/Prefabs/S1__DUMMY.prefab"); if(pf==null) return "LOAD-FAIL"; int miss=0; foreach(var c in pf.GetComponentsInChildren<UnityEngine.Component>(true)) if(c==null) miss++; return "load ok, missing="+miss;' | unity-cli exec
+
+# (g) 더미↔실제 교체 판정 (실제 있으면 더미 안 씀)
+echo 'var real="Assets/_TestRuns/<C>/assets/Prefabs/S1.prefab"; var dummy="Assets/_TestRuns/<C>/assets/Prefabs/S1__DUMMY.prefab"; return System.IO.File.Exists(System.IO.Path.Combine(UnityEngine.Application.dataPath,"../"+real))?("use-real:"+real):("use-dummy:"+dummy);' | unity-cli exec
+```
+- 씬 셋업 후 `unity-cli reserialize Assets/_TestRuns/<C>/<C>_TestScene.unity` 로 정합화(또는 PostToolUse 훅).
+- 플레이 검증: `unity-cli editor play --wait` → `console --type error` → 스크린샷(쿡북 §8). test-runner 위임 권장.
+- **테스트 씬은 빌드 씬 목록에 넣지 않는다**(EditorBuildSettings 미수정).
 
 ---
 ### 주의 (v0.3.x)
